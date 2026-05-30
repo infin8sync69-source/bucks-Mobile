@@ -68,7 +68,7 @@ export default function GoDrop() {
           style={styles.primaryBtn}
           onPress={() => router.push('/(root)/collect-payment')}
         >
-          <Text style={styles.primaryBtnText}>Go to Drop</Text>
+          <Text style={styles.primaryBtnText}>Arrived · End Ride</Text>
         </TouchableOpacity>
       </View>
     </View>

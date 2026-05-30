@@ -13,12 +13,18 @@ import { router } from 'expo-router';
 import VehicleListingCard from '@/components/VehicleListingCard';
 import { COLORS } from '@/constants/theme';
 import { useUserStore } from '@/store/userStore';
+import { useRideStore } from '@/store/rideStore';
 
 export default function ManageListings() {
   const { vehicles, updateVehicleStatus } = useUserStore();
+  const { setOnline } = useRideStore();
 
-  const handleToggle = (id: string, isOnline: boolean) => {
-    updateVehicleStatus(id, isOnline ? 'online' : 'offline');
+  const handleToggle = (id: string, goingOnline: boolean) => {
+    updateVehicleStatus(id, goingOnline ? 'online' : 'offline');
+    // If any vehicle is now online, driver is online; if none are, go offline
+    const anyOnline = goingOnline ||
+      vehicles.some((v) => v.id !== id && v.status === 'online');
+    setOnline(anyOnline);
   };
 
   const handleEdit = (id: string) => {

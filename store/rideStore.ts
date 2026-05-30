@@ -17,9 +17,12 @@ interface ActiveRide {
   pinCode: string;
   status: RideStatus;
   customerName?: string;
+  customerInitials?: string;
   driverName?: string;
   eta?: number;
   distance?: number;
+  pickupDistance?: number;
+  dropDistance?: number;
 }
 
 interface RideStore {

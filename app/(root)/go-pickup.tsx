@@ -86,7 +86,7 @@ export default function GoPickup() {
           style={styles.primaryBtn}
           onPress={() => router.push('/(root)/enter-pin')}
         >
-          <Text style={styles.primaryBtnText}>Go to Pickup</Text>
+          <Text style={styles.primaryBtnText}>Arrived at Pickup</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
