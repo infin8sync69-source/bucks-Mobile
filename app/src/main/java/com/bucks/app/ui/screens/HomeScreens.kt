@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.Role
@@ -79,9 +80,27 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     if (showOnline) OnlineSheet(vm, onDismiss = { showOnline = false }, onListings = onListings, onEarnings = onEarnings)
 }
 
-private data class Offer(val name: String, val icon: ImageVector, val live: Boolean)
-private val OFFERS = listOf(Offer("Taxi", Icons.Rounded.LocalTaxi, true), Offer("Jobs", Icons.Rounded.Work, true), Offer("Tools", Icons.Rounded.Handyman, true), Offer("Shopping", Icons.Rounded.ShoppingBag, true), Offer("Pay", Icons.Rounded.Payments, false),
-    Offer("Book tickets", Icons.Rounded.ConfirmationNumber, false), Offer("Delivery", Icons.Rounded.LocalShipping, false), Offer("Community", Icons.Rounded.Groups, false), Offer("Services", Icons.Rounded.DesignServices, false), Offer("Banking", Icons.Rounded.AccountBalance, false))
+/** Services that open for the pilot. Add a name here to unlock its tile; everything else shows a padlock and "coming soon". */
+private val LIVE_SERVICES = setOf("Taxi")
+private data class Offer(val name: String, val icon: ImageVector) { val live get() = name in LIVE_SERVICES }
+private val OFFERS = listOf(Offer("Taxi", Icons.Rounded.LocalTaxi), Offer("Jobs", Icons.Rounded.Work), Offer("Foods", Icons.Rounded.Restaurant), Offer("Shopping", Icons.Rounded.ShoppingBag), Offer("Pay", Icons.Rounded.Payments),
+    Offer("Book Tickets", Icons.Rounded.ConfirmationNumber), Offer("Delivery", Icons.Rounded.LocalShipping), Offer("Community", Icons.Rounded.Groups), Offer("Networks", Icons.Rounded.People), Offer("Banking", Icons.Rounded.AccountBalance))
+
+@Composable
+private fun OfferTile(o: Offer, modifier: Modifier, onClick: () -> Unit) {
+    val fg = if (o.live) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    Box(modifier.height(64.dp)) {
+        Column(Modifier.fillMaxSize().padding(top = 4.dp, end = 4.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onClick).padding(horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(o.icon, null, tint = fg)
+            Text(o.name, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = fg, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        // Padlock badge on the top-right corner, like the design.
+        if (!o.live) Box(Modifier.align(Alignment.TopEnd).size(18.dp).clip(MaterialTheme.shapes.extraSmall).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Lock, "Locked", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
 
 @Composable
 fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit) {
@@ -97,13 +116,15 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
             MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false)
             Sheet(Modifier.heightIn(max = sheetMax)) { Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                 Text("Services we offer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 14.dp))
-                // Only the live offers get a tile; the rest are named in one line below so the grid stays a single row.
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OFFERS.filter { it.live }.forEach { o ->
-                    Column(Modifier.weight(1f).clip(MaterialTheme.shapes.small).clickable { when (o.name) { "Taxi" -> onRide(); "Jobs" -> onQuery("jobs"); "Tools" -> onQuery("hardware"); "Shopping" -> onQuery("grocery"); else -> vm.toast("${o.name} is coming soon") } }.padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.fillMaxWidth().height(52.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) { Icon(o.icon, null, tint = MaterialTheme.colorScheme.onSurface) }
-                        Text(o.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
-                    } } }
-                Muted("Coming soon: ${OFFERS.filter { !it.live }.joinToString { it.name }}", Modifier.padding(top = 10.dp))
+                // Every service gets a tile, 5 per row; locked ones are dimmed with a padlock and only say "coming soon".
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { OFFERS.chunked(5).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { row.forEach { o ->
+                        OfferTile(o, Modifier.weight(1f)) {
+                            if (!o.live) vm.toast("${o.name} is coming soon")
+                            else when (o.name) { "Taxi" -> onRide(); "Jobs" -> onQuery("jobs"); "Foods" -> onQuery("food"); "Shopping" -> onQuery("grocery"); else -> vm.toast("${o.name} is coming soon") }
+                        }
+                    } }
+                } }
                 SearchBar("Search or ask anything", Modifier.padding(top = 14.dp), onClick = onSearch)
                 SectionTitle("Categories", Modifier.padding(top = 18.dp, bottom = 10.dp))
                 FlowChips(cats) { onQuery(it.lowercase()) }
