@@ -27,11 +27,11 @@ fun ConfirmationSheet(vm: BucksViewModel, showToast: (String) -> Unit) {
     DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
     LaunchedEffect(p) { speaker.say("${p.title}. ${p.summary}. Say confirm or tap.", s.voiceLang) }
     fun authenticateThenRun() {
-        val activity = ctx as? FragmentActivity ?: return vm.confirmPending()
+        val activity = ctx as? FragmentActivity ?: return
         val can = BiometricManager.from(ctx).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-        if (can != BiometricManager.BIOMETRIC_SUCCESS) { vm.confirmPending(); return }
+        if (can != BiometricManager.BIOMETRIC_SUCCESS) { showToast("Set a screen lock (PIN, pattern or fingerprint) in Settings to confirm this."); return }
         val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(ctx), object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) { vm.confirmPending() }
+            override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) { vm.confirmPending(p) }
             override fun onAuthenticationError(code: Int, msg: CharSequence) { showToast("Not confirmed: $msg") }
         })
         prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("Confirm ₹${p.amount}").setSubtitle(p.title).setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL).build())
@@ -41,10 +41,12 @@ fun ConfirmationSheet(vm: BucksViewModel, showToast: (String) -> Unit) {
             Text(p.title, style = MaterialTheme.typography.headlineSmall)
             Muted(p.summary, Modifier.padding(top = 6.dp))
             BucksCard(Modifier.padding(vertical = 16.dp), tint = true) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Muted("Amount"); Text("₹${p.amount}", style = MaterialTheme.typography.headlineMedium) }; Column(horizontalAlignment = Alignment.End) { Muted("With"); Text(p.counterparty, style = MaterialTheme.typography.titleMedium); p.counterpartyTrust?.let { TrustBadge(it, compact = true) } } }
+                Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Muted("Amount"); Text("₹${p.amount}", style = MaterialTheme.typography.headlineMedium) }; Column(horizontalAlignment = Alignment.End) { Muted("With"); Text(p.counterparty, style = MaterialTheme.typography.titleMedium) } }
+                // The full badge on its own full-width row under the counterparty name, so it never has to share width with the amount.
+                p.counterpartyTrust?.let { Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) { TrustBadge(it) } }
             }
             if (p.needsBiometric) Notice("This needs your fingerprint, face or device PIN because it's over ₹500 or your first time with this provider.", Modifier.padding(bottom = 12.dp))
-            PrimaryButton(if (p.needsBiometric) "Confirm with biometrics" else "Confirm") { if (p.needsBiometric) authenticateThenRun() else vm.confirmPending() }
+            PrimaryButton(if (p.needsBiometric) "Confirm with biometrics" else "Confirm") { if (p.needsBiometric) authenticateThenRun() else vm.confirmPending(p) }
             GhostButton("Cancel", Modifier.padding(top = 10.dp)) { vm.cancelPending() }
             Muted("Nothing is booked or ordered until you confirm. The assistant can only propose.", Modifier.padding(top = 12.dp).fillMaxWidth(), align = androidx.compose.ui.text.style.TextAlign.Center)
         }

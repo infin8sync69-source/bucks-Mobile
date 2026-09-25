@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,7 +38,6 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import com.bucks.app.ui.theme.Brand
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -48,12 +48,14 @@ import com.bucks.app.data.LatLng
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 
+private val RIDE_STAGES = setOf(Routes.SEARCHING, Routes.DRIVER_FOUND, Routes.IN_RIDE, Routes.PAY, Routes.RATE_RIDE)
 private val TAB_ROUTES = mapOf(BottomTab.HOME to Routes.HOME, BottomTab.FEED to Routes.FEED, BottomTab.SERVICES to Routes.SERVICES, BottomTab.RECOMMENDED to Routes.RECOMMENDED, BottomTab.ACCOUNT to "account")
 
 @Composable
 fun BucksAppUi(vm: BucksViewModel) {
-    var dark by remember { mutableStateOf<Boolean?>(null) }
-    BucksTheme(dark = dark ?: isSystemInDarkTheme()) {
+    val sysDark = isSystemInDarkTheme()
+    var dark by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    BucksTheme(dark = dark ?: sysDark) {
         val nav = rememberNavController(); val snack = remember { SnackbarHostState() }; val scope = rememberCoroutineScope()
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()
@@ -62,16 +64,28 @@ fun BucksAppUi(vm: BucksViewModel) {
         LaunchedEffect(Unit) { vm.toasts.collect { toast(it) } }
         // Real position for the customer side: one fix on start and whenever the app returns to the foreground.
         val ctx = LocalContext.current
-        @Suppress("MissingPermission") fun fetchLocation() { runCatching { LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).addOnSuccessListener { l -> if (l != null) vm.onLocation(LatLng(l.latitude, l.longitude), Build.VERSION.SDK_INT >= 31 && l.isMock) } } }
+        fun fetchLocation() { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return; runCatching { LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).addOnSuccessListener { l -> if (l != null) vm.onLocation(LatLng(l.latitude, l.longitude), Build.VERSION.SDK_INT >= 31 && l.isMock) } } }
         val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
         val locPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { g -> if (g.values.any { it }) fetchLocation() else vm.onLocationDenied() }
-        LaunchedEffect(s.user != null) { if (s.user != null) { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) fetchLocation() else locPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) } }
-        // Foreground location service runs whenever a vehicle is online, whichever screen is showing.
-        LaunchedEffect(s.vehicleOnline) { if (s.vehicleOnline) com.bucks.app.data.DriverLocationService.start(ctx) else com.bucks.app.data.DriverLocationService.stop(ctx) }
+        fun hasLocation() = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        // Play policy: explain what location is used for before the system prompt appears.
+        var locDisclosure by rememberSaveable { mutableStateOf(false) }
+        LaunchedEffect(s.user != null) { if (s.user != null) { if (hasLocation()) fetchLocation() else locDisclosure = true } }
+        if (locDisclosure) AlertDialog(onDismissRequest = { locDisclosure = false; vm.onLocationDenied() },
+            title = { Text("Use your location") },
+            text = { Text("Bucks uses your location to find riders, shops and services near you and to set your pick-up point. If you go online as a driver, Bucks keeps sharing your location while you're online, even when the app is closed, so nearby customers can ring you. It stops when you go offline.") },
+            confirmButton = { TextButton({ locDisclosure = false; locPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Text("Continue") } },
+            dismissButton = { TextButton({ locDisclosure = false; vm.onLocationDenied() }) { Text("Not now") } })
+        // Foreground location service runs whenever a vehicle is online, whichever screen is showing. Without permission it can't start (Android 14 would crash), so go back offline.
+        LaunchedEffect(s.vehicleOnline) { when { !s.vehicleOnline -> com.bucks.app.data.DriverLocationService.stop(ctx); hasLocation() -> com.bucks.app.data.DriverLocationService.start(ctx); else -> { vm.setOnline(false); toast("Allow location to go online, so customers can find you."); locDisclosure = true } } }
         val livePos by com.bucks.app.data.DriverLocationService.position.collectAsState(); val liveMock by com.bucks.app.data.DriverLocationService.mocked.collectAsState()
         LaunchedEffect(livePos, liveMock) { livePos?.let { vm.onLocation(it, liveMock) } }
         LaunchedEffect(s.user != null) { if (s.user != null && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
-        LaunchedEffect(Unit) { vm.nav.collect { route -> if (route == Routes.HOME || route == Routes.FEED || route == Routes.ACTIVITY) nav.navigate(route) { popUpTo(Routes.HOME) { inclusive = route == Routes.HOME } } else nav.navigate(route) } }
+        LaunchedEffect(Unit) { vm.nav.collect { route -> when {
+            route == Routes.HOME || route == Routes.FEED || route == Routes.ACTIVITY -> nav.navigate(route) { popUpTo(Routes.HOME) { inclusive = route == Routes.HOME } }
+            route in RIDE_STAGES -> nav.navigate(route) { popUpTo(Routes.HOME); launchSingleTop = true }
+            route.startsWith("order/") -> nav.navigate(route) { popUpTo(Routes.CART) { inclusive = true } }
+            else -> nav.navigate(route) } } }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
@@ -95,29 +109,29 @@ fun BucksAppUi(vm: BucksViewModel) {
                 val v = s.pro?.vehicle
                 Column(Modifier.fillMaxHeight()) {
                     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Manage Accounts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = Brand, modifier = Modifier.weight(1f))
-                        IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close menu", tint = Brand) }
+                        Text("Manage accounts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                        IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close menu", tint = MaterialTheme.colorScheme.primary) }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.AccountCircle, "Manage Profile", current.startsWith("account") || current == Routes.PROFILE) { closeMenu(); nav.navigate(Routes.PROFILE) }
-                        DrawerItem(Icons.Rounded.Inventory2, "Manage Listings", current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL)) { closeMenu(); nav.navigate(Routes.LISTINGS) }
+                        DrawerItem(Icons.Rounded.AccountCircle, "Manage profile", current.startsWith("account") || current == Routes.PROFILE) { closeMenu(); nav.navigate(Routes.PROFILE) }
+                        DrawerItem(Icons.Rounded.Inventory2, "Manage listings", current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL)) { closeMenu(); nav.navigate(Routes.LISTINGS) }
                         // Quick switch for the active vehicle, so a driver can go online from anywhere.
                         if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, online = s.online, onToggle = { on -> vm.setVehicleOnline(v.id, on); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate) }
                     }
                     Spacer(Modifier.weight(1f))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.Settings, "Account Settings", false) { closeMenu(); nav.navigate("account?tab=settings") }
+                        DrawerItem(Icons.Rounded.Settings, "Account settings", false) { closeMenu(); nav.navigate("account?tab=settings") }
                         DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
                     }
-                    Row(Modifier.fillMaxWidth().background(Brand.copy(alpha = 0.08f)).clickable { closeMenu(); nav.navigate("account?tab=profile") }.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer).clickable { closeMenu(); nav.navigate("account?tab=profile") }.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                         Avatar(initials(u.name), size = 44); Column(Modifier.padding(start = 14.dp)) { Text(u.name, style = MaterialTheme.typography.titleMedium); Text(u.bio.ifBlank { u.area }, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
             } }
         }) {
-            Scaffold(containerColor = MaterialTheme.colorScheme.surface, snackbarHost = { SnackbarHost(snack) { d -> Snackbar(d, shape = RoundedCornerShape(14.dp), containerColor = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = Modifier.padding(horizontal = 4.dp)) } }, bottomBar = { if (showBottomBar) BucksBottomBar(currentTab) { tab(it) } }) { pad ->
+            Scaffold(containerColor = MaterialTheme.colorScheme.surface, snackbarHost = { SnackbarHost(snack) { d -> Snackbar(d, shape = MaterialTheme.shapes.medium, containerColor = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = Modifier.padding(horizontal = 4.dp)) } }, bottomBar = { if (showBottomBar) BucksBottomBar(currentTab) { tab(it) } }) { pad ->
                 Row(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
                     if (showRail) BucksRail(currentTab) { tab(it) }
                     Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -125,7 +139,7 @@ fun BucksAppUi(vm: BucksViewModel) {
                             enterTransition = { fadeIn(tween(220)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it / 20 } }, exitTransition = { fadeOut(tween(140)) },
                             popEnterTransition = { fadeIn(tween(200)) }, popExitTransition = { fadeOut(tween(160)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 20 } }) {
                             composable(Routes.SPLASH) { SplashScreen { nav.navigate(Routes.LOGIN) } }
-                            composable(Routes.LOGIN) { LoginScreen(vm, onSent = { if (s.tempEmail.isNotBlank() && s.tempPhone.isBlank()) nav.navigate(Routes.PROFILE) else nav.navigate(Routes.OTP) }, onSignedIn = { nav.navigate(Routes.HOME) { popUpTo(0) } }, onSignUp = { nav.navigate(Routes.SIGNUP_EMAIL) }, showToast = toast) }
+                            composable(Routes.LOGIN) { LoginScreen(vm, onSent = { val st = vm.state.value; if (st.tempEmail.isNotBlank() && st.tempPhone.isBlank()) nav.navigate(Routes.PROFILE) else nav.navigate(Routes.OTP) }, onSignedIn = { nav.navigate(Routes.HOME) { popUpTo(0) } }, onSignUp = { nav.navigate(Routes.SIGNUP_EMAIL) }, showToast = toast) }
                             composable(Routes.SIGNUP_EMAIL) { SignUpEmailScreen(vm, onBack = { nav.popBackStack() }, onCreated = { nav.navigate(Routes.PROFILE) }, onUseMobile = { nav.popBackStack() }) }
                             composable(Routes.OTP) { OtpScreen(vm, s.tempPhone, onBack = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.PROFILE) }, showToast = toast) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
@@ -134,11 +148,11 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.FEED) { FeedScreen(vm, openMenu, messages, toast) }
                             composable(Routes.RECOMMENDED) { RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
-                                AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { dark = !(dark ?: false) }, onLogout = logout, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
+                                AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { dark = !(dark ?: sysDark) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
                             composable(Routes.SEARCH) { SearchScreen(vm, onBack = { nav.popBackStack() }, onProvider = { id, t -> nav.navigate(Routes.provider(id, t)) }, onRequest = { nav.navigate(Routes.request(it)) }, onMessages = messages, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, showToast = toast) }
-                            composable("provider/{id}?tab={tab}", arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("tab") { type = NavType.StringType; defaultValue = "about" })) { e ->
+                            composable("provider/{id}?tab={tab}", arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("tab") { type = NavType.StringType; defaultValue = "" })) { e ->
                                 val id = e.arguments!!.getString("id")!!
-                                ProviderScreen(vm, id, e.arguments?.getString("tab") ?: "about", onBack = { nav.popBackStack() }, onRequest = { nav.navigate(Routes.request(id)) }, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, onMessages = messages) }
+                                ProviderScreen(vm, id, e.arguments?.getString("tab") ?: "", onBack = { nav.popBackStack() }, onRequest = { nav.navigate(Routes.request(id)) }, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, onMessages = messages) }
                             composable(Routes.CART) { CartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { }) }
                             composable(Routes.ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> OrderScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onVote = { nav.navigate(Routes.provider(it, "votes")) }, onChatWith = chatWith, onHome = home) }
                             composable(Routes.REQUEST, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RequestScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onSent = { nav.navigate(Routes.requestStatus(it)) { popUpTo(Routes.HOME) } }) }
@@ -176,5 +190,5 @@ fun BucksAppUi(vm: BucksViewModel) {
 }
 
 @Composable
-private fun DrawerItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) = NavigationDrawerItem(icon = { Icon(icon, null) }, label = { Text(label, style = MaterialTheme.typography.bodyLarge) }, selected = selected, onClick = onClick, shape = RoundedCornerShape(10.dp), modifier = Modifier.padding(vertical = 1.dp),
-    colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Brand.copy(alpha = 0.1f), selectedIconColor = Brand, selectedTextColor = Brand, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedContainerColor = Color.Transparent))
+private fun DrawerItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) = NavigationDrawerItem(icon = { Icon(icon, null) }, label = { Text(label, style = MaterialTheme.typography.bodyLarge) }, selected = selected, onClick = onClick, shape = MaterialTheme.shapes.small, modifier = Modifier.padding(vertical = 1.dp),
+    colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer, selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedContainerColor = Color.Transparent))

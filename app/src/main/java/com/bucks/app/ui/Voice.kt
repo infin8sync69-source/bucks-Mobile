@@ -52,7 +52,8 @@ fun rememberVoiceInput(lang: String, onResult: (String) -> Unit, onError: (Strin
 /** Reads confirmations aloud so a voice-first booking can be done hands-free. */
 class Speaker(ctx: Context) {
     private var ready = false
-    private val tts = TextToSpeech(ctx) { if (it == TextToSpeech.SUCCESS) { ready = true } }
-    fun say(text: String, lang: String = "en-IN") { if (!ready) return; tts.language = Locale.forLanguageTag(lang); tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bucks") }
+    private var queued: Pair<String, String>? = null
+    private val tts = TextToSpeech(ctx) { if (it == TextToSpeech.SUCCESS) { ready = true; queued?.let { (t, l) -> queued = null; say(t, l) } } }
+    fun say(text: String, lang: String = "en-IN") { if (!ready) { queued = text to lang; return }; tts.language = Locale.forLanguageTag(lang); tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bucks") }
     fun shutdown() = tts.shutdown()
 }

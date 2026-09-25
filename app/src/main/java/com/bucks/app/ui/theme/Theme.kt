@@ -9,6 +9,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
@@ -31,6 +35,13 @@ val Bad = Color(0xFFB42323)
 val BadTint = Color(0xFFFBEAEA)
 val Warn = Color(0xFF9A6A12)
 val WarnTint = Color(0xFFFBF3E2)
+
+/** Good / warn / bad for text and icons, and their tints for pill fills; dark mode gets deep tints with lighter foregrounds. */
+@Immutable data class StatusColors(val good: Color, val goodTint: Color, val warn: Color, val warnTint: Color, val bad: Color, val badTint: Color)
+private val LightStatus = StatusColors(Good, GoodTint, Warn, WarnTint, Bad, BadTint)
+private val DarkStatus = StatusColors(Color(0xFF6FD39B), Color(0xFF12301F), Color(0xFFE8B962), Color(0xFF3A2E12), Color(0xFFF09393), Color(0xFF3A1717))
+val LocalStatus = staticCompositionLocalOf { LightStatus }
+val MaterialTheme.status: StatusColors @Composable @ReadOnlyComposable get() = LocalStatus.current
 
 /** Manrope variable font; weight is selected through the wght axis. */
 @OptIn(ExperimentalTextApi::class)
@@ -69,10 +80,10 @@ val BucksType = Typography(
     labelSmall = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
 )
 
-/** One radius family: 8 small controls, 14 fields and buttons, 20 cards and sheets. */
-val BucksShapes = Shapes(extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp), extraLarge = RoundedCornerShape(28.dp))
+/** three radii: 10 controls and menus, 14 fields and buttons, 20 cards; 28 sheets */
+val BucksShapes = Shapes(extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp), extraLarge = RoundedCornerShape(28.dp))
 
 @Composable
 fun BucksTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) Dark else Light, typography = BucksType, shapes = BucksShapes, content = content)
+    CompositionLocalProvider(LocalStatus provides if (dark) DarkStatus else LightStatus) { MaterialTheme(colorScheme = if (dark) Dark else Light, typography = BucksType, shapes = BucksShapes, content = content) }
 }

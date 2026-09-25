@@ -11,10 +11,10 @@ import com.bucks.app.data.*
 import com.bucks.app.ui.nav.Routes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,30 +57,38 @@ data class UiState(
 class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private val _s = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _s.asStateFlow()
-    private val _toasts = MutableSharedFlow<String>(extraBufferCapacity = 8); val toasts = _toasts.asSharedFlow()
-    private val _nav = MutableSharedFlow<String>(extraBufferCapacity = 8); val nav = _nav.asSharedFlow()
+    // Channels, not SharedFlows: events sent while the activity is being recreated wait for the next collector.
+    private val _toasts = Channel<String>(Channel.BUFFERED); val toasts = _toasts.receiveAsFlow()
+    private val _nav = Channel<String>(Channel.BUFFERED); val nav = _nav.receiveAsFlow()
     private val router = IntentRouter()
     val cloudEnabled get() = router.cloudEnabled
     private var ringJob: Job? = null; private var driveJob: Job? = null; private var drvRingJob: Job? = null; private var autoRingJob: Job? = null; private var drvDriveJob: Job? = null
 
     init {
         runCatching { Identity.ensureKey() }
-        repo.loadSession()?.let { s -> _s.update { it.copy(user = s.user.copy(id = s.user.id.ifBlank { safeId() }), pro = s.pro, businesses = s.businesses) } }
+        repo.loadSession()?.let { s -> _s.update { it.copy(user = s.user.copy(id = s.user.id.ifBlank { safeId() }), pro = s.pro, businesses = s.businesses) }; publishOwnListings() }
         _s.update { it.copy(devices = listOf(LinkedDevice(repo.deviceId(), Build.MODEL ?: "This device", "Now", true))) }
     }
+    /** The repository is re-seeded on every launch; put this user's own skills and businesses back into search. */
+    private fun publishOwnListings() { val u = s.user ?: return
+        s.pro?.skillListings?.forEach { addSkillProvider(u, it.name, s.pro?.rate.orEmpty()) }
+        s.businesses.forEach { addBusinessProvider(it.name, it.category, it.scope, it.items) } }
+    private fun addSkillProvider(u: User, n: String, rate: String) { if (repo.providers.value.none { it.id == "me-$n" }) repo.addProvider(Provider("me-$n", ProviderType.SKILL, n, u.name, listOf(n.lowercase()), s.meX, s.meY, 0.0, u.up, u.down, Scope.LOCAL, u.bio.ifBlank { "New on Bucks." }, rate = rate.ifBlank { "On request" })) }
+    private fun addBusinessProvider(name: String, cat: String, scope: Scope, items: List<Item>, replace: Boolean = false) { val pid = "biz-me-${name.lowercase()}"
+        if (replace || repo.providers.value.none { it.id == pid }) repo.addProvider(Provider(pid, ProviderType.BUSINESS, cat, name, listOf(cat.lowercase()) + items.flatMap { it.name.lowercase().split(" ") }.filter { it.isNotBlank() }, s.meX, s.meY, 0.0, 0, 0, scope, "New business on Bucks.", items)) }
     private fun safeId() = runCatching { Identity.userId() }.getOrDefault("local-" + repo.deviceId())
     private fun sign(payload: String) = runCatching { Identity.sign(payload) }.getOrDefault("")
     val s get() = _s.value
-    fun toast(t: String) { _toasts.tryEmit(t) }
-    private fun navTo(route: String) { _nav.tryEmit(route) }
+    fun toast(t: String) { _toasts.trySend(t) }
+    private fun navTo(route: String) { _nav.trySend(route) }
     private fun persist() { s.user?.let { repo.saveSession(Session(it, s.pro, s.businesses)) } }
     val isLoggedIn get() = s.user != null
 
     // ---------- auth & verification ----------
-    fun setPhone(p: String) = _s.update { it.copy(tempPhone = p) }
+    fun setPhone(p: String) = _s.update { it.copy(tempPhone = p, tempEmail = "") }
     fun verifyOtp(code: String): Boolean { if (code != "1234") return false
         // Same number as the profile saved on this device: restore it instead of starting a new one.
-        repo.savedSession()?.takeIf { it.user.phone == s.tempPhone && s.user == null }?.let { se -> _s.update { it.copy(user = se.user.copy(id = se.user.id.ifBlank { safeId() }), pro = se.pro, businesses = se.businesses) } }
+        repo.savedSession()?.takeIf { it.user.phone == s.tempPhone && s.user == null }?.let { se -> _s.update { it.copy(user = se.user.copy(id = se.user.id.ifBlank { safeId() }), pro = se.pro, businesses = se.businesses) }; publishOwnListings() }
         _s.update { it.copy(user = it.user?.copy(phone = it.tempPhone.ifBlank { it.user.phone }, verified = it.user.verified + VerificationLevel.PHONE)) }; persist(); return true }
     fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList()) {
         val base = s.user ?: User(name, area, bio, s.tempPhone, email = s.tempEmail, id = safeId(), verified = if (s.tempPhone.isNotBlank()) setOf(VerificationLevel.PHONE) else emptySet())
@@ -102,17 +110,18 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         val e = email.trim().lowercase()
         if (!repo.checkCredentials(e, password)) { toast("That email and password don't match. Check both and try again."); return false }
         val saved = repo.savedSession()
-        if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user, pro = saved.pro, businesses = saved.businesses) }; return true }
+        if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
     fun logout() { repo.clearSession(); _s.value = UiState() }
+    fun deleteAccount() { autoRingJob?.cancel(); repo.deleteAccount(); _s.value = UiState(); toast("Your account and data were deleted from this device.") }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
     fun setOnline(v: Boolean) { if (v && s.mockLocation) { toast("Turn off the fake-location app to go online."); return }; _s.update { it.copy(online = v) }; toast(if (v) "Online. Nearby ride requests will ring you." else "Offline")
         // Demo dispatch: while a vehicle is online and idle, a nearby customer rings now and then. A real build receives these from the server.
-        autoRingJob?.cancel(); if (v) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null) simulateRing(); delay(60000) } } }
+        autoRingJob?.cancel(); if (v) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null && s.ride == null) simulateRing(); delay(60000) } } }
 
     // ---------- location ----------
-    fun onLocation(p: LatLng, mocked: Boolean) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked) toast("A fake-location app is on. Turn it off to book or take rides.") }
+    fun onLocation(p: LatLng, mocked: Boolean) { val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.") }
     fun onLocationDenied() = _s.update { it.copy(locationGranted = false) }
     val mePos: LatLng get() = s.me ?: Geo.fromPercent(s.meX, s.meY)
 
@@ -125,9 +134,12 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Trust as seen through the current lens. ALL uses the aggregate; other lenses count only matching vote records. */
     fun trustFor(p: Provider): Trust = when (s.lens) {
         Lens.ALL -> p.trust
-        Lens.FOLLOWING -> { val ids = repo.people.value.filter { it.following }.map { "u-" + it.name.lowercase().replace(" ", "-") }.toSet(); val v = p.comments.filter { it.voterId in ids }; Trust(v.count { it.vote > 0 }, v.count { it.vote < 0 }) }
-        Lens.VERIFIED -> { val v = p.comments.filter { it.verified }; Trust(v.count { it.vote > 0 }, v.count { it.vote < 0 }) }
+        Lens.FOLLOWING, Lens.VERIFIED -> { val v = reviewsFor(p); Trust(v.count { it.vote > 0 }, v.count { it.vote < 0 }) }
     }
+    /** Voter ids of the people I follow; the FOLLOWING lens counts only reviews carrying one of these. */
+    private fun followedVoterIds(): Set<String> = repo.people.value.filter { it.following }.map { "u-" + it.name.lowercase().replace(" ", "-") }.toSet()
+    /** Reviews as seen through the current lens — the same records trustFor counts, so the badge and the list always agree. */
+    fun reviewsFor(p: Provider): List<Comment> = when (s.lens) { Lens.ALL -> p.comments; Lens.FOLLOWING -> followedVoterIds().let { ids -> p.comments.filter { it.voterId in ids } }; Lens.VERIFIED -> p.comments.filter { it.verified } }
     fun sorted(list: List<Provider>): List<Provider> = when (s.sort) {
         SortMode.TRUST -> list.sortedWith(compareByDescending<Provider> { trustFor(it).pct ?: -1 }.thenByDescending { trustFor(it).total })
         SortMode.NEAR -> list.sortedBy { it.distanceKm }
@@ -162,7 +174,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         val onlineFor = { k: VehicleKind -> Geo.ring(mePos, repo.drivers.value, k).size }
         val via = if (i.source == "gemini") " (understood by cloud AI)" else ""
         return when (i.tool) {
-            Tools.CONFIRM -> { val p = s.pending; when { p == null -> AgentMessage(false, "Nothing is waiting for confirmation.") to null; p.needsBiometric -> AgentMessage(false, "This one needs your fingerprint or PIN — tap Confirm on the card.") to null; else -> AgentMessage(false, "Confirmed. ${p.title}.") to { confirmPending() } } }
+            Tools.CONFIRM -> { val p = s.pending; when { p == null -> AgentMessage(false, "Nothing is waiting for confirmation.") to null; p.needsBiometric -> AgentMessage(false, "This one needs your fingerprint or PIN — tap Confirm on the card.") to null; else -> AgentMessage(false, "Confirmed. ${p.title}.") to { confirmPending(p) } } }
             Tools.CANCEL -> { cancelPending(); AgentMessage(false, "Cancelled.") to null }
             Tools.SHOW_MAP -> { s.pendingDest?.let { d -> _s.update { it.copy(pendingDest = null, rideDest = randomPlace(d)) } }; AgentMessage(false, "Opening the ride screen.") to { navTo(Routes.CHOOSE_RIDE) } }
             Tools.RIDE -> {
@@ -193,7 +205,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private fun propose(p: PendingAction) = _s.update { it.copy(pending = p) }
     fun cancelPending() = _s.update { it.copy(pending = null) }
     /** Called by the UI after the user tapped Confirm and (when required) passed BiometricPrompt. */
-    fun confirmPending() { val p = s.pending ?: return; _s.update { it.copy(pending = null) }; p.run() }
+    fun confirmPending(expected: PendingAction) { val p = s.pending ?: return; if (p !== expected) return; _s.update { it.copy(pending = null) }; p.run() }
     private fun firstTimeWith(counterparty: String) = s.orders.none { it.providerName == counterparty } && s.requests.none { it.providerName == counterparty }
     private fun proposeRide(place: Place, k: VehicleKind) { val f = fare(k, place.km); propose(PendingAction("Book a ${k.label.lowercase()}", "${s.user?.area} → ${place.name} · ${place.km} km · about ₹$f, pay after the trip", f, "Nearest online rider", null, needsBiometric = false) { doRequestRide() }) }
     fun requestRide() { val d = s.rideDest ?: return; proposeRide(d, s.rideKind) }
@@ -262,7 +274,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.ARRIVED)) }; toast("Your rider is here. Share PIN ${s.ride?.pin} to start.")
         }
     }
-    fun cancelRide(reason: String) { ringJob?.cancel(); driveJob?.cancel(); s.ride?.let { r -> _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides, ride = null) } }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
+    fun cancelRide(reason: String) { if (s.ride?.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) return; ringJob?.cancel(); driveJob?.cancel(); s.ride?.let { r -> _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides, ride = null) } }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
     fun startTrip() {
         _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.IN_RIDE)) }; navTo(Routes.IN_RIDE)
         driveJob?.cancel(); driveJob = viewModelScope.launch { val mx = s.meX; val my = s.meY
@@ -287,7 +299,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         val km = ((Geo.PLACES[dropName]?.let { Geo.distanceKm(pickup, it) } ?: 3.0) * 1.3 * 10).roundToInt() / 10.0  // ×1.3: road vs straight line
         val dr = DriverRide("dr${System.currentTimeMillis()}", DriverRideStatus.RINGING, listOf("Deepa N", "Arjun R", "Meera S", "Vikram J").random(), Trust(40 + Random.nextInt(200), Random.nextInt(8)), s.user?.area ?: "Jayanagar", dropName, km, fare(k, km), (1000 + Random.nextInt(9000)).toString(), 15, pickupKm,
             kind = k, driver = me, pickup = pickup, drop = Geo.PLACES[dropName] ?: Geo.fromPercent(20 + Random.nextFloat() * 60, 20 + Random.nextFloat() * 60))
-        _s.update { it.copy(driverRide = dr) }; navTo(Routes.HOME)
+        _s.update { it.copy(driverRide = dr) }; if (s.ride == null && s.pending == null) navTo(Routes.HOME)
         drvRingJob?.cancel(); drvRingJob = viewModelScope.launch { while (true) { delay(1000); val cur = s.driverRide ?: return@launch; if (cur.status != DriverRideStatus.RINGING) return@launch
             if (cur.secondsLeft <= 1) { _s.update { it.copy(driverRide = null) }; toast("Too late. Another rider took it."); return@launch }; _s.update { it.copy(driverRide = cur.copy(secondsLeft = cur.secondsLeft - 1)) } } }
     }
@@ -324,21 +336,21 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (on) { _s.update { it.copy(pro = it.pro?.copy(activeVehicle = id)) }; persist(); setOnline(true) } else if (s.pro?.vehicle?.id == id) setOnline(false)
     }
     fun addSkill(name: String, replacing: String? = null) { val u = s.user ?: return; val n = name.trim(); if (n.isBlank()) return
-        if (repo.providers.value.none { it.id == "me-$n" }) repo.addProvider(Provider("me-$n", ProviderType.SKILL, n, u.name, listOf(n.lowercase()), s.meX, s.meY, 0.0, u.up, u.down, Scope.LOCAL, u.bio.ifBlank { "New on Bucks." }, rate = s.pro?.rate?.ifBlank { null } ?: "On request"))
+        addSkillProvider(u, n, s.pro?.rate.orEmpty())
         _s.update { st -> val p = st.pro ?: ProProfile(); val old = p.skillListings.firstOrNull { it.name == replacing }
             st.copy(pro = p.copy(skillListings = p.skillListings.filter { it.name != replacing && it.name != n } + (old?.copy(name = n) ?: SkillListing(n)))) }; persist(); toast(if (replacing != null) "Skill updated" else "$n added to your skillset") }
     fun setSkillOnline(name: String, on: Boolean) { _s.update { st -> st.copy(pro = st.pro?.let { p -> p.copy(skillListings = p.skillListings.map { if (it.name == name) it.copy(online = on) else it }) }) }; persist(); toast(if (on) "$name is online. Service requests will reach you." else "$name is offline. You won't get requests for it.") }
     fun setBusinessOnline(i: Int, on: Boolean) { _s.update { st -> st.copy(businesses = st.businesses.mapIndexed { j, b -> if (j == i) b.copy(online = on) else b }) }; persist(); s.businesses.getOrNull(i)?.let { toast(if (on) "${it.name} is open for orders" else "${it.name} is closed. It won't get orders.") } }
     fun editBusiness(i: Int?) = _s.update { it.copy(editBiz = i, proKind = ProKind.BUSINESS, proStep = 2) }
     fun saveSkills(skills: List<String>, rate: String) { val u = s.user ?: return
-        skills.forEach { sk -> if (repo.providers.value.none { it.id == "me-$sk" }) repo.addProvider(Provider("me-$sk", ProviderType.SKILL, sk, u.name, listOf(sk.lowercase()), s.meX, s.meY, 0.0, u.up, u.down, Scope.LOCAL, u.bio.ifBlank { "New on Bucks." }, rate = rate.ifBlank { "On request" })) }
+        skills.forEach { addSkillProvider(u, it, rate) }
         _s.update { it.copy(pro = (it.pro ?: ProProfile()).let { p -> p.copy(skillListings = p.skillListings + skills.filter { k -> k !in p.skills }.map { k -> SkillListing(k) }, rate = rate) }, proStep = 3, proMessage = "${skills.size} skills published. You'll appear in searches, ranked by votes you earn.") }; persist() }
     fun saveBusiness(name: String, cat: String, scope: Scope, items: List<Item>): Boolean { val u = s.user ?: return false
         if (name.isBlank() || cat.isBlank()) { toast("Add a business name and pick a category."); return false }
         val edit = s.editBiz?.let { s.businesses.getOrNull(it) }
         val biz = Business(name, cat, scope, items, online = edit?.online ?: true, area = edit?.area?.ifBlank { null } ?: s.user?.area.orEmpty(), followers = edit?.followers ?: 0)
-        val pid = "biz-me-${name.lowercase()}"
-        if (repo.providers.value.none { it.id == pid }) repo.addProvider(Provider(pid, ProviderType.BUSINESS, cat, name, listOf(cat.lowercase()) + items.flatMap { it.name.lowercase().split(" ") }.filter { it.isNotBlank() }, s.meX, s.meY, 0.0, 0, 0, scope, "New business on Bucks.", items))
+        edit?.takeIf { !it.name.equals(name, true) }?.let { old -> repo.removeProvider("biz-me-${old.name.lowercase()}") }
+        addBusinessProvider(name, cat, scope, items, replace = true)
         _s.update { st -> st.copy(businesses = st.editBiz?.let { e -> st.businesses.mapIndexed { j, b -> if (j == e) biz else b } } ?: (st.businesses + biz), editBiz = null, proStep = 3, proMessage = "$name is live. Customers searching \"${cat.lowercase()}\" will find you.") }; persist(); return true }
     fun simulateIncoming() { val openBiz = s.businesses.firstOrNull { it.online }; val openSkill = s.pro?.skillListings?.firstOrNull { it.online }
         val inc = when { openBiz != null -> Incoming("Arjun R", "Order: ${openBiz.items.firstOrNull()?.name ?: "1 item"} × 2 for ${openBiz.name} · deliver to Jayanagar"); openSkill != null -> Incoming("Meera S", "Request: ${openSkill.name} needed today evening"); s.businesses.isNotEmpty() || !s.pro?.skills.isNullOrEmpty() -> { toast("Go online with a business or skill to receive orders and requests"); return }; else -> { toast("Add a business or a skill first, then switch it online."); navTo(Routes.PRO_CREATE); return } }
@@ -354,7 +366,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun markRead(chatId: String) = repo.markRead(chatId)
     fun sendAttachment(chatId: String, a: Attachment) { repo.sendMessage(chatId, if (a.isImage) "Photo" else a.name, true, a) }
     fun followProvider(id: String) { val on = id !in s.followedProviders; _s.update { it.copy(followedProviders = if (on) it.followedProviders + id else it.followedProviders - id) }; toast(if (on) "Following. Their posts show up in your feed." else "Unfollowed") }
-    fun follow(id: String, f: Boolean) { repo.follow(id, f); toast(if (f) "Synced. Their reviews now count in your 'People I sync with' filter." else "Unsynced.") }
+    fun follow(id: String, f: Boolean) { repo.follow(id, f); toast(if (f) "Following. Their reviews now count under 'People I follow'." else "Unfollowed.") }
     fun join(id: String, j: Boolean) { repo.join(id, j); toast(if (j) "Joined" else "Left community") }
     fun toggleDriverOnline(id: String) { val d = repo.drivers.value.first { it.id == id }; repo.setDriverOnline(id, !d.online) }
 
@@ -367,7 +379,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     // ---------- devices & backup ----------
     fun syncNow() { viewModelScope.launch { _s.update { it.copy(syncStatus = SyncStatus.SYNCING) }; delay(1400); _s.update { it.copy(syncStatus = SyncStatus.SYNCED, lastSynced = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault()).format(java.util.Date())) }; toast("Up to date on ${s.devices.size} device${if (s.devices.size > 1) "s" else ""}") } }
     fun exportSnapshot(): String = repo.exportSnapshot(s.user?.let { Session(it, s.pro, s.businesses) })
-    fun importSnapshot(json: String): Boolean { val se = repo.importSnapshot(json) ?: run { toast("That file isn't a Bucks backup"); return false }; _s.update { it.copy(user = se.user, pro = se.pro, businesses = se.businesses) }; toast("Restored ${se.user.name}'s profile on this device"); return true }
+    fun importSnapshot(json: String): Boolean { val se = repo.importSnapshot(json) ?: run { toast("That file isn't a Bucks backup"); return false }; _s.update { it.copy(user = se.user.copy(id = se.user.id.ifBlank { safeId() }), pro = se.pro, businesses = se.businesses) }; publishOwnListings(); toast("Restored ${se.user.name}'s profile on this device"); return true }
     fun linkDevice(code: String): Boolean { if (code.trim().length < 6) { toast("Enter the 6-character code shown on the other device"); return false }; _s.update { it.copy(devices = it.devices + LinkedDevice("dev-${code.trim().lowercase()}", "Device ${code.trim().uppercase()}", "Linked just now", false)) }; toast("Device linked. Your profile will sync there."); return true }
     fun unlinkDevice(id: String) = _s.update { it.copy(devices = it.devices.filterNot { d -> d.id == id && !d.thisDevice }) }
 

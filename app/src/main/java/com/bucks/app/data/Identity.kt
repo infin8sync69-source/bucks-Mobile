@@ -24,6 +24,7 @@ object Identity {
             .setDigests(KeyProperties.DIGEST_SHA256).build())
         kpg.generateKeyPair()
     }
+    fun deleteKey() { if (ks.containsAlias(ALIAS)) ks.deleteEntry(ALIAS) }
     fun publicKeyBase64(): String { ensureKey(); return Base64.encodeToString(ks.getCertificate(ALIAS).publicKey.encoded, Base64.NO_WRAP) }
     /** Stable user identifier derived from the public key ("UUID-verified user"). */
     fun userId(): String { ensureKey(); return sha256(ks.getCertificate(ALIAS).publicKey.encoded).take(32) }

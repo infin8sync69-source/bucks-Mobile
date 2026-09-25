@@ -74,8 +74,8 @@ class GeminiIntentEngine(private val apiKey: String = BuildConfig.GEMINI_API_KEY
             runCatching {
                 val prompt = "You convert a user command for a Bengaluru super app into exactly one tool call. Tools:\n${Tools.schema}\nContext: $context\nKnown places: ${Seed.PLACES.joinToString()}\nReply with JSON only: {\"tool\":..., \"args\":{...}, \"confidence\":0-1}. Command: \"$text\""
                 val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))).put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("temperature", 0))
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
-                val c = (url.openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); connectTimeout = 8000; readTimeout = 12000; doOutput = true }
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
+                val c = (url.openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); setRequestProperty("x-goog-api-key", apiKey); connectTimeout = 8000; readTimeout = 12000; doOutput = true }
                 c.outputStream.use { it.write(body.toString().toByteArray()) }
                 val res = c.inputStream.bufferedReader().readText()
                 val txt = JSONObject(res).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")

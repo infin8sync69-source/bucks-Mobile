@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,7 +30,7 @@ fun SplashScreen(onStart: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Purple).padding(32.dp), horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.Bottom) {
         Text("bucks", style = MaterialTheme.typography.displaySmall, color = Color.White)
         Text("Rides, food, skilled people and local shops — ranked only by the people who used them.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(top = 12.dp, bottom = 40.dp))
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PurpleDeep)) { Text("Get started", style = MaterialTheme.typography.labelLarge) }
+        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PurpleDeep)) { Text("Get started", style = MaterialTheme.typography.labelLarge) }
     }
 }
 
@@ -39,7 +38,7 @@ fun SplashScreen(onStart: () -> Unit) {
 fun PasswordField(value: String, onChange: (String) -> Unit, label: String, placeholder: String = "At least 8 characters") {
     var show by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(bottom = 14.dp)) { Label(label)
-        OutlinedTextField(value, onChange, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        OutlinedTextField(value, onChange, placeholder = { Text(placeholder) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             trailingIcon = { IconButton(onClick = { show = !show }) { Icon(if (show) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, if (show) "Hide" else "Show") } }) }
 }
 
@@ -56,9 +55,9 @@ fun LoginScreen(vm: BucksViewModel, onSent: () -> Unit, onSignedIn: () -> Unit, 
             if (mode == "Mobile number") {
                 Label("Mobile number")
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField("+91", {}, readOnly = true, modifier = Modifier.width(80.dp), shape = RoundedCornerShape(14.dp))
+                    OutlinedTextField("+91", {}, readOnly = true, modifier = Modifier.width(80.dp), shape = MaterialTheme.shapes.medium)
                     Spacer(Modifier.width(10.dp))
-                    OutlinedTextField(phone, { phone = it.filter { ch -> ch.isDigit() }.take(10) }, placeholder = { Text("98765 43210") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+                    OutlinedTextField(phone, { phone = it.filter { ch -> ch.isDigit() }.take(10) }, placeholder = { Text("98765 43210") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
                 }
                 PrimaryButton("Send code", Modifier.padding(top = 20.dp)) { if (phone.length < 10) showToast("Enter a 10-digit number") else { vm.setPhone(phone); onSent() } }
             } else {
@@ -96,7 +95,7 @@ fun OtpScreen(vm: BucksViewModel, phone: String, onBack: () -> Unit, onVerified:
         Column(Modifier.padding(20.dp)) {
             Headline("Enter the code")
             Muted("Sent to +91 $phone. In this build the code is 1234.", Modifier.padding(top = 8.dp, bottom = 28.dp))
-            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(4) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
+            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(4) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
             PrimaryButton("Verify", Modifier.padding(top = 20.dp)) { if (vm.verifyOtp(code)) onVerified() else showToast("Wrong code. Try 1234.") }
             TextButton(onClick = { showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
         }

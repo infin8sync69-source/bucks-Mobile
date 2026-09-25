@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -28,7 +27,7 @@ private fun Steps(step: Int) = Row(Modifier.fillMaxWidth().padding(bottom = 20.d
 
 @Composable
 private fun OptionRow(icon: ImageVector, title: String, detail: String, selected: Boolean, onClick: () -> Unit) =
-    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(16.dp)).background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(MaterialTheme.shapes.large).background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface); Column(Modifier.padding(start = 14.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(detail) } }
 
 @Composable
@@ -60,15 +59,15 @@ fun ProCreateScreen(vm: BucksViewModel, onBack: () -> Unit, onHome: () -> Unit, 
                     BucksField(bizName, { bizName = it }, "Business name", "Sri Lakshmi Stores", Modifier.padding(top = 14.dp))
                     Label("Category"); FlowChips(Seed.BIZ_CATS, setOf(bizCat)) { bizCat = it }
                     Spacer(Modifier.height(16.dp)); Label("Reach")
-                    Row(Modifier.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Local, within 5 km", purple = bizScope == Scope.LOCAL) { bizScope = Scope.LOCAL }; Chip("Global, ships anywhere", purple = bizScope == Scope.GLOBAL) { bizScope = Scope.GLOBAL } }
+                    Row(Modifier.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Local, within 5 km", selected = bizScope == Scope.LOCAL) { bizScope = Scope.LOCAL }; Chip("Global, ships anywhere", selected = bizScope == Scope.GLOBAL) { bizScope = Scope.GLOBAL } }
                     val variant = variantFor(bizCat)
                     Label(when (variant) { BusinessVariant.RESTAURANT -> "Menu items"; BusinessVariant.SUPERMARKET -> "Items and pack sizes"; BusinessVariant.FURNITURE -> "Catalogue"; BusinessVariant.ELECTRONICS -> "Products"; else -> "Items or services" })
                     items.forEachIndexed { i, it -> BucksCard(Modifier.padding(bottom = 8.dp), padding = 12) { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(it.name, style = MaterialTheme.typography.titleSmall); Muted(listOf("₹${it.price}", it.tag, it.detail).filter { d -> d.isNotBlank() }.joinToString(" · ")) }; IconButton(onClick = { items.removeAt(i) }) { Icon(Icons.Rounded.Close, "Remove") } } } }
-                    Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedTextField(item, { item = it }, placeholder = { Text(when (variant) { BusinessVariant.RESTAURANT -> "Chicken biriyani"; BusinessVariant.SUPERMARKET -> "Sugar"; BusinessVariant.FURNITURE -> "Teak dining table"; BusinessVariant.ELECTRONICS -> "Wireless earbuds"; else -> "Item or service" }) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), singleLine = true); OutlinedTextField(price, { price = it.filter { ch -> ch.isDigit() } }, placeholder = { Text("₹") }, modifier = Modifier.width(96.dp), shape = RoundedCornerShape(14.dp), singleLine = true) }
+                    Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedTextField(item, { item = it }, placeholder = { Text(when (variant) { BusinessVariant.RESTAURANT -> "Chicken biriyani"; BusinessVariant.SUPERMARKET -> "Sugar"; BusinessVariant.FURNITURE -> "Teak dining table"; BusinessVariant.ELECTRONICS -> "Wireless earbuds"; else -> "Item or service" }) }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, singleLine = true); OutlinedTextField(price, { price = it.filter { ch -> ch.isDigit() }.take(7) }, placeholder = { Text("₹") }, modifier = Modifier.width(96.dp), shape = MaterialTheme.shapes.medium, singleLine = true) }
                     if (variant == BusinessVariant.RESTAURANT) ChipRow(listOf("Veg", "Non-veg"), tag.ifBlank { null }, Modifier.padding(bottom = 8.dp)) { tag = it }
-                    else OutlinedTextField(detail, { detail = it }, placeholder = { Text(when (variant) { BusinessVariant.SUPERMARKET -> "Pack size, e.g. 1 kg"; BusinessVariant.FURNITURE -> "Material and size"; BusinessVariant.ELECTRONICS -> "Brand and warranty"; else -> "Detail (optional)" }) }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), shape = RoundedCornerShape(14.dp), singleLine = true)
-                    SmallButton("Add item", Modifier.padding(bottom = 16.dp), tonal = true, enabled = item.isNotBlank() && price.isNotBlank()) { items.add(Item(item.trim(), price.toIntOrNull() ?: 0, tag, detail.trim(), "")); item = ""; price = ""; detail = ""; tag = "" }
-                    PrimaryButton(if (edit != null) "Save business" else "Create business", enabled = items.isNotEmpty() || item.isNotBlank()) { val all = items.toList() + if (item.isNotBlank()) listOf(Item(item.trim(), price.toIntOrNull() ?: 0, tag, detail.trim())) else emptyList(); vm.saveBusiness(bizName.trim(), bizCat, bizScope, all) }
+                    else OutlinedTextField(detail, { detail = it }, placeholder = { Text(when (variant) { BusinessVariant.SUPERMARKET -> "Pack size, e.g. 1 kg"; BusinessVariant.FURNITURE -> "Material and size"; BusinessVariant.ELECTRONICS -> "Brand and warranty"; else -> "Detail (optional)" }) }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), shape = MaterialTheme.shapes.medium, singleLine = true)
+                    SmallButton("Add item", Modifier.padding(bottom = 16.dp), tonal = true, enabled = item.isNotBlank() && (price.toIntOrNull() ?: 0) > 0) { items.add(Item(item.trim(), price.toInt(), tag, detail.trim(), "")); item = ""; price = ""; detail = ""; tag = "" }
+                    PrimaryButton(if (edit != null) "Save business" else "Create business", enabled = items.isNotEmpty() || item.isNotBlank()) { if (item.isNotBlank() && (price.toIntOrNull() ?: 0) <= 0) { vm.toast("Enter a price for ${item.trim()}"); return@PrimaryButton }; val all = items.toList() + if (item.isNotBlank()) listOf(Item(item.trim(), price.toIntOrNull() ?: 0, tag, detail.trim())) else emptyList(); vm.saveBusiness(bizName.trim(), bizCat, bizScope, all) }
                 }
                 s.proStep == 3 -> Column(Modifier.fillMaxWidth().padding(top = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(icon = Icons.Rounded.Check, size = 72); Headline("You're a provider now", Modifier.padding(top = 16.dp)); Muted(s.proMessage, Modifier.padding(top = 6.dp), TextAlign.Center)

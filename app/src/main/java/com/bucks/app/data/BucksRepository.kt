@@ -22,6 +22,7 @@ interface BucksRepository {
 
     fun search(query: String): List<Provider>
     fun addProvider(p: Provider)
+    fun removeProvider(id: String)
     fun voteProvider(id: String, up: Boolean, who: String, comment: String, voterId: String = "", verified: Boolean = false, txnId: String = "", signature: String = "")
     /** Recompute distances from the user's real position. */
     fun updateDistances(me: LatLng)
@@ -50,6 +51,8 @@ interface BucksRepository {
     fun hasCredentials(email: String): Boolean
     fun saveSession(s: Session)
     fun clearSession()
+    /** Removes everything this user stored on the device: profile, credentials and device id. */
+    fun deleteAccount()
 }
 
 data class Session(val user: User, val pro: ProProfile?, val businesses: List<Business>)
@@ -67,7 +70,8 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
         val words = q.split(Regex("\\s+"))
         return providers.value.filter { p -> words.any { w -> p.tags.any { it.contains(w) } || p.name.lowercase().contains(w) || p.category.lowercase().contains(w) } }
     }
-    override fun addProvider(p: Provider) = providers.update { it + p }
+    override fun removeProvider(id: String) = providers.update { l -> l.filterNot { it.id == id } }
+    override fun addProvider(p: Provider) = providers.update { l -> l.filterNot { it.id == p.id } + p }
     override fun voteProvider(id: String, up: Boolean, who: String, comment: String, voterId: String, verified: Boolean, txnId: String, signature: String) = providers.update { list ->
         list.map { if (it.id == id) it.copy(up = it.up + if (up) 1 else 0, down = it.down + if (up) 0 else 1, comments = listOf(Comment(who, comment, if (up) 1 else -1, voterId, verified, txnId, signature)) + it.comments) else it }
     }
@@ -129,7 +133,7 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
     private fun parseSession(raw: String): Session? {
         return runCatching {
             val j = JSONObject(raw); val u = j.getJSONObject("user")
-            val user = User(u.getString("name"), u.getString("area"), u.optString("bio"), u.getString("phone"), u.optInt("up"), u.optInt("down"), u.optString("email"), u.optString("gender"), u.optJSONArray("interests")?.let { a -> List(a.length()) { a.getString(it) } } ?: emptyList())
+            val user = User(u.getString("name"), u.getString("area"), u.optString("bio"), u.getString("phone"), u.optInt("up"), u.optInt("down"), u.optString("email"), u.optString("gender"), u.optJSONArray("interests")?.let { a -> List(a.length()) { a.getString(it) } } ?: emptyList(), u.optString("id"), u.optJSONArray("verified")?.let { a -> List(a.length()) { i -> VerificationLevel.entries.firstOrNull { it.name == a.getString(i) } }.filterNotNull().toSet() } ?: emptySet())
             fun vehicle(o: JSONObject) = Vehicle(VehicleKind.valueOf(o.getString("kind")), o.getString("model"), o.getString("plate"), o.optString("mode").let { m -> ListingMode.entries.firstOrNull { it.name == m } ?: ListingMode.TAXI }, o.optBoolean("verified", true), o.optInt("docs"))
             fun business(b: JSONObject): Business {
                 val items = b.optJSONArray("items")?.let { a -> List(a.length()) { i -> a.getJSONObject(i).let { Item(it.getString("n"), it.getInt("p"), it.optString("t"), it.optString("d"), it.optString("g")) } } } ?: emptyList()
@@ -149,7 +153,7 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
     override fun saveSession(s: Session) { prefs.edit().putString("session", sessionJson(s)).putBoolean("signedOut", false).apply() }
     private fun sessionJson(s: Session): String {
         val j = JSONObject()
-        j.put("user", JSONObject().apply { put("name", s.user.name); put("area", s.user.area); put("bio", s.user.bio); put("phone", s.user.phone); put("up", s.user.up); put("down", s.user.down); put("email", s.user.email); put("gender", s.user.gender); put("interests", JSONArray(s.user.interests)) })
+        j.put("user", JSONObject().apply { put("name", s.user.name); put("area", s.user.area); put("bio", s.user.bio); put("phone", s.user.phone); put("up", s.user.up); put("down", s.user.down); put("email", s.user.email); put("gender", s.user.gender); put("interests", JSONArray(s.user.interests)); put("id", s.user.id); put("verified", JSONArray(s.user.verified.map { it.name })) })
         s.pro?.let { p -> j.put("pro", JSONObject().apply {
             put("vehicles", JSONArray().apply { p.vehicles.forEach { v -> put(JSONObject().apply { put("kind", v.kind.name); put("model", v.model); put("plate", v.plate); put("mode", v.mode.name); put("verified", v.verified); put("docs", v.docs) }) } })
             put("skillList", JSONArray().apply { p.skillListings.forEach { k -> put(JSONObject().apply { put("name", k.name); put("level", k.level.name); put("portfolio", k.portfolio); put("online", k.online) }) } })
@@ -163,6 +167,7 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
     }
     // Signing out keeps the profile on the device (it is the user's own data); it just stops auto sign-in until the same person verifies again.
     override fun clearSession() { prefs.edit().putBoolean("signedOut", true).apply() }
+    override fun deleteAccount() { prefs.edit().clear().apply(); runCatching { Identity.deleteKey() } }
     // Prototype-grade credential store: hashed password per email. Replace with Firebase/your auth service.
     private fun hash(s: String) = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
     override fun saveCredentials(email: String, password: String) { val j = JSONObject(prefs.getString("creds", "{}") ?: "{}"); j.put(email.lowercase(), hash(password)); prefs.edit().putString("creds", j.toString()).apply() }

@@ -5,3 +5,9 @@
 /build
 /app/build
 .DS_Store
+.kotlin
+local.properties
+build/
+.gradle/
+.idea/
+*.jks

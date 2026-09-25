@@ -40,6 +40,9 @@ import com.bucks.app.data.Trust
 import com.bucks.app.data.VehicleKind
 import com.bucks.app.ui.theme.*
 
+/** Screen gutter; card interiors use 12dp. */
+val Gutter = 20.dp
+
 fun initials(n: String) = n.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
 
 /* ---------- icons for domain objects (no emojis anywhere) ---------- */
@@ -69,7 +72,7 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
             onMenu != null -> IconButton(onClick = onMenu) { Icon(Icons.Rounded.Menu, "Menu", Modifier.size(28.dp)) }
             else -> Spacer(Modifier.width(48.dp))
         }
-        if (title == null) Text("bucks", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, letterSpacing = (-1.5).sp), color = Brand, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        if (title == null) Text("bucks", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, letterSpacing = (-1.5).sp), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(start = 8.dp))
         else Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
         if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, "Messages", Modifier.size(28.dp)) } }
@@ -77,14 +80,14 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
 }
 
 enum class BottomTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Rounded.Home), FEED("Feeds", Icons.Rounded.VideoLibrary), SERVICES("Services", Icons.Rounded.GridView), RECOMMENDED("Recommended", Icons.Rounded.Leaderboard), ACCOUNT("Account", Icons.Rounded.Person)
+    HOME("Home", Icons.Rounded.Home), FEED("Feed", Icons.Rounded.VideoLibrary), SERVICES("Services", Icons.Rounded.GridView), RECOMMENDED("For you", Icons.Rounded.Leaderboard), ACCOUNT("Account", Icons.Rounded.Person)
 }
 @Composable
 fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
     // Plain equal-width items: Material's NavigationBarItem padding clips "Recommended" on phones.
     Column(Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding()) { HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.fillMaxWidth().height(76.dp)) {
-            BottomTab.entries.forEach { t -> val c = if (t == current) Brand else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            BottomTab.entries.forEach { t -> val c = if (t == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Icon(t.icon, t.label, Modifier.size(28.dp), tint = c)
                     Text(t.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.sp), color = c, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 4.dp))
@@ -101,18 +104,24 @@ fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 }
 
 /* ---------- buttons ---------- */
-private val BtnShape = RoundedCornerShape(14.dp)
 /** A short tick on confirming actions; wraps a click so the feedback and the action always go together. */
 @Composable fun withHaptic(onClick: () -> Unit): () -> Unit { val h = LocalHapticFeedback.current; return { h.performHapticFeedback(HapticFeedbackType.LongPress); onClick() } }
-@Composable fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = BtnShape) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun DarkButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = BtnShape, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = OutlinedButton(onClick, modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = BtnShape, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun TintButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Button(onClick, modifier.fillMaxWidth().height(52.dp), shape = BtnShape, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun GoodButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Button(onClick, modifier.fillMaxWidth().height(52.dp), shape = BtnShape, colors = ButtonDefaults.buttonColors(containerColor = Good, contentColor = Color.White)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun BadButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = TextButton(onClick, modifier.fillMaxWidth().height(48.dp), shape = BtnShape, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = MaterialTheme.shapes.medium) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun DarkButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = OutlinedButton(onClick, modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun TintButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Button(onClick, modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun GoodButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Button(onClick, modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Good, contentColor = Color.White)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun BadButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = TextButton(onClick, modifier.fillMaxWidth().height(48.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(text, style = MaterialTheme.typography.labelLarge) }
 @Composable fun SmallButton(text: String, modifier: Modifier = Modifier, tonal: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) =
-    if (tonal) FilledTonalButton(onClick, modifier.height(38.dp), enabled = enabled, shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }
-    else Button(onClick, modifier.height(38.dp), enabled = enabled, shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }
+    if (tonal) FilledTonalButton(onClick, modifier.height(38.dp), enabled = enabled, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }
+    else Button(onClick, modifier.height(38.dp), enabled = enabled, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }
+/** Add, then a -/qty/+ stepper once the item is in the cart; search results and provider products share it. */
+@Composable
+fun AddStepper(qty: Int, onAdd: (Int) -> Unit) =
+    if (qty == 0) SmallButton("Add", tonal = true) { onAdd(1) }
+    else Row(Modifier.height(38.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), verticalAlignment = Alignment.CenterVertically) {
+        val c = MaterialTheme.colorScheme.onPrimary
+        Icon(Icons.Rounded.Remove, "Remove one", Modifier.minimumInteractiveComponentSize().clickable { onAdd(-1) }.padding(10.dp).size(18.dp), tint = c); Text("$qty", style = MaterialTheme.typography.labelMedium, color = c); Icon(Icons.Rounded.Add, "Add one", Modifier.minimumInteractiveComponentSize().clickable { onAdd(1) }.padding(10.dp).size(18.dp), tint = c) }
 @Composable fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick).padding(6.dp)) {
     Box(Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) { Icon(icon, label, tint = MaterialTheme.colorScheme.onSurface) }
     Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -123,7 +132,7 @@ private val BtnShape = RoundedCornerShape(14.dp)
 fun BucksField(value: String, onChange: (String) -> Unit, label: String? = null, placeholder: String = "", modifier: Modifier = Modifier, singleLine: Boolean = true, minLines: Int = 1, readOnly: Boolean = false, keyboard: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default, trailing: @Composable (() -> Unit)? = null) {
     Column(modifier.fillMaxWidth().padding(bottom = 14.dp)) {
         if (label != null) Label(label)
-        OutlinedTextField(value = value, onValueChange = onChange, placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant) }, singleLine = singleLine, minLines = minLines, readOnly = readOnly, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(), keyboardOptions = keyboard, trailingIcon = trailing,
+        OutlinedTextField(value = value, onValueChange = onChange, placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant) }, singleLine = singleLine, minLines = minLines, readOnly = readOnly, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth(), keyboardOptions = keyboard, trailingIcon = trailing,
             colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outline, focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedContainerColor = MaterialTheme.colorScheme.surface, focusedContainerColor = MaterialTheme.colorScheme.surface))
     }
 }
@@ -132,7 +141,7 @@ fun BucksField(value: String, onChange: (String) -> Unit, label: String? = null,
 /* ---------- surfaces ---------- */
 @Composable
 fun BucksCard(modifier: Modifier = Modifier, tint: Boolean = false, onClick: (() -> Unit)? = null, padding: Int = 16, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = MaterialTheme.shapes.large
     val bg = if (tint) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
     var m = modifier.fillMaxWidth().clip(shape).background(bg)
     if (onClick != null) m = m.clickable(onClick = onClick)
@@ -153,14 +162,15 @@ fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tint
     }
 }
 
+/** The one trust number shown everywhere: a single pill coloured by the recommend rate. With [onClick] it opens the ranking explainer. */
 @Composable
-fun TrustBadge(t: Trust, compact: Boolean = false) {
-    val pct = t.pct
-    if (pct == null) { Text("No reviews yet", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); return }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.ThumbUp, null, tint = if (pct >= 85) Good else Warn, modifier = Modifier.size(13.dp))
-        Text(" $pct% recommend", style = MaterialTheme.typography.labelMedium, color = if (pct >= 85) Good else Warn)
-        if (!compact) Text(" · ${t.total} reviews", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null) {
+    val pct = t.pct; val st = MaterialTheme.status
+    val (fg, bg) = when { pct == null -> MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surfaceContainer; pct >= 85 -> st.good to st.goodTint; pct >= 60 -> st.warn to st.warnTint; else -> st.bad to st.badTint }
+    val text = when { pct == null -> if (compact) "New" else "New · no votes yet"; compact -> "$pct% recommend"; else -> "$pct% recommend · ${t.total} votes" }
+    Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.ThumbUp, null, tint = fg, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(5.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
     }
 }
 
@@ -168,37 +178,39 @@ fun TrustBadge(t: Trust, compact: Boolean = false) {
 fun Pill(text: String, bg: Color, fg: Color) = Box(Modifier.clip(CircleShape).background(bg).padding(horizontal = 9.dp, vertical = 3.dp)) { Text(text, style = MaterialTheme.typography.labelSmall, color = fg) }
 @Composable fun PillPurple(text: String) = Pill(text, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
 @Composable fun PillGrey(text: String) = Pill(text, MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
-@Composable fun PillGood(text: String) = Pill(text, GoodTint, Good)
-@Composable fun PillBad(text: String) = Pill(text, BadTint, Bad)
-@Composable fun PillWarn(text: String) = Pill(text, WarnTint, Warn)
+@Composable fun PillGood(text: String) = MaterialTheme.status.let { Pill(text, it.goodTint, it.good) }
+@Composable fun PillBad(text: String) = MaterialTheme.status.let { Pill(text, it.badTint, it.bad) }
+@Composable fun PillWarn(text: String) = MaterialTheme.status.let { Pill(text, it.warnTint, it.warn) }
 
 @Composable
-fun Chip(text: String, selected: Boolean = false, purple: Boolean = false, icon: ImageVector? = null, onClick: () -> Unit) {
-    val bg = when { selected -> MaterialTheme.colorScheme.secondary; purple -> MaterialTheme.colorScheme.primaryContainer; else -> MaterialTheme.colorScheme.surfaceContainer }
-    val fg = when { selected -> MaterialTheme.colorScheme.onSecondary; purple -> MaterialTheme.colorScheme.onPrimaryContainer; else -> MaterialTheme.colorScheme.onSurface }
-    Row(Modifier.clip(CircleShape).background(bg).clickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+fun Chip(text: String, selected: Boolean = false, icon: ImageVector? = null, onClick: () -> Unit) {
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
+    val fg = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    // widthIn(48) on the visual so the 48dp touch slot never centres a short chip away from the row start (gutter).
+    Row(Modifier.minimumInteractiveComponentSize().widthIn(min = 48.dp).clip(CircleShape).background(bg).clickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) { Icon(icon, null, tint = fg, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(6.dp)) }
-        Text(text, style = MaterialTheme.typography.labelMedium, color = fg)
+        Text(text, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 @Composable
 fun ChipRow(items: List<String>, selected: String? = null, modifier: Modifier = Modifier, onClick: (String) -> Unit) = Row(modifier.horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items.forEach { Chip(it, selected = it == selected) { onClick(it) } } }
 @Composable fun Modifier.horizontalScrollIfNeeded(): Modifier = this.then(Modifier.horizontalScroll(rememberScrollState()))
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FlowChips(items: List<String>, selected: Set<String> = emptySet(), onClick: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { items.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { row.forEach { Chip(it, selected = it in selected) { onClick(it) } } } } }
-}
+fun FlowChips(items: List<String>, selected: Set<String> = emptySet(), onClick: (String) -> Unit) =
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items.forEach { Chip(it, selected = it in selected) { onClick(it) } } }
 
 @Composable
-fun Notice(text: String, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer).padding(12.dp), verticalAlignment = Alignment.Top) {
+fun Notice(text: String, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primaryContainer).padding(12.dp), verticalAlignment = Alignment.Top) {
     Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp).padding(top = 1.dp)); Spacer(Modifier.width(8.dp))
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
 }
 
 @Composable
 fun VoteButton(text: String, active: Boolean, up: Boolean, icon: ImageVector? = if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, onClick: () -> Unit) {
-    val bg = if (!active) MaterialTheme.colorScheme.surfaceContainer else if (up) GoodTint else BadTint
-    val fg = if (!active) MaterialTheme.colorScheme.onSurface else if (up) Good else Bad
+    val st = MaterialTheme.status
+    val bg = if (!active) MaterialTheme.colorScheme.surfaceContainer else if (up) st.goodTint else st.badTint
+    val fg = if (!active) MaterialTheme.colorScheme.onSurface else if (up) st.good else st.bad
     Row(Modifier.clip(CircleShape).background(bg).clickable(onClick = withHaptic(onClick)).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { if (icon != null) { Icon(icon, null, tint = fg, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(6.dp)) }; Text(text, color = fg, style = MaterialTheme.typography.labelMedium) }
 }
 
@@ -257,7 +269,7 @@ fun SimMap(modifier: Modifier = Modifier, pins: List<MapPin>, radiusAt: Offset? 
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             pins.filter { it.label.isNotBlank() }.forEach { pin ->
-                Surface(Modifier.offset(x = maxWidth * (pin.x / 100f) - 28.dp, y = maxHeight * (pin.y / 100f) + 12.dp), shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) { Text(pin.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) }
+                Surface(Modifier.offset(x = maxWidth * (pin.x / 100f) - 28.dp, y = maxHeight * (pin.y / 100f) + 12.dp), shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) { Text(pin.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) }
             }
         }
     }
@@ -265,5 +277,5 @@ fun SimMap(modifier: Modifier = Modifier, pins: List<MapPin>, radiusAt: Offset? 
 private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f * blue
 
 @Composable fun SectionTitle(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); if (action != null && onAction != null) TextButton(onClick = onAction, contentPadding = PaddingValues(0.dp)) { Text(action, style = MaterialTheme.typography.labelMedium) } }
-@Composable fun Muted(text: String, modifier: Modifier = Modifier, align: TextAlign? = null, maxLines: Int = Int.MAX_VALUE) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier, textAlign = align, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+@Composable fun Muted(text: String, modifier: Modifier = Modifier, align: TextAlign? = null, maxLines: Int = Int.MAX_VALUE, minLines: Int = 1) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier, textAlign = align, maxLines = maxLines, minLines = minLines, overflow = TextOverflow.Ellipsis)
 @Composable fun Headline(text: String, modifier: Modifier = Modifier) = Text(text, style = MaterialTheme.typography.headlineMedium, modifier = modifier)

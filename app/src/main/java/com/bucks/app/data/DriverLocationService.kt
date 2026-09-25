@@ -30,16 +30,18 @@ class DriverLocationService : Service() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "On duty", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, packageManager.getLaunchIntentForPackage(packageName), PendingIntent.FLAG_IMMUTABLE)
         val n: Notification = NotificationCompat.Builder(this, CHANNEL).setContentTitle("You're online on Bucks").setContentText("Sharing your location so nearby customers can ring you").setSmallIcon(android.R.drawable.ic_menu_mylocation).setOngoing(true).setContentIntent(open).build()
-        if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) else startForeground(1, n)
+        // Android 14 throws if location permission was revoked; stop quietly instead of crashing.
+        try { if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) else startForeground(1, n) } catch (_: Exception) { stopSelf(); return START_NOT_STICKY }
         try { client.requestLocationUpdates(LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L).setMinUpdateDistanceMeters(15f).build(), callback, Looper.getMainLooper()) } catch (_: SecurityException) { stopSelf() }
-        return START_STICKY
+        // Not sticky: after process death the online flag is gone, so a restarted service would track with no owner.
+        return START_NOT_STICKY
     }
     override fun onDestroy() { client.removeLocationUpdates(callback); super.onDestroy() }
     companion object {
         const val CHANNEL = "bucks_on_duty"
         val position = MutableStateFlow<LatLng?>(null)
         val mocked = MutableStateFlow(false)
-        fun start(ctx: Context) { val i = Intent(ctx, DriverLocationService::class.java); if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i) }
+        fun start(ctx: Context) { runCatching { ctx.startForegroundService(Intent(ctx, DriverLocationService::class.java)) } }
         fun stop(ctx: Context) { ctx.stopService(Intent(ctx, DriverLocationService::class.java)) }
     }
 }

@@ -95,7 +95,7 @@ enum class RequestStatus(val label: String) { SENT("Sent"), ACCEPTED("Accepted")
 data class ServiceRequest(val id: String, val providerId: String, val providerName: String, val category: String, val text: String, val status: RequestStatus, val signature: String = "")
 
 /** Which voters count when a list is sorted. Pure counting over a user-chosen voter set; never a hidden model. */
-enum class Lens(val label: String, val explain: String) { ALL("Everyone", "Every review tied to a completed transaction"), FOLLOWING("People I sync with", "Only reviews from people you sync with"), VERIFIED("ID-verified people", "Only reviews from ID-verified accounts") }
+enum class Lens(val label: String, val explain: String) { ALL("Everyone", "Every review tied to a completed transaction"), FOLLOWING("People I follow", "Only reviews from people you follow"), VERIFIED("ID-verified people", "Only reviews from ID-verified accounts") }
 
 /** An action the agent proposed that needs the user's explicit go-ahead before it runs. */
 data class PendingAction(val title: String, val summary: String, val amount: Int, val counterparty: String, val counterpartyTrust: Trust?, val needsBiometric: Boolean, val run: () -> Unit)
@@ -104,7 +104,7 @@ data class Incoming(val who: String, val text: String)
 
 data class AgentCard(val title: String, val detail: String, val cta: String, val action: AgentAction)
 sealed interface AgentAction {
-    data class OpenProvider(val id: String, val tab: String = "about") : AgentAction
+    data class OpenProvider(val id: String, val tab: String? = null) : AgentAction
     data class Request(val providerId: String) : AgentAction
 }
 data class AgentMessage(val mine: Boolean, val text: String, val cards: List<AgentCard> = emptyList(), val actions: List<String> = emptyList())

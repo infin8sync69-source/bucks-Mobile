@@ -21,7 +21,12 @@ android {
         buildConfigField("String", "GEMINI_API_KEY", "\"${props.getProperty("GEMINI_API_KEY", "")}\"")
     }
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            // R8 shrinks and optimises the release build; Compose is several times faster than in a debug build.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
