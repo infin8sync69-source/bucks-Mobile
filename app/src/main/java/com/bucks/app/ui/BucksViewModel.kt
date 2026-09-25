@@ -1,6 +1,9 @@
 package com.bucks.app.ui
 
+import android.app.Activity
 import android.os.Build
+import com.bucks.app.BuildConfig
+import com.google.firebase.firestore.ListenerRegistration
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -63,12 +66,25 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private val router = IntentRouter()
     val cloudEnabled get() = router.cloudEnabled
     private var ringJob: Job? = null; private var driveJob: Job? = null; private var drvRingJob: Job? = null; private var autoRingJob: Job? = null; private var drvDriveJob: Job? = null
+    /** True when the app was built with google-services.json: real sign-in, live drivers and rides through Firebase. */
+    val cloud get() = Cloud.enabled
+    private var driversReg: ListenerRegistration? = null; private var rideReg: ListenerRegistration? = null; private var openRidesReg: ListenerRegistration? = null; private var driverRideReg: ListenerRegistration? = null
+    private var heartbeatJob: Job? = null
+    private var openRides: List<Pair<String, Map<String, Any>>> = emptyList()
+    /** Requests this driver declined, missed or dropped; they don't ring again. */
+    private val passed = mutableSetOf<String>()
 
     init {
         runCatching { Identity.ensureKey() }
-        repo.loadSession()?.let { s -> _s.update { it.copy(user = s.user.copy(id = s.user.id.ifBlank { safeId() }), pro = s.pro, businesses = s.businesses) }; publishOwnListings() }
+        // With Firebase on, a saved profile only counts once the phone number is verified with Firebase too.
+        repo.loadSession()?.takeIf { !cloud || Cloud.uid != null }?.let { s -> _s.update { it.copy(user = s.user.copy(id = s.user.id.ifBlank { safeId() }), pro = s.pro, businesses = s.businesses) }; publishOwnListings() }
         _s.update { it.copy(devices = listOf(LinkedDevice(repo.deviceId(), Build.MODEL ?: "This device", "Now", true))) }
+        if (cloud) { repo.replaceDrivers(emptyList(), mePos); if (s.user != null) startDriversFeed() }
     }
+    /** Live online drivers replace the demo ones, for map pins, "n riders nearby" and ratings. */
+    private fun startDriversFeed() { if (driversReg == null) driversReg = Cloud.listenDrivers { repo.replaceDrivers(it, mePos) } }
+    private fun stopCloud() { listOf(driversReg, rideReg, openRidesReg, driverRideReg).forEach { it?.remove() }; driversReg = null; rideReg = null; openRidesReg = null; driverRideReg = null; heartbeatJob?.cancel() }
+    override fun onCleared() { stopCloud() }
     /** The repository is re-seeded on every launch; put this user's own skills and businesses back into search. */
     private fun publishOwnListings() { val u = s.user ?: return
         s.pro?.skillListings?.forEach { addSkillProvider(u, it.name, s.pro?.rate.orEmpty()) }
@@ -86,10 +102,23 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
 
     // ---------- auth & verification ----------
     fun setPhone(p: String) = _s.update { it.copy(tempPhone = p, tempEmail = "") }
-    fun verifyOtp(code: String): Boolean { if (code != "1234") return false
+    /** Firebase texts a real 6-digit code. Some phones verify on their own, which calls [onSignedIn] with no code typed. */
+    fun sendOtp(activity: Activity, resend: Boolean = false, onSignedIn: () -> Unit) {
+        if (!cloud) return
+        Cloud.sendCode(activity, s.tempPhone, resend, onSent = { toast("Code sent to +91 ${s.tempPhone}") }, onSignedIn = { onPhoneVerified(); onSignedIn() }, onError = { toast(it) })
+    }
+    /** Without Firebase (demo build) the code is 1234, and only in debug builds. */
+    fun verifyOtp(code: String, onResult: (Boolean) -> Unit) {
+        if (cloud) { Cloud.verifyCode(code, { onPhoneVerified(); onResult(true) }, { toast(it); onResult(false) }); return }
+        if (!BuildConfig.DEBUG) { toast("Sign-in isn't set up in this build."); onResult(false); return }
+        if (code != "1234") { toast("Wrong code. Try 1234."); onResult(false); return }
+        onPhoneVerified(); onResult(true)
+    }
+    private fun onPhoneVerified() {
         // Same number as the profile saved on this device: restore it instead of starting a new one.
         repo.savedSession()?.takeIf { it.user.phone == s.tempPhone && s.user == null }?.let { se -> _s.update { it.copy(user = se.user.copy(id = se.user.id.ifBlank { safeId() }), pro = se.pro, businesses = se.businesses) }; publishOwnListings() }
-        _s.update { it.copy(user = it.user?.copy(phone = it.tempPhone.ifBlank { it.user.phone }, verified = it.user.verified + VerificationLevel.PHONE)) }; persist(); return true }
+        _s.update { it.copy(user = it.user?.copy(phone = it.tempPhone.ifBlank { it.user.phone }, verified = it.user.verified + VerificationLevel.PHONE)) }; persist()
+        if (cloud) startDriversFeed() }
     fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList()) {
         val base = s.user ?: User(name, area, bio, s.tempPhone, email = s.tempEmail, id = safeId(), verified = if (s.tempPhone.isNotBlank()) setOf(VerificationLevel.PHONE) else emptySet())
         val dev = deviceLooksGenuine()
@@ -113,15 +142,20 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { repo.clearSession(); _s.value = UiState() }
-    fun deleteAccount() { autoRingJob?.cancel(); repo.deleteAccount(); _s.value = UiState(); toast("Your account and data were deleted from this device.") }
+    fun logout() { if (s.online) setOnline(false); stopCloud(); Cloud.signOut(); repo.clearSession(); _s.value = UiState() }
+    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); stopCloud()
+        Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }
+        repo.deleteAccount(); _s.value = UiState(); toast("Your account and data were deleted.") }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
     fun setOnline(v: Boolean) { if (v && s.mockLocation) { toast("Turn off the fake-location app to go online."); return }; _s.update { it.copy(online = v) }; toast(if (v) "Online. Nearby ride requests will ring you." else "Offline")
-        // Demo dispatch: while a vehicle is online and idle, a nearby customer rings now and then. A real build receives these from the server.
-        autoRingJob?.cancel(); if (v) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null && s.ride == null) simulateRing(); delay(60000) } } }
+        autoRingJob?.cancel()
+        if (cloud) { syncDriverCloud(); return }
+        // Demo dispatch: while a vehicle is online and idle, a nearby customer rings now and then.
+        if (v) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null && s.ride == null) simulateRing(); delay(60000) } } }
 
     // ---------- location ----------
-    fun onLocation(p: LatLng, mocked: Boolean) { val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.") }
+    fun onLocation(p: LatLng, mocked: Boolean) { val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.")
+        if (cloud && s.vehicleOnline) onDriverMoved(p) }
     fun onLocationDenied() = _s.update { it.copy(locationGranted = false) }
     val mePos: LatLng get() = s.me ?: Geo.fromPercent(s.meX, s.meY)
 
@@ -255,6 +289,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun fare(k: VehicleKind, km: Double) = (k.farePerKm * km + 20).roundToInt()
     fun onlineCount(k: VehicleKind) = Geo.ring(mePos, repo.drivers.value, k).size
     private fun doRequestRide() {
+        if (cloud) { s.rideDest?.let { requestRideCloud(it, s.rideKind) }; return }
         val dest = s.rideDest ?: return; val k = s.rideKind; val id = "ride${System.currentTimeMillis()}"; val f = fare(k, dest.km)
         val ride = Ride(id, k, dest, f, RideStatus.SEARCHING, (1000 + Random.nextInt(9000)).toString(), signature = sign(Identity.txnPayload("ride", id, s.user?.id ?: "", "", f, System.currentTimeMillis())))
         _s.update { it.copy(ride = ride) }; navTo(Routes.SEARCHING)
@@ -274,17 +309,20 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.ARRIVED)) }; toast("Your rider is here. Share PIN ${s.ride?.pin} to start.")
         }
     }
-    fun cancelRide(reason: String) { if (s.ride?.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) return; ringJob?.cancel(); driveJob?.cancel(); s.ride?.let { r -> _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides, ride = null) } }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
+    fun cancelRide(reason: String) { if (s.ride?.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) return; ringJob?.cancel(); driveJob?.cancel()
+        if (cloud) s.ride?.let { Cloud.updateRide(it.id, mapOf("status" to RideStatus.CANCELLED.name, "reason" to reason)); rideReg?.remove(); rideReg = null }; s.ride?.let { r -> _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides, ride = null) } }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
     fun startTrip() {
+        if (cloud) return  // the driver starts the trip after checking the PIN
         _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.IN_RIDE)) }; navTo(Routes.IN_RIDE)
         driveJob?.cancel(); driveJob = viewModelScope.launch { val mx = s.meX; val my = s.meY
             for (k in 1..5) { delay(1300); val r = s.ride ?: return@launch; _s.update { it.copy(ride = r.copy(progress = k / 5f, driverX = mx + (r.dest.x - mx) * k / 5, driverY = my + (r.dest.y - my) * k / 5)) } }
             _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.COMPLETED)) }; navTo(Routes.PAY) }
     }
-    fun payRide(method: String) { _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.PAID, paidWith = method)) }; navTo(Routes.RATE_RIDE) }
+    fun payRide(method: String) { if (cloud) s.ride?.let { Cloud.updateRide(it.id, mapOf("status" to RideStatus.PAID.name, "paidWith" to method)) }; _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.PAID, paidWith = method)) }; navTo(Routes.RATE_RIDE) }
     fun finishRide(vote: Int?, comment: String, skip: Boolean): Boolean {
         val r = s.ride ?: return true
-        if (!skip) { if (vote == null || comment.isBlank()) { toast("Choose Recommend or Not recommended, and add a line on why."); return false }; r.driver?.let { repo.voteDriver(it.id, vote > 0) } }
+        if (!skip) { if (vote == null || comment.isBlank()) { toast("Choose Recommend or Not recommended, and add a line on why."); return false }; r.driver?.let { repo.voteDriver(it.id, vote > 0); if (cloud) Cloud.rateDriver(it.id, vote > 0) } }
+        rideReg?.remove(); rideReg = null
         _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.COMPLETED)) + it.rides, ride = null) }; toast("Trip saved. Find it under Activity."); navTo(Routes.HOME); return true
     }
 
@@ -300,11 +338,18 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         val dr = DriverRide("dr${System.currentTimeMillis()}", DriverRideStatus.RINGING, listOf("Deepa N", "Arjun R", "Meera S", "Vikram J").random(), Trust(40 + Random.nextInt(200), Random.nextInt(8)), s.user?.area ?: "Jayanagar", dropName, km, fare(k, km), (1000 + Random.nextInt(9000)).toString(), 15, pickupKm,
             kind = k, driver = me, pickup = pickup, drop = Geo.PLACES[dropName] ?: Geo.fromPercent(20 + Random.nextFloat() * 60, 20 + Random.nextFloat() * 60))
         _s.update { it.copy(driverRide = dr) }; if (s.ride == null && s.pending == null) navTo(Routes.HOME)
-        drvRingJob?.cancel(); drvRingJob = viewModelScope.launch { while (true) { delay(1000); val cur = s.driverRide ?: return@launch; if (cur.status != DriverRideStatus.RINGING) return@launch
-            if (cur.secondsLeft <= 1) { _s.update { it.copy(driverRide = null) }; toast("Too late. Another rider took it."); return@launch }; _s.update { it.copy(driverRide = cur.copy(secondsLeft = cur.secondsLeft - 1)) } } }
+        startRingCountdown()
     }
-    fun driverDecline() { drvRingJob?.cancel(); _s.update { it.copy(driverRide = null) }; toast("Passed. We'll send you the next one.") }
-    fun driverAccept() { drvRingJob?.cancel(); _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.TO_PICKUP, progress = 0f)) }; toast("It's yours. Head to the pick-up.")
+    private fun startRingCountdown() {
+        drvRingJob?.cancel(); drvRingJob = viewModelScope.launch { while (true) { delay(1000); val cur = s.driverRide ?: return@launch; if (cur.status != DriverRideStatus.RINGING) return@launch
+            if (cur.secondsLeft <= 1) { _s.update { it.copy(driverRide = null) }
+                if (cloud) { passed += cur.id; toast("Missed that one. Stay online for the next request."); ringNextCloud() } else toast("Too late. Another rider took it."); return@launch }
+            _s.update { it.copy(driverRide = cur.copy(secondsLeft = cur.secondsLeft - 1)) } } }
+    }
+    fun driverDecline() { drvRingJob?.cancel(); s.driverRide?.let { passed += it.id }; _s.update { it.copy(driverRide = null) }; toast("Passed. We'll send you the next one."); if (cloud) ringNextCloud() }
+    fun driverAccept() { drvRingJob?.cancel()
+        if (cloud) { acceptCloud(); return }
+        _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.TO_PICKUP, progress = 0f)) }; toast("It's yours. Head to the pick-up.")
         animateDriver(DriverRideStatus.TO_PICKUP) { _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.ARRIVED)) }; toast("You're at the pick-up. Ask the customer for their PIN.") } }
     /** Simulated drive for the current leg; replace with real location updates from DriverLocationService. */
     private fun animateDriver(leg: DriverRideStatus, onDone: () -> Unit) { drvDriveJob?.cancel(); drvDriveJob = viewModelScope.launch {
@@ -312,17 +357,19 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun driverNext(pin: String = ""): Boolean {
         val d = s.driverRide ?: return true
         when (d.status) {
-            DriverRideStatus.TO_PICKUP -> { drvDriveJob?.cancel(); _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.ARRIVED)) } }
+            DriverRideStatus.TO_PICKUP -> { drvDriveJob?.cancel(); _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.ARRIVED)) }; if (cloud) Cloud.updateRide(d.id, mapOf("status" to RideStatus.ARRIVED.name)) }
             DriverRideStatus.ARRIVED -> { if (pin != d.pin) { toast("That PIN doesn't match. Ask the customer to read it again."); return false }
-                _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.IN_RIDE, progress = 0f)) }; animateDriver(DriverRideStatus.IN_RIDE) { toast("Arrived at ${d.dropAt}") } }
-            DriverRideStatus.IN_RIDE -> { drvDriveJob?.cancel(); _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.DONE, progress = 1f)) } }
+                _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.IN_RIDE, progress = 0f)) }
+                if (cloud) Cloud.updateRide(d.id, mapOf("status" to RideStatus.IN_RIDE.name)) else animateDriver(DriverRideStatus.IN_RIDE) { toast("Arrived at ${d.dropAt}") } }
+            DriverRideStatus.IN_RIDE -> { drvDriveJob?.cancel(); _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.DONE, progress = 1f)) }; if (cloud) Cloud.updateRide(d.id, mapOf("status" to RideStatus.COMPLETED.name)) }
             else -> {}
         }; return true
     }
     fun driverPaid(method: String) { val d = s.driverRide ?: return; _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.RATE, paidWith = method), earnings = it.earnings + d.fare) }; toast("₹${d.fare} received by $method. Added to today's earnings.") }
     fun setUpi(id: String) { val v = id.trim(); if (!Regex("^[\\w.\\-]{2,}@[a-zA-Z]{2,}$").matches(v)) { toast("A UPI ID looks like name@bank. Check it and try again."); return }; _s.update { it.copy(pro = (it.pro ?: ProProfile()).copy(upiId = v)) }; persist() }
-    fun driverRateCustomer(stars: Int) { val up = stars >= 3; _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1), driverRide = null) }; persist(); toast("Trip closed. Fare added to today's earnings.") }
-    fun driverCancel() { _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1), driverRide = null) }; persist(); toast("Ride cancelled. This counts against your recommendations.") }
+    fun driverRateCustomer(stars: Int) { val up = stars >= 3; stopWatchingDriverRide(); _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1), driverRide = null) }; persist(); toast("Trip closed. Fare added to today's earnings."); if (cloud) ringNextCloud() }
+    fun driverCancel() { if (cloud) s.driverRide?.let { passed += it.id; stopWatchingDriverRide(); Cloud.releaseRide(it.id) }
+        _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1), driverRide = null) }; persist(); toast("Ride cancelled. This counts against your recommendations."); if (cloud) ringNextCloud() }
     fun setProKind(k: ProKind) = _s.update { it.copy(proKind = k) }
     fun setProStep(n: Int) = _s.update { it.copy(proStep = n) }
     fun startPro(kind: ProKind?, step: Int) = _s.update { it.copy(proKind = kind, proStep = step, editBiz = null) }
@@ -382,6 +429,102 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun importSnapshot(json: String): Boolean { val se = repo.importSnapshot(json) ?: run { toast("That file isn't a Bucks backup"); return false }; _s.update { it.copy(user = se.user.copy(id = se.user.id.ifBlank { safeId() }), pro = se.pro, businesses = se.businesses) }; publishOwnListings(); toast("Restored ${se.user.name}'s profile on this device"); return true }
     fun linkDevice(code: String): Boolean { if (code.trim().length < 6) { toast("Enter the 6-character code shown on the other device"); return false }; _s.update { it.copy(devices = it.devices + LinkedDevice("dev-${code.trim().lowercase()}", "Device ${code.trim().uppercase()}", "Linked just now", false)) }; toast("Device linked. Your profile will sync there."); return true }
     fun unlinkDevice(id: String) = _s.update { it.copy(devices = it.devices.filterNot { d -> d.id == id && !d.thisDevice }) }
+
+    // ---------- Firebase: rider ----------
+    private fun requestRideCloud(dest: Place, k: VehicleKind) {
+        val u = s.user ?: return
+        val me = s.me ?: run { toast("Turn on location so your rider can find your pick-up point."); return }
+        val f = fare(k, dest.km); val pin = (1000 + Random.nextInt(9000)).toString()
+        val to = Geo.PLACES[dest.name] ?: Geo.fromPercent(dest.x, dest.y)
+        val id = Cloud.createRide(mapOf("riderName" to u.name, "riderPhone" to u.phone, "riderUp" to u.up, "riderDown" to u.down, "pickupArea" to Geo.nearestArea(me), "pickupLat" to me.lat, "pickupLng" to me.lng,
+            "destName" to dest.name, "destLat" to to.lat, "destLng" to to.lng, "km" to dest.km, "fare" to f, "kind" to k.name, "pin" to pin)) ?: run { toast("Sign in again to book a ride."); return }
+        _s.update { it.copy(ride = Ride(id, k, dest, f, RideStatus.SEARCHING, pin)) }; navTo(Routes.SEARCHING)
+        rideReg?.remove(); rideReg = Cloud.listenRide(id) { onRideDoc(id, it) }
+        startNoDriverTimer(id)
+    }
+    /** Stop ringing after 90 s so the rider can retry or switch vehicle type. */
+    private fun startNoDriverTimer(id: String) { ringJob?.cancel(); ringJob = viewModelScope.launch { delay(90_000); if (s.ride?.id == id && s.ride?.status == RideStatus.SEARCHING) Cloud.updateRide(id, mapOf("status" to RideStatus.NO_DRIVER.name)) } }
+    private fun onRideDoc(id: String, d: Map<String, Any>) {
+        val r = s.ride?.takeIf { it.id == id } ?: return
+        val st = runCatching { RideStatus.valueOf(d.str("status")) }.getOrNull() ?: return
+        val du = d["driverUid"] as? String
+        val known = du?.let { x -> repo.drivers.value.firstOrNull { it.id == x } }
+        val pos = d.num("driverLat")?.let { la -> d.num("driverLng")?.let { LatLng(la, it) } }
+        val (dx, dy) = pos?.let { Geo.toPercent(it) } ?: (r.driverX to r.driverY)
+        val driver = du?.let { Driver(it, d.str("driverName"), r.kind, d.str("driverPlate"), d.str("driverModel"), dx, dy, pos?.let { p -> Geo.distanceKm(p, mePos) } ?: 0.0, known?.up ?: 0, known?.down ?: 0, true, d.str("driverPhone")) }
+        val to = LatLng(d.num("destLat") ?: mePos.lat, d.num("destLng") ?: mePos.lng)
+        val progress = if (st == RideStatus.IN_RIDE && pos != null) (1 - Geo.distanceKm(pos, to) / r.dest.km.coerceAtLeast(0.1)).toFloat().coerceIn(0f, 1f) else r.progress
+        val eta = pos?.let { p -> max(1, (Geo.distanceKm(p, mePos) * 2.5).roundToInt()) } ?: r.etaMin
+        _s.update { it.copy(ride = r.copy(status = st, driver = driver, driverX = dx, driverY = dy, etaMin = eta, progress = progress)) }
+        if (st == r.status) return
+        when (st) {
+            RideStatus.MATCHED -> { ringJob?.cancel(); navTo(Routes.DRIVER_FOUND) }
+            RideStatus.SEARCHING -> { toast("Your rider cancelled. Ringing others nearby."); navTo(Routes.SEARCHING); startNoDriverTimer(id) }
+            RideStatus.ARRIVED -> toast("Your rider is here. Share PIN ${r.pin} to start.")
+            RideStatus.IN_RIDE -> navTo(Routes.IN_RIDE)
+            RideStatus.COMPLETED -> navTo(Routes.PAY)
+            else -> {}
+        }
+    }
+
+    // ---------- Firebase: driver ----------
+    /** Publishes online/offline and, while online, listens for requests for this vehicle type. */
+    private fun syncDriverCloud() {
+        openRidesReg?.remove(); openRidesReg = null; heartbeatJob?.cancel()
+        val u = s.user ?: return; val v = s.pro?.vehicle ?: return
+        Cloud.publishDriver(u, v, s.me, s.vehicleOnline)
+        if (!s.vehicleOnline) return
+        openRidesReg = Cloud.listenOpenRides(v.kind) { onOpenRides(it) }
+        // Keeps this driver visible to riders while standing still (drivers unseen for 5 minutes drop off).
+        heartbeatJob = viewModelScope.launch { while (true) { delay(60_000); val uu = s.user ?: break; val vv = s.pro?.vehicle ?: break; if (!s.vehicleOnline) break; Cloud.publishDriver(uu, vv, s.me, true) } }
+    }
+    private fun onOpenRides(list: List<Pair<String, Map<String, Any>>>) {
+        openRides = list
+        val cur = s.driverRide
+        if (cur != null && cur.status == DriverRideStatus.RINGING && list.none { it.first == cur.id }) { drvRingJob?.cancel(); _s.update { it.copy(driverRide = null) }; toast("That request was taken or cancelled.") }
+        ringNextCloud()
+    }
+    /** Rings the nearest open request within 5 km, if this driver is free. */
+    private fun ringNextCloud() {
+        if (!cloud || s.driverRide != null || s.ride != null || !s.vehicleOnline) return
+        val me = s.me ?: return; val stale = System.currentTimeMillis() - 3 * 60_000L
+        val next = openRides.mapNotNull { (rid, d) -> val lat = d.num("pickupLat"); val lng = d.num("pickupLng")
+            if (lat == null || lng == null || rid in passed || d.str("riderUid") == Cloud.uid || (d.millis("createdAt") ?: Long.MAX_VALUE) < stale) null else Triple(rid, d, LatLng(lat, lng)) }
+            .filter { Geo.distanceKm(me, it.third) <= 5.0 }.minByOrNull { Geo.distanceKm(me, it.third) } ?: return
+        val (id, d, pickup) = next
+        val drop = LatLng(d.num("destLat") ?: pickup.lat, d.num("destLng") ?: pickup.lng)
+        val dr = DriverRide(id, DriverRideStatus.RINGING, d.str("riderName").ifBlank { "Customer" }, Trust(d.int("riderUp"), d.int("riderDown")), d.str("pickupArea").ifBlank { Geo.nearestArea(pickup) }, d.str("destName"),
+            d.num("km") ?: 0.0, d.int("fare"), d.str("pin"), 15, (Geo.distanceKm(me, pickup) * 10).roundToInt() / 10.0, kind = s.pro?.vehicle?.kind ?: VehicleKind.BIKE, driver = me, pickup = pickup, drop = drop, customerPhone = d.str("riderPhone"))
+        _s.update { it.copy(driverRide = dr) }; if (s.pending == null) navTo(Routes.HOME)
+        startRingCountdown()
+    }
+    private fun acceptCloud() {
+        val dr = s.driverRide ?: return; val u = s.user ?: return; val v = s.pro?.vehicle ?: return
+        val fields = mutableMapOf<String, Any>("driverName" to u.name, "driverPhone" to u.phone, "driverModel" to v.model, "driverPlate" to v.plate)
+        s.me?.let { fields["driverLat"] = it.lat; fields["driverLng"] = it.lng }
+        Cloud.claimRide(dr.id, fields) { ok ->
+            if (!ok) { passed += dr.id; _s.update { it.copy(driverRide = null) }; toast("Too late. Another rider took it."); ringNextCloud(); return@claimRide }
+            _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.TO_PICKUP, progress = 0f)) }; toast("It's yours. Head to the pick-up.")
+            driverRideReg?.remove(); driverRideReg = Cloud.listenRide(dr.id) { d -> onDriverRideDoc(dr.id, d) }
+        }
+    }
+    private fun onDriverRideDoc(id: String, d: Map<String, Any>) {
+        val cur = s.driverRide?.takeIf { it.id == id } ?: return
+        when (d.str("status")) {
+            RideStatus.CANCELLED.name -> { stopWatchingDriverRide(); _s.update { it.copy(driverRide = null) }; toast("The customer cancelled this ride."); ringNextCloud() }
+            RideStatus.PAID.name -> if (cur.status == DriverRideStatus.DONE && cur.paidWith == null) toast("The customer says they paid by ${d.str("paidWith")}.")
+        }
+    }
+    private fun stopWatchingDriverRide() { driverRideReg?.remove(); driverRideReg = null }
+    /** Real position replaces the simulated drive: it moves the car for the rider and updates distance left for the driver. */
+    private fun onDriverMoved(p: LatLng) {
+        val dr = s.driverRide?.takeIf { it.status in setOf(DriverRideStatus.TO_PICKUP, DriverRideStatus.ARRIVED, DriverRideStatus.IN_RIDE) }
+        Cloud.updateDriverPosition(p, dr?.id)
+        if (dr == null) { ringNextCloud(); return }
+        val pickup = dr.pickup ?: return; val drop = dr.drop ?: return
+        val progress = if (dr.status == DriverRideStatus.IN_RIDE) (1 - Geo.distanceKm(p, drop) / Geo.distanceKm(pickup, drop).coerceAtLeast(0.1)).toFloat().coerceIn(0f, 1f) else 0f
+        _s.update { it.copy(driverRide = dr.copy(driver = p, pickupKm = (Geo.distanceKm(p, pickup) * 10).roundToInt() / 10.0, progress = progress)) }
+    }
 
     class Factory(private val repo: BucksRepository) : ViewModelProvider.Factory { @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T = BucksViewModel(repo) as T }
 }

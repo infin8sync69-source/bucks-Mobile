@@ -7,6 +7,8 @@ activityCompose = "1.9.2"
 composeBom = "2024.09.03"
 navigation = "2.8.1"
 coroutines = "1.8.1"
+firebaseBom = "33.7.0"
+googleServices = "4.4.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -30,9 +32,13 @@ androidx-biometric = { group = "androidx.biometric", name = "biometric", version
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version = "21.3.0" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version = "1.0.1" }
 osmdroid = { group = "org.osmdroid", name = "osmdroid-android", version = "6.1.20" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

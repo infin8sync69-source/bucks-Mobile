@@ -34,6 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.dial
+import com.bucks.app.ui.sms
+import com.bucks.app.ui.shareText
+import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 import com.google.zxing.BarcodeFormat
@@ -90,7 +94,7 @@ fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Uni
             BucksCard(Modifier.weight(1f), onClick = { onDismiss(); onEarnings() }, padding = 14) { Text("₹${s.earnings}", style = MaterialTheme.typography.titleLarge); Muted("Today") }
             BucksCard(Modifier.weight(1f), onClick = { onDismiss(); onListings() }, padding = 14) { Text("${s.incoming.size}", style = MaterialTheme.typography.titleLarge); Muted("Incoming") } }
         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (s.vehicleOnline) TintButton("Simulate a ride request", Modifier.weight(1f)) { onDismiss(); vm.simulateRing() }
+            if (s.vehicleOnline && !vm.cloud) TintButton("Simulate a ride request", Modifier.weight(1f)) { onDismiss(); vm.simulateRing() }
             if (s.businesses.any { it.online } || s.pro?.skillListings?.any { it.online } == true) TintButton("Simulate an order", Modifier.weight(1f)) { onDismiss(); vm.simulateIncoming() } }
     } }
 }
@@ -107,6 +111,7 @@ private fun qr(text: String, size: Int = 512): Bitmap { val m = QRCodeWriter().e
 @Composable
 fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit) {
     val s by vm.state.collectAsState(); val dr = s.driverRide ?: return
+    val ctx = LocalContext.current
     var pin by remember(dr.id) { mutableStateOf("") }; var cash by remember(dr.id) { mutableStateOf(false) }; var stars by remember(dr.id) { mutableIntStateOf(0) }; var cancel by remember { mutableStateOf(false) }
     val me = dr.driver ?: Geo.CENTER; val pickup = dr.pickup ?: me; val drop = dr.drop ?: me
     fun lerp(a: LatLng, b: LatLng, t: Float) = LatLng(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t)
@@ -125,13 +130,13 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
                     DriverRideStatus.TO_PICKUP -> {
                         Text(dr.customer, style = MaterialTheme.typography.titleMedium)
                         Row(Modifier.padding(top = 4.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { Muted("${maxOf(1, ((1 - dr.progress) * dr.pickupKm * 4).toInt())} mins"); Muted("Pickup: ${metres(dr.pickupKm * (1 - dr.progress))}") }
-                        MessageBar("Message your customer", onCall = { onCall(dr.customer, "+91 98450 00000") }) { onChatWith(dr.customer, "Customer") }
+                        MessageBar("Message your customer", onCall = { if (vm.cloud) dial(ctx, dr.customerPhone) else onCall(dr.customer, "+91 98450 00000") }) { if (vm.cloud) sms(ctx, dr.customerPhone) else onChatWith(dr.customer, "Customer") }
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) { TextButton({ cancel = true }) { Text("Cancel ride", color = MaterialTheme.colorScheme.error) }; TextButton({ vm.driverNext() }) { Text("I've arrived") } }
                     }
                     DriverRideStatus.ARRIVED -> {
                         Text("Enter customer's PIN", style = MaterialTheme.typography.titleMedium)
                         PinBoxes(pin, Modifier.padding(top = 20.dp, bottom = 8.dp), onDone = { if (pin.length == 4 && vm.driverNext(pin)) pin = "" }) { pin = it }
-                        Muted("Demo build: the customer's PIN is ${dr.pin}", Modifier.padding(bottom = 14.dp))
+                        Muted(if (vm.cloud) "Ask the customer to read out the 4-digit PIN on their screen." else "Demo build: the customer's PIN is ${dr.pin}", Modifier.padding(bottom = 14.dp))
                         DarkButton("Confirm PIN", enabled = pin.length == 4) { if (vm.driverNext(pin)) pin = "" }
                     }
                     DriverRideStatus.IN_RIDE -> {

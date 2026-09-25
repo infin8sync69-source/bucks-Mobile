@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+// Firebase (phone sign-in, live rides) switches on when app/google-services.json exists; without it the app runs its on-device demo.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 android {
     namespace = "com.bucks.app"
@@ -57,5 +59,8 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.osmdroid)
     implementation(libs.zxing.core)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -36,7 +36,7 @@ data class Provider(
 
 data class Driver(
     val id: String, val name: String, val vehicle: VehicleKind, val plate: String, val model: String,
-    val x: Float, val y: Float, val distanceKm: Double, val up: Int, val down: Int, val online: Boolean,
+    val x: Float, val y: Float, val distanceKm: Double, val up: Int, val down: Int, val online: Boolean, val phone: String = "",
 ) { val trust get() = Trust(up, down); val pos: LatLng get() = Geo.fromPercent(x, y) }
 
 data class Post(
@@ -85,7 +85,7 @@ enum class DriverRideStatus { RINGING, TO_PICKUP, ARRIVED, IN_RIDE, DONE, RATE }
 data class DriverRide(
     val id: String, val status: DriverRideStatus, val customer: String, val customerTrust: Trust,
     val pickupAt: String, val dropAt: String, val km: Double, val fare: Int, val pin: String, val secondsLeft: Int, val pickupKm: Double,
-    val kind: VehicleKind = VehicleKind.BIKE, val driver: LatLng? = null, val pickup: LatLng? = null, val drop: LatLng? = null, val progress: Float = 0f, val paidWith: String? = null,
+    val kind: VehicleKind = VehicleKind.BIKE, val driver: LatLng? = null, val pickup: LatLng? = null, val drop: LatLng? = null, val progress: Float = 0f, val paidWith: String? = null, val customerPhone: String = "",
 )
 
 enum class OrderStatus(val label: String) { REQUESTED("Requested"), ACCEPTED("Accepted by vendor"), PREPARING("Preparing"), OUT("Out for delivery"), DELIVERED("Delivered") }

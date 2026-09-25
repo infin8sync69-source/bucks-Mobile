@@ -28,6 +28,8 @@ interface BucksRepository {
     fun updateDistances(me: LatLng)
     fun voteDriver(id: String, up: Boolean)
     fun setDriverOnline(id: String, online: Boolean)
+    /** Swap in the live driver list from the server; distances are measured from [me]. */
+    fun replaceDrivers(list: List<Driver>, me: LatLng)
 
     fun addPost(p: Post)
     fun votePost(id: String, delta: Int, prev: Int)
@@ -81,6 +83,7 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
     }
     override fun voteDriver(id: String, up: Boolean) = drivers.update { l -> l.map { if (it.id == id) it.copy(up = it.up + if (up) 1 else 0, down = it.down + if (up) 0 else 1) else it } }
     override fun setDriverOnline(id: String, online: Boolean) = drivers.update { l -> l.map { if (it.id == id) it.copy(online = online) else it } }
+    override fun replaceDrivers(list: List<Driver>, me: LatLng) { drivers.value = list.map { it.copy(distanceKm = Math.round(Geo.distanceKm(me, it.pos) * 10) / 10.0) } }
 
     override fun addPost(p: Post) = posts.update { listOf(p) + it }
     override fun votePost(id: String, delta: Int, prev: Int) = posts.update { l ->

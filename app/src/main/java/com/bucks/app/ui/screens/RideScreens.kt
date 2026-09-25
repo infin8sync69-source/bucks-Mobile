@@ -26,6 +26,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.dial
+import com.bucks.app.ui.sms
+import com.bucks.app.ui.shareText
+import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 
@@ -138,7 +142,7 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
 @Composable
 fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
-    val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }
+    val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }; val ctx = LocalContext.current
     val me = vm.mePos; val car = Geo.fromPercent(r.driverX, r.driverY)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) { BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MaterialTheme.colorScheme.primary, true), pinAt(car, d.name.substringBefore(' '), MaterialTheme.status.good)), zoom = 15.0, route = listOf(car, me)); MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
@@ -155,10 +159,11 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
                 }
             }
             Muted("Share this PIN with your rider when they arrive.", Modifier.padding(top = 6.dp))
-            Box(Modifier.padding(vertical = 14.dp)) { MessageBar("Message your driver", onCall = { onCall(d.name, "+91 98450 12345") }) { onChatWith(d.name, "Rider") } }
-            RoutePoints(s.user?.area ?: "Current location", r.dest.name) { Icon(Icons.Rounded.Share, "Share trip", Modifier.size(18.dp).clickable { showToast("Live trip link copied") }) }
+            Box(Modifier.padding(vertical = 14.dp)) { MessageBar("Message your driver", onCall = { if (vm.cloud) dial(ctx, d.phone) else onCall(d.name, "+91 98450 12345") }) { if (vm.cloud) sms(ctx, d.phone) else onChatWith(d.name, "Rider") } }
+            RoutePoints(s.user?.area ?: "Current location", r.dest.name) { Icon(Icons.Rounded.Share, "Share trip", Modifier.size(18.dp).clickable { if (vm.cloud) shareText(ctx, "I'm on a Bucks ride to ${r.dest.name} with ${d.name}, ${d.model} ${d.plate}.") else showToast("Live trip link copied") }) }
             Row(Modifier.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) { Text("Total fare", style = MaterialTheme.typography.titleMedium); Text("  ₹${r.fare}", style = MaterialTheme.typography.titleLarge) }
-            if (arrived) DarkButton("Rider has my PIN · Start trip", Modifier.padding(bottom = 10.dp)) { vm.startTrip() }
+            // With Firebase the driver starts the trip once they've entered your PIN.
+            if (arrived && !vm.cloud) DarkButton("Rider has my PIN · Start trip", Modifier.padding(bottom = 10.dp)) { vm.startTrip() }
             GhostButton("Cancel ride") { cancel = true }
         } }
     }
@@ -172,7 +177,7 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
 
 @Composable
 fun InRideScreen(vm: BucksViewModel, showToast: (String) -> Unit) {
-    val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
+    val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return; val ctx = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
         SimMap(Modifier.weight(1f).fillMaxWidth(), listOf(MapPin(r.dest.x, r.dest.y, r.dest.name, MaterialTheme.status.bad), MapPin(r.driverX, r.driverY, "You", MaterialTheme.status.good, true)), route = Offset(r.driverX, r.driverY) to Offset(r.dest.x, r.dest.y))
@@ -180,7 +185,7 @@ fun InRideScreen(vm: BucksViewModel, showToast: (String) -> Unit) {
             Text("On the way to ${r.dest.name}", style = MaterialTheme.typography.titleLarge)
             Muted("${"%.1f".format((1 - r.progress) * r.dest.km)} km left · ${d.name} · ${d.plate}")
             LinearProgressIndicator(progress = { r.progress }, modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp).height(6.dp).clip(CircleShape), trackColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { IconAction(Icons.Rounded.Sos, "SOS") { showToast("Emergency contacts notified with live location") }; IconAction(Icons.Rounded.Share, "Share trip") { showToast("Live trip link copied") } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { IconAction(Icons.Rounded.Sos, "SOS") { if (vm.cloud) dial(ctx, "112") else showToast("Emergency contacts notified with live location") }; IconAction(Icons.Rounded.Share, "Share trip") { if (vm.cloud) shareText(ctx, "I'm on a Bucks ride to ${r.dest.name} with ${d.name}, ${d.model} ${d.plate}.") else showToast("Live trip link copied") } }
         }
     }
 }

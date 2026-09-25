@@ -11,6 +11,8 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +23,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.findActivity
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.Purple
 import com.bucks.app.ui.theme.PurpleDeep
@@ -50,8 +53,9 @@ fun LoginScreen(vm: BucksViewModel, onSent: () -> Unit, onSignedIn: () -> Unit, 
     ContentColumn { BucksTopBar()
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
             Headline("Sign in")
-            Muted("Use your mobile number for a one-time code, or your email and password.", Modifier.padding(top = 8.dp, bottom = 20.dp))
-            Row(Modifier.padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Mobile number", selected = mode == "Mobile number") { mode = "Mobile number" }; Chip("Email", selected = mode == "Email") { mode = "Email" } }
+            // With Firebase on, sign-in is by mobile number only: the email accounts live on this device and can't book real rides.
+            Muted(if (vm.cloud) "We'll text a one-time code to your mobile number." else "Use your mobile number for a one-time code, or your email and password.", Modifier.padding(top = 8.dp, bottom = 20.dp))
+            if (!vm.cloud) Row(Modifier.padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Mobile number", selected = mode == "Mobile number") { mode = "Mobile number" }; Chip("Email", selected = mode == "Email") { mode = "Email" } }
             if (mode == "Mobile number") {
                 Label("Mobile number")
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -66,7 +70,7 @@ fun LoginScreen(vm: BucksViewModel, onSent: () -> Unit, onSignedIn: () -> Unit, 
                 PrimaryButton("Sign in", Modifier.padding(top = 6.dp)) { if (vm.signInEmail(email, password)) { if (vm.isLoggedIn) onSignedIn() else onSent() } }
                 TextButton(onClick = { showToast("Reset link sent to $email") }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Forgot password?") }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Muted("New to Bucks?"); TextButton(onClick = onSignUp) { Text("Create an account") } }
+            if (!vm.cloud) Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Muted("New to Bucks?"); TextButton(onClick = onSignUp) { Text("Create an account") } }
             Muted("By continuing you agree to the community rules: review honestly, one account per person.", Modifier.padding(top = 8.dp).fillMaxWidth(), TextAlign.Center)
         }
     }
@@ -90,14 +94,19 @@ fun SignUpEmailScreen(vm: BucksViewModel, onBack: () -> Unit, onCreated: () -> U
 
 @Composable
 fun OtpScreen(vm: BucksViewModel, phone: String, onBack: () -> Unit, onVerified: () -> Unit, showToast: (String) -> Unit) {
-    var code by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }
+    val length = if (vm.cloud) 6 else 4
+    val activity = LocalContext.current.findActivity()
+    // Send the SMS once per visit, not again on rotation.
+    var sent by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { if (!sent && activity != null) { sent = true; vm.sendOtp(activity, onSignedIn = onVerified) } }
     ContentColumn { BucksTopBar(onBack = onBack)
         Column(Modifier.padding(20.dp)) {
             Headline("Enter the code")
-            Muted("Sent to +91 $phone. In this build the code is 1234.", Modifier.padding(top = 8.dp, bottom = 28.dp))
-            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(4) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
-            PrimaryButton("Verify", Modifier.padding(top = 20.dp)) { if (vm.verifyOtp(code)) onVerified() else showToast("Wrong code. Try 1234.") }
-            TextButton(onClick = { showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
+            Muted(if (vm.cloud) "We sent a $length-digit code to +91 $phone." else "Sent to +91 $phone. In this build the code is 1234.", Modifier.padding(top = 8.dp, bottom = 28.dp))
+            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(length) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
+            PrimaryButton(if (busy) "Checking…" else "Verify", Modifier.padding(top = 20.dp), enabled = !busy && code.length == length) { busy = true; vm.verifyOtp(code) { ok -> busy = false; if (ok) onVerified() } }
+            TextButton(onClick = { if (vm.cloud) activity?.let { vm.sendOtp(it, resend = true, onSignedIn = onVerified) } else showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
         }
     }
 }

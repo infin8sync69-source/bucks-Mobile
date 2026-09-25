@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Ride-hailing pilot. Deploy with `firebase deploy --only firestore:rules`, or paste into
+// Firebase console > Firestore > Rules and press Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function unchanged(k) { return request.resource.data.get(k, null) == resource.data.get(k, null); }
+    function bump(k) { return request.resource.data.get(k, 0) - resource.data.get(k, 0); }
+
+    // drivers/{uid}: written by the driver; riders may add one recommendation (up or down) at a time.
+    match /drivers/{uid} {
+      allow read: if signedIn();
+      allow create, delete: if signedIn() && me() == uid;
+      allow update: if signedIn() && (
+        (me() == uid && unchanged('up') && unchanged('down')) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['up', 'down'])
+          && bump('up') in [0, 1] && bump('down') in [0, 1] && bump('up') + bump('down') == 1));
+    }
+
+    // rides/{id}: created by the rider; any driver can see and claim a waiting ride; after that only
+    // the rider and the assigned driver can read or change it.
+    match /rides/{rideId} {
+      function isRider() { return resource.data.riderUid == me(); }
+      function isDriver() { return resource.data.get('driverUid', null) == me(); }
+      function next() { return request.resource.data.status; }
+
+      allow read: if signedIn() && (resource.data.status == 'SEARCHING' || isRider() || isDriver());
+      allow create: if signedIn() && request.resource.data.riderUid == me() && next() == 'SEARCHING';
+      allow update: if signedIn() && unchanged('riderUid') && (
+        // Rider: cancel, give up while still waiting, or mark paid. Never assigns a driver.
+        (isRider() && unchanged('driverUid')
+          && next() in ['CANCELLED', 'NO_DRIVER', 'PAID', resource.data.status]
+          && (next() != 'NO_DRIVER' || resource.data.status == 'SEARCHING')) ||
+        // Driver: claim a waiting ride for themselves.
+        (resource.data.status == 'SEARCHING' && next() == 'MATCHED' && request.resource.data.driverUid == me()) ||
+        // Assigned driver: move the trip along and share position, or hand it back to the queue.
+        (isDriver() && request.resource.data.get('driverUid', null) == me() && next() in ['MATCHED', 'ARRIVED', 'IN_RIDE', 'COMPLETED']) ||
+        (isDriver() && request.resource.data.get('driverUid', null) == null && next() == 'SEARCHING'));
+    }
+  }
+}
