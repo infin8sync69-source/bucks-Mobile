@@ -14,12 +14,11 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
 
       # Optional: add the whole google-services.json as a repository secret named GOOGLE_SERVICES_JSON
@@ -30,8 +29,10 @@ jobs:
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then echo "$GOOGLE_SERVICES_JSON" > app/google-services.json; echo "Firebase: on"; else echo "Firebase: off (demo mode)"; fi
 
+      # The runner image ships the Android SDK; Gradle installs any missing platform itself.
       - name: Build debug APK
         run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk bucks-pilot-${{ github.run_number }}.apk
