@@ -18,6 +18,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -129,7 +136,7 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
         SimMap(Modifier.weight(1f).fillMaxWidth(), listOf(MapPin(s.meX, s.meY, "You", MeColor, true), MapPin(r.dest.x, r.dest.y, r.dest.name, MaterialTheme.status.bad)) + drivers.filter { it.online && it.vehicle == r.kind }.map { MapPin(it.x, it.y, "", MaterialTheme.colorScheme.primary) }, radiusAt = Offset(s.meX, s.meY))
         Sheet {
             if (r.status == RideStatus.SEARCHING) {
-                Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(40.dp), strokeWidth = 3.dp); Column(Modifier.padding(start = 16.dp)) { Text("Ringing $n rider${if (n > 1) "s" else ""}", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · within 5 km · first to accept gets the ride") } }
+                Row(verticalAlignment = Alignment.CenterVertically) { PulseRings(Modifier.size(56.dp)) { Icon(r.kind.icon, null, Modifier.size(26.dp).breathe(amount = 0.08f), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 12.dp)) { Text("Ringing $n rider${if (n > 1) "s" else ""}", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · within 5 km · first to accept gets the ride") } }
                 BadButton("Cancel request", Modifier.padding(top = 14.dp)) { vm.cancelRide("Changed my mind") }
             } else {
                 Text("No rider accepted", style = MaterialTheme.typography.titleLarge); Muted(if (n > 0) "All nearby riders were busy. Try again or switch vehicle type." else "Nobody is online nearby.")
@@ -147,14 +154,17 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) { BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MaterialTheme.colorScheme.primary, true), pinAt(car, d.name.substringBefore(' '), MaterialTheme.status.good)), zoom = 15.0, route = listOf(car, me)); MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet { Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
-            Text(if (arrived) "Your rider is here" else "Pick-up in ${r.etaMin} min", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.CenterHorizontally))
+            // The headline slides to the new status so "your rider is here" can't be missed.
+            AnimatedContent(if (arrived) "Your rider is here" else "Pick-up in ${r.etaMin} min", Modifier.align(Alignment.CenterHorizontally), transitionSpec = {
+                (slideInVertically(tween(Motion.MEDIUM, easing = Motion.Emphasized)) { it / 2 } + fadeIn(tween(Motion.MEDIUM))) togetherWith (slideOutVertically(tween(Motion.SHORT)) { -it / 2 } + fadeOut(tween(Motion.SHORT))) }, label = "rideHeadline") { t ->
+                Text(t, style = MaterialTheme.typography.titleMedium, color = if (arrived) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurface) }
             HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) { Avatar(initials(d.name), size = 44); Spacer(Modifier.height(4.dp)); TrustBadge(d.trust, compact = true) }
                 Icon(d.vehicle.icon, null, Modifier.padding(start = 12.dp).size(44.dp))
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { r.pin.forEach { c -> Box(Modifier.size(26.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall) } } }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { r.pin.forEachIndexed { i, c -> Box(Modifier.size(26.dp).popIn(i).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall) } } }
                     Text(d.plate, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 6.dp)); Muted(d.model); Muted(d.name)
                 }
             }
@@ -195,9 +205,9 @@ fun PayScreen(vm: BucksViewModel) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
     ContentColumn { BucksTopBar()
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp).padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Avatar(icon = Icons.Rounded.Flag, size = 64)
+            Box(Modifier.popIn()) { Avatar(icon = Icons.Rounded.Flag, size = 64) }
             Headline("Arrived at ${r.dest.name}", Modifier.padding(top = 16.dp)); Muted("${r.dest.km} km with ${d.name}", align = TextAlign.Center)
-            BucksCard(Modifier.padding(vertical = 22.dp), tint = true) { Muted("Total payable", Modifier.align(Alignment.CenterHorizontally)); Text("₹${r.fare}", style = MaterialTheme.typography.displaySmall, modifier = Modifier.align(Alignment.CenterHorizontally)) }
+            BucksCard(Modifier.padding(vertical = 22.dp), tint = true) { Muted("Total payable", Modifier.align(Alignment.CenterHorizontally)); Text("₹${animatedInt(r.fare)}", style = MaterialTheme.typography.displaySmall, modifier = Modifier.align(Alignment.CenterHorizontally)) }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { DarkButton("Pay cash") { vm.payRide("Cash") }; GhostButton("Google Pay") { vm.payRide("Google Pay") }; GhostButton("Amazon Pay") { vm.payRide("Amazon Pay") }; GhostButton("Scan rider's QR") { vm.payRide("Rider QR") } }
         }
     }

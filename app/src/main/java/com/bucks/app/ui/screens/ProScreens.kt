@@ -85,7 +85,7 @@ fun EarningsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val s by vm.state.collectAsState()
     ContentColumn { BucksTopBar("Earnings", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
-            BucksCard(tint = true) { Muted("Today"); Text("₹${s.earnings}", style = MaterialTheme.typography.displaySmall); Muted("Bucks takes no cut in this build. The fee model is a product decision.") }
+            BucksCard(tint = true) { Muted("Today"); Text("₹${animatedInt(s.earnings)}", style = MaterialTheme.typography.displaySmall); Muted("Bucks takes no cut in this build. The fee model is a product decision.") }
             Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { BucksCard(Modifier.weight(1f)) { Text("${s.rides.size}", style = MaterialTheme.typography.titleLarge); Muted("Trips") }; BucksCard(Modifier.weight(1f)) { Text("${s.user?.up ?: 0}", style = MaterialTheme.typography.titleLarge); Muted("Recommend") }; BucksCard(Modifier.weight(1f)) { Text("${s.user?.down ?: 0}", style = MaterialTheme.typography.titleLarge); Muted("Not recommended") } }
             SectionTitle("Vehicle documents", Modifier.padding(top = 22.dp, bottom = 10.dp))
             listOf("Registration certificate" to true, "Insurance" to true, "Driving licence" to false, "Permit (autos and cabs)" to false).forEach { doc -> BucksCard(Modifier.padding(bottom = 10.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(doc.first, Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium); if (doc.second) PillGood("Approved") else PillWarn("Upload") } } }

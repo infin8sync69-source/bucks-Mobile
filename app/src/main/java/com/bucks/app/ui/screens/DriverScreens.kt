@@ -20,6 +20,9 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,17 +59,20 @@ private fun metres(km: Double) = if (km < 1) "${(km * 1000).toInt()}m" else "${k
 /** The incoming ride card on Home (driver online). Accept before the countdown runs out. */
 @Composable
 fun RideRequestCard(dr: DriverRide, onAccept: () -> Unit, onDecline: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier.fillMaxWidth().padding(horizontal = 16.dp), shape = MaterialTheme.shapes.large, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
+    // Slides up with a small overshoot; the countdown bar drains smoothly instead of in 1-second steps.
+    val left by animateFloatAsState(dr.secondsLeft / 15f, tween(1000, easing = LinearEasing), label = "countdown")
+    val urgent = dr.secondsLeft <= 5
+    Surface(modifier.popIn().fillMaxWidth().padding(horizontal = 16.dp), shape = MaterialTheme.shapes.large, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) { BrandPill(dr.kind.label); Spacer(Modifier.weight(1f)); IconButton(onDecline, Modifier.size(28.dp)) { Icon(Icons.Rounded.Close, "Decline") } }
-            Text("₹${dr.fare}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(top = 8.dp))
+            Text("₹${animatedInt(dr.fare)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(top = 8.dp))
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(dr.customer), size = 36)
                 Column(Modifier.padding(start = 10.dp)) { Text(dr.customer, style = MaterialTheme.typography.titleSmall); TrustBadge(dr.customerTrust, compact = true) } }
             RoutePoints(dr.pickupAt, dr.dropAt)
             Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) { Muted("Pickup: ${metres(dr.pickupKm)}"); Muted("Drop: ${dr.km}km") }
             // Accept button doubles as the countdown: the darker part shrinks as time runs out.
-            Box(Modifier.fillMaxWidth().height(44.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)).clickable(onClick = withHaptic(onAccept))) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(dr.secondsLeft / 15f).background(MaterialTheme.colorScheme.primary))
+            Box(Modifier.breathe(amount = if (urgent) 0.035f else 0.015f, periodMs = if (urgent) 450 else 900).fillMaxWidth().height(44.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)).clickable(onClick = withHaptic(onAccept))) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(left).background(MaterialTheme.colorScheme.primary))
                 Text("Accept · ${dr.secondsLeft}s", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.Center))
             }
         }
@@ -75,7 +81,10 @@ fun RideRequestCard(dr: DriverRide, onAccept: () -> Unit, onDecline: () -> Unit,
 
 /** Round "bucks" button shown on Home while any listing is online. */
 @Composable
-fun OnlineFab(modifier: Modifier = Modifier, onClick: () -> Unit) = Box(modifier.size(72.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+fun OnlineFab(modifier: Modifier = Modifier, onClick: () -> Unit) = PulseRings(modifier.size(104.dp), periodMs = 2600) { OnlineFabCore(onClick) }
+/** Round "bucks" button; the rings around it say "you're live and receiving". */
+@Composable
+private fun OnlineFabCore(onClick: () -> Unit) = Box(Modifier.size(72.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
     Text("bucks", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)) }
 
 @OptIn(ExperimentalMaterial3Api::class)

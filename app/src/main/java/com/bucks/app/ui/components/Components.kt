@@ -15,6 +15,15 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,9 +96,12 @@ fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
     // Plain equal-width items: Material's NavigationBarItem padding clips "Recommended" on phones.
     Column(Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding()) { HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.fillMaxWidth().height(76.dp)) {
-            BottomTab.entries.forEach { t -> val c = if (t == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            BottomTab.entries.forEach { t -> val sel = t == current
+                val c by animateColorAsState(if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, tween(Motion.MEDIUM), label = "tabColor")
+                // The newly selected icon hops up and settles; the others stay still.
+                val lift by animateFloatAsState(if (sel) 1f else 0f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), label = "tabLift")
                 Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Icon(t.icon, t.label, Modifier.size(28.dp), tint = c)
+                    Icon(t.icon, t.label, Modifier.size(28.dp).graphicsLayer { translationY = -3.dp.toPx() * lift; val sc = 1f + 0.08f * lift; scaleX = sc; scaleY = sc }, tint = c)
                     Text(t.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.sp), color = c, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 4.dp))
                 } }
         }
@@ -106,11 +118,11 @@ fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 /* ---------- buttons ---------- */
 /** A short tick on confirming actions; wraps a click so the feedback and the action always go together. */
 @Composable fun withHaptic(onClick: () -> Unit): () -> Unit { val h = LocalHapticFeedback.current; return { h.performHapticFeedback(HapticFeedbackType.LongPress); onClick() } }
-@Composable fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = MaterialTheme.shapes.medium) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun DarkButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = OutlinedButton(onClick, modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun TintButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Button(onClick, modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) { Text(text, style = MaterialTheme.typography.labelLarge) }
-@Composable fun GoodButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = Button(onClick, modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Good, contentColor = Color.White)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, enabled = enabled, shape = MaterialTheme.shapes.medium) { Text(text, style = MaterialTheme.typography.labelLarge) } }
+@Composable fun DarkButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; Button(withHaptic(onClick), modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, enabled = enabled, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
+@Composable fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; OutlinedButton(onClick, modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
+@Composable fun TintButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; Button(onClick, modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
+@Composable fun GoodButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; Button(onClick, modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Good, contentColor = Color.White)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
 @Composable fun BadButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = TextButton(onClick, modifier.fillMaxWidth().height(48.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(text, style = MaterialTheme.typography.labelLarge) }
 @Composable fun SmallButton(text: String, modifier: Modifier = Modifier, tonal: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) =
     if (tonal) FilledTonalButton(onClick, modifier.height(38.dp), enabled = enabled, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }

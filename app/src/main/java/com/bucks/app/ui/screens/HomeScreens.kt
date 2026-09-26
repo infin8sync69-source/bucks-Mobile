@@ -19,6 +19,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.Role
@@ -73,7 +77,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp))
                 Sheet { panel(); Spacer(Modifier.height(24.dp)) }
             }
-            if (s.receiving) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter, bottom = 190.dp)) { showOnline = true }
+            if (s.receiving) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
             s.driverRide?.takeIf { it.status == DriverRideStatus.RINGING }?.let { dr -> RideRequestCard(dr, onAccept = { vm.driverAccept() }, onDecline = { vm.driverDecline() }, modifier = Modifier.align(Alignment.Center)) }
         }
     }
@@ -87,10 +91,13 @@ private val OFFERS = listOf(Offer("Taxi", Icons.Rounded.LocalTaxi), Offer("Jobs"
     Offer("Book Tickets", Icons.Rounded.ConfirmationNumber), Offer("Delivery", Icons.Rounded.LocalShipping), Offer("Community", Icons.Rounded.Groups), Offer("Networks", Icons.Rounded.People), Offer("Banking", Icons.Rounded.AccountBalance))
 
 @Composable
-private fun OfferTile(o: Offer, modifier: Modifier, onClick: () -> Unit) {
+private fun OfferTile(o: Offer, index: Int, modifier: Modifier, onClick: () -> Unit) {
     val fg = if (o.live) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    Box(modifier.height(64.dp)) {
-        Column(Modifier.fillMaxSize().padding(top = 4.dp, end = 4.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onClick).padding(horizontal = 2.dp),
+    val src = remember { MutableInteractionSource() }; var nope by remember { mutableIntStateOf(0) }; val haptic = LocalHapticFeedback.current
+    // Tiles assemble in reading order; a locked tile shakes and its padlock wiggles instead of opening.
+    Box(modifier.height(64.dp).enterStagger(index).shakeOn(nope).pressScale(src, 0.93f)) {
+        Column(Modifier.fillMaxSize().padding(top = 4.dp, end = 4.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer)
+            .clickable(interactionSource = src, indication = LocalIndication.current) { if (!o.live) { nope++; haptic.performHapticFeedback(HapticFeedbackType.LongPress) }; onClick() }.padding(horizontal = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(o.icon, null, tint = fg)
             Text(o.name, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = fg, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -119,7 +126,7 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
                 // Every service gets a tile, 5 per row; locked ones are dimmed with a padlock and only say "coming soon".
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { OFFERS.chunked(5).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { row.forEach { o ->
-                        OfferTile(o, Modifier.weight(1f)) {
+                        OfferTile(o, OFFERS.indexOf(o), Modifier.weight(1f)) {
                             if (!o.live) vm.toast("${o.name} is coming soon")
                             else when (o.name) { "Taxi" -> onRide(); "Jobs" -> onQuery("jobs"); "Foods" -> onQuery("food"); "Shopping" -> onQuery("grocery"); else -> vm.toast("${o.name} is coming soon") }
                         }

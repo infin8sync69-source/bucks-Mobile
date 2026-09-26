@@ -94,7 +94,7 @@ fun SignUpEmailScreen(vm: BucksViewModel, onBack: () -> Unit, onCreated: () -> U
 
 @Composable
 fun OtpScreen(vm: BucksViewModel, phone: String, onBack: () -> Unit, onVerified: () -> Unit, showToast: (String) -> Unit) {
-    var code by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }
+    var code by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; var wrong by remember { mutableIntStateOf(0) }
     val length = if (vm.cloud) 6 else 4
     val activity = LocalContext.current.findActivity()
     // Send the SMS once per visit, not again on rotation.
@@ -104,8 +104,8 @@ fun OtpScreen(vm: BucksViewModel, phone: String, onBack: () -> Unit, onVerified:
         Column(Modifier.padding(20.dp)) {
             Headline("Enter the code")
             Muted(if (vm.cloud) "We sent a $length-digit code to +91 $phone." else "Sent to +91 $phone. In this build the code is 1234.", Modifier.padding(top = 8.dp, bottom = 28.dp))
-            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(length) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
-            PrimaryButton(if (busy) "Checking…" else "Verify", Modifier.padding(top = 20.dp), enabled = !busy && code.length == length) { busy = true; vm.verifyOtp(code) { ok -> busy = false; if (ok) onVerified() } }
+            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(length) }, modifier = Modifier.fillMaxWidth().shakeOn(wrong), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
+            PrimaryButton(if (busy) "Checking…" else "Verify", Modifier.padding(top = 20.dp), enabled = !busy && code.length == length) { busy = true; vm.verifyOtp(code) { ok -> busy = false; if (ok) onVerified() else wrong++ } }
             TextButton(onClick = { if (vm.cloud) activity?.let { vm.sendOtp(it, resend = true, onSignedIn = onVerified) } else showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
         }
     }
