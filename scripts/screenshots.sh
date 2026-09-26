@@ -15,10 +15,10 @@ adb emu geo fix 77.5938 12.9250   # Jayanagar, Bengaluru
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null; sleep 6
 shot welcome
 tap "Get started";                      shot sign_in
-type_in "@edit" 9876543210; tap "Send code"; sleep 1
-type_in "@edit" 1234;                   shot otp
+type_in "@edit:1" 9876543210; tap "Send code"; sleep 1
+type_in "@edit:0" 1234;                   shot otp
 tap "Verify"; sleep 1
-type_in "@edit" "Deepa"; tap "Continue"; shot profile_area
+type_in "@edit:0" "Deepa"; tap "Continue"; shot profile_area
 tap "Continue"; tap "Finish"; sleep 8;  shot home
 tap "Services"; sleep 5;                shot services
 tap "Pay"; sleep 0.5;                   shot locked_service
