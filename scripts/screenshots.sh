@@ -4,15 +4,21 @@ set -u
 PKG=com.bucks.app; mkdir -p shots; n=0
 tap() { for _ in 1 2 3 4 5 6 7 8; do
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
+    # Slow CI emulators sometimes show "<system app> isn't responding"; answer Wait and carry on.
+    if grep -q "isn't responding" /tmp/ui.xml && xy=$(python3 scripts/ui_find.py "Wait" < /tmp/ui.xml); then adb shell input tap $xy; sleep 2; continue; fi
     if xy=$(python3 scripts/ui_find.py "$1" < /tmp/ui.xml); then adb shell input tap $xy; sleep 1.5; return 0; fi; sleep 1
   done; echo "::warning::not found on screen: $1"; return 1; }
 type_in() { tap "$1" && adb shell input text "$2" && adb shell input keyevent 111; sleep 1; }
 shot() { n=$((n+1)); f=$(printf "shots/%02d_%s.png" $n "$1"); adb exec-out screencap -p > "$f"; echo "saved $f"; }
 
+# Let the emulator finish booting its own apps before we start, then clear any "not responding" dialog.
+adb wait-for-device; until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 2; done; sleep 25
+adb shell input keyevent 3; sleep 3
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 for p in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICATIONS; do adb shell pm grant $PKG android.permission.$p || true; done
 adb emu geo fix 77.5938 12.9250   # Jayanagar, Bengaluru
 adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null; sleep 6
+tap "Wait" >/dev/null 2>&1 || true
 shot welcome
 tap "Get started";                      shot sign_in
 type_in "@edit:1" 9876543210; tap "Send code"; sleep 1
