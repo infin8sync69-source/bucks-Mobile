@@ -131,7 +131,8 @@ fun BucksAppUi(vm: BucksViewModel) {
                 }
             } }
         }) {
-            Scaffold(containerColor = MaterialTheme.colorScheme.surface, snackbarHost = { SnackbarHost(snack) { d -> Snackbar(d, shape = MaterialTheme.shapes.medium, containerColor = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = Modifier.padding(horizontal = 4.dp)) } }, bottomBar = { if (showBottomBar) BucksBottomBar(currentTab) { tab(it) } }) { pad ->
+            // The welcome screen is purple edge to edge, including behind the status and navigation bars.
+            Scaffold(containerColor = if (current == Routes.SPLASH) com.bucks.app.ui.theme.Purple else MaterialTheme.colorScheme.surface, snackbarHost = { SnackbarHost(snack) { d -> Snackbar(d, shape = MaterialTheme.shapes.medium, containerColor = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = Modifier.padding(horizontal = 4.dp)) } }, bottomBar = { if (showBottomBar) BucksBottomBar(currentTab) { tab(it) } }) { pad ->
                 Row(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
                     if (showRail) BucksRail(currentTab) { tab(it) }
                     Box(Modifier.weight(1f).fillMaxHeight()) {
