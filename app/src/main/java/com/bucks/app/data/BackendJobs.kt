@@ -42,6 +42,4 @@ suspend fun Backend.myApplications(): List<MyApplicationRow> = client.postgrest.
 suspend fun Backend.jobApplications(jobId: String): List<JobApplicationRow> =
     client.postgrest.from("applications").select { filter { eq("job_id", jobId) }; order("created_at", Order.ASCENDING) }.decodeList()
 suspend fun Backend.reopenJob(id: String) { client.postgrest.from("jobs").update({ set("open", true) }) { filter { eq("id", id) } } }
-/** Listings by id in one call; pending ones that are not mine stay hidden by row-level security. */
-suspend fun Backend.listingsByIds(ids: Collection<String>): List<ListingRow> =
-    if (ids.isEmpty()) emptyList() else client.postgrest.from("listings").select { filter { isIn("id", ids.toList()) } }.decodeList()
+// Backend.listingsByIds (listings by id in one call, used by Jobs for applicants' skill profiles) lives in BackendCommerce.kt; both features share it.

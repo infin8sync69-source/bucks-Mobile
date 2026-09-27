@@ -84,7 +84,8 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     private suspend fun refreshRide(id: String) { runCatching { Backend.taskGeo(id) }.getOrNull()?.let { if (_ride.value?.id == id) applyRide(it) } }
     /** Stop ringing after 90 s so the rider can retry or switch vehicle type. */
     private fun startNoDriverTimer(id: String) { noDriverJob?.cancel(); noDriverJob = scope.launch { delay(90_000)
-        if (_ride.value?.id == id && _ride.value?.status == RideStatus.SEARCHING) runCatching { Backend.advanceTask(id, "NO_DRIVER") }.onSuccess { applyRide(it) } } }
+        // advance_task returns the plain tasks row; the rider's Ride is mapped from tasks_geo, so re-read that.
+        if (_ride.value?.id == id && _ride.value?.status == RideStatus.SEARCHING) runCatching { Backend.advanceTask(id, "NO_DRIVER") }.onSuccess { refreshRide(id) } } }
     private fun stopFollowingRide() { rideJob?.cancel(); rideJob = null; noDriverJob?.cancel(); noDriverJob = null }
 
     private fun rideStatus(s: String) = when (s) { "SEARCHING" -> RideStatus.SEARCHING; "MATCHED" -> RideStatus.MATCHED; "ARRIVED" -> RideStatus.ARRIVED; "IN_PROGRESS" -> RideStatus.IN_RIDE
