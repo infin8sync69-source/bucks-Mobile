@@ -198,7 +198,7 @@ object Backend {
     suspend fun editMessage(id: String, body: String) { db.from("messages").update({ set("body", body) }) { filter { eq("id", id) } } }
     suspend fun deleteMessage(id: String) { db.from("messages").update({ set("deleted_at", "now()") }) { filter { eq("id", id) } } }
     suspend fun markRead(conversationId: String) { db.rpc("mark_read", buildJsonObject { put("p_conv", conversationId) }) }
-    suspend fun seenUpTo(conversationId: String): String? = db.rpc("seen_up_to", buildJsonObject { put("p_conv", conversationId) }).decodeAs<String?>()
+    suspend fun seenUpTo(conversationId: String): String? = db.rpc("seen_up_to", buildJsonObject { put("p_conv", conversationId) }).data.trim().trim('"').takeIf { it.isNotEmpty() && it != "null" }
     suspend fun mute(conversationId: String, me: String, untilIso: String?) {
         db.from("conversation_members").update({ set("muted_until", untilIso) }) { filter { eq("conversation_id", conversationId); eq("profile_id", me) } }
     }
