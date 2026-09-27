@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.play.services.location)
+    implementation(libs.play.services.code.scanner)
     implementation(libs.osmdroid)
     implementation(libs.zxing.core)
     implementation(platform(libs.firebase.bom))

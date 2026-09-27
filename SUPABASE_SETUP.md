@@ -3,9 +3,11 @@
 Bucks keeps its data in Supabase (Postgres) and signs people in with Firebase phone OTP.
 Supabase trusts the Firebase sign-in, so there is one login and no second password.
 
-## 1. Project
-1. https://supabase.com/dashboard → New project. Region: **Mumbai (ap-south-1)**. Save the database password somewhere safe.
-2. SQL Editor → paste all of `supabase/schema.sql` → Run. It is safe to run again after updates.
+## 1. Project (done)
+Project **bucks-app** exists in Mumbai (ap-south-1), ref `lboxctryrktwdsvywfqp`, URL `https://lboxctryrktwdsvywfqp.supabase.co`.
+The whole of `supabase/schema.sql` is applied (32 tables, 56 functions, 64 policies, 6 storage buckets, realtime on 8 tables,
+pg_cron jobs for order time-outs and Moments clean-up). To apply later changes, paste the updated file into SQL Editor and Run; it is safe to re-run.
+The GitHub build already carries the project URL and the anon key, so no secrets are needed for the demo build.
 
 ## 2. Trust Firebase sign-ins
 1. Supabase → Authentication → Sign In / Providers → **Third-party auth** → Add → **Firebase** → enter your Firebase project ID.
@@ -16,11 +18,8 @@ Supabase trusts the Firebase sign-in, so there is one login and no second passwo
    ```
    (Needs the Firebase Blaze plan, which phone sign-in already needs.)
 
-## 3. Orders that time out
-Database → Extensions → enable **pg_cron**, then in the SQL Editor:
-```sql
-select cron.schedule('expire-orders', '* * * * *', 'select public.expire_orders()');
-```
+## 3. Orders that time out (done)
+pg_cron runs `expire_orders` every minute and `expire_moments` hourly.
 
 ## 4. Give the app its keys
 Project Settings → API. Copy the **Project URL** and the **anon public** key into `local.properties`:

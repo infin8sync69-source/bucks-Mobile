@@ -352,7 +352,7 @@ end $$;
 create policy settings_read on public.settings for select to authenticated using (true);
 
 create policy profiles_read on public.profiles for select to authenticated using (true);
-create policy profiles_insert on public.profiles for insert to authenticated with check (auth_uid = auth.jwt()->>'sub');
+create policy profiles_insert on public.profiles for insert to authenticated with check (auth_uid = (select auth.jwt()->>'sub'));
 create policy profiles_update on public.profiles for update to authenticated using (id = public.me()) with check (id = public.me());
 -- Trust, status and identity fields only change through Bucks' own functions.
 create or replace function public.guard_profile() returns trigger language plpgsql set search_path = public, extensions as $$
@@ -394,7 +394,9 @@ create policy members_remove on public.listing_members for delete to authenticat
   using ((public.listing_role(listing_id) = 'OWNER' and role <> 'OWNER') or (profile_id = public.me() and role <> 'OWNER'));
 
 create policy items_read on public.items for select to authenticated using (exists (select 1 from public.listings l where l.id = listing_id));
-create policy items_write on public.items for all to authenticated using (public.can_manage_listing(listing_id)) with check (public.can_manage_listing(listing_id));
+create policy items_insert on public.items for insert to authenticated with check (public.can_manage_listing(listing_id));
+create policy items_update on public.items for update to authenticated using (public.can_manage_listing(listing_id)) with check (public.can_manage_listing(listing_id));
+create policy items_delete on public.items for delete to authenticated using (public.can_manage_listing(listing_id));
 
 
 create policy lsync_read on public.listing_syncs for select to authenticated using (true);
@@ -421,9 +423,10 @@ create policy invites_revoke on public.invites for update to authenticated using
 
 create policy recs_read on public.recommendations for select to authenticated using (true);
 
-create policy presence_read on public.driver_presence for select to authenticated using (online);
-create policy presence_self on public.driver_presence for all to authenticated using (profile_id = public.me())
-  with check (profile_id = public.me() and public.vehicle_role(vehicle_id) is not null);
+create policy presence_read on public.driver_presence for select to authenticated using (online or profile_id = public.me());
+create policy presence_insert on public.driver_presence for insert to authenticated with check (profile_id = public.me() and public.vehicle_role(vehicle_id) is not null);
+create policy presence_update on public.driver_presence for update to authenticated using (profile_id = public.me()) with check (profile_id = public.me() and public.vehicle_role(vehicle_id) is not null);
+create policy presence_delete on public.driver_presence for delete to authenticated using (profile_id = public.me());
 
 create policy orders_read on public.orders for select to authenticated using (buyer_id = public.me() or public.listing_role(listing_id) is not null);
 
@@ -437,7 +440,9 @@ create policy events_read on public.task_events for select to authenticated usin
 create policy reviews_read on public.reviews for select to authenticated using (true);
 
 create policy jobs_read on public.jobs for select to authenticated using (open or public.listing_role(listing_id) is not null);
-create policy jobs_write on public.jobs for all to authenticated using (public.can_manage_listing(listing_id)) with check (public.can_manage_listing(listing_id) and created_by = public.me());
+create policy jobs_insert on public.jobs for insert to authenticated with check (public.can_manage_listing(listing_id) and created_by = public.me());
+create policy jobs_update on public.jobs for update to authenticated using (public.can_manage_listing(listing_id)) with check (public.can_manage_listing(listing_id));
+create policy jobs_delete on public.jobs for delete to authenticated using (public.can_manage_listing(listing_id));
 create policy apps_read on public.applications for select to authenticated
   using (applicant_id = public.me() or exists (select 1 from public.jobs j where j.id = job_id and public.can_manage_listing(j.listing_id)));
 create policy apps_apply on public.applications for insert to authenticated
@@ -1185,6 +1190,58 @@ do $$ begin
   end if;
 end $$;
 
+-- ---------- indexes for foreign keys the app filters or joins on ----------
+create index if not exists listing_members_profile_idx on public.listing_members (profile_id);
+create index if not exists listing_syncs_listing_idx on public.listing_syncs (listing_id);
+create index if not exists vehicles_owner_idx on public.vehicles (owner_id);
+create index if not exists vehicle_members_profile_idx on public.vehicle_members (profile_id);
+create index if not exists invites_invitee_idx on public.invites (invitee_id) where status = 'PENDING';
+create index if not exists invites_listing_idx on public.invites (listing_id);
+create index if not exists invites_vehicle_idx on public.invites (vehicle_id);
+create index if not exists recommendations_recommender_idx on public.recommendations (recommender_id);
+create index if not exists recommend_tokens_listing_idx on public.recommend_tokens (listing_id);
+create index if not exists driver_presence_vehicle_idx on public.driver_presence (vehicle_id);
+create index if not exists orders_listing_idx on public.orders (listing_id, created_at desc);
+create index if not exists orders_buyer_idx on public.orders (buyer_id, created_at desc);
+create index if not exists tasks_requester_idx on public.tasks (requester_id);
+create index if not exists tasks_driver_idx on public.tasks (driver_id);
+create index if not exists tasks_order_idx on public.tasks (order_id);
+create index if not exists tasks_vehicle_idx on public.tasks (vehicle_id);
+create index if not exists task_events_task_idx on public.task_events (task_id);
+create index if not exists task_events_driver_idx on public.task_events (driver_id);
+create index if not exists task_events_vehicle_idx on public.task_events (vehicle_id, at desc);
+create index if not exists reviews_author_idx on public.reviews (author_id);
+create index if not exists reviews_task_idx on public.reviews (task_id);
+create index if not exists reviews_order_idx on public.reviews (order_id);
+create index if not exists jobs_listing_idx on public.jobs (listing_id);
+create index if not exists jobs_created_by_idx on public.jobs (created_by);
+create index if not exists applications_applicant_idx on public.applications (applicant_id);
+create index if not exists syncs_addressee_idx on public.syncs (addressee_id);
+create index if not exists blocks_blocked_idx on public.blocks (blocked_id);
+create index if not exists close_friends_friend_idx on public.close_friends (friend_id);
+create index if not exists conversations_listing_idx on public.conversations (listing_id);
+create index if not exists conversations_created_by_idx on public.conversations (created_by);
+create index if not exists messages_sender_idx on public.messages (sender_id);
+create index if not exists messages_reply_idx on public.messages (reply_to);
+create index if not exists posts_author_idx on public.posts (author_id, created_at desc);
+create index if not exists posts_listing_idx on public.posts (listing_id);
+create index if not exists post_votes_profile_idx on public.post_votes (profile_id);
+create index if not exists post_comments_post_idx on public.post_comments (post_id, created_at);
+create index if not exists post_comments_author_idx on public.post_comments (author_id);
+create index if not exists moments_author_idx on public.moments (author_id, created_at);
+create index if not exists moments_listing_idx on public.moments (listing_id);
+create index if not exists moment_views_viewer_idx on public.moment_views (viewer_id);
+create index if not exists moment_mutes_muted_idx on public.moment_mutes (muted_id);
+
+-- Cleanup jobs (pg_cron is available on Supabase; skipped where it isn't installed).
+do $$ begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron;
+    perform cron.schedule('bucks-expire-orders', '* * * * *', 'select public.expire_orders()');
+    perform cron.schedule('bucks-expire-moments', '17 * * * *', 'select public.expire_moments()');
+  end if;
+end $$;
+
 -- Supabase Realtime: stream changes on these tables to the app (row-level security still applies).
 do $$ begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
@@ -1199,3 +1256,5 @@ revoke all on public.recommend_tokens from authenticated;
 -- Signed-out callers get nothing: every Bucks function needs a signed-in person.
 revoke execute on all functions in schema public from public, anon;
 grant execute on all functions in schema public to authenticated;
+-- Internal helpers and cron jobs are only ever called from inside other functions, never by the app.
+revoke execute on function public.synced(uuid, uuid), public.settings_of(uuid), public.expire_orders(), public.expire_moments() from authenticated, anon, public;

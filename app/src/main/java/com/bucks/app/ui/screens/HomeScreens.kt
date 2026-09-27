@@ -58,7 +58,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     if (s.driverRide != null && s.driverRide?.status != DriverRideStatus.RINGING) { DriverTripScreen(vm, onChatWith, onCall); return }
     var showOnline by remember { mutableStateOf(false) }
     val wide = windowWidth() != Width.COMPACT
-    val unread = chats.sumOf { it.unread }
+    val unread = vm.unreadCount(chats)
     run {
         val pins = listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + providers.filter { it.scope == Scope.LOCAL }.take(6).map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { MapPin(it.x, it.y, "", MaterialTheme.status.good) }
         // Same content on phones (in the sheet) and wide screens (in the side panel): the search pill; services live in the Services tab.
@@ -117,7 +117,7 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
         // Natural height up to ~60% of the screen, and never tall enough (with the footer) to reach the top bar on short screens.
         val sheetMax = (maxHeight * 0.6f).coerceAtMost(maxHeight - 120.dp).coerceAtLeast(0.dp)
         BucksMap(Modifier.fillMaxSize(), listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + providers.filter { it.scope == Scope.LOCAL }.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) })
-        BucksTopBar(onMenu = onMenu, unread = chats.sumOf { it.unread }, onChat = onMessages)
+        BucksTopBar(onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         // Same footer as Home (legend + OSM attribution) sitting on the map just above the sheet; this map has no rider pins.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false)

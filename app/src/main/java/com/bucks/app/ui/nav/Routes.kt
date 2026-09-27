@@ -8,6 +8,9 @@ object Routes {
     const val SEARCH = "search"; const val PROVIDER = "provider/{id}"; const val CART = "cart"; const val ORDER = "order/{id}"; const val REQUEST = "request/{id}"; const val REQUEST_STATUS = "requestStatus/{id}"
     const val DESTINATION = "destination"; const val CHOOSE_RIDE = "chooseRide"; const val CONFIRM_PICKUP = "confirmPickup"; const val SEARCHING = "searching"; const val DRIVER_FOUND = "driverFound"; const val IN_RIDE = "inRide"; const val PAY = "pay"; const val RATE_RIDE = "rateRide"
     const val PRO_CREATE = "proCreate"; const val LISTINGS = "listings"; const val VEHICLE_FORM = "vehicle"; const val ADD_SKILL = "skill"; const val EARNINGS = "earnings"
+    const val SYNC = "sync"; const val MOMENTS = "moments/{author}"; const val MOMENT_NEW = "moment/new"
+    const val SETTINGS_PRIVACY = "settings/privacy"; const val SETTINGS_NOTIFS = "settings/notifications"; const val SETTINGS_APPEARANCE = "settings/appearance"; const val SETTINGS_BLOCKED = "settings/blocked"; const val SETTINGS_CLOSE = "settings/close"
+    fun moments(author: String) = "moments/${Uri.encode(author)}"
     const val MESSAGES = "messages"; const val CREATE_POST = "post/new"; const val CHAT = "chat/{id}"
     fun provider(id: String, tab: String? = null) = "provider/${Uri.encode(id)}" + (if (tab != null) "?tab=$tab" else "")
     fun order(id: String) = "order/${Uri.encode(id)}"

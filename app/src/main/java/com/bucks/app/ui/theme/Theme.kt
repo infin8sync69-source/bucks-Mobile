@@ -14,6 +14,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -84,6 +86,7 @@ val BucksType = Typography(
 val BucksShapes = Shapes(extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp), extraLarge = RoundedCornerShape(28.dp))
 
 @Composable
-fun BucksTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalStatus provides if (dark) DarkStatus else LightStatus) { MaterialTheme(colorScheme = if (dark) Dark else Light, typography = BucksType, shapes = BucksShapes, content = content) }
+fun BucksTheme(dark: Boolean = isSystemInDarkTheme(), textScale: Float = 1f, content: @Composable () -> Unit) {
+    val d = LocalDensity.current
+    CompositionLocalProvider(LocalStatus provides if (dark) DarkStatus else LightStatus, LocalDensity provides Density(d.density, d.fontScale * textScale)) { MaterialTheme(colorScheme = if (dark) Dark else Light, typography = BucksType, shapes = BucksShapes, content = content) }
 }

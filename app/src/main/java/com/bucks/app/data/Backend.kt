@@ -9,6 +9,8 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.realtime.RealtimeChannel
+import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
@@ -55,6 +57,7 @@ object Backend {
     suspend fun updateProfile(id: String, name: String, bio: String, area: String, home: LatLng?) {
         db.from("profiles").update({ set("name", name); set("bio", bio); set("area", area); home?.let { set("home", point(it)) } }) { filter { eq("id", id) } }
     }
+    suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select { filter { isIn("id", ids.toList()) } }.decodeList()
     suspend fun profileByCode(code: String): ProfileRow? =
         db.from("profiles").select { filter { eq("short_code", code.trim().uppercase()) } }.decodeSingleOrNull()
     suspend fun setPaymentLink(profileId: String, upiUri: String) {
@@ -202,13 +205,15 @@ object Backend {
     suspend fun mute(conversationId: String, me: String, untilIso: String?) {
         db.from("conversation_members").update({ set("muted_until", untilIso) }) { filter { eq("conversation_id", conversationId); eq("profile_id", me) } }
     }
-    /** New messages in a conversation as they arrive (row-level security still applies). */
-    fun liveMessages(conversationId: String): Flow<MessageRow> {
-        val channel = client.channel("conv-$conversationId")
-        return channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") { table = "messages"; filter("conversation_id", FilterOperator.EQ, conversationId) }
+    /** New messages in a conversation as they arrive (row-level security still applies). Close the channel when the screen goes away. */
+    fun liveMessages(conversationId: String): Pair<RealtimeChannel, Flow<MessageRow>> {
+        val channel = client.channel("conv-$conversationId-${System.nanoTime()}")
+        val flow = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") { table = "messages"; filter("conversation_id", FilterOperator.EQ, conversationId) }
             .map { it.decodeRecord<MessageRow>() }
             .onStart { channel.subscribe() }
+        return channel to flow
     }
+    suspend fun closeChannel(channel: RealtimeChannel) { runCatching { client.realtime.removeChannel(channel) } }
 
     // ---------- files (Supabase Storage) ----------
     /** Uploads to a private bucket; the first folder decides who may read it (see storage policies in schema.sql). */

@@ -68,6 +68,9 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private var ringJob: Job? = null; private var driveJob: Job? = null; private var drvRingJob: Job? = null; private var autoRingJob: Job? = null; private var drvDriveJob: Job? = null
     /** True when the app was built with google-services.json: real sign-in, live drivers and rides through Firebase. */
     val cloud get() = Cloud.enabled
+    /** Cloud social features (Sync, chat, feed, Moments, settings); active when Supabase and Firebase are configured. */
+    val social = Social(viewModelScope, repo, ::toast)
+    fun unreadCount(demoChats: List<Chat>) = if (social.enabled) social.unread else demoChats.sumOf { it.unread }
     private var driversReg: ListenerRegistration? = null; private var rideReg: ListenerRegistration? = null; private var openRidesReg: ListenerRegistration? = null; private var driverRideReg: ListenerRegistration? = null
     private var heartbeatJob: Job? = null
     private var openRides: List<Pair<String, Map<String, Any>>> = emptyList()
@@ -80,6 +83,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         repo.loadSession()?.takeIf { !cloud || Cloud.uid != null }?.let { s -> _s.update { it.copy(user = s.user.copy(id = s.user.id.ifBlank { safeId() }), pro = s.pro, businesses = s.businesses) }; publishOwnListings() }
         _s.update { it.copy(devices = listOf(LinkedDevice(repo.deviceId(), Build.MODEL ?: "This device", "Now", true))) }
         if (cloud) { repo.replaceDrivers(emptyList(), mePos); if (s.user != null) startDriversFeed() }
+        s.user?.let { u -> if (Backend.enabled) social.signedIn(u.name, u.phone) }
     }
     /** Live online drivers replace the demo ones, for map pins, "n riders nearby" and ratings. */
     private fun startDriversFeed() { if (driversReg == null) driversReg = Cloud.listenDrivers { repo.replaceDrivers(it, mePos) } }
@@ -118,11 +122,12 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         // Same number as the profile saved on this device: restore it instead of starting a new one.
         repo.savedSession()?.takeIf { it.user.phone == s.tempPhone && s.user == null }?.let { se -> _s.update { it.copy(user = se.user.copy(id = se.user.id.ifBlank { safeId() }), pro = se.pro, businesses = se.businesses) }; publishOwnListings() }
         _s.update { it.copy(user = it.user?.copy(phone = it.tempPhone.ifBlank { it.user.phone }, verified = it.user.verified + VerificationLevel.PHONE)) }; persist()
-        if (cloud) startDriversFeed() }
+        if (cloud) startDriversFeed()
+        if (Backend.enabled) social.signedIn(s.user?.name ?: "", s.tempPhone.ifBlank { s.user?.phone ?: "" }) }
     fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList()) {
         val base = s.user ?: User(name, area, bio, s.tempPhone, email = s.tempEmail, id = safeId(), verified = if (s.tempPhone.isNotBlank()) setOf(VerificationLevel.PHONE) else emptySet())
         val dev = deviceLooksGenuine()
-        _s.update { it.copy(user = base.copy(name = name, area = area, bio = bio, gender = gender, interests = interests, verified = if (dev) base.verified + VerificationLevel.DEVICE else base.verified)) }; persist(); toast("Welcome to Bucks, ${name.substringBefore(' ')}")
+        _s.update { it.copy(user = base.copy(name = name, area = area, bio = bio, gender = gender, interests = interests, verified = if (dev) base.verified + VerificationLevel.DEVICE else base.verified)) }; persist(); toast("Welcome to Bucks, ${name.substringBefore(' ')}"); social.profileSaved(name, area, bio)
     }
     /** Basic genuineness heuristic until Play Integrity is wired (needs a Play Console project). */
     private fun deviceLooksGenuine() = !(Build.TAGS?.contains("test-keys") == true || Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("Emulator"))
@@ -142,8 +147,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); stopCloud(); Cloud.signOut(); repo.clearSession(); _s.value = UiState() }
-    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); stopCloud()
+    fun logout() { if (s.online) setOnline(false); stopCloud(); social.signedOut(); Cloud.signOut(); repo.clearSession(); _s.value = UiState() }
+    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); stopCloud(); social.signedOut()
         Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }
         repo.deleteAccount(); _s.value = UiState(); toast("Your account and data were deleted.") }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
@@ -154,7 +159,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (v) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null && s.ride == null) simulateRing(); delay(60000) } } }
 
     // ---------- location ----------
-    fun onLocation(p: LatLng, mocked: Boolean) { val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.")
+    fun onLocation(p: LatLng, mocked: Boolean) { social.here = p; val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.")
         if (cloud && s.vehicleOnline) onDriverMoved(p) }
     fun onLocationDenied() = _s.update { it.copy(locationGranted = false) }
     val mePos: LatLng get() = s.me ?: Geo.fromPercent(s.meX, s.meY)

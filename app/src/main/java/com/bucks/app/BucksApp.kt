@@ -10,6 +10,7 @@ class BucksApp : Application() {
     override fun onCreate() {
         super.onCreate()
         com.bucks.app.data.Cloud.init(this)
+        com.bucks.app.data.Prefs.init(this)
         repository = FakeBucksRepository(this)
     }
 }

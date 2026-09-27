@@ -56,7 +56,7 @@ fun ProviderScreen(vm: BucksViewModel, id: String, initialTab: String, onBack: (
     Box(Modifier.fillMaxSize()) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // Compact header for businesses and individuals alike: avatar, name once, trust badge (opens the ranking explainer), one action row.
         val skill = p.type == ProviderType.SKILL
-        BucksTopBar(onBack = onBack, unread = chats.sumOf { it.unread }, onChat = onMessages)
+        BucksTopBar(onBack = onBack, unread = vm.unreadCount(chats), onChat = onMessages)
         Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (skill) Avatar(initials(p.name), size = 64) else Avatar(icon = categoryIcon(p.category), size = 64)

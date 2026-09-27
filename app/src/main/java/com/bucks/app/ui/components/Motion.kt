@@ -47,7 +47,7 @@ object Motion {
 @Composable
 fun rememberReducedMotion(): Boolean {
     val ctx = LocalContext.current
-    return remember { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    return remember { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f } || com.bucks.app.data.Prefs.reduceMotion
 }
 
 /** Shrinks slightly while pressed and springs back: a tap feels physical. */

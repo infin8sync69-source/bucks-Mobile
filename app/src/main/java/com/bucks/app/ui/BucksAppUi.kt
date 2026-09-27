@@ -45,6 +45,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.bucks.app.data.LatLng
+import com.bucks.app.data.Prefs
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 
@@ -54,8 +55,8 @@ private val TAB_ROUTES = mapOf(BottomTab.HOME to Routes.HOME, BottomTab.FEED to 
 @Composable
 fun BucksAppUi(vm: BucksViewModel) {
     val sysDark = isSystemInDarkTheme()
-    var dark by rememberSaveable { mutableStateOf<Boolean?>(null) }
-    BucksTheme(dark = dark ?: sysDark) {
+    val dark = when (Prefs.theme) { Prefs.Theme.LIGHT -> false; Prefs.Theme.DARK -> true; else -> sysDark }
+    BucksTheme(dark = dark, textScale = Prefs.textSize.scale) {
         val nav = rememberNavController(); val snack = remember { SnackbarHostState() }; val scope = rememberCoroutineScope()
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()
@@ -146,10 +147,10 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call) }
                             composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query) }
-                            composable(Routes.FEED) { FeedScreen(vm, openMenu, messages, toast) }
+                            composable(Routes.FEED) { if (vm.social.enabled) CloudFeedScreen(vm, openMenu, messages, onOpenMoments = { nav.navigate(Routes.moments(it)) }, onNewMoment = { nav.navigate(Routes.MOMENT_NEW) }) else FeedScreen(vm, openMenu, messages, toast) }
                             composable(Routes.RECOMMENDED) { RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
-                                AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { dark = !(dark ?: sysDark) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
+                                AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { nav.navigate(Routes.SETTINGS_APPEARANCE) }, onOpen = { nav.navigate(it) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
                             composable(Routes.SEARCH) { SearchScreen(vm, onBack = { nav.popBackStack() }, onProvider = { id, t -> nav.navigate(Routes.provider(id, t)) }, onRequest = { nav.navigate(Routes.request(it)) }, onMessages = messages, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, showToast = toast) }
                             composable("provider/{id}?tab={tab}", arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("tab") { type = NavType.StringType; defaultValue = "" })) { e ->
                                 val id = e.arguments!!.getString("id")!!
@@ -178,8 +179,16 @@ fun BucksAppUi(vm: BucksViewModel) {
                                 AddSkillScreen(vm, e.arguments?.getString("name"), onBack = { nav.popBackStack() }) }
                             composable(Routes.EARNINGS) { EarningsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.CREATE_POST) { CreatePostScreen(vm, onClose = { nav.popBackStack() }) }
-                            composable(Routes.MESSAGES) { MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
-                            composable(Routes.CHAT, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ChatScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onCall = call) }
+                            composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
+                            composable(Routes.CHAT, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!; if (vm.social.enabled) CloudChatScreen(vm, id, onBack = { nav.popBackStack() }) else ChatScreen(vm, id, onBack = { nav.popBackStack() }, onCall = call) }
+                            composable(Routes.SYNC) { SyncScreen(vm, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
+                            composable(Routes.MOMENTS, arguments = listOf(navArgument("author") { type = NavType.StringType })) { e -> MomentViewerScreen(vm, e.arguments!!.getString("author")!!, onClose = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) { popUpTo(Routes.FEED) } }) }
+                            composable(Routes.MOMENT_NEW) { NewMomentScreen(vm, onClose = { nav.popBackStack() }) }
+                            composable(Routes.SETTINGS_PRIVACY) { PrivacyScreen(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.SETTINGS_NOTIFS) { NotificationsScreen(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.SETTINGS_APPEARANCE) { AppearanceScreen(onBack = { nav.popBackStack() }) }
+                            composable(Routes.SETTINGS_BLOCKED) { BlockedScreen(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.SETTINGS_CLOSE) { CloseFriendsScreen(vm, onBack = { nav.popBackStack() }) }
                         }
                         if (s.call != null) CallOverlay(vm)
                         ConfirmationSheet(vm, toast)

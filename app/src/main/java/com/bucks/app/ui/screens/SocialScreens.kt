@@ -41,7 +41,7 @@ fun FeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, s
     val ctx = LocalContext.current
     val s by vm.state.collectAsState(); val posts by vm.repo.posts.collectAsState(); val chats by vm.repo.chats.collectAsState()
     var compose by remember { mutableStateOf(false) }; var text by remember { mutableStateOf("") }; var comments by remember { mutableStateOf<String?>(null) }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Feed", onMenu = onMenu, unread = chats.sumOf { it.unread }, onChat = onMessages)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Feed", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         LazyColumn {
             item { Box(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) { ComposeBar("Share with your neighbours") { compose = true } } }
             items(posts, key = { it.id }) { p -> PostCard(p, s.postVotes[p.id] ?: 0, onVote = { vm.votePost(p.id, it) }, onComments = { comments = p.id }, onShare = { sharePost(ctx, p) }) }
@@ -107,9 +107,13 @@ fun RecommendedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
         drivers.filter { it.up >= 40 }.map { d -> Reco("${d.vehicle.label} rider", d.vehicle.icon, d.name, "${d.model} · ${d.plate} · ${d.distanceKm} km", d.up, null) { driverSheet = d } } +
         posts.filter { it.up >= 20 }.map { p -> Reco("Post", Icons.Rounded.Article, p.who, p.text, p.up, null) {} }).sortedByDescending { it.n }
         .filter { when (filter) { "Food & shops" -> it.icon == Icons.Rounded.Storefront; "Skills" -> it.icon == Icons.Rounded.Handyman; "Riders" -> it.kind.contains("rider"); "Posts" -> it.kind == "Post"; else -> true } }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("For you", onMenu = onMenu, unread = chats.sumOf { it.unread }, onChat = onMessages)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("For you", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         LazyColumn {
-            item { SectionTitle("People near you", Modifier.padding(Gutter, 8.dp, Gutter, 10.dp)); LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(people.sortedBy { it.distanceKm }) { p -> PersonCard(p, onFollow = { vm.follow(p.id, !p.following) }, onMessage = { onChatWith(p.name, "Neighbour") }) } } }
+            item { SectionTitle("People near you", Modifier.padding(Gutter, 8.dp, Gutter, 10.dp))
+                if (vm.social.enabled) { LaunchedEffect(Unit) { vm.social.refreshSuggestions() }
+                    if (vm.social.suggestions.isEmpty()) Muted("Nobody to suggest yet. Share your Bucks ID to start syncing.", Modifier.padding(horizontal = Gutter))
+                    LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(vm.social.suggestions) { p -> SuggestionCard(p, onSync = { vm.social.syncWith(p.id, p.name) }) } } }
+                else LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(people.sortedBy { it.distanceKm }) { p -> PersonCard(p, onFollow = { vm.follow(p.id, !p.following) }, onMessage = { onChatWith(p.name, "Neighbour") }) } } }
             item { SectionTitle("Communities", Modifier.padding(Gutter, 20.dp, Gutter, 10.dp)); LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(communities) { c -> CommunityCard(c) { vm.join(c.id, !c.joined) } } } }
             item { Column(Modifier.padding(Gutter, 24.dp, Gutter, 6.dp)) { SectionTitle("Top rated near you"); Muted("Ranked by reviews from people who ordered or booked."); Row(Modifier.padding(top = 12.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("All", "Food & shops", "Skills", "Riders", "Posts").forEach { f -> Chip(f, selected = filter == f) { filter = f } } } } }
             items(items) { r ->
@@ -123,6 +127,14 @@ fun RecommendedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
     }
     driverSheet?.let { d -> AlertDialog(onDismissRequest = { driverSheet = null }, title = { Text(d.name) }, text = { Column { Muted("${d.model} · ${d.plate} · ${d.distanceKm} km"); TrustBadge(d.trust); Text(if (d.online) "Online now" else "Offline", color = if (d.online) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp)); Text("\"Safe driver, knows the shortcuts.\" — Anitha", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp)) } },
         confirmButton = { TextButton(enabled = d.online, onClick = { driverSheet = null; onRide(d.vehicle) }) { Text("Book a ${d.vehicle.label.lowercase()} now") } }, dismissButton = { TextButton(onClick = { driverSheet = null }) { Text("Close") } }) }
+}
+
+/** Someone you may know (cloud): mutual syncs or nearby, with a Sync button. */
+@Composable
+private fun SuggestionCard(p: PersonSuggestion, onSync: () -> Unit) = BucksCard(Modifier.width(200.dp), padding = 14) {
+    Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(p.name), size = 40); Column(Modifier.padding(start = 10.dp)) { Text(p.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(p.area.ifBlank { "Nearby" }, maxLines = 1) } }
+    Muted(if (p.mutual > 0) "${p.mutual} mutual sync${if (p.mutual > 1) "s" else ""}" else p.distanceM?.let { "${"%.1f".format(it / 1000)} km away" } ?: "Nearby", Modifier.padding(vertical = 8.dp), maxLines = 2, minLines = 2)
+    SmallButton("Sync", Modifier.fillMaxWidth(), onClick = onSync)
 }
 
 @Composable
