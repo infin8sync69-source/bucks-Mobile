@@ -37,7 +37,6 @@ androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscree
 osmdroid = { group = "org.osmdroid", name = "osmdroid-android", version = "6.1.20" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
 supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
 supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }

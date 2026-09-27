@@ -23,6 +23,8 @@ import com.bucks.app.ui.screens.*
 import com.bucks.app.ui.screens.commerce.*
 import com.bucks.app.ui.screens.discover.CloudSearchScreen
 import com.bucks.app.ui.screens.discover.ListingProfileScreen
+import com.bucks.app.ui.screens.dispatch.DeliveryTrackScreen
+import com.bucks.app.ui.screens.dispatch.PaymentQrScreen
 import com.bucks.app.ui.screens.jobs.*
 import com.bucks.app.ui.screens.manage.*
 import com.bucks.app.ui.theme.BucksTheme
@@ -200,6 +202,9 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.SETTINGS_APPEARANCE) { AppearanceScreen(onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_BLOCKED) { BlockedScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_CLOSE) { CloseFriendsScreen(vm, onBack = { nav.popBackStack() }) }
+                            // Dispatch (cloud-only): a buyer following a delivery, and the driver's UPI payment QR (opened through vm.open(Routes.PAYMENT_QR)).
+                            composable(Routes.DELIVERY_TRACK, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> DeliveryTrackScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
+                            composable(Routes.PAYMENT_QR) { PaymentQrScreen(vm, onBack = { nav.popBackStack() }) }
                             // Discover (cloud-only): the universal listing profile for a business, skill or driver.
                             composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
                                 ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }

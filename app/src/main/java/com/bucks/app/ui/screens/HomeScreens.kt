@@ -56,6 +56,8 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
     // An accepted ride takes over Home until it's closed.
     if (s.driverRide != null && s.driverRide?.status != DriverRideStatus.RINGING) { DriverTripScreen(vm, onChatWith, onCall); return }
+    // Cloud dispatch polls online drivers every 15 s only while a map is on screen.
+    DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
     var showOnline by remember { mutableStateOf(false) }
     val wide = windowWidth() != Width.COMPACT
     val unread = vm.unreadCount(chats)
@@ -112,6 +114,7 @@ private fun OfferTile(o: Offer, index: Int, modifier: Modifier, onClick: () -> U
 @Composable
 fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit) {
     val s by vm.state.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
+    DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
     val cats = providers.map { it.category }.distinct()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // Natural height up to ~60% of the screen, and never tall enough (with the footer) to reach the top bar on short screens.

@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +38,8 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.dial
 import com.bucks.app.ui.sms
 import com.bucks.app.ui.shareText
+import com.bucks.app.ui.upiPayLink
+import com.bucks.app.ui.upiPayee
 import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
@@ -169,7 +173,7 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
                 }
             }
             Muted("Share this PIN with your rider when they arrive.", Modifier.padding(top = 6.dp))
-            Box(Modifier.padding(vertical = 14.dp)) { MessageBar("Message your driver", onCall = { if (vm.cloud) dial(ctx, d.phone) else onCall(d.name, "+91 98450 12345") }) { if (vm.cloud) sms(ctx, d.phone) else onChatWith(d.name, "Rider") } }
+            Box(Modifier.padding(vertical = 14.dp)) { MessageBar("Message your driver", onCall = { if (vm.cloud) { if (d.phone.isBlank()) showToast("${d.name.substringBefore(' ')}'s number isn't available yet. Try again in a moment.") else dial(ctx, d.phone) } else onCall(d.name, "+91 98450 12345") }) { if (vm.cloud) { if (d.phone.isBlank()) showToast("${d.name.substringBefore(' ')}'s number isn't available yet. Try again in a moment.") else sms(ctx, d.phone) } else onChatWith(d.name, "Rider") } }
             RoutePoints(s.user?.area ?: "Current location", r.dest.name) { Icon(Icons.Rounded.Share, "Share trip", Modifier.size(18.dp).clickable { if (vm.cloud) shareText(ctx, "I'm on a Bucks ride to ${r.dest.name} with ${d.name}, ${d.model} ${d.plate}.") else showToast("Live trip link copied") }) }
             Row(Modifier.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) { Text("Total fare", style = MaterialTheme.typography.titleMedium); Text("  ₹${r.fare}", style = MaterialTheme.typography.titleLarge) }
             // With Firebase the driver starts the trip once they've entered your PIN.
@@ -208,9 +212,40 @@ fun PayScreen(vm: BucksViewModel) {
             Box(Modifier.popIn()) { Avatar(icon = Icons.Rounded.Flag, size = 64) }
             Headline("Arrived at ${r.dest.name}", Modifier.padding(top = 16.dp)); Muted("${r.dest.km} km with ${d.name}", align = TextAlign.Center)
             BucksCard(Modifier.padding(vertical = 22.dp), tint = true) { Muted("Total payable", Modifier.align(Alignment.CenterHorizontally)); Text("₹${animatedInt(r.fare)}", style = MaterialTheme.typography.displaySmall, modifier = Modifier.align(Alignment.CenterHorizontally)) }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { DarkButton("Pay cash") { vm.payRide("Cash") }; GhostButton("Google Pay") { vm.payRide("Google Pay") }; GhostButton("Amazon Pay") { vm.payRide("Amazon Pay") }; GhostButton("Scan rider's QR") { vm.payRide("Rider QR") } }
+            if (vm.dispatch.enabled) CloudPayPanel(vm, r, d)
+            else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { DarkButton("Pay cash") { vm.payRide("Cash") }; GhostButton("Google Pay") { vm.payRide("Google Pay") }; GhostButton("Amazon Pay") { vm.payRide("Amazon Pay") }; GhostButton("Scan rider's QR") { vm.payRide("Rider QR") } }
         }
     }
+}
+
+/** Cloud ride: pay through the driver's UPI QR (their app opens with the fare filled in) or hand over cash; both tell the driver. */
+@Composable
+private fun CloudPayPanel(vm: BucksViewModel, r: Ride, d: Driver) {
+    val ctx = LocalContext.current
+    var contact by remember(r.id) { mutableStateOf<ContactRow?>(null) }; var loaded by remember(r.id) { mutableStateOf(false) }; var upiOpened by remember(r.id) { mutableStateOf(false) }
+    var confirmCash by remember { mutableStateOf(false) }
+    LaunchedEffect(r.id) { contact = runCatching { vm.dispatch.contact(r.id) }.getOrNull(); loaded = true }
+    val upi = contact?.upiUri?.takeIf { it.startsWith("upi://pay", ignoreCase = true) }
+    val first = d.name.substringBefore(' ')
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        when {
+            !loaded -> Row(Modifier.fillMaxWidth().height(52.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp); Muted("  Checking how $first takes payments") }
+            upi == null -> Notice("$first hasn't added a UPI QR yet. Pay ₹${r.fare} in cash.")
+            else -> {
+                upiPayee(upi)?.let { (pn, pa) -> Muted("UPI goes to $pn ($pa)", align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                DarkButton(if (upiOpened) "Open UPI app again" else "Pay ₹${r.fare} by UPI") {
+                    val link = upiPayLink(upi, r.fare, "Bucks ride")
+                    val ok = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) }.isSuccess
+                    if (ok) upiOpened = true else vm.toast("No UPI app found on this phone. Pay in cash instead.")
+                }
+                if (upiOpened) PrimaryButton("Done · I paid ₹${r.fare} by UPI") { vm.payRide("UPI") }
+            }
+        }
+        if (loaded) GhostButton("Paid in cash") { confirmCash = true }
+        Muted("Only tap after you've paid. Your rider sees what you chose.", align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
+    if (confirmCash) AlertDialog(onDismissRequest = { confirmCash = false }, title = { Text("Paid ₹${r.fare} in cash?") }, text = { Text("$first will be told you paid in cash.") },
+        confirmButton = { TextButton({ confirmCash = false; vm.payRide("Cash") }) { Text("Yes, paid") } }, dismissButton = { TextButton({ confirmCash = false }) { Text("Not yet") } })
 }
 
 @Composable
