@@ -10,14 +10,16 @@
 -- accepting it, claiming a task, recommending someone, accepting an invite) go through
 -- security-definer functions so the rules can't be bypassed from the app.
 
-create extension if not exists postgis;
-create extension if not exists pg_trgm;
+create schema if not exists extensions;
+create extension if not exists postgis with schema extensions;
+create extension if not exists pg_trgm with schema extensions;
 create extension if not exists pgcrypto with schema extensions;
+set search_path = public, extensions;
 
 -- ---------- helpers ----------
 
 -- RFC 9562 UUIDv7: 48-bit millisecond timestamp + random. Sorts by creation time, indexes well.
-create or replace function public.uuid_v7() returns uuid language plpgsql volatile as $$
+create or replace function public.uuid_v7() returns uuid language plpgsql volatile set search_path = public, extensions as $$
 declare b bytea;
 begin
   b := substring(int8send((extract(epoch from clock_timestamp()) * 1000)::bigint) from 3) || extensions.gen_random_bytes(10);
@@ -27,7 +29,7 @@ begin
 end $$;
 
 -- 8-character Crockford base32 code (no I, L, O, U): readable aloud, ~1 trillion combinations.
-create or replace function public.new_short_code() returns text language plpgsql volatile as $$
+create or replace function public.new_short_code() returns text language plpgsql volatile set search_path = public, extensions as $$
 declare alphabet text := '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; r bytea := extensions.gen_random_bytes(8); c text := '';
 begin
   for i in 0..7 loop c := c || substr(alphabet, (get_byte(r, i) % 32) + 1, 1); end loop;
@@ -35,7 +37,7 @@ begin
 end $$;
 
 create or replace function public.geo(lat double precision, lng double precision) returns geography
-language sql immutable as $$ select st_setsrid(st_makepoint(lng, lat), 4326)::geography $$;
+language sql immutable set search_path = public, extensions as $$ select st_setsrid(st_makepoint(lng, lat), 4326)::geography $$;
 
 -- Tunables in one place (community cap, radii, timeouts).
 create table if not exists public.settings (key text primary key, value numeric not null);
@@ -48,7 +50,7 @@ insert into public.settings values
   ('order_accept_minutes', 5),
   ('delivery_base_fee', 20), ('delivery_fee_per_km', 8)
 on conflict (key) do nothing;
-create or replace function public.setting(k text) returns numeric language sql stable as $$ select value from public.settings where key = k $$;
+create or replace function public.setting(k text) returns numeric language sql stable set search_path = public, extensions as $$ select value from public.settings where key = k $$;
 
 -- ---------- people ----------
 
@@ -74,7 +76,7 @@ create table if not exists public.profile_private (
 );
 
 -- Current person's profile id, from the signed-in token.
-create or replace function public.me() returns uuid language sql stable security definer set search_path = public as $$
+create or replace function public.me() returns uuid language sql stable security definer set search_path = public, extensions as $$
   select id from public.profiles where auth_uid = auth.jwt()->>'sub' and status = 'ACTIVE'
 $$;
 
@@ -110,7 +112,7 @@ create table if not exists public.listings (
   updated_at  timestamptz not null default now()
 );
 create index if not exists listings_search_idx on public.listings using gin (search);
-create index if not exists listings_title_trgm on public.listings using gin (title gin_trgm_ops);
+create index if not exists listings_title_trgm on public.listings using gin (title extensions.gin_trgm_ops);
 create index if not exists listings_location_idx on public.listings using gist (location);
 create unique index if not exists one_driver_profile on public.listings (owner_id) where kind = 'DRIVER';
 
@@ -122,14 +124,14 @@ create table if not exists public.listing_members (
   created_at  timestamptz not null default now(),
   primary key (listing_id, profile_id)
 );
-create or replace function public.listing_role(l uuid) returns text language sql stable security definer set search_path = public as $$
+create or replace function public.listing_role(l uuid) returns text language sql stable security definer set search_path = public, extensions as $$
   select role from public.listing_members where listing_id = l and profile_id = public.me()
 $$;
-create or replace function public.can_manage_listing(l uuid) returns boolean language sql stable as $$
+create or replace function public.can_manage_listing(l uuid) returns boolean language sql stable set search_path = public, extensions as $$
   select coalesce(public.listing_role(l) in ('OWNER', 'ADMIN'), false)
 $$;
 -- The creator becomes OWNER automatically.
-create or replace function public.listing_add_owner() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.listing_add_owner() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin insert into public.listing_members values (new.id, new.owner_id, 'OWNER') on conflict do nothing; return new; end $$;
 drop trigger if exists listing_owner on public.listings;
 create trigger listing_owner after insert on public.listings for each row execute function public.listing_add_owner();
@@ -150,7 +152,7 @@ create table if not exists public.items (
   created_at  timestamptz not null default now()
 );
 create index if not exists items_listing_idx on public.items (listing_id);
-create index if not exists items_name_trgm on public.items using gin (name gin_trgm_ops);
+create index if not exists items_name_trgm on public.items using gin (name extensions.gin_trgm_ops);
 
 -- People sync with listings they like (shows their posts in the feed).
 create table if not exists public.listing_syncs (
@@ -178,10 +180,10 @@ create table if not exists public.vehicle_members (
   role        text not null check (role in ('OWNER', 'ADMIN')),
   primary key (vehicle_id, profile_id)
 );
-create or replace function public.vehicle_role(v uuid) returns text language sql stable security definer set search_path = public as $$
+create or replace function public.vehicle_role(v uuid) returns text language sql stable security definer set search_path = public, extensions as $$
   select role from public.vehicle_members where vehicle_id = v and profile_id = public.me()
 $$;
-create or replace function public.vehicle_add_owner() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.vehicle_add_owner() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin insert into public.vehicle_members values (new.id, new.owner_id, 'OWNER') on conflict do nothing; return new; end $$;
 drop trigger if exists vehicle_owner on public.vehicles;
 create trigger vehicle_owner after insert on public.vehicles for each row execute function public.vehicle_add_owner();
@@ -353,7 +355,7 @@ create policy profiles_read on public.profiles for select to authenticated using
 create policy profiles_insert on public.profiles for insert to authenticated with check (auth_uid = auth.jwt()->>'sub');
 create policy profiles_update on public.profiles for update to authenticated using (id = public.me()) with check (id = public.me());
 -- Trust, status and identity fields only change through Bucks' own functions.
-create or replace function public.guard_profile() returns trigger language plpgsql as $$
+create or replace function public.guard_profile() returns trigger language plpgsql set search_path = public, extensions as $$
 begin
   if current_user = 'authenticated' and (new.trust_up <> old.trust_up or new.trust_down <> old.trust_down or new.status <> old.status
      or new.auth_uid <> old.auth_uid or new.short_code <> old.short_code or new.created_at <> old.created_at) then
@@ -377,7 +379,7 @@ create policy listings_update on public.listings for update to authenticated usi
   with check (public.can_manage_listing(id));
 create policy listings_delete on public.listings for delete to authenticated using (public.listing_role(id) = 'OWNER');
 -- Status and trust only change through the server functions below.
-create or replace function public.guard_listing() returns trigger language plpgsql as $$
+create or replace function public.guard_listing() returns trigger language plpgsql set search_path = public, extensions as $$
 begin
   if current_user = 'authenticated' and (new.status <> old.status or new.trust_up <> old.trust_up or new.trust_down <> old.trust_down or new.owner_id <> old.owner_id or new.kind <> old.kind) then
     raise exception 'status, trust, owner and kind are managed by Bucks';
@@ -403,7 +405,7 @@ create policy vehicles_read on public.vehicles for select to authenticated using
 create policy vehicles_insert on public.vehicles for insert to authenticated with check (owner_id = public.me() and status = 'PENDING');
 create policy vehicles_update on public.vehicles for update to authenticated using (public.vehicle_role(id) = 'OWNER') with check (public.vehicle_role(id) = 'OWNER');
 create policy vehicles_delete on public.vehicles for delete to authenticated using (public.vehicle_role(id) = 'OWNER');
-create or replace function public.guard_vehicle() returns trigger language plpgsql as $$
+create or replace function public.guard_vehicle() returns trigger language plpgsql set search_path = public, extensions as $$
 begin
   if current_user = 'authenticated' and (new.status <> old.status or new.owner_id <> old.owner_id) then raise exception 'vehicle status is managed by Bucks'; end if;
   return new;
@@ -448,7 +450,7 @@ create policy apps_update on public.applications for update to authenticated
 
 -- First sign-in: create (or return) my profile.
 create or replace function public.ensure_profile(p_name text, p_phone text default null) returns public.profiles
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare p public.profiles; uid text := auth.jwt()->>'sub';
 begin
   if uid is null then raise exception 'not signed in'; end if;
@@ -467,7 +469,7 @@ end $$;
 create or replace function public.search_listings(q text, lat double precision, lng double precision, radius_m int default 10000, kinds text[] default null, lim int default 40)
 returns table (id uuid, kind text, title text, category text, description text, photo_url text, area text, online boolean, trust_up int, trust_down int,
                details jsonb, distance_m double precision, matched_item text, min_price int)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   with here as (select public.geo(lat, lng) g), term as (select nullif(trim(q), '') t)
   select l.id, l.kind, l.title, l.category, l.description, l.photo_url, l.area, l.online, l.trust_up, l.trust_down, l.details,
          st_distance(l.location, here.g) as distance_m,
@@ -487,7 +489,7 @@ $$;
 
 -- Invite someone by Bucks ID to help run a listing (ADMIN, STORE_RIDER) or drive a vehicle (ADMIN).
 create or replace function public.invite(p_listing uuid, p_vehicle uuid, p_short_code text, p_role text) returns uuid
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare invitee uuid; inv uuid;
 begin
   if p_listing is not null and coalesce(listing_role(p_listing), '') <> 'OWNER' then raise exception 'only the owner can invite'; end if;
@@ -501,7 +503,7 @@ begin
 end $$;
 
 create or replace function public.respond_invite(p_invite uuid, p_accept boolean) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare i invites;
 begin
   select * into i from invites where id = p_invite and invitee_id = me() and status = 'PENDING' for update;
@@ -513,7 +515,7 @@ end $$;
 
 -- Owner shows this as a QR; valid for 2 minutes.
 create or replace function public.recommend_token(p_listing uuid) returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare t text := encode(extensions.gen_random_bytes(12), 'hex');
 begin
   if not can_manage_listing(p_listing) then raise exception 'not your listing'; end if;
@@ -525,7 +527,7 @@ end $$;
 -- Scanning the QR in person. Recommender must be local (their home and where they stand), and an established account.
 -- Returns how many local recommendations the listing now has; it goes LIVE at the threshold.
 create or replace function public.recommend(p_token text, lat double precision, lng double precision) returns int
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare tok recommend_tokens; l listings; me_p profiles; here geography := geo(lat, lng); n int;
 begin
   select * into tok from recommend_tokens where token = p_token and expires_at > now();
@@ -545,7 +547,7 @@ end $$;
 
 -- Buyer places an order; prices come from the items table, never from the app.
 create or replace function public.place_order(p_listing uuid, p_lines jsonb, p_lat double precision, p_lng double precision, p_drop_label text, p_payment text, p_mode text)
-returns uuid language plpgsql security definer set search_path = public as $$
+returns uuid language plpgsql security definer set search_path = public, extensions as $$
 declare l listings; lines jsonb := '[]'; sub int := 0; line jsonb; it items; km numeric; fee int := 0; oid uuid;
 begin
   select * into l from listings where id = p_listing and kind = 'BUSINESS' and status = 'LIVE';
@@ -571,7 +573,7 @@ end $$;
 -- Vendor (owner or admin) accepts or rejects within 5 minutes. Accepting a delivery order creates a bike delivery task:
 -- marketplace orders ring online bikes within 3 km; store-rider orders ring only that store's riders.
 create or replace function public.respond_order(p_order uuid, p_accept boolean) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare o orders; l listings; riders uuid[];
 begin
   select * into o from orders where id = p_order for update;
@@ -589,14 +591,14 @@ begin
 end $$;
 
 -- Orders nobody accepted in time are rejected (schedule with pg_cron, see SUPABASE_SETUP.md).
-create or replace function public.expire_orders() returns int language sql security definer set search_path = public as $$
+create or replace function public.expire_orders() returns int language sql security definer set search_path = public, extensions as $$
   with x as (update orders set status = 'REJECTED' where status = 'PLACED' and accept_by < now() returning 1) select count(*)::int from x
 $$;
 
 -- Rider books a passenger ride (auto or cab only).
 create or replace function public.request_ride(p_kind text, p_lat double precision, p_lng double precision, p_pickup_label text,
                                                d_lat double precision, d_lng double precision, p_drop_label text, p_km numeric, p_fare int)
-returns public.tasks language plpgsql security definer set search_path = public as $$
+returns public.tasks language plpgsql security definer set search_path = public, extensions as $$
 declare t tasks;
 begin
   if p_kind not in ('AUTO', 'CAB') then raise exception 'bikes carry goods only'; end if;
@@ -607,7 +609,7 @@ end $$;
 
 -- Open tasks this online driver should be rung for, nearest first.
 create or replace function public.open_tasks_near(lat double precision, lng double precision) returns setof public.tasks
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select t.* from tasks t join driver_presence p on p.profile_id = me() and p.online and p.kind = t.vehicle_kind
   where t.status = 'SEARCHING' and t.requester_id <> me()
     and (t.only_riders is null or me() = any(t.only_riders))
@@ -618,7 +620,7 @@ $$;
 
 -- First driver to claim wins. Logged for the vehicle owner's dashboard.
 create or replace function public.claim_task(p_task uuid) returns boolean
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare p driver_presence; t tasks;
 begin
   select * into p from driver_presence where profile_id = me() and online;
@@ -633,7 +635,7 @@ end $$;
 
 -- Driver declined or let it ring out: counts in the owner's stats.
 create or replace function public.pass_task(p_task uuid, p_missed boolean default false) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare p driver_presence;
 begin
   select * into p from driver_presence where profile_id = me();
@@ -643,7 +645,7 @@ end $$;
 -- Moves a task along. Driver: ARRIVED -> IN_PROGRESS (needs the requester's PIN) -> COMPLETED; or hand it back.
 -- Requester: CANCELLED (before pick-up), PAID. Delivery completion also marks the order delivered.
 create or replace function public.advance_task(p_task uuid, p_status text, p_pin text default null, p_paid_with text default null) returns public.tasks
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare t tasks;
 begin
   select * into t from tasks where id = p_task for update;
@@ -671,7 +673,7 @@ end $$;
 
 -- Driver's live position during a trip.
 create or replace function public.update_location(lat double precision, lng double precision) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 begin
   update driver_presence set location = geo(lat, lng), updated_at = now() where profile_id = me();
   update tasks set driver_location = geo(lat, lng) where driver_id = me() and status in ('MATCHED', 'ARRIVED', 'IN_PROGRESS');
@@ -679,14 +681,14 @@ end $$;
 
 -- Counterparty's phone and payment link, only while a trip or order is active between us.
 create or replace function public.contact_for_task(p_task uuid) returns table (phone text, upi_uri text)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select pp.phone, pp.upi_uri from tasks t join profile_private pp on pp.profile_id = case when t.requester_id = me() then t.driver_id else t.requester_id end
   where t.id = p_task and me() in (t.requester_id, t.driver_id) and t.status in ('MATCHED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED')
 $$;
 
 -- Reviews only from someone who completed a task with, or received an order from, that listing.
 create or replace function public.review(p_listing uuid, p_task uuid, p_order uuid, p_vote int, p_comment text) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare l listings; ok boolean := false;
 begin
   select * into l from listings where id = p_listing;
@@ -729,7 +731,7 @@ create table if not exists public.user_settings (
   app               jsonb not null default '{}',      -- theme, text size, language, data saver, media auto-download...
   updated_at        timestamptz not null default now()
 );
-create or replace function public.settings_of(p uuid) returns public.user_settings language sql stable security definer set search_path = public as $$
+create or replace function public.settings_of(p uuid) returns public.user_settings language sql stable security definer set search_path = public, extensions as $$
   select coalesce((select s from user_settings s where s.profile_id = p), row(p, 'SYNCED', 'EVERYONE', 'SYNCED', true, true, true, '{}'::jsonb, null, '{}'::jsonb, now())::user_settings)
 $$;
 
@@ -746,15 +748,15 @@ create table if not exists public.blocks (
   created_at timestamptz not null default now(),
   primary key (blocker_id, blocked_id)
 );
-create or replace function public.blocked_between(a uuid, b uuid) returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.blocked_between(a uuid, b uuid) returns boolean language sql stable security definer set search_path = public, extensions as $$
   select exists (select 1 from blocks where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a))
 $$;
-create or replace function public.synced(a uuid, b uuid) returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.synced(a uuid, b uuid) returns boolean language sql stable security definer set search_path = public, extensions as $$
   select exists (select 1 from syncs where status = 'ACCEPTED' and ((requester_id = a and addressee_id = b) or (requester_id = b and addressee_id = a)))
 $$;
 
 -- Sync requests respect the addressee's setting and blocks.
-create or replace function public.request_sync(p_other uuid) returns text language plpgsql security definer set search_path = public as $$
+create or replace function public.request_sync(p_other uuid) returns text language plpgsql security definer set search_path = public, extensions as $$
 declare other_setting text;
 begin
   if p_other = me() then raise exception 'that is you'; end if;
@@ -805,14 +807,14 @@ create table if not exists public.messages (
 );
 create index if not exists messages_conv_idx on public.messages (conversation_id, created_at desc);
 
-create or replace function public.is_member(c uuid) returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.is_member(c uuid) returns boolean language sql stable security definer set search_path = public, extensions as $$
   select exists (select 1 from conversation_members where conversation_id = c and profile_id = public.me())
 $$;
 
 -- Open (or reuse) a one-to-one chat, following the other person's "who can message me" setting:
 -- EVERYONE = anyone; SYNCED = people they're synced with; NOBODY = no new chats.
 -- A driver and rider on an active trip can always message each other. Blocks always win.
-create or replace function public.start_direct(p_other uuid) returns uuid language plpgsql security definer set search_path = public as $$
+create or replace function public.start_direct(p_other uuid) returns uuid language plpgsql security definer set search_path = public, extensions as $$
 declare k text; c uuid; allowed boolean;
 begin
   if p_other = me() then raise exception 'that is you'; end if;
@@ -830,7 +832,7 @@ begin
 end $$;
 
 -- Message a business or pro: everyone who runs the listing (owner and admins) shares one inbox with the customer.
-create or replace function public.start_listing_chat(p_listing uuid) returns uuid language plpgsql security definer set search_path = public as $$
+create or replace function public.start_listing_chat(p_listing uuid) returns uuid language plpgsql security definer set search_path = public, extensions as $$
 declare c uuid; l listings;
 begin
   select * into l from listings where id = p_listing and status = 'LIVE';
@@ -846,7 +848,7 @@ begin
   return c;
 end $$;
 
-create or replace function public.create_group(p_title text, p_members uuid[]) returns uuid language plpgsql security definer set search_path = public as $$
+create or replace function public.create_group(p_title text, p_members uuid[]) returns uuid language plpgsql security definer set search_path = public, extensions as $$
 declare c uuid; m uuid;
 begin
   insert into conversations (kind, title, created_by) values ('GROUP', p_title, me()) returning id into c;
@@ -857,7 +859,7 @@ begin
   return c;
 end $$;
 
-create or replace function public.touch_conversation() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.touch_conversation() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
   update conversations set last_message_at = new.created_at where id = new.conversation_id;
   update conversation_members set last_read_at = new.created_at where conversation_id = new.conversation_id and profile_id = new.sender_id;
@@ -867,7 +869,7 @@ drop trigger if exists message_touch on public.messages;
 create trigger message_touch after insert on public.messages for each row execute function public.touch_conversation();
 
 -- Senders can edit their text or delete ("This message was deleted"); nothing else about a message changes.
-create or replace function public.guard_message() returns trigger language plpgsql as $$
+create or replace function public.guard_message() returns trigger language plpgsql set search_path = public, extensions as $$
 begin
   if current_user = 'authenticated' and (new.sender_id <> old.sender_id or new.conversation_id <> old.conversation_id or new.created_at <> old.created_at) then raise exception 'not allowed'; end if;
   if new.deleted_at is not null then new.body := ''; new.attachment := null; end if;
@@ -880,7 +882,7 @@ create trigger message_guard before update on public.messages for each row execu
 -- Inbox: one row per conversation with the other person (or group/listing title), last message and unread count.
 create or replace function public.inbox() returns table (conversation_id uuid, kind text, title text, other_id uuid, other_name text, other_code text,
   last_body text, last_at timestamptz, unread int, muted boolean, archived boolean)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select c.id, c.kind,
          coalesce(c.title, op.name), op.id, op.name, op.short_code,
          (select case when m.deleted_at is not null then 'Message deleted' when m.body = '' then coalesce(m.attachment->>'name', 'Attachment') else m.body end
@@ -896,10 +898,10 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- Mark read. Read receipts: the other side's last_read_at is only exposed if both have receipts on.
-create or replace function public.mark_read(p_conv uuid) returns void language sql security definer set search_path = public as $$
+create or replace function public.mark_read(p_conv uuid) returns void language sql security definer set search_path = public, extensions as $$
   update conversation_members set last_read_at = now() where conversation_id = p_conv and profile_id = me()
 $$;
-create or replace function public.seen_up_to(p_conv uuid) returns timestamptz language sql stable security definer set search_path = public as $$
+create or replace function public.seen_up_to(p_conv uuid) returns timestamptz language sql stable security definer set search_path = public, extensions as $$
   select case when (select read_receipts from settings_of(me())) then
     (select min(o.last_read_at) from conversation_members o where o.conversation_id = p_conv and o.profile_id <> me() and (select read_receipts from settings_of(o.profile_id)))
   end where is_member(p_conv)
@@ -938,12 +940,12 @@ create table if not exists public.post_comments (
   body       text not null check (length(body) > 0),
   created_at timestamptz not null default now()
 );
-create or replace function public.can_see_post(p public.posts) returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.can_see_post(p public.posts) returns boolean language sql stable security definer set search_path = public, extensions as $$
   select p.deleted_at is null and not blocked_between(me(), p.author_id) and
          (p.author_id = me() or p.visibility in ('PUBLIC', 'LOCAL') or (p.visibility = 'SYNCED' and synced(me(), p.author_id)))
 $$;
 -- Counters kept by the database, so they can't be forged.
-create or replace function public.post_counts() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.post_counts() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 declare pid uuid := coalesce(new.post_id, old.post_id);
 begin
   update posts set up = (select count(*) from post_votes where post_id = pid and vote = 1),
@@ -960,7 +962,7 @@ create trigger post_comments_count after insert or delete on public.post_comment
 create or replace function public.feed(lat double precision, lng double precision, radius_m int default 5000, before timestamptz default now(), lim int default 30)
 returns table (id uuid, author_id uuid, author_name text, author_code text, listing_id uuid, listing_title text, body text, media jsonb, visibility text, area text,
                up int, down int, comments int, my_vote smallint, created_at timestamptz, synced boolean)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select p.id, p.author_id, a.name, a.short_code, p.listing_id, l.title, p.body, p.media, p.visibility, p.area, p.up, p.down, p.comments,
          (select v.vote from post_votes v where v.post_id = p.id and v.profile_id = me()), p.created_at, synced(me(), p.author_id)
   from posts p join profiles a on a.id = p.author_id left join listings l on l.id = p.listing_id
@@ -1002,7 +1004,7 @@ create table if not exists public.moment_mutes (
   primary key (profile_id, muted_id)
 );
 create or replace function public.can_see_moment(m public.moments, lat double precision default null, lng double precision default null) returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select m.expires_at > now() and not blocked_between(me(), m.author_id) and (
     m.author_id = me()
     or (m.audience = 'SYNCED' and synced(me(), m.author_id))
@@ -1013,7 +1015,7 @@ $$;
 -- The row of circles at the top of the feed: me first, then people with unseen moments, newest first.
 create or replace function public.moments_tray(lat double precision, lng double precision)
 returns table (author_id uuid, author_name text, author_code text, listing_title text, moments int, unseen int, latest_at timestamptz, is_me boolean)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select m.author_id, a.name, a.short_code, max(l.title), count(*)::int,
          count(*) filter (where not exists (select 1 from moment_views v where v.moment_id = m.id and v.viewer_id = me()) and m.author_id <> me())::int,
          max(m.created_at), m.author_id = me()
@@ -1023,10 +1025,10 @@ language sql stable security definer set search_path = public as $$
   order by (m.author_id = me()) desc, (count(*) filter (where not exists (select 1 from moment_views v where v.moment_id = m.id and v.viewer_id = me())) > 0) desc, max(m.created_at) desc
 $$;
 create or replace function public.moments_of(p_author uuid, lat double precision, lng double precision) returns setof public.moments
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select m.* from moments m where m.author_id = p_author and can_see_moment(m, lat, lng) order by m.created_at
 $$;
-create or replace function public.view_moment(p_moment uuid, p_reaction text default null) returns void language plpgsql security definer set search_path = public as $$
+create or replace function public.view_moment(p_moment uuid, p_reaction text default null) returns void language plpgsql security definer set search_path = public, extensions as $$
 declare m moments;
 begin
   select * into m from moments where id = p_moment;
@@ -1037,12 +1039,12 @@ begin
 end $$;
 -- Author sees who viewed (and reacted).
 create or replace function public.moment_viewers(p_moment uuid) returns table (viewer_id uuid, name text, reaction text, viewed_at timestamptz)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select v.viewer_id, p.name, v.reaction, v.viewed_at from moment_views v join profiles p on p.id = v.viewer_id join moments m on m.id = v.moment_id
   where v.moment_id = p_moment and m.author_id = me() order by v.viewed_at desc
 $$;
 -- Reply to a moment: lands in a direct chat with the author.
-create or replace function public.reply_to_moment(p_moment uuid, p_body text) returns uuid language plpgsql security definer set search_path = public as $$
+create or replace function public.reply_to_moment(p_moment uuid, p_body text) returns uuid language plpgsql security definer set search_path = public, extensions as $$
 declare m moments; c uuid;
 begin
   select * into m from moments where id = p_moment;
@@ -1052,7 +1054,7 @@ begin
   return c;
 end $$;
 -- Hourly cleanup of expired moments (schedule with pg_cron; media files are removed by the storage cleanup job).
-create or replace function public.expire_moments() returns int language sql security definer set search_path = public as $$
+create or replace function public.expire_moments() returns int language sql security definer set search_path = public, extensions as $$
   with x as (delete from moments where expires_at < now() - interval '1 hour' returning 1) select count(*)::int from x
 $$;
 
@@ -1061,7 +1063,7 @@ $$;
 -- People you may know: friends of friends first, then active people nearby. Excludes blocked, already synced, undiscoverable.
 create or replace function public.suggest_people(lat double precision, lng double precision, lim int default 20)
 returns table (id uuid, name text, short_code text, area text, mutual int, distance_m double precision)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   with mine as (select case when requester_id = me() then addressee_id else requester_id end f from syncs where status = 'ACCEPTED' and me() in (requester_id, addressee_id))
   select p.id, p.name, p.short_code, p.area,
          (select count(*)::int from syncs s where s.status = 'ACCEPTED' and ((s.requester_id = p.id and s.addressee_id in (select f from mine)) or (s.addressee_id = p.id and s.requester_id in (select f from mine)))) as mutual,
@@ -1077,7 +1079,7 @@ $$;
 -- Listings recommended or reviewed well by people I'm synced with, near me.
 create or replace function public.suggest_listings(lat double precision, lng double precision, lim int default 20)
 returns table (id uuid, kind text, title text, category text, area text, synced_recommenders int, distance_m double precision)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   with mine as (select case when requester_id = me() then addressee_id else requester_id end f from syncs where status = 'ACCEPTED' and me() in (requester_id, addressee_id))
   select l.id, l.kind, l.title, l.category, l.area,
          ((select count(*) from recommendations r where r.listing_id = l.id and r.recommender_id in (select f from mine))
@@ -1108,7 +1110,7 @@ create policy settings_self on public.user_settings for all to authenticated usi
 create policy close_self on public.close_friends for all to authenticated using (profile_id = public.me()) with check (profile_id = public.me());
 create policy blocks_self on public.blocks for all to authenticated using (blocker_id = public.me()) with check (blocker_id = public.me());
 -- Blocking also ends any sync.
-create or replace function public.on_block() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.on_block() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin delete from syncs where (requester_id = new.blocker_id and addressee_id = new.blocked_id) or (requester_id = new.blocked_id and addressee_id = new.blocker_id); return new; end $$;
 drop trigger if exists block_unsync on public.blocks;
 create trigger block_unsync after insert on public.blocks for each row execute function public.on_block();
@@ -1194,3 +1196,6 @@ grant usage on schema public to authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant execute on all functions in schema public to authenticated;
 revoke all on public.recommend_tokens from authenticated;
+-- Signed-out callers get nothing: every Bucks function needs a signed-in person.
+revoke execute on all functions in schema public from public, anon;
+grant execute on all functions in schema public to authenticated;
