@@ -1258,3 +1258,6 @@ revoke execute on all functions in schema public from public, anon;
 grant execute on all functions in schema public to authenticated;
 -- Internal helpers and cron jobs are only ever called from inside other functions, never by the app.
 revoke execute on function public.synced(uuid, uuid), public.settings_of(uuid), public.expire_orders(), public.expire_moments() from authenticated, anon, public;
+-- Trigger bodies and guards run only as triggers; nobody calls them through the API.
+revoke execute on function public.listing_add_owner(), public.vehicle_add_owner(), public.touch_conversation(), public.post_counts(), public.on_block(),
+  public.guard_profile(), public.guard_listing(), public.guard_vehicle(), public.guard_message() from authenticated, anon, public;
