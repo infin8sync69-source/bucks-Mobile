@@ -65,6 +65,8 @@ dependencies {
     implementation(libs.play.services.code.scanner)
     implementation(libs.osmdroid)
     implementation(libs.zxing.core)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
