@@ -84,6 +84,32 @@ select pg_temp.as_user('sam');
 update applications set status = 'HIRED' where id = pg_temp.app('Delivery rider', 'meera');
 reset role; select 'Meera''s status after Sam''s attempt (row hidden from him): ' || status from applications where id = pg_temp.app('Delivery rider', 'meera'); set role authenticated;
 
+\echo '== 6b. Message: a manager can open a chat with an applicant on default settings; nobody else gets a way in'
+reset role; select 'Ravi''s setting (default): ' || who_can_message from settings_of(pg_temp.pid('ravi')); set role authenticated;
+select pg_temp.as_user('bala');
+select 'plain start_direct still follows his setting -> ' || pg_temp.expect_fail(format($$select start_direct(%L)$$, pg_temp.pid('ravi')), 'synced with');
+create temp table chat_ids (who text, id uuid); grant all on chat_ids to authenticated;
+insert into chat_ids select 'bala-ravi', start_applicant_chat(pg_temp.app('Delivery rider', 'ravi'));
+select 'Bala opens a chat with Ravi: ' || (id is not null) from chat_ids where who = 'bala-ravi';
+select 'opening again reuses it: ' || (start_applicant_chat(pg_temp.app('Delivery rider', 'ravi')) = id) from chat_ids where who = 'bala-ravi';
+insert into messages (conversation_id, sender_id, body) select id, me(), 'Can you start on Monday at 7?' from chat_ids where who = 'bala-ravi';
+select 'a rejected applicant can still be reached: ' || (start_applicant_chat(pg_temp.app('Delivery rider', 'meera')) is not null);
+select pg_temp.as_user('ravi');
+select 'Ravi has it in his inbox: ' || kind || ' with ' || other_name || ': ' || last_body || ' (' || unread || ' unread)' from inbox() where conversation_id = (select id from chat_ids where who = 'bala-ravi');
+insert into messages (conversation_id, sender_id, body) select id, me(), 'Yes, see you then.' from chat_ids where who = 'bala-ravi';
+select 'Ravi uses it on his own application -> ' || pg_temp.expect_fail(format($$select start_applicant_chat(%L)$$, pg_temp.app('Delivery rider', 'ravi')), 'not available');
+select 'applying opens no reverse channel into Asha''s DMs -> ' || pg_temp.expect_fail(format($$select start_direct(%L)$$, pg_temp.pid('asha')), 'synced with');
+select pg_temp.as_user('sam');
+select 'Sam uses it on Meera''s application -> ' || pg_temp.expect_fail(format($$select start_applicant_chat(%L)$$, pg_temp.app('Delivery rider', 'meera')), 'not available');
+select 'Sam with a made-up id -> ' || pg_temp.expect_fail($$select start_applicant_chat(gen_random_uuid())$$, 'not available');
+select pg_temp.as_user('meera');
+insert into blocks (blocker_id, blocked_id) values (me(), pg_temp.pid('asha'));
+select pg_temp.as_user('asha');
+select 'Meera blocked Asha -> ' || pg_temp.expect_fail(format($$select start_applicant_chat(%L)$$, pg_temp.app('Delivery rider', 'meera')), 'cannot message');
+select pg_temp.as_user('meera');
+delete from blocks where blocker_id = me() and blocked_id = pg_temp.pid('asha');
+reset role; select 'anon cannot call it: ' || not has_function_privilege('anon', 'public.start_applicant_chat(uuid)', 'execute'); set role authenticated;
+
 \echo '== 7. Withdraw: a hired or shortlisted applicant may withdraw, a declined one may not, and only once'
 select pg_temp.as_user('meera');
 select 'Meera withdraws after being declined -> ' || pg_temp.expect_fail(format($$update applications set status = 'WITHDRAWN' where id = %L$$, pg_temp.app('Delivery rider', 'meera')), 'already declined');
@@ -94,6 +120,7 @@ select 'withdraw again -> ' || pg_temp.expect_fail(format($$update applications 
 select 'apply again -> ' || pg_temp.expect_fail(format($$insert into applications (job_id, applicant_id) values (%L, me())$$, pg_temp.job('Delivery rider')), 'duplicate');
 select pg_temp.as_user('bala');
 select 'Bala re-hires after withdrawal -> ' || pg_temp.expect_fail(format($$update applications set status = 'HIRED' where id = %L$$, pg_temp.app('Delivery rider', 'ravi')), 'withdrew');
+select 'Bala opens a chat from the withdrawn application -> ' || pg_temp.expect_fail(format($$select start_applicant_chat(%L)$$, pg_temp.app('Delivery rider', 'ravi')), 'withdrew');
 select 'withdrawn ones drop out of the count: ' || applications || ' (new ' || new_applications || ')' from jobs_with_counts where id = pg_temp.job('Delivery rider');
 
 \echo '== 8. Close: no new applications, gone from nearby, but applicants keep the job on their list'

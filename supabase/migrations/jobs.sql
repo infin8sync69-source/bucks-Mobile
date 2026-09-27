@@ -7,6 +7,7 @@
 --   my_applications()              my applications with job and business titles, even after the job closed
 --   guard_application()            the rules for changing an application (who may withdraw, who may decide)
 --   check_application()            the rules for applying (not to your own listing, only with your own skill profiles)
+--   start_applicant_chat(p_app)    a manager opens a direct chat with an applicant, whatever their message setting
 set search_path = public, extensions;
 
 -- ---------- reading ----------
@@ -103,8 +104,35 @@ end $$;
 drop trigger if exists application_guard on public.applications;
 create trigger application_guard before update on public.applications for each row execute function public.guard_application();
 
+-- ---------- talking to an applicant ----------
+
+-- The people who run a listing open (or reuse) a one-to-one chat with someone who applied to one of its jobs,
+-- whatever that person's "who can message me" setting says: applying is asking the business to get in touch.
+-- One direction only (the applicant reaches the business through start_listing_chat, the shared listing inbox),
+-- only while the application stands (not withdrawn), and blocks always win. Same direct_key as start_direct,
+-- so it is the same conversation either function would open.
+create or replace function public.start_applicant_chat(p_application uuid) returns uuid language plpgsql security definer set search_path = public, extensions as $$
+declare a public.applications; l uuid; k text; c uuid;
+begin
+  if public.me() is null then raise exception 'not signed in'; end if;
+  select * into a from public.applications where id = p_application;
+  if a.id is not null then select listing_id into l from public.jobs where id = a.job_id; end if;
+  if a.id is null or l is null or not public.can_manage_listing(l) then raise exception 'this application is not available'; end if;
+  if a.applicant_id = public.me() then raise exception 'that is you'; end if;
+  if a.status = 'WITHDRAWN' then raise exception 'they withdrew this application'; end if;
+  if public.blocked_between(public.me(), a.applicant_id) then raise exception 'you cannot message this person'; end if;
+  k := least(public.me()::text, a.applicant_id::text) || ':' || greatest(public.me()::text, a.applicant_id::text);
+  select id into c from public.conversations where direct_key = k;
+  if c is not null then return c; end if;
+  insert into public.conversations (kind, direct_key, created_by) values ('DIRECT', k, public.me()) returning id into c;
+  insert into public.conversation_members (conversation_id, profile_id) values (c, public.me()), (c, a.applicant_id);
+  return c;
+end $$;
+
 -- ---------- grants ----------
 revoke execute on function public.jobs_near(double precision, double precision, int), public.job_page(uuid), public.my_applications() from public, anon;
 grant execute on function public.jobs_near(double precision, double precision, int), public.job_page(uuid), public.my_applications() to authenticated;
+revoke execute on function public.start_applicant_chat(uuid) from public, anon;
+grant execute on function public.start_applicant_chat(uuid) to authenticated;
 -- Trigger bodies run only as triggers; nobody calls them through the API.
 revoke execute on function public.check_application(), public.guard_application() from authenticated, anon, public;

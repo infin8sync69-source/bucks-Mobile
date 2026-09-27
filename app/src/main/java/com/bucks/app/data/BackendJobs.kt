@@ -10,7 +10,7 @@ import kotlinx.serialization.json.put
 
 /**
  * Jobs: reads that need more than the plain tables give (supabase/migrations/jobs.sql).
- * Writes stay on [Backend]: postJob, closeJob, apply, setApplicationStatus.
+ * Writes stay on [Backend]: postJob, closeJob, apply, setApplicationStatus; reopenJob and startApplicantChat are here.
  */
 
 /** A job with its application counts (view jobs_with_counts). Counts follow row-level security: only managers see everyone's. */
@@ -42,4 +42,7 @@ suspend fun Backend.myApplications(): List<MyApplicationRow> = client.postgrest.
 suspend fun Backend.jobApplications(jobId: String): List<JobApplicationRow> =
     client.postgrest.from("applications").select { filter { eq("job_id", jobId) }; order("created_at", Order.ASCENDING) }.decodeList()
 suspend fun Backend.reopenJob(id: String) { client.postgrest.from("jobs").update({ set("open", true) }) { filter { eq("id", id) } } }
+/** A manager opens (or reuses) a direct chat with someone who applied, whatever their message setting; returns the conversation id. */
+suspend fun Backend.startApplicantChat(applicationId: String): String =
+    client.postgrest.rpc("start_applicant_chat", buildJsonObject { put("p_application", applicationId) }).decodeAs()
 // Backend.listingsByIds (listings by id in one call, used by Jobs for applicants' skill profiles) lives in BackendCommerce.kt; both features share it.

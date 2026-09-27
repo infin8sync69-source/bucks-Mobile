@@ -131,8 +131,10 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
         applications = applications.map { if (it.id == applicationId) it.copy(status = status) else it }
         job?.let { j -> jobs = jobs.map { if (it.id == j.id) it.copy(newApplications = applications.count { a -> a.status == "APPLIED" }) else it } }
     } }
-    /** Opens (or reuses) a direct chat with an applicant; their privacy setting may refuse, and the server's sentence is shown. */
-    fun message(applicantId: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startDirect(applicantId)) }
+    /** A manager opens (or reuses) a direct chat with an applicant. Applying lets the business reach them whatever their message setting; blocks still refuse. */
+    fun message(applicationId: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startApplicantChat(applicationId)) }
+    /** An applicant (or anyone looking at the job) messages the business through its shared listing inbox. */
+    fun messageBusiness(listingId: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startListingChat(listingId)) }
 
     // ---------- me as an applicant ----------
     suspend fun refreshMySkills() { val me = social.me?.id ?: return; mySkills = Backend.myListings(me).filter { it.kind == "SKILL" } }

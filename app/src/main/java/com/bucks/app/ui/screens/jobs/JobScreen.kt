@@ -46,7 +46,7 @@ fun JobScreen(vm: BucksViewModel, jobId: String, onBack: () -> Unit, onOpenListi
                 JobDetails(job)
                 BusinessCard(job) { onOpenListing(job.listingId) }
                 if (manager) ManagerSection(vm, job, onOpenListing, onOpenChat, onConfirm = { confirm = it })
-                else ApplicantSection(vm, job, onApply = { applySheet = true }, onConfirm = { confirm = it })
+                else ApplicantSection(vm, job, onApply = { applySheet = true }, onOpenChat = onOpenChat, onConfirm = { confirm = it })
                 Spacer(Modifier.height(32.dp))
             }
         }
@@ -129,7 +129,7 @@ private fun ApplicationCard(vm: BucksViewModel, a: JobApplicationRow, onOpenList
             val busy = jobs.busy
             if (a.status == "APPLIED" || a.status == "REJECTED") SmallButton("Shortlist", tonal = true, enabled = !busy) { jobs.setApplicationStatus(a.id, "SHORTLISTED") }
             if (a.status != "HIRED") SmallButton("Hire", enabled = !busy) { onConfirm(Confirm("Hire $name?", "They'll see \"Hired\" on their application. Agree the start and pay with them in chat. The job stays open until you close it.", "Hire") { jobs.setApplicationStatus(a.id, "HIRED") }) }
-            SmallButton("Message", tonal = true, enabled = !busy) { jobs.message(a.applicantId, onOpenChat) }
+            SmallButton("Message", tonal = true, enabled = !busy) { jobs.message(a.id, onOpenChat) }
             if (a.status == "APPLIED" || a.status == "SHORTLISTED") SmallButton("Reject", tonal = true, enabled = !busy) { onConfirm(Confirm("Turn down $name?", "They'll see \"Not selected\". You can still shortlist them later if you change your mind.", "Turn down", destructive = true) { jobs.setApplicationStatus(a.id, "REJECTED") }) }
         }
     }
@@ -138,7 +138,7 @@ private fun ApplicationCard(vm: BucksViewModel, a: JobApplicationRow, onOpenList
 /* ---------- the applicant side ---------- */
 
 @Composable
-private fun ApplicantSection(vm: BucksViewModel, job: JobPageRow, onApply: () -> Unit, onConfirm: (Confirm) -> Unit) {
+private fun ApplicantSection(vm: BucksViewModel, job: JobPageRow, onApply: () -> Unit, onOpenChat: (String) -> Unit, onConfirm: (Confirm) -> Unit) {
     val jobs = vm.jobs; val mine = jobs.myApplication?.takeIf { it.jobId == job.id }
     SectionTitle("Your application", Modifier.padding(top = 24.dp, bottom = 4.dp))
     when {
@@ -162,6 +162,8 @@ private fun ApplicantSection(vm: BucksViewModel, job: JobPageRow, onApply: () ->
             }
         }
     }
+    // Questions before applying, or agreeing the start and pay after: the business's shared inbox, where every owner and admin sees it.
+    if (!(jobs.loadingJob && mine == null)) SmallButton("Message the business", Modifier.padding(top = 12.dp), tonal = true) { jobs.messageBusiness(job.listingId, onOpenChat) }
 }
 
 /** Pick one or more of my skill profiles and add a note. */
