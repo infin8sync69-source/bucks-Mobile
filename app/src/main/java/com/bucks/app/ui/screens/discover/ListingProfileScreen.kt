@@ -131,20 +131,30 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     CartSwitchDialog(vm)
 }
 
-/** While the profile loads, or when the listing can't be shown. */
+/** While the profile loads, when the listing isn't there (missing), or when the load itself failed (offline, server error). */
 @Composable
 private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Unit) {
     val d = vm.discover
     ContentColumn(Modifier.fillMaxHeight()) {
         BucksTopBar("Listing", onBack = onBack)
         Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (id in d.missing) {
-                Icon(Icons.Rounded.SearchOff, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("This listing isn't available", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-                Muted("It may have been removed, or it isn't live yet. A listing goes live once 7 neighbours recommend it in person.", Modifier.padding(top = 6.dp), align = TextAlign.Center)
-                SmallButton("Try again", Modifier.padding(top = 14.dp), tonal = true) { d.open(id) }
-                TextButton(onBack) { Text("Back") }
-            } else { CircularProgressIndicator(); Muted("Loading…", Modifier.padding(top = 12.dp)) }
+            when {
+                id in d.missing -> {
+                    Icon(Icons.Rounded.SearchOff, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("This listing isn't available", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+                    Muted("It may have been removed, or it isn't live yet. A listing goes live once 7 neighbours recommend it in person.", Modifier.padding(top = 6.dp), align = TextAlign.Center)
+                    SmallButton("Try again", Modifier.padding(top = 14.dp), tonal = true) { d.open(id) }
+                    TextButton(onBack) { Text("Back") }
+                }
+                id in d.failed -> {
+                    Icon(Icons.Rounded.CloudOff, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Couldn't load this listing", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+                    Muted("Check your connection and try again.", Modifier.padding(top = 6.dp), align = TextAlign.Center)
+                    SmallButton("Try again", Modifier.padding(top = 14.dp), tonal = true) { d.open(id) }
+                    TextButton(onBack) { Text("Back") }
+                }
+                else -> { CircularProgressIndicator(); Muted("Loading…", Modifier.padding(top = 12.dp)) }
+            }
         }
     }
 }

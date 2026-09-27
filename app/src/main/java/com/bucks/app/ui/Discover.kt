@@ -59,6 +59,8 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     var loading by mutableStateOf<Set<String>>(emptySet()); private set
     /** Ids that could not be found (deleted, or pending and not mine). */
     var missing by mutableStateOf<Set<String>>(emptySet()); private set
+    /** Ids whose last load failed (no network, server error); the screen offers a retry instead of spinning forever. */
+    var failed by mutableStateOf<Set<String>>(emptySet()); private set
     /** Listings I am synced with. */
     var mySyncs by mutableStateOf<Set<String>>(emptySet()); private set
     /** Ids whose sync toggle is in flight. */
@@ -95,16 +97,21 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     fun clear() { query = ""; search() }
 
     // ---------- profile ----------
-    /** Loads (or reloads) everything the profile screen needs for [id]. */
+    /**
+     * Loads (or reloads) everything the profile screen needs for [id]. A listing that isn't there goes to [missing];
+     * a fetch that throws (offline, server error) goes to [failed] so the screen shows "Try again" rather than an endless spinner.
+     * Only the listing row itself is required; every other part degrades to empty when its own call fails.
+     */
     fun open(id: String) = go {
         if (id in loading) return@go
         loading = loading + id
+        failed = failed - id
         try {
-            if (!syncsLoaded) refreshSyncsNow()
+            if (!syncsLoaded) runCatching { refreshSyncsNow() }
             val l = Backend.listing(id) ?: run { missing = missing + id; profiles.remove(id); return@go }
             missing = missing - id
             val me = social.me?.id
-            val items = Backend.items(id)
+            val items = runCatching { Backend.items(id) }.getOrDefault(emptyList())
             val reviews = runCatching { Backend.reviews(id) }.getOrDefault(emptyList())
             val posts = if (l.kind == "SKILL") runCatching { Backend.listingPosts(id) }.getOrDefault(emptyList()) else emptyList()
             val members = runCatching { Backend.members(id) }.getOrDefault(emptyList())
@@ -118,9 +125,11 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
             val at = runCatching { Backend.listingPoint(id) }.getOrNull()
             val similar = if (at != null) runCatching { Backend.search("", at, 5_000, listOf(l.kind)) }.getOrDefault(emptyList())
                 .filter { it.id != id && (l.category.isBlank() || it.category.equals(l.category, true)) }.take(4) else emptyList()
-            social.namesFor((reviews.map { it.authorId } + posts.map { it.authorId } + l.ownerId).distinct())
+            runCatching { social.namesFor((reviews.map { it.authorId } + posts.map { it.authorId } + l.ownerId).distinct()) }
             profiles[id] = ListingProfile(l, items, reviews, posts, counts.recommendations, id in mySyncs, counts.syncs, maxOf(counts.members, members.size), counts.openJobs, myRole, at, similar)
-        } finally { loading = loading - id }
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { failed = failed + id; toast(friendly(e)) }
+        finally { loading = loading - id }
     }
     fun refreshSyncs() = go { refreshSyncsNow() }
     private suspend fun refreshSyncsNow() { val me = social.me?.id ?: return; mySyncs = Backend.myListingSyncs(me).map { it.listingId }.toSet(); syncsLoaded = true }

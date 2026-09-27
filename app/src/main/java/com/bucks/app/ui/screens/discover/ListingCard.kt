@@ -34,7 +34,7 @@ import com.bucks.app.ui.theme.status
 /**
  * The one card every search result uses, whatever its kind: photo or initials, title, kind badge, category,
  * distance, open/online dot, trust, and one line that says what matters for that kind
- * (the matched item and price for a shop, the rate for a pro, the vehicle and fare for a driver).
+ * (the matched item and the shop's starting price for a shop, the rate for a pro, the vehicle and fare for a driver).
  */
 @Composable
 fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
@@ -57,10 +57,14 @@ fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
     }
 }
 
-/** The kind-specific line of a result card. */
+/**
+ * The kind-specific line of a result card. For a shop, matched_item is the product whose name matched the query while
+ * min_price is the cheapest in-stock product of the whole shop (search_listings), so the two are never joined as one price:
+ * "Sells Sugar · products from ₹5", not "Sugar · from ₹5".
+ */
 private fun kindLine(h: SearchHit): String = when (h.kind) {
     "BUSINESS" -> when {
-        h.matchedItem != null -> h.matchedItem + (h.minPrice?.let { " · from ₹$it" } ?: "")
+        h.matchedItem != null -> "Sells ${h.matchedItem}" + (h.minPrice?.let { " · products from ₹$it" } ?: "")
         h.minPrice != null -> "Products from ₹${h.minPrice}"
         else -> "No products listed yet · message to ask"
     }

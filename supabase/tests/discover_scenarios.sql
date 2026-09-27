@@ -81,3 +81,24 @@ select 'Asha inbox: ' || kind || ' "' || title || '" | "' || last_body || '"' fr
 select 'owner chats with own listing -> ' || pg_temp.expect_fail(format('select start_listing_chat(%L)', pg_temp.lid('Asha Stores')), 'own listing');
 select pg_temp.as_user('chetan');
 select 'chat with a pending listing -> ' || pg_temp.expect_fail(format('select start_listing_chat(%L)', pg_temp.lid('Asha Tailoring')), 'not available');
+
+\echo '== 7. Blocking closes the listing chat: no new chat, nothing into the old one, from either side, until unblocked'
+select pg_temp.as_user('asha');
+insert into blocks (blocker_id, blocked_id) values (me(), pg_temp.pid('chetan'));
+select pg_temp.as_user('chetan');
+select 'blocked customer taps Message -> ' || pg_temp.expect_fail(format('select start_listing_chat(%L)', pg_temp.lid('Asha Stores')), 'cannot message this listing');
+select 'blocked customer posts into the old chat -> ' || pg_temp.expect_fail(format($$insert into messages (conversation_id, sender_id, body) values (%L, me(), 'still here after you blocked me')$$, current_setting('t.conv')), 'row-level security');
+select pg_temp.as_user('asha');
+select 'owner posts into the blocked chat -> ' || pg_temp.expect_fail(format($$insert into messages (conversation_id, sender_id, body) values (%L, me(), 'go away')$$, current_setting('t.conv')), 'row-level security');
+select 'Asha inbox unchanged: "' || last_body || '"' from inbox();
+select pg_temp.as_user('ravi');
+select 'a stranger to the block still opens the chat: ' || (start_listing_chat(pg_temp.lid('Asha Stores')) is not null);
+select pg_temp.as_user('asha');
+delete from blocks where blocker_id = me() and blocked_id = pg_temp.pid('chetan');
+select pg_temp.as_user('chetan');
+select 'unblocked: the old chat comes back: ' || (start_listing_chat(pg_temp.lid('Asha Stores'))::text = current_setting('t.conv'));
+insert into messages (conversation_id, sender_id, body) values (current_setting('t.conv')::uuid, me(), 'thanks, one more thing');
+select 'unblocked customer posts again: ' || count(*) || ' messages' from messages where conversation_id = current_setting('t.conv')::uuid;
+insert into blocks (blocker_id, blocked_id) values (me(), pg_temp.pid('asha'));
+select 'customer who blocks the shop cannot open its chat either -> ' || pg_temp.expect_fail(format('select start_listing_chat(%L)', pg_temp.lid('Asha Stores')), 'cannot message this listing');
+delete from blocks where blocker_id = me() and blocked_id = pg_temp.pid('asha');
