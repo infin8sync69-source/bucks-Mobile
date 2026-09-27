@@ -34,12 +34,12 @@ object Prefs {
     var dataSaver by mutableStateOf(false); private set
     var language by mutableStateOf("en"); private set
 
-    fun setTheme(t: Theme) { theme = t; sp.edit().putString("theme", t.name).apply() }
-    fun setTextSize(t: TextSize) { textSize = t; sp.edit().putString("text", t.name).apply() }
-    fun setMediaDownload(m: MediaDownload) { mediaDownload = m; sp.edit().putString("media", m.name).apply() }
-    fun setReduceMotion(v: Boolean) { reduceMotion = v; sp.edit().putBoolean("reduceMotion", v).apply() }
-    fun setDataSaver(v: Boolean) { dataSaver = v; sp.edit().putBoolean("dataSaver", v).apply() }
-    fun setLanguage(tag: String) { language = tag; sp.edit().putString("language", tag).apply() }
+    fun chooseTheme(t: Theme) { theme = t; sp.edit().putString("theme", t.name).apply() }
+    fun chooseTextSize(t: TextSize) { textSize = t; sp.edit().putString("text", t.name).apply() }
+    fun chooseMediaDownload(m: MediaDownload) { mediaDownload = m; sp.edit().putString("media", m.name).apply() }
+    fun enableReduceMotion(v: Boolean) { reduceMotion = v; sp.edit().putBoolean("reduceMotion", v).apply() }
+    fun enableDataSaver(v: Boolean) { dataSaver = v; sp.edit().putBoolean("dataSaver", v).apply() }
+    fun chooseLanguage(tag: String) { language = tag; sp.edit().putString("language", tag).apply() }
 
     val LANGUAGES = listOf("en" to "English", "kn" to "ಕನ್ನಡ", "hi" to "हिन्दी", "ta" to "தமிழ்", "te" to "తెలుగు", "ml" to "മലയാളം")
 }

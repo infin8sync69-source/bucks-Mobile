@@ -113,12 +113,12 @@ fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
 fun AppearanceScreen(onBack: () -> Unit) {
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Appearance and data", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            ChoiceGroup("Theme", null, Prefs.Theme.entries.map { it to it.label }, Prefs.theme) { Prefs.setTheme(it) }
-            ChoiceGroup("Text size", null, Prefs.TextSize.entries.map { it to it.label }, Prefs.textSize) { Prefs.setTextSize(it) }
-            ToggleRow("Reduce motion", "Turns off pulses and other looping animations.", Prefs.reduceMotion) { Prefs.setReduceMotion(it) }
-            ChoiceGroup("Download photos and files", "Applies to chats and Moments on mobile data.", Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.setMediaDownload(it) }
-            ToggleRow("Data saver", "Lighter maps and smaller images.", Prefs.dataSaver) { Prefs.setDataSaver(it) }
-            ChoiceGroup("App language", "Menus and buttons. Translations are being added; English is complete.", Prefs.LANGUAGES, Prefs.language) { Prefs.setLanguage(it) }
+            ChoiceGroup("Theme", null, Prefs.Theme.entries.map { it to it.label }, Prefs.theme) { Prefs.chooseTheme(it) }
+            ChoiceGroup("Text size", null, Prefs.TextSize.entries.map { it to it.label }, Prefs.textSize) { Prefs.chooseTextSize(it) }
+            ToggleRow("Reduce motion", "Turns off pulses and other looping animations.", Prefs.reduceMotion) { Prefs.enableReduceMotion(it) }
+            ChoiceGroup("Download photos and files", "Applies to chats and Moments on mobile data.", Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }
+            ToggleRow("Data saver", "Lighter maps and smaller images.", Prefs.dataSaver) { Prefs.enableDataSaver(it) }
+            ChoiceGroup("App language", "Menus and buttons. Translations are being added; English is complete.", Prefs.LANGUAGES, Prefs.language) { Prefs.chooseLanguage(it) }
         }
     }
 }
