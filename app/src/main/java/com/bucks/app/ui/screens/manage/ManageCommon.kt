@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.manage
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -30,6 +32,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import java.io.ByteArrayOutputStream
 
 /* Shared bits for the Manage screens: category lists, details helpers, small composables. */
 
@@ -80,12 +83,33 @@ internal fun PhotoOrIcon(url: String?, icon: ImageVector, size: Int = 56, shape:
     else AsyncImage(url, null, Modifier.size(size.dp).clip(shape).background(MaterialTheme.colorScheme.surfaceContainer), contentScale = ContentScale.Crop)
 }
 
-/** Opens the system photo picker; [onPicked] gets the compressed bytes and the preview URI. Returns the launch action. */
+/**
+ * A listing or product photo as JPEG. Upload.read leaves GIFs untouched (chat wants them animated), but the listing-media
+ * bucket only takes JPEG, PNG and WebP, so a GIF's first frame is re-encoded here; null when it cannot be decoded.
+ */
+internal fun Picked.asListingPhoto(): Picked? {
+    if (mime != "image/gif") return this
+    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+    val out = ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 82, it) }.toByteArray()
+    return Picked(out, name.substringBeforeLast('.') + ".jpg", "image/jpeg")
+}
+
+/** Opens the system photo picker; [onPicked] gets the compressed bytes and the preview URI, [onUnusable] runs when the file cannot be read. Returns the launch action. */
 @Composable
-internal fun rememberImagePicker(onPicked: (Picked, Uri) -> Unit): () -> Unit {
+internal fun rememberImagePicker(onUnusable: () -> Unit = {}, onPicked: (Picked, Uri) -> Unit): () -> Unit {
     val ctx = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { u -> Upload.read(ctx, u)?.let { onPicked(it, u) } } }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { u -> Upload.read(ctx, u)?.asListingPhoto()?.let { onPicked(it, u) } ?: onUnusable() } }
     return { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+}
+
+/** The hub could not load (no network, expired session): say so and offer a retry, never an empty state that invites a duplicate listing. */
+@Composable
+internal fun LoadError(message: String, modifier: Modifier = Modifier, onRetry: () -> Unit) {
+    BucksCard(modifier) {
+        Text("Couldn't load your listings", style = MaterialTheme.typography.titleMedium)
+        Muted(message, Modifier.padding(top = 4.dp))
+        SmallButton("Try again", Modifier.padding(top = 12.dp), tonal = true, onClick = onRetry)
+    }
 }
 
 /** Current photo (or the newly picked one) with Add / Change / Remove. */

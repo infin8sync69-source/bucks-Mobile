@@ -7,6 +7,7 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.RealtimeChannel
@@ -57,9 +58,11 @@ object Backend {
     suspend fun updateProfile(id: String, name: String, bio: String, area: String, home: LatLng?) {
         db.from("profiles").update({ set("name", name); set("bio", bio); set("area", area); home?.let { set("home", point(it)) } }) { filter { eq("id", id) } }
     }
-    suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select { filter { isIn("id", ids.toList()) } }.decodeList()
+    /** The columns the API may read from profiles; `home` is withheld (manage.sql), so `select *` would be refused. */
+    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "trust_up", "trust_down")
+    suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select(PROFILE_COLUMNS) { filter { isIn("id", ids.toList()) } }.decodeList()
     suspend fun profileByCode(code: String): ProfileRow? =
-        db.from("profiles").select { filter { eq("short_code", code.trim().uppercase()) } }.decodeSingleOrNull()
+        db.from("profiles").select(PROFILE_COLUMNS) { filter { eq("short_code", code.trim().uppercase()) } }.decodeSingleOrNull()
     suspend fun setPaymentLink(profileId: String, upiUri: String) {
         db.from("profile_private").update({ set("upi_uri", upiUri) }) { filter { eq("profile_id", profileId) } }
     }

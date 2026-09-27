@@ -73,13 +73,19 @@ fun RecommendShowScreen(vm: BucksViewModel, listingId: String, onBack: () -> Uni
 fun RecommendScanScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val m = vm.myListings; val ctx = LocalContext.current; val st by vm.state.collectAsState()
     var result by remember { mutableStateOf<Int?>(null) }
-    fun scan() = scanQr(ctx, onResult = { raw ->
-        when (val s = BucksQr.parse(raw)) {
-            is BucksQr.Scanned.Recommendation -> m.recommend(s.token) { result = it }
-            is BucksQr.Scanned.BucksId -> vm.toast("That's someone's Bucks ID for syncing, not a recommendation code. Ask them to open Get recommended.")
-            else -> vm.toast("That isn't a Bucks recommendation code.")
-        }
-    }, onError = { vm.toast(it) })
+    // The scanner needs a real location fix: the server's "in person" check compares where the scanner stands with the
+    // listing, and the map's default centre would pass it for every listing within 3 km of Jayanagar, photo of the code or not.
+    val fix = st.me
+    fun scan() {
+        val at = fix ?: run { vm.toast("Turn on location first. Recommendations only count when you scan in person, near their shop."); return }
+        scanQr(ctx, onResult = { raw ->
+            when (val s = BucksQr.parse(raw)) {
+                is BucksQr.Scanned.Recommendation -> m.recommend(s.token, at) { result = it }
+                is BucksQr.Scanned.BucksId -> vm.toast("That's someone's Bucks ID for syncing, not a recommendation code. Ask them to open Get recommended.")
+                else -> vm.toast("That isn't a Bucks recommendation code.")
+            }
+        }, onError = { vm.toast(it) })
+    }
     ContentColumn(Modifier.fillMaxHeight()) {
         BucksTopBar("Recommend a neighbour", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
@@ -89,7 +95,8 @@ fun RecommendScanScreen(vm: BucksViewModel, onBack: () -> Unit) {
                 Muted("Ask the shop owner, driver or worker to open Get recommended on their phone, then scan the code it shows. Your recommendation helps them go live for everyone nearby.", Modifier.padding(top = 6.dp), TextAlign.Center)
             }
             if (!st.locationGranted) Notice("Turn on location for Bucks first. Recommendations only count when you scan in person, near their shop.", Modifier.padding(top = 14.dp))
-            PrimaryButton("Open the scanner", Modifier.padding(top = 16.dp)) { scan() }
+            else if (fix == null) Notice("Waiting for your location… The scanner opens once Bucks knows where you are, so the recommendation counts as in person.", Modifier.padding(top = 14.dp))
+            PrimaryButton("Open the scanner", Modifier.padding(top = 16.dp), enabled = fix != null) { scan() }
             result?.let { n ->
                 BucksCard(Modifier.padding(top = 14.dp), tint = true) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.onPrimaryContainer); Text("  Thanks, that's $n of $NEEDED", style = MaterialTheme.typography.titleMedium) }

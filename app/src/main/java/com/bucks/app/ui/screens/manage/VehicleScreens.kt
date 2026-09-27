@@ -45,6 +45,8 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
             BucksTopBar("Vehicles", onBack = onBack, actions = { IconButton(onClick = onStats) { Icon(Icons.Rounded.Leaderboard, "Earnings and trips") } })
             if (m.loading && !m.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
             LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val err = m.error
+                if (err != null && !m.loaded && m.vehicles.isEmpty()) item { LoadError(err) { m.refresh() } }
                 if (m.vehicles.isEmpty() && m.loaded) item {
                     BucksCard {
                         Text("No vehicles yet", style = MaterialTheme.typography.titleMedium)
@@ -87,9 +89,13 @@ fun VehicleEditScreen(vm: BucksViewModel, id: String?, onBack: () -> Unit) {
     val m = vm.myListings
     LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
     val existing = id?.let { m.vehicle(it) }
-    if (id != null && existing == null) {
+    // The form snapshots the documents once, and Save writes that list back, so it must not open before they are known:
+    // an empty snapshot would wipe the RC, insurance and permit references (and their files) on the next Save.
+    if (id != null && (existing == null || !m.vehicleDocs.containsKey(id))) {
         ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Edit vehicle", onBack = onBack)
-            if (m.loaded) Column(Modifier.padding(Gutter)) { Text("Vehicle not found", style = MaterialTheme.typography.titleMedium); Muted("It may have been removed, or you no longer drive it.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
+            val err = m.error
+            if (m.loaded && existing == null) Column(Modifier.padding(Gutter)) { Text("Vehicle not found", style = MaterialTheme.typography.titleMedium); Muted("It may have been removed, or you no longer drive it.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
+            else if (err != null && !m.loaded) LoadError(err, Modifier.padding(Gutter)) { m.refresh() }
             else CenteredLoading() }
         return
     }
@@ -102,7 +108,9 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
     var kind by remember { mutableStateOf(existing?.kind ?: "") }
     var model by remember { mutableStateOf(existing?.model ?: "") }
     var plate by remember { mutableStateOf(existing?.plate ?: "") }
-    val kept = remember { mutableStateListOf<VehicleDoc>().apply { addAll(m.vehicleDocs[existing?.id].orEmpty()) } }
+    /** The documents the form opened with; Save deletes the files among these that the owner removed, nothing else. */
+    val before = remember { m.vehicleDocs[existing?.id].orEmpty() }
+    val kept = remember { mutableStateListOf<VehicleDoc>().apply { addAll(before) } }
     val added = remember { mutableStateMapOf<String, Picked>() }
     var pickingFor by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -126,7 +134,7 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
         if (kind.isBlank()) { vm.toast("Pick the vehicle type."); return }
         if (p.length < 6) { vm.toast("Enter the full number plate, like KA05AB1234."); return }
         if (existing == null) m.addVehicle(kind, model.trim(), p, added.map { it.key to it.value }) { onBack() }
-        else m.updateVehicle(existing.id, kind, model.trim(), p, kept.toList(), added.map { it.key to it.value }) { onBack() }
+        else m.updateVehicle(existing.id, kind, model.trim(), p, before, kept.toList(), added.map { it.key to it.value }) { onBack() }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -135,6 +143,7 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
             if (m.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(top = 8.dp, bottom = 16.dp)) {
                 if (!owner) Notice("You drive this vehicle but don't own it, so only the owner can change it.", Modifier.padding(bottom = 14.dp))
+                else if (existing?.status == "ACTIVE") Notice("This vehicle is checked and active. Changing its type, number plate or documents puts it back under review; it can't go online until Bucks checks it again.", Modifier.padding(bottom = 14.dp))
                 Label("Vehicle type")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { VEHICLE_KINDS.forEach { (k, l) -> Chip(l, selected = kind == k, icon = vehicleIcon(k)) { if (owner) kind = k } } }
                 Spacer(Modifier.height(14.dp))

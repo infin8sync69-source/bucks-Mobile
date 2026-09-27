@@ -35,7 +35,9 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
     val existing = id?.let { m.listing(it) }
     if (id != null && existing == null) {
         ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Edit ${kindLabel(kind).lowercase()}", onBack = onBack)
+            val err = m.error
             if (m.loaded) Column(Modifier.padding(Gutter)) { Text("Listing not found", style = MaterialTheme.typography.titleMedium); Muted("It may have been deleted, or you're no longer part of it.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
+            else if (err != null) LoadError(err, Modifier.padding(Gutter)) { m.refresh() }
             else CenteredLoading() }
         return
     }
@@ -44,12 +46,15 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
 
 @Composable
 private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit) {
-    val m = vm.myListings; val social = vm.social
+    val m = vm.myListings; val social = vm.social; val st by vm.state.collectAsState()
+    // A real location fix, null until one arrives (location denied, GPS off, or not yet). social.here would be the map's
+    // default centre in that case, which must never become a listing's position: nobody at the real shop could recommend it.
+    val fix = st.me
     val d = existing?.details ?: JsonObject(emptyMap())
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
-    var area by remember { mutableStateOf(existing?.area?.ifBlank { null } ?: social.me?.area?.substringBefore(',')?.ifBlank { null } ?: Geo.nearestArea(social.here)) }
+    var area by remember { mutableStateOf(existing?.area?.ifBlank { null } ?: social.me?.area?.substringBefore(',')?.ifBlank { null } ?: fix?.let { Geo.nearestArea(it) } ?: "") }
     var hours by remember { mutableStateOf(d.str("hours")) }
     var freeDelivery by remember { mutableStateOf(d.bool("free_delivery")) }
     var radius by remember { mutableStateOf(d.int("delivery_radius_km")?.toString() ?: "3") }
@@ -62,7 +67,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var photo by remember { mutableStateOf<Picked?>(null) }; var preview by remember { mutableStateOf<Uri?>(null) }
     var moveHere by remember { mutableStateOf(existing == null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val pick = rememberImagePicker { p, u -> photo = p; preview = u }
+    val pick = rememberImagePicker(onUnusable = { vm.toast("Couldn't read that image. Try a JPG or PNG photo.") }) { p, u -> photo = p; preview = u }
     val owner = existing == null || m.isOwner(existing.id)
     val driverTitle = "${social.me?.name?.ifBlank { null } ?: "Driver"} - ${vehicleKindLabel(vehicleKind)}"
     val screenTitle = when { existing == null && kind == "BUSINESS" -> "Add a business"; existing == null && kind == "SKILL" -> "Add a skill"; existing == null -> "Your driver profile"; else -> "Edit ${kindLabel(kind).lowercase()}" }
@@ -81,8 +86,10 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
             }
         }
         val cat = if (kind == "DRIVER") vehicleKindLabel(vehicleKind) else category
-        if (existing == null) m.createListing(kind, t, cat, description.trim(), area.trim(), details, photo) { onDone() }
-        else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) social.here else null, details, photo) { onDone() }
+        if (existing == null) {
+            val at = fix ?: run { vm.toast("Turn on location so Bucks can save where your shop is."); return }
+            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details, photo) { onDone() }
+        } else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) fix else null, details, photo) { onDone() }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -128,15 +135,20 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                 }
                 PhotoField(if (kind == "BUSINESS") "Shop photo" else "Profile photo", existing?.photoUrl, preview, if (kind == "BUSINESS") Icons.Rounded.Storefront else Icons.Rounded.Person, onPick = pick, onClear = { photo = null; preview = null })
                 Label("Location")
-                if (existing == null) Muted("Saved as where you are now: near ${Geo.nearestArea(social.here)}. Neighbours within 3 km of this spot can recommend you, so create it at your shop or where you usually work.")
-                else SwitchRow("Move to where I am now", "Near ${Geo.nearestArea(social.here)}. Leave off if you're not at the shop.", moveHere) { moveHere = it }
+                when {
+                    existing == null && fix != null -> Muted("Saved as where you are now: near ${Geo.nearestArea(fix)}. Neighbours within 3 km of this spot can recommend you, so create it at your shop or where you usually work.")
+                    existing == null -> Notice(if (st.locationGranted) "Waiting for your location… Bucks saves the listing where you are, so create it at your shop or where you usually work."
+                                               else "Turn on location so Bucks can save where your shop is. Neighbours within 3 km of that spot can recommend you, so create it at your shop or where you usually work.")
+                    fix != null -> SwitchRow("Move to where I am now", "Near ${Geo.nearestArea(fix)}. Leave off if you're not at the shop.", moveHere) { moveHere = it }
+                    else -> Muted(if (st.locationGranted) "Stays where it is. Waiting for your location before it can move to where you are now." else "Stays where it is. Turn on location to move it to where you are now.")
+                }
             }
         }
         Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-            PrimaryButton(if (m.busy) "Saving…" else if (existing == null) "Save" else "Save changes", enabled = !m.busy) { save() }
+            PrimaryButton(if (m.busy) "Saving…" else if (existing == null) "Save" else "Save changes", enabled = !m.busy && (existing != null || fix != null)) { save() }
             if (existing != null && owner) BadButton("Delete this ${kindLabel(kind).lowercase()}", Modifier.padding(top = 4.dp)) { confirmDelete = true }
         }
     }
-    if (confirmDelete && existing != null) ConfirmDialog("Delete ${existing.title}?", "Its products, members, recommendations and reviews go with it. This can't be undone.", "Delete",
+    if (confirmDelete && existing != null) ConfirmDialog("Delete ${existing.title}?", "Its products, members, recommendations and reviews go with it. Orders customers already placed stay in their history. This can't be undone.", "Delete",
         onConfirm = { m.deleteListing(existing.id) { onDone() } }, onDismiss = { confirmDelete = false })
 }

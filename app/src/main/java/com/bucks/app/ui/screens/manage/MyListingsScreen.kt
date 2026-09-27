@@ -45,6 +45,9 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
         }
         if (m.loading && !m.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
         LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // A failed load is not "no business yet": that empty state, with its big Add button, would invite a duplicate listing.
+            val err = m.error
+            if (err != null && !m.loaded && rows.isEmpty()) item { LoadError(err) { m.refresh() } }
             if (rows.isEmpty() && m.loaded) item { EmptyListings(kind) { onEdit(kind, null) } }
             items(rows, key = { it.id }) { l -> ListingManageCard(m, l, onEdit = { onEdit(l.kind, l.id) }, onItems = { onItems(l.id) }, onMembers = { onMembers(l.id) }, onRecommend = { onRecommend(l.id) }, onOrders = { onOrders(l.id) }, onJobs = { onJobs(l.id) }, onOpenProfile = { onOpenProfile(l.id) }) }
             if (rows.isNotEmpty() && kind != "DRIVER") item { GhostButton(if (kind == "BUSINESS") "Add another business" else "Add another skill") { onEdit(kind, null) } }

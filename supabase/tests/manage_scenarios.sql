@@ -69,3 +69,87 @@ select pg_temp.as_user('shop');
 select 'token: ' || (recommend_token((select id from listings where title = 'Asha Stores')) is not null);
 select 'count: ' || count(*) from recommendations where listing_id = (select id from listings where title = 'Asha Stores');
 select 'read tokens -> ' || pg_temp.expect_fail('select count(*) from recommend_tokens', 'permission denied');
+
+\echo '== 5. Recommendation rows (who, and where they stood) are visible to the team and the recommender only'
+reset role;
+insert into recommendations (listing_id, recommender_id, at_location) values ((select id from listings where title = 'Asha Stores'), pg_temp.pid('other'), geo(12.9063, 77.5857));
+set role authenticated;
+select pg_temp.as_user('shop');   select 'owner sees: ' || count(*) from recommendations;
+select pg_temp.as_user('helper'); select 'store rider sees: ' || count(*) from recommendations;
+select pg_temp.as_user('other');  select 'recommender sees own: ' || count(*) from recommendations;
+select pg_temp.as_user('driver'); select 'stranger sees: ' || count(*) from recommendations;
+
+\echo '== 6. Home positions are private: the API reads every profile column except home'
+select pg_temp.as_user('other');
+select 'stranger reads homes -> ' || pg_temp.expect_fail('select home from profiles', 'permission denied');
+select 'select * -> ' || pg_temp.expect_fail('select * from profiles', 'permission denied');
+select 'named columns work: ' || name || ' ' || short_code || ' (' || trust_up || ')' from profiles where id = pg_temp.pid('shop');
+update profiles set home = geo(12.9065, 77.5860), area = 'JP Nagar' where id = me();
+reset role; select 'own home saved: ' || extensions.st_astext(home::extensions.geometry) from profiles where auth_uid = 'other'; set role authenticated;
+
+\echo '== 7. Changing a checked vehicle''s type, plate or documents restarts the check; other edits do not'
+reset role; update vehicles set status = 'ACTIVE', docs = '[{"kind": "RC", "path": "x/rc.jpg"}, {"kind": "INSURANCE", "path": "x/ins.pdf"}]' where plate = 'KA01AB1111'; set role authenticated;
+select pg_temp.as_user('driver');
+update vehicles set model = 'Bajaj RE Compact' where plate = 'KA01AB1111';
+select 'model edit: ' || status from vehicles where plate = 'KA01AB1111';
+update vehicles set docs = '[{"path": "x/ins.pdf", "kind": "INSURANCE"}, {"path": "x/rc.jpg", "kind": "RC"}]' where plate = 'KA01AB1111';
+select 'same documents, other order: ' || status from vehicles where plate = 'KA01AB1111';
+update vehicles set docs = '[{"kind": "RC", "path": "x/rc2.jpg"}, {"kind": "INSURANCE", "path": "x/ins.pdf"}]' where plate = 'KA01AB1111';
+select 'new RC photo: ' || status from vehicles where plate = 'KA01AB1111';
+reset role; update vehicles set status = 'ACTIVE' where plate = 'KA01AB1111'; set role authenticated;
+update vehicles set plate = 'KA01AB2222' where plate = 'KA01AB1111';
+select 'new plate: ' || status from vehicles where plate = 'KA01AB2222';
+reset role; update vehicles set status = 'ACTIVE' where plate = 'KA01AB2222'; set role authenticated;
+update vehicles set kind = 'CAB' where plate = 'KA01AB2222';
+select 'auto became a cab: ' || status from vehicles where plate = 'KA01AB2222';
+select 'owner sets ACTIVE back -> ' || pg_temp.expect_fail($$update vehicles set status = 'ACTIVE' where plate = 'KA01AB2222'$$, 'managed by Bucks');
+
+\echo '== 8. Only a checked vehicle can go online; going offline is always allowed'
+select 'pending vehicle online -> ' || pg_temp.expect_fail($$insert into driver_presence (profile_id, vehicle_id, kind, online, location) select me(), id, kind, true, geo(12.9250, 77.5938) from vehicles where plate = 'KA01AB2222'$$, 'row-level security');
+reset role; update vehicles set status = 'ACTIVE' where plate = 'KA01AB2222'; set role authenticated;
+insert into driver_presence (profile_id, vehicle_id, kind, online, location) select me(), id, kind, true, geo(12.9250, 77.5938) from vehicles where plate = 'KA01AB2222';
+select 'active vehicle online: ' || count(*) from driver_presence where profile_id = me() and online;
+reset role; update vehicles set status = 'SUSPENDED' where plate = 'KA01AB2222'; set role authenticated;
+update driver_presence set online = false where profile_id = me();
+select 'suspended vehicle goes offline: ' || count(*) from driver_presence where profile_id = me() and not online;
+select 'suspended vehicle back online -> ' || pg_temp.expect_fail($$update driver_presence set online = true where profile_id = me()$$, 'row-level security');
+reset role; update vehicles set status = 'ACTIVE' where plate = 'KA01AB2222'; set role authenticated;
+
+\echo '== 9. A vehicle that has taken trips can be removed; the trips stay with the driver'
+reset role;
+insert into tasks (type, requester_id, vehicle_kind, pickup, drop_at, status, driver_id, vehicle_id)
+  values ('RIDE', pg_temp.pid('other'), 'CAB', geo(12.9250, 77.5938), geo(12.9757, 77.6063), 'COMPLETED', pg_temp.pid('driver'), (select id from vehicles where plate = 'KA01AB2222'));
+insert into task_events (task_id, driver_id, vehicle_id, event, km, fare) select id, driver_id, vehicle_id, 'COMPLETED', 7.2, 106 from tasks where driver_id = pg_temp.pid('driver');
+set role authenticated;
+select pg_temp.as_user('driver');
+select 'dashboard before: ' || completed || ' trip, ₹' || earnings from vehicle_stats where plate = 'KA01AB2222';
+delete from vehicles where plate = 'KA01AB2222';
+select 'vehicle gone: ' || count(*) from vehicles where plate = 'KA01AB2222';
+select 'driver still sees the trip: ' || count(*) || ', event ' || (select event from task_events where driver_id = me()) from tasks where driver_id = me();
+reset role;
+select 'trip records kept, vehicle cleared: ' || count(*) || ' task(s), vehicle ' || coalesce(max(vehicle_id::text), 'none') from tasks where driver_id = pg_temp.pid('driver');
+select 'presence row gone with it: ' || count(*) from driver_presence where profile_id = pg_temp.pid('driver');
+set role authenticated;
+
+\echo '== 10. Deleting a business: outright when it never sold; hidden but kept for the buyers'' history once it has; never with open orders'
+select pg_temp.as_user('shop');
+insert into listings (kind, owner_id, title, category, area, location) values ('SKILL', me(), 'Asha Tailoring', 'Tailor', 'JP Nagar', geo(12.9063, 77.5857));
+select delete_listing((select id from listings where title = 'Asha Tailoring'));
+reset role; select 'skill with no orders is gone: ' || count(*) from listings where title = 'Asha Tailoring';
+update listings set status = 'LIVE' where title = 'Asha Stores'; set role authenticated;
+insert into items (listing_id, name, price, unit) select id, 'Sugar', 45, '1 kg' from listings where title = 'Asha Stores';
+select pg_temp.as_user('other');
+select set_config('t.order', place_order((select id from listings where title = 'Asha Stores'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Sugar'), 'qty', 2)), 12.9070, 77.5860, 'Home', 'UPI', 'PICKUP')::text, false) is not null;
+select pg_temp.as_user('helper');
+select 'store rider deletes -> ' || pg_temp.expect_fail(format('select delete_listing(%L)', (select id from listings where title = 'Asha Stores')), 'only the owner');
+select pg_temp.as_user('shop');
+select 'open order -> ' || pg_temp.expect_fail(format('select delete_listing(%L)', (select id from listings where title = 'Asha Stores')), 'orders in progress');
+select respond_order(current_setting('t.order')::uuid, false);
+select set_config('t.listing', id::text, false) is not null from listings where title = 'Asha Stores';
+select delete_listing(current_setting('t.listing')::uuid);
+select 'owner no longer sees it: ' || count(*) || ' listing, role ' || coalesce(listing_role(current_setting('t.listing')::uuid), 'none') from listings where title = 'Asha Stores';
+select pg_temp.as_user('helper'); select 'store rider no longer sees it: ' || count(*) || ' listing, role ' || coalesce(listing_role(current_setting('t.listing')::uuid), 'none') from listings where title = 'Asha Stores';
+select pg_temp.as_user('other');  select 'buyer keeps the order: ' || status || ' at ' || (select count(*) from listings where title = 'Asha Stores') || ' visible listing' from orders where id = current_setting('t.order')::uuid;
+reset role;
+select 'kept as: ' || status || ', online ' || online || ', ' || (select count(*) from items where listing_id = l.id) || ' items, ' || (select count(*) from listing_members where listing_id = l.id) || ' members, ' || (select count(*) from recommendations where listing_id = l.id) || ' recommendations' from listings l where title = 'Asha Stores';
+select 'hidden from search: ' || count(*) from search_listings('Asha', 12.9063, 77.5857, 10000);

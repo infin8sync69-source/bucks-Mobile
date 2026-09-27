@@ -148,8 +148,10 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
             val me = social.me ?: waitForMe() ?: run { toast("Still signing in. Try again in a moment."); onResult(false); return@launch }
             if (!on) { stopDriverLoops(); online = false; vehicle?.let { v -> runCatching { Backend.setPresence(me.id, v.id, v.kind, false, here) } }; onResult(true); return@launch }
             val mine = Backend.myVehicles(); val norm = plate?.uppercase()?.replace(" ", "")
-            val v = mine.firstOrNull { it.plate == norm } ?: mine.firstOrNull { it.status == "ACTIVE" } ?: mine.firstOrNull()
-            if (v == null) { toast("Add your vehicle under My vehicles before going online."); onResult(false); return@launch }
+            // Only a checked (ACTIVE) vehicle may go online; the presence policy refuses the others, so say why instead of failing.
+            val active = mine.filter { it.status == "ACTIVE" }
+            val v = active.firstOrNull { it.plate == norm } ?: active.firstOrNull()
+            if (v == null) { toast(if (mine.isEmpty()) "Add your vehicle under My vehicles before going online." else "Bucks is still checking your vehicle. You can go online once it's active."); onResult(false); return@launch }
             Backend.setPresence(me.id, v.id, v.kind, true, here)
             vehicle = v; online = true; startDriverLoops(me.id, v); onResult(true)
         } catch (e: Exception) { toast(friendly(e)); onResult(false) }

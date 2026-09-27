@@ -25,6 +25,8 @@ import kotlinx.serialization.json.put
 @Serializable data class VehicleMemberRow(@SerialName("vehicle_id") val vehicleId: String, @SerialName("profile_id") val profileId: String, val role: String)
 @Serializable data class RecommendationRow(@SerialName("listing_id") val listingId: String, @SerialName("recommender_id") val recommenderId: String)
 @Serializable data class VehicleDocsRow(val id: String, val docs: JsonArray = JsonArray(emptyList()))
+@Serializable data class VehicleWithDocsRow(val id: String, @SerialName("owner_id") val ownerId: String, val kind: String, val model: String = "", val plate: String,
+    val status: String = "PENDING", val docs: JsonArray = JsonArray(emptyList()))
 /** One uploaded vehicle document (kind RC, INSURANCE or PERMIT) at [path] in the private "docs" bucket. */
 data class VehicleDoc(val kind: String, val path: String)
 
@@ -34,6 +36,23 @@ private val mdb get() = Backend.client.postgrest
 suspend fun Backend.myRoles(me: String): Map<String, String> =
     mdb.from("listing_members").select { filter { eq("profile_id", me) } }.decodeList<MemberRow>().associate { it.listingId to it.role }
 suspend fun Backend.setListingPhoto(id: String, url: String?) { mdb.from("listings").update({ set("photo_url", url) }) { filter { eq("id", id) } } }
+/**
+ * Deletes a listing through delete_listing() (manage.sql): outright when it never took an order, otherwise it is emptied and kept
+ * hidden so buyers keep their order history. Raises a plain sentence while an order is still open.
+ */
+suspend fun Backend.removeListing(id: String) { mdb.rpc("delete_listing", buildJsonObject { put("p_listing", id) }) }
+/**
+ * Saves an existing product or service column by column. Backend.saveItem sends the whole row, and the client's serializer
+ * leaves out values equal to their defaults (in_stock = true, mrp = null, unit = "", group_name = ""), so a whole-row update
+ * could never put an item back in stock or clear its MRP, unit or group.
+ */
+suspend fun Backend.updateItem(item: ItemRow): ItemRow {
+    val id = requireNotNull(item.id) { "updateItem needs a saved item" }
+    return mdb.from("items").update({
+        set("name", item.name); set("price", item.price); set("mrp", item.mrp); set("unit", item.unit); set("group_name", item.group)
+        set("photo_url", item.photoUrl); set("in_stock", item.inStock); set("sort", item.sort)
+    }) { select(); filter { eq("id", id) } }.decodeSingle()
+}
 /** How many neighbours have recommended each listing (the community cap counts these; it goes live at 7). */
 suspend fun Backend.recommendationCounts(listingIds: Collection<String>): Map<String, Int> =
     if (listingIds.isEmpty()) emptyMap()
@@ -48,6 +67,11 @@ suspend fun Backend.removeVehicleMember(vehicleId: String, profileId: String) { 
 // ---------- vehicles ----------
 /** vehicle id -> its uploaded documents, for every vehicle I own or drive. */
 suspend fun Backend.vehicleDocs(): Map<String, List<VehicleDoc>> = mdb.from("vehicles").select().decodeList<VehicleDocsRow>().associate { it.id to parseVehicleDocs(it.docs) }
+/** Vehicles and their documents from one read, so the edit form never sees a vehicle whose documents are still loading. */
+suspend fun Backend.myVehiclesWithDocs(): Pair<List<VehicleRow>, Map<String, List<VehicleDoc>>> {
+    val rows = mdb.from("vehicles").select().decodeList<VehicleWithDocsRow>()
+    return rows.map { VehicleRow(it.id, it.ownerId, it.kind, it.model, it.plate, it.status) } to rows.associate { it.id to parseVehicleDocs(it.docs) }
+}
 suspend fun Backend.setVehicleDocs(id: String, docs: List<VehicleDoc>) { mdb.from("vehicles").update({ set("docs", vehicleDocsJson(docs)) }) { filter { eq("id", id) } } }
 suspend fun Backend.updateVehicleDetails(id: String, kind: String, model: String, plate: String, docs: List<VehicleDoc>) {
     mdb.from("vehicles").update({ set("kind", kind); set("model", model); set("plate", plate.uppercase().replace(" ", "")); set("docs", vehicleDocsJson(docs)) }) { filter { eq("id", id) } }

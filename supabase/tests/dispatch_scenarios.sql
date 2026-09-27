@@ -88,6 +88,7 @@ select set_config('t.order', place_order((select id from listings where title = 
 select pg_temp.as_user('nobody'); select respond_order(current_setting('t.order')::uuid, true);
 select pg_temp.as_user('ravi');
 insert into vehicles (owner_id, kind, model, plate) values (me(), 'BIKE', 'Honda Activa', 'KA05CD0002');
+reset role; update vehicles set status = 'ACTIVE' where plate = 'KA05CD0002'; set role authenticated;   -- only checked vehicles may go online (manage.sql)
 insert into driver_presence (profile_id, vehicle_id, kind, online, location) select me(), id, 'BIKE', true, geo(12.9245, 77.5935) from vehicles where plate = 'KA05CD0002';
 select 'bike rung for: ' || type || ' from ' || pickup_label || ' to ' || drop_label from open_tasks_near(12.9245, 77.5935);
 select 'rider sees ' || order_items || ' items, shop at ' || round(pickup_lat::numeric, 4) || ',' || round(pickup_lng::numeric, 4) from tasks_geo where order_id = current_setting('t.order')::uuid;
