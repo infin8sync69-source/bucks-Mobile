@@ -99,11 +99,19 @@ fun PostCard(p: Post, myVote: Int, onVote: (Int) -> Unit, onComments: () -> Unit
 private data class Reco(val kind: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: String, val detail: String, val n: Int, val trust: Trust?, val onClick: () -> Unit)
 
 @Composable
-fun RecommendedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onProvider: (String) -> Unit, onRide: (VehicleKind) -> Unit, onChatWith: (String, String) -> Unit) {
+fun RecommendedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onProvider: (String) -> Unit, onRide: (VehicleKind) -> Unit, onChatWith: (String, String) -> Unit, onListing: (String) -> Unit = {}) {
     val providers by vm.repo.providers.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val posts by vm.repo.posts.collectAsState(); val chats by vm.repo.chats.collectAsState()
     val people by vm.repo.people.collectAsState(); val communities by vm.repo.communities.collectAsState()
     var filter by remember { mutableStateOf("All") }; var driverSheet by remember { mutableStateOf<Driver?>(null) }
-    val items = (providers.filter { it.up >= 20 }.map { p -> Reco(p.category, p.icon, p.name, p.bio, p.up, vm.trustFor(p)) { onProvider(p.id) } } +
+    // Cloud builds: live shops and pros near me, best reviewed first (search_listings ranks by trust), opening the real listing profile.
+    // The seeded demo providers, posts and communities belong to the demo build only (cleared on cloud sign-in).
+    val cloud = vm.social.enabled
+    var cloudTop by remember { mutableStateOf<List<SearchHit>>(emptyList()) }; var cloudLoaded by remember { mutableStateOf(false) }
+    if (cloud) LaunchedEffect(vm.social.me?.id) { runCatching { Backend.search("", vm.social.here, kinds = listOf("BUSINESS", "SKILL")) }.onSuccess { cloudTop = it }; cloudLoaded = true }
+    val listingRecos = if (cloud) cloudTop.map { h -> Reco(h.category.ifBlank { if (h.kind == "BUSINESS") "Shop" else "Pro" }, if (h.kind == "BUSINESS") Icons.Rounded.Storefront else Icons.Rounded.Handyman, h.title,
+            listOfNotNull(h.area.ifBlank { null }, if (h.online) "Open now" else "Closed now").joinToString(" · "), h.trustUp, Trust(h.trustUp, h.trustDown)) { onListing(h.id) } }
+        else providers.filter { it.up >= 20 }.map { p -> Reco(p.category, p.icon, p.name, p.bio, p.up, vm.trustFor(p)) { onProvider(p.id) } }
+    val items = (listingRecos +
         drivers.filter { it.up >= 40 }.map { d -> Reco("${d.vehicle.label} rider", d.vehicle.icon, d.name, "${d.model} · ${d.plate} · ${d.distanceKm} km", d.up, null) { driverSheet = d } } +
         posts.filter { it.up >= 20 }.map { p -> Reco("Post", Icons.Rounded.Article, p.who, p.text, p.up, null) {} }).sortedByDescending { it.n }
         .filter { when (filter) { "Food & shops" -> it.icon == Icons.Rounded.Storefront; "Skills" -> it.icon == Icons.Rounded.Handyman; "Riders" -> it.kind.contains("rider"); "Posts" -> it.kind == "Post"; else -> true } }
@@ -114,8 +122,9 @@ fun RecommendedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
                     if (vm.social.suggestions.isEmpty()) Muted("Nobody to suggest yet. Share your Bucks ID to start syncing.", Modifier.padding(horizontal = Gutter))
                     LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(vm.social.suggestions) { p -> SuggestionCard(p, onSync = { vm.social.syncWith(p.id, p.name) }) } } }
                 else LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(people.sortedBy { it.distanceKm }) { p -> PersonCard(p, onFollow = { vm.follow(p.id, !p.following) }, onMessage = { onChatWith(p.name, "Neighbour") }) } } }
-            item { SectionTitle("Communities", Modifier.padding(Gutter, 20.dp, Gutter, 10.dp)); LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(communities) { c -> CommunityCard(c) { vm.join(c.id, !c.joined) } } } }
+            if (!cloud) item { SectionTitle("Communities", Modifier.padding(Gutter, 20.dp, Gutter, 10.dp)); LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(communities) { c -> CommunityCard(c) { vm.join(c.id, !c.joined) } } } }
             item { Column(Modifier.padding(Gutter, 24.dp, Gutter, 6.dp)) { SectionTitle("Top rated near you"); Muted("Ranked by reviews from people who ordered or booked."); Row(Modifier.padding(top = 12.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("All", "Food & shops", "Skills", "Riders", "Posts").forEach { f -> Chip(f, selected = filter == f) { filter = f } } } } }
+            if (items.isEmpty() && (!cloud || cloudLoaded)) item { Muted(if (cloud) "No reviewed shops or pros near you yet. Search for what you need; every order or booking you review helps your neighbours." else "Nothing here yet.", Modifier.padding(Gutter, 14.dp)) }
             items(items) { r ->
                 Column(Modifier.fillMaxWidth().clickable(onClick = r.onClick).padding(Gutter, 14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Avatar(icon = r.icon, tinted = false); Column(Modifier.weight(1f).padding(start = 14.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(r.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); PillGrey(r.kind) }; Muted(r.detail, maxLines = 1) } }
@@ -125,7 +134,7 @@ fun RecommendedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
             }
         }
     }
-    driverSheet?.let { d -> AlertDialog(onDismissRequest = { driverSheet = null }, title = { Text(d.name) }, text = { Column { Muted("${d.model} · ${d.plate} · ${d.distanceKm} km"); TrustBadge(d.trust); Text(if (d.online) "Online now" else "Offline", color = if (d.online) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp)); Text("\"Safe driver, knows the shortcuts.\" — Anitha", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp)) } },
+    driverSheet?.let { d -> AlertDialog(onDismissRequest = { driverSheet = null }, title = { Text(d.name) }, text = { Column { Muted("${d.model} · ${d.plate} · ${d.distanceKm} km"); TrustBadge(d.trust); Text(if (d.online) "Online now" else "Offline", color = if (d.online) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp)); if (!cloud) Text("\"Safe driver, knows the shortcuts.\" — Anitha", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp)) } },
         confirmButton = { TextButton(enabled = d.online, onClick = { driverSheet = null; onRide(d.vehicle) }) { Text("Book a ${d.vehicle.label.lowercase()} now") } }, dismissButton = { TextButton(onClick = { driverSheet = null }) { Text("Close") } }) }
 }
 

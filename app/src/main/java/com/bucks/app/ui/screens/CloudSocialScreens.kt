@@ -225,9 +225,10 @@ fun CloudCommentsSheet(vm: BucksViewModel, postId: String, onDismiss: () -> Unit
             FilledIconButton(onClick = { val t = reply.trim(); if (t.isNotEmpty()) social.comment(postId, t) { reply = ""; tick++ } }, enabled = reply.isNotBlank()) { Icon(Icons.AutoMirrored.Rounded.Send, "Send") } } } }
 }
 
+/** The cloud post composer (social.post): used by the feed, my profile and the create-post route in cloud builds. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NewPostSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
+fun NewPostSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
     val social = vm.social; val ctx = LocalContext.current; val s by vm.state.collectAsState()
     var text by remember { mutableStateOf("") }; var visibility by remember { mutableStateOf("LOCAL") }; var photos by remember { mutableStateOf<List<Picked>>(emptyList()) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(4)) { uris -> photos = uris.mapNotNull { Upload.read(ctx, it) } }

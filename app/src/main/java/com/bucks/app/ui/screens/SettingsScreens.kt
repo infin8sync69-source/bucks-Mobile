@@ -52,7 +52,7 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
     SettingRow(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { if (cloud) onOpen(Routes.SETTINGS_NOTIFS) else showToast("Notification settings need the online build.") }
     SettingRow(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
     if (cloud) { SettingRow(Icons.Rounded.Block, "Blocked people") { onOpen(Routes.SETTINGS_BLOCKED) }; SettingRow(Icons.Rounded.Favorite, "Close friends", "Who sees Moments you share with close friends") { onOpen(Routes.SETTINGS_CLOSE) } }
-    if (vm.dispatch.enabled) ListRow("Payment QR", "The UPI QR customers pay to after a trip", leading = { Avatar(icon = Icons.Rounded.QrCode2) }, trailing = { Icon(Icons.Rounded.ChevronRight, null) }) { onOpen(Routes.PAYMENT_QR) }
+    if (vm.dispatch.enabled) ListRow("Payment QR", "How customers pay you by UPI: rides, deliveries and shop orders", leading = { Avatar(icon = Icons.Rounded.QrCode2) }, trailing = { Icon(Icons.Rounded.ChevronRight, null) }) { onOpen(Routes.PAYMENT_QR) }
     SectionTitle("Voice and AI", Modifier.padding(top = 22.dp, bottom = 10.dp))
     BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
         Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Cloud understanding", style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." else "Off. The built-in rules work offline.") }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
@@ -62,7 +62,7 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
     SettingRow(Icons.Rounded.Logout, "Log out", onClick = onLogout)
     SettingRow(Icons.Rounded.DeleteOutline, "Delete account") { deleteDialog = true }
     if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, title = { Text("Delete your account?") },
-        text = { Text(if (cloud) "This removes your profile, listings, messages and sign-in from Bucks. It can't be undone." else "This removes your profile, listings, businesses, saved sign-in and identity key from this device. It can't be undone.") },
+        text = { Text(if (cloud) "This removes your profile, phone number, payment QR, listings, posts, moments and messages, and your sign-in. Orders and trips stay in the other person's history without your name. It can't be undone." else "This removes your profile, listings, businesses, saved sign-in and identity key from this device. It can't be undone.") },
         confirmButton = { TextButton(onClick = { deleteDialog = false; vm.deleteAccount(); onDeleted() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("Cancel") } })
 }

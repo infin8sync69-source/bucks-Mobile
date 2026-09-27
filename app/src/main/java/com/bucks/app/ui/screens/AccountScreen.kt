@@ -2,7 +2,9 @@ package com.bucks.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -19,6 +23,7 @@ import com.bucks.app.data.VerificationLevel
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.nav.Routes
+import com.bucks.app.ui.shareText
 import com.bucks.app.ui.theme.status
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,7 +32,8 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
     val s by vm.state.collectAsState(); val chats by vm.repo.chats.collectAsState(); val people by vm.repo.people.collectAsState(); val communities by vm.repo.communities.collectAsState(); val u = s.user ?: return
     val tabs = listOf("activity" to "Activity", "settings" to "Settings")
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
-    if (tab == "profile") { PersonalProfile(vm, onEditProfile, onCreatePost); return }
+    // Cloud builds: my real profile and posts (the demo profile writes to the local demo store, which no neighbour ever sees).
+    if (tab == "profile") { if (vm.social.enabled) CloudPersonalProfile(vm, onEditProfile, onOpen) else PersonalProfile(vm, onEditProfile, onCreatePost); return }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Account", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         PrimaryTabRow(selectedTabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) { tabs.forEach { (k, l) -> Tab(selected = tab == k, onClick = { tab = k }, text = { Text(l, style = MaterialTheme.typography.labelLarge) }) } }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
@@ -49,6 +55,43 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
             }
         }
     }
+}
+
+/** My own profile in cloud builds: name, Bucks ID, synced people and chats from the server, and my posts from the feed. Posting goes through social.post like the Feed tab. */
+@Composable
+private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onOpen: (String) -> Unit) {
+    val social = vm.social; val s by vm.state.collectAsState(); val u = s.user ?: return; val ctx = LocalContext.current
+    val me = social.me
+    var compose by remember { mutableStateOf(false) }; var comments by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(me?.id) { if (me != null) { social.refreshFeed(); social.refreshSyncs() } }
+    val name = me?.name?.ifBlank { null } ?: u.name; val area = me?.area?.ifBlank { null } ?: u.area; val bio = me?.bio?.ifBlank { null } ?: u.bio
+    val mine = social.feed.filter { it.authorId == me?.id }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ProfileCover(initials(name))
+        Column(Modifier.padding(horizontal = Gutter, vertical = 10.dp)) {
+            Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)); Muted(me?.let { "Bucks ID ${it.shortCode}" } ?: handleOf(name))
+            if (area.isNotBlank()) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" $area") }
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Row(Modifier.clickable { onOpen(Routes.SYNC) }, verticalAlignment = Alignment.Bottom) { Text("${social.synced.size}", style = MaterialTheme.typography.titleMedium); Muted(" synced") }
+                Row(Modifier.clickable { onOpen(Routes.MESSAGES) }, verticalAlignment = Alignment.Bottom) { Text("${social.inbox.size}", style = MaterialTheme.typography.titleMedium); Muted(" chats") } }
+            if (bio.isNotBlank()) Text(bio, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SoftButton("Edit profile", Icons.Rounded.EditNote, onClick = onEditProfile)
+                SoftButton("Share", Icons.Rounded.IosShare) { shareText(ctx, "$name on Bucks" + (me?.let { " · Bucks ID ${it.shortCode}" } ?: "") + (if (area.isNotBlank()) " · $area" else "")) } }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(initials(name), size = 40)
+            Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { compose = true }.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted("Share with your neighbours") }
+            IconButton(onClick = { compose = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, "Create a post", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        if (me != null && mine.isEmpty()) Muted("Your recent posts show here. Share a recommendation, a deal or a question above; neighbours see it in their Feed.", Modifier.padding(Gutter))
+        mine.forEach { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it) }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
+        Spacer(Modifier.height(24.dp))
+    }
+    if (compose) NewPostSheet(vm) { compose = false }
+    comments?.let { id -> CloudCommentsSheet(vm, id) { comments = null } }
 }
 
 @Composable

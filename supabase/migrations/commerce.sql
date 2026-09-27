@@ -4,7 +4,7 @@ set search_path = public, extensions;
 -- Who cancelled an order, so the buyer and the shop each get the right words (and the buyer who already paid knows to ask for a refund).
 alter table public.orders add column if not exists cancelled_by text check (cancelled_by in ('BUYER', 'SHOP'));
 
--- place_order from schema.sql, plus two server-side checks the app only did on screen: "store's own rider" needs the shop to
+-- place_order from schema.sql, plus server-side checks the app only did on screen: the shop must be open (online), and "store's own rider" needs the shop to
 -- have at least one STORE_RIDER member (otherwise the task would go to any bike), and cash on delivery needs details.cod = true.
 create or replace function public.place_order(p_listing uuid, p_lines jsonb, p_lat double precision, p_lng double precision, p_drop_label text, p_payment text, p_mode text)
 returns uuid language plpgsql security definer set search_path = public, extensions as $$
@@ -12,6 +12,7 @@ declare l listings; lines jsonb := '[]'; sub int := 0; line jsonb; it items; km 
 begin
   select * into l from listings where id = p_listing and kind = 'BUSINESS' and status = 'LIVE';
   if not found then raise exception 'this shop is not taking orders'; end if;
+  if not l.online then raise exception 'this shop is closed right now'; end if;   -- switched off by the owner (MyListings "closed")
   for line in select * from jsonb_array_elements(p_lines) loop
     select * into it from items where id = (line->>'item_id')::uuid and listing_id = p_listing and in_stock;
     if not found then raise exception 'an item is no longer available'; end if;

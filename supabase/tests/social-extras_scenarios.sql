@@ -146,3 +146,33 @@ insert into blocks (blocker_id, blocked_id) values (me(), pg_temp.pid('garun'));
 select pg_temp.as_user('garun');
 select 'after Ravi blocks Arun, media readable: ' || count(*) from storage.objects where bucket_id = 'moments' and name like pg_temp.pid('gravi') || '/%';
 select 'and open_moments returns: ' || count(*) from open_moments(pg_temp.pid('gravi'), 12.9063, 77.5857);
+
+\echo '== 11. Syncs: requests only through request_sync; the addressee can accept and nothing else'
+select pg_temp.as_user('gsita'); select (public.ensure_profile('Sita', '9000000025')).id is not null;
+insert into user_settings (profile_id, who_can_sync) values (me(), 'NOBODY') on conflict (profile_id) do update set who_can_sync = 'NOBODY';
+select pg_temp.as_user('gtom');  select (public.ensure_profile('Tom', '9000000026')).id is not null;
+select 'direct insert past NOBODY -> ' || pg_temp.expect_fail(format('insert into syncs (requester_id, addressee_id) values (me(), %L)', pg_temp.pid('gsita')), 'row-level security');
+select 'request_sync past NOBODY -> ' || pg_temp.expect_fail(format('select request_sync(%L)', pg_temp.pid('gsita')), 'not accepting sync requests');
+select pg_temp.as_user('gmeera'); select 'Meera asks Tom: ' || request_sync(pg_temp.pid('gtom'));
+select pg_temp.as_user('gtom');
+select 'Tom rewrites the requester to Sita -> ' || pg_temp.expect_fail(format($$update syncs set requester_id = %L, status = 'ACCEPTED' where addressee_id = me()$$, pg_temp.pid('gsita')), 'not allowed');
+select 'Tom rewrites created_at -> ' || pg_temp.expect_fail($$update syncs set created_at = now() - interval '1 year' where addressee_id = me()$$, 'not allowed');
+select 'Tom synced with Sita: ' || count(*) from syncs where status = 'ACCEPTED' and pg_temp.pid('gsita') in (requester_id, addressee_id);
+update syncs set status = 'ACCEPTED' where requester_id = pg_temp.pid('gmeera') and addressee_id = me();
+select 'Tom accepts Meera: ' || status from syncs where requester_id = pg_temp.pid('gmeera') and addressee_id = me();
+select 'Tom turns it back to PENDING -> ' || pg_temp.expect_fail($$update syncs set status = 'PENDING' where addressee_id = me()$$, 'not allowed');
+
+\echo '== 12. Posts: the author edits the text, never the listing it speaks for or its counters'
+select pg_temp.as_user('gtom');
+insert into posts (author_id, body, visibility) values (me(), 'Lost cat near the park', 'PUBLIC');
+select set_config('t.post', (select id::text from posts where author_id = me()), false) is not null;
+select 'Tom moves it onto Priya Stores -> ' || pg_temp.expect_fail(format($$update posts set listing_id = (select id from listings where title = 'Priya Stores') where id = %L$$, current_setting('t.post')), 'not allowed');
+select 'Tom sets up = 9999 -> ' || pg_temp.expect_fail(format('update posts set up = 9999 where id = %L', current_setting('t.post')), 'not allowed');
+select 'Tom sets comments = 50 -> ' || pg_temp.expect_fail(format('update posts set comments = 50 where id = %L', current_setting('t.post')), 'not allowed');
+select 'Tom backdates it -> ' || pg_temp.expect_fail(format($$update posts set created_at = now() - interval '1 year' where id = %L$$, current_setting('t.post')), 'not allowed');
+update posts set body = 'Lost cat near the park (found, thanks!)' where id = current_setting('t.post')::uuid;
+select 'edit text still works: ' || body from posts where id = current_setting('t.post')::uuid;
+select 'Priya Stores posts: ' || count(*) from posts where listing_id = (select id from listings where title = 'Priya Stores');
+select pg_temp.as_user('gmeera');
+insert into post_votes (post_id, profile_id, vote) values (current_setting('t.post')::uuid, me(), 1);
+select 'a real vote still counts: up ' || up || ', down ' || down from posts where id = current_setting('t.post')::uuid;

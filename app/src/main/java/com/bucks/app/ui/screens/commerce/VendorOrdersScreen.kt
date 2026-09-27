@@ -17,6 +17,7 @@ import com.bucks.app.data.CloudOrderRow
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.dial
+import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.screens.ago
 import com.bucks.app.ui.theme.status
 import kotlinx.coroutines.delay
@@ -35,6 +36,10 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
     val title = commerce.titleOf(listingId)
     DisposableEffect(listingId) { commerce.ordersFor(listingId); onDispose { commerce.stopOrders() } }
     LaunchedEffect(listingId) { runCatching { commerce.titlesFor(listOf(listingId)) } }
+    // Buyers pay by UPI to the owner's payment QR; tell the owner when there isn't one (admins can't fix it, so they aren't asked).
+    val d = vm.dispatch
+    LaunchedEffect(listingId) { if (d.enabled && !d.paymentLinkLoaded) d.refreshPaymentLink() }
+    val owner = vm.myListings.listing(listingId)?.ownerId?.let { it == social.me?.id } == true
     // The clock for the countdowns, plus a 30-second reload in case the live feed drops.
     LaunchedEffect(listingId) { var n = 0; while (true) { now = System.currentTimeMillis(); if (++n % 30 == 0) commerce.ordersFor(listingId); delay(1000) } }
     // Sound and buzz when a new PLACED order arrives while this screen is open (not for the first load).
@@ -50,6 +55,10 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
             Chip(if (newOnes.isEmpty()) "New" else "New · ${newOnes.size}", selected = filter == "New", icon = Icons.Rounded.NotificationsActive) { filter = "New" }
             Chip(if (active.isEmpty()) "Active" else "Active · ${active.size}", selected = filter == "Active", icon = Icons.Rounded.LocalShipping) { filter = "Active" }
             Chip("Done", selected = filter == "Done", icon = Icons.Rounded.Done) { filter = "Done" }
+        }
+        if (owner && d.enabled && d.paymentLinkLoaded && d.paymentLink == null) Column(Modifier.padding(horizontal = Gutter, vertical = 4.dp)) {
+            Notice("Customers can't pay these orders by UPI: you haven't added your UPI QR yet. Add it and their Pay button fills in your account and the amount.")
+            SmallButton("Add payment QR", Modifier.padding(top = 8.dp)) { vm.open(Routes.PAYMENT_QR) }
         }
         when {
             !commerce.vendorLoaded -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

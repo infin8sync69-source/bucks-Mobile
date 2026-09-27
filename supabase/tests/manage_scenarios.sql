@@ -136,7 +136,7 @@ select pg_temp.as_user('shop');
 insert into listings (kind, owner_id, title, category, area, location) values ('SKILL', me(), 'Asha Tailoring', 'Tailor', 'JP Nagar', geo(12.9063, 77.5857));
 select delete_listing((select id from listings where title = 'Asha Tailoring'));
 reset role; select 'skill with no orders is gone: ' || count(*) from listings where title = 'Asha Tailoring';
-update listings set status = 'LIVE' where title = 'Asha Stores'; set role authenticated;
+update listings set status = 'LIVE', online = true where title = 'Asha Stores'; set role authenticated;
 insert into items (listing_id, name, price, unit) select id, 'Sugar', 45, '1 kg' from listings where title = 'Asha Stores';
 select pg_temp.as_user('other');
 select set_config('t.order', place_order((select id from listings where title = 'Asha Stores'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Sugar'), 'qty', 2)), 12.9070, 77.5860, 'Home', 'UPI', 'PICKUP')::text, false) is not null;

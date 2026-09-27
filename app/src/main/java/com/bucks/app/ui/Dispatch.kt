@@ -316,7 +316,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         if (!uri.startsWith("upi://pay", ignoreCase = true)) { toast("That QR isn't a UPI payment code."); return@go }
         busy = true
         try { Backend.setPaymentLink(me.id, uri); paymentLink = uri; paymentLinkLoaded = true; toast("Saved. Customers can now pay you by UPI."); then() } finally { busy = false } }
-    fun removePaymentLink() = go { val me = social.me ?: return@go; Backend.clearPaymentLink(me.id); paymentLink = null; toast("Payment QR removed. Customers will pay in cash.") }
+    fun removePaymentLink() = go { val me = social.me ?: return@go; Backend.clearPaymentLink(me.id); paymentLink = null; toast("Payment QR removed. Customers can't pay you by UPI until you add one again.") }
 
     /** Sign-out or account deletion: presence off, everything cancelled, nothing left on screen. */
     fun signedOut() {

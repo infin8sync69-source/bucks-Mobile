@@ -67,6 +67,7 @@ insert into driver_presence (profile_id, vehicle_id, kind, online, location) sel
 select set_config('request.jwt.claims', '{"sub":"buyer"}', false);
 select 'bike passenger ride -> ' || pg_temp.expect_fail($$select request_ride('BIKE', 12.91, 77.58, 'x', 12.97, 77.60, 'MG Road', 8, 90)$$, 'goods only');
 
+reset role; update listings set online = true where title = 'Asha Biryani House'; set role authenticated;   -- the owner opens the shop
 \echo '== 7. Order -> vendor accepts -> bike delivery task -> rider claims -> PIN -> delivered'
 select set_config('t.order', place_order((select id from listings where title = 'Asha Biryani House'),
   jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Chicken dum biryani'), 'qty', 2, 'price', 1)), 12.9150, 77.5900, 'Buyer home', 'UPI', 'MARKETPLACE')::text, false) is not null;

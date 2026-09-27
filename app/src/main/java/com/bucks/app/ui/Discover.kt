@@ -132,7 +132,14 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
         finally { loading = loading - id }
     }
     fun refreshSyncs() = go { refreshSyncsNow() }
-    private suspend fun refreshSyncsNow() { val me = social.me?.id ?: return; mySyncs = Backend.myListingSyncs(me).map { it.listingId }.toSet(); syncsLoaded = true }
+    private suspend fun refreshSyncsNow() { val me = social.me?.id ?: return; val rows = Backend.myListingSyncs(me); if (social.me?.id != me) return; mySyncs = rows.map { it.listingId }.toSet(); syncsLoaded = true }
+    /** Sign-out and account deletion: results, profiles (which carry "mine" and "synced") and my listing syncs belong to this person only. */
+    fun signedOut() {
+        searchJob?.cancel(); searchJob = null; searchSeq++
+        query = ""; results = emptyList(); searching = false; searched = false
+        profiles.clear(); loading = emptySet(); missing = emptySet(); failed = emptySet()
+        mySyncs = emptySet(); syncing = emptySet(); syncsLoaded = false
+    }
     fun isSynced(id: String) = id in mySyncs
 
     /** Follow or unfollow a listing: its posts then show up in my feed. */

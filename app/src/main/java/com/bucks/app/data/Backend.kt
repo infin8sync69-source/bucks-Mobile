@@ -68,7 +68,7 @@ object Backend {
     }
 
     // ---------- sync (connections) ----------
-    suspend fun requestSync(me: String, other: String) { db.from("syncs").insert(buildJsonObject { put("requester_id", me); put("addressee_id", other) }) }
+    // Requests go through request_sync ([sync] below), which honours blocks and who_can_sync; there is no direct insert.
     suspend fun acceptSync(requester: String, me: String) { db.from("syncs").update({ set("status", "ACCEPTED") }) { filter { eq("requester_id", requester); eq("addressee_id", me) } } }
     suspend fun mySyncs(): List<SyncRow> = db.from("syncs").select().decodeList()
 

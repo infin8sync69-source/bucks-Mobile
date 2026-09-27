@@ -85,7 +85,7 @@ select 'sync call: table=' || (body->>'table') || ' type=' || (body->>'type') ||
 
 -- A live shop, so an order can be placed; accepting it creates a delivery task.
 delete from public.push_test_calls;
-insert into listings (id, kind, owner_id, title, category, area, location, status) values ('019a0000-0000-7000-8000-000000000001', 'BUSINESS', pg_temp.pid('priya'), 'Priya Stores', 'Grocery', 'JP Nagar', geo(12.9063, 77.5857), 'LIVE');
+insert into listings (id, kind, owner_id, title, category, area, location, status, online) values ('019a0000-0000-7000-8000-000000000001', 'BUSINESS', pg_temp.pid('priya'), 'Priya Stores', 'Grocery', 'JP Nagar', geo(12.9063, 77.5857), 'LIVE', true);
 insert into items (id, listing_id, name, price) values ('019a0000-0000-7000-8000-000000000002', '019a0000-0000-7000-8000-000000000001', 'Sugar 1 kg', 45);
 set role authenticated;
 select pg_temp.as_user('arun');

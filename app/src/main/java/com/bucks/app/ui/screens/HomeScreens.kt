@@ -40,16 +40,19 @@ fun SearchBar(hint: String, modifier: Modifier = Modifier, onClick: () -> Unit) 
     }
 }
 
-/** Explains the pin colours on the maps: providers are drawn in the theme primary, online riders in status good (only where the map shows riders). */
+/** Explains the pin colours on the maps: providers are drawn in the theme primary (only where the map shows them), online riders in status good (only where the map shows riders). */
 @Composable
-private fun MapLegend(modifier: Modifier = Modifier, riders: Boolean = true) = Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
-    Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { LegendDot(MaterialTheme.colorScheme.primary, "Shops & services"); if (riders) LegendDot(MaterialTheme.status.good, "Riders online") }
+private fun MapLegend(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) = Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
+    Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { if (shops) LegendDot(MaterialTheme.colorScheme.primary, "Shops & services"); if (riders) LegendDot(MaterialTheme.status.good, "Riders online") }
 }
 @Composable
 private fun LegendDot(color: Color, text: String) = Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(color)); Spacer(Modifier.width(6.dp)); Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 /** Legend at the start and the OSM attribution at the end, sitting on the map just above the sheet. */
 @Composable
-private fun MapFooter(modifier: Modifier = Modifier, riders: Boolean = true) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) { MapLegend(riders = riders); Spacer(Modifier.weight(1f)); MapAttribution() }
+private fun MapFooter(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) { if (riders || shops) MapLegend(riders = riders, shops = shops); Spacer(Modifier.weight(1f)); MapAttribution() }
+
+/** Cloud builds: category chips for searching live listings (the categories shops and pros pick from when they list), not the demo seed's. */
+private val CLOUD_CATEGORIES = (com.bucks.app.ui.screens.manage.BUSINESS_CATEGORIES + com.bucks.app.ui.screens.manage.SKILL_CATEGORIES).filter { it != "Other" }.distinct()
 
 @Composable
 fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }) {
@@ -62,21 +65,23 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     val wide = windowWidth() != Width.COMPACT
     val unread = vm.unreadCount(chats)
     run {
-        val pins = listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + providers.filter { it.scope == Scope.LOCAL }.take(6).map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { MapPin(it.x, it.y, "", MaterialTheme.status.good) }
+        // Provider pins come from the demo seed only (cloud sign-in clears it); cloud listings have no map position here, so the map shows me and the riders online.
+        val shopPins = providers.filter { it.scope == Scope.LOCAL }.take(6)
+        val pins = listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { MapPin(it.x, it.y, "", MaterialTheme.status.good) }
         // Same content on phones (in the sheet) and wide screens (in the side panel): the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
             SearchBar("Where to, or what do you need?", onClick = onSearch)
         }
         if (wide) Column(Modifier.fillMaxSize()) {
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
-            Row(Modifier.weight(1f)) { Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins); MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp)) }; Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter), content = panel) }
+            Row(Modifier.weight(1f)) { Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins); MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp), shops = shopPins.isNotEmpty()) }; Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter), content = panel) }
         }
         // Phone: full-bleed map with the wordmark bar laid over it; the sheet holds the search pill, services live in the Services tab.
         else Box(Modifier.fillMaxSize()) {
             BucksMap(Modifier.fillMaxSize(), pins)
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-                MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp))
+                MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())
                 Sheet { panel(); Spacer(Modifier.height(24.dp)) }
             }
             // Cloud drivers with a checked vehicle get the button while offline too: it opens the sheet with their vehicle switch.
@@ -116,15 +121,16 @@ private fun OfferTile(o: Offer, index: Int, modifier: Modifier, onClick: () -> U
 fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit) {
     val s by vm.state.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
     DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
-    val cats = providers.map { it.category }.distinct()
+    val cats = if (vm.social.enabled) CLOUD_CATEGORIES else providers.map { it.category }.distinct()
+    val shopPins = providers.filter { it.scope == Scope.LOCAL }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // Natural height up to ~60% of the screen, and never tall enough (with the footer) to reach the top bar on short screens.
         val sheetMax = (maxHeight * 0.6f).coerceAtMost(maxHeight - 120.dp).coerceAtLeast(0.dp)
-        BucksMap(Modifier.fillMaxSize(), listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + providers.filter { it.scope == Scope.LOCAL }.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) })
+        BucksMap(Modifier.fillMaxSize(), listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) })
         BucksTopBar(onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         // Same footer as Home (legend + OSM attribution) sitting on the map just above the sheet; this map has no rider pins.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-            MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false)
+            MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false, shops = shopPins.isNotEmpty())
             Sheet(Modifier.heightIn(max = sheetMax)) { Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                 Text("Services we offer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 14.dp))
                 // Every service gets a tile, 5 per row; locked ones are dimmed with a padlock and only say "coming soon".

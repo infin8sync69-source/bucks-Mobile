@@ -137,7 +137,7 @@ select 'no driver: ' || (advance_task(current_setting('t.task3')::uuid, 'NO_DRIV
 \echo '== 6. Delivery task shows the item count to the bike rider; the buyer follows it'
 select pg_temp.as_user('nobody');
 insert into listings (kind, owner_id, title, category, area, location) values ('BUSINESS', me(), 'Kavya Stores', 'Grocery', 'Jayanagar', geo(12.9240, 77.5930));
-reset role; update listings set status = 'LIVE' where title = 'Kavya Stores'; set role authenticated;
+reset role; update listings set status = 'LIVE', online = true where title = 'Kavya Stores'; set role authenticated;
 insert into items (listing_id, name, price, unit) select id, 'Sugar 1kg', 48, '1 kg' from listings where title = 'Kavya Stores';
 select pg_temp.as_user('kavya');
 select set_config('t.order', place_order((select id from listings where title = 'Kavya Stores'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Sugar 1kg'), 'qty', 3)), 12.9300, 77.5900, 'Kavya home', 'UPI', 'MARKETPLACE')::text, false) is not null;
@@ -165,6 +165,10 @@ insert into vehicles (owner_id, kind, model, plate) values (me(), 'CAB', 'Dzire'
 reset role; update vehicles set status = 'ACTIVE' where plate = 'KA09EF0003'; set role authenticated;
 insert into driver_presence (profile_id, vehicle_id, kind, online, location) select me(), id, 'CAB', true, geo(12.9250, 77.5940) from vehicles where plate = 'KA09EF0003';
 select set_config('t.gone', (request_ride('AUTO', 12.9250, 77.5938, 'Jayanagar', 12.9352, 77.6245, 'Koramangala', 5.1, 81)).id::text, false) is not null;
+insert into posts (author_id, body, visibility) values (me(), 'Selling my old cycle', 'PUBLIC');
+insert into moments (author_id, media_path, caption, audience) values (me(), me()::text || '/m.jpg', 'Sunset', 'SYNCED');
+select set_config('t.leaverchat', start_listing_chat((select id from listings where title = 'Kavya Stores'))::text, false) is not null;
+insert into messages (conversation_id, sender_id, body) values (current_setting('t.leaverchat')::uuid, me(), 'Is the sugar in stock?');
 select delete_my_account();
 select 'signed-in calls afterwards -> ' || pg_temp.expect_fail($$select delete_my_account()$$, 'not signed in');
 reset role;
@@ -172,6 +176,9 @@ select 'profile: status ' || status || ', name ''' || name || ''', sign-in kept:
 select 'phone and UPI rows left: ' || count(*) from profile_private where profile_id = current_setting('t.leaver')::uuid;
 select 'presence rows left: ' || count(*) from driver_presence where profile_id = current_setting('t.leaver')::uuid;
 select 'open request: ' || status from tasks where id = current_setting('t.gone')::uuid;
+select 'posts and moments left: ' || (select count(*) from posts where author_id = current_setting('t.leaver')::uuid) || ' / ' || (select count(*) from moments where author_id = current_setting('t.leaver')::uuid);
+select 'messages kept for the shop but blanked: ' || count(*) || ', with text ' || count(*) filter (where body <> '') from messages where sender_id = current_setting('t.leaver')::uuid;
+select 'chats still joined: ' || count(*) from conversation_members where profile_id = current_setting('t.leaver')::uuid;
 set role authenticated;
 select pg_temp.as_user('kavya'); select 'map sees the deleted driver: ' || count(*) from online_drivers_near(12.9250, 77.5940) where name = 'Leaving User';
 select pg_temp.as_user('leaving'); select 'signing up again with the same number starts a new profile: ' || ((public.ensure_profile('New Me', '9000000025')).id <> current_setting('t.leaver')::uuid);

@@ -67,13 +67,23 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
         return quoted?.takeIf { it.isNotBlank() } ?: m.substringAfter("message: ", m).substringBefore("\n").take(140)
     }
 
+    /** Sign-out and account deletion: the next account on this phone starts with nothing of mine. */
+    fun signedOut() {
+        listings = emptyList(); roles = emptyMap(); vehicles = emptyList(); vehicleDocs = emptyMap()
+        items.clear(); members.clear(); vehicleMembers.clear(); recommendations.clear()
+        invites = emptyList(); sentInvites = emptyList(); stats = emptyList(); token = null
+        loading = false; loaded = false; error = null; busy = false
+    }
+
     // ---------- loading ----------
     /** Loads everything I run. Vehicles and their documents come from one read and land together, so the edit form never sees a vehicle without its documents. */
     fun refresh() = go { val p = me ?: return@go; loading = true
         try {
-            listings = Backend.myListings(p.id).sortedBy { it.title.lowercase() }
-            roles = Backend.myRoles(p.id)
+            val ls = Backend.myListings(p.id).sortedBy { it.title.lowercase() }
+            val rs = Backend.myRoles(p.id)
             val (vs, docs) = Backend.myVehiclesWithDocs()
+            if (me?.id != p.id) return@go   // signed out (or someone else signed in) while this was loading
+            listings = ls; roles = rs
             vehicleDocs = docs; vehicles = vs.sortedBy { it.model.lowercase() }
             loadRecommendations(); loadInvites()
             error = null; loaded = true

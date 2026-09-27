@@ -16,6 +16,7 @@ import com.bucks.app.data.ListingRow
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.MyListings
 import com.bucks.app.ui.components.*
+import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.screens.ListingSwitch
 
 private val TABS = listOf("Businesses", "Skills", "Driver", "Vehicles")
@@ -33,7 +34,9 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
                      onOpenProfile: (listingId: String) -> Unit, onScan: (() -> Unit)? = null) {
     val m = vm.myListings
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) { m.refresh() }
+    LaunchedEffect(Unit) { m.refresh(); if (vm.dispatch.enabled && !vm.dispatch.paymentLinkLoaded) vm.dispatch.refreshPaymentLink() }
+    // Buyers pay a shop order by UPI to the owner's payment QR (contact_for_order); without one the Pay button is off.
+    val noUpi = vm.dispatch.enabled && vm.dispatch.paymentLinkLoaded && vm.dispatch.paymentLink == null
     val kind = KINDS[tab.coerceIn(0, 2)]
     val rows = m.listings.filter { it.kind == kind }
     ContentColumn(Modifier.fillMaxHeight()) {
@@ -49,7 +52,8 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
             val err = m.error
             if (err != null && !m.loaded && rows.isEmpty()) item { LoadError(err) { m.refresh() } }
             if (rows.isEmpty() && m.loaded) item { EmptyListings(kind) { onEdit(kind, null) } }
-            items(rows, key = { it.id }) { l -> ListingManageCard(m, l, onEdit = { onEdit(l.kind, l.id) }, onItems = { onItems(l.id) }, onMembers = { onMembers(l.id) }, onRecommend = { onRecommend(l.id) }, onOrders = { onOrders(l.id) }, onJobs = { onJobs(l.id) }, onOpenProfile = { onOpenProfile(l.id) }) }
+            items(rows, key = { it.id }) { l -> ListingManageCard(m, l, onEdit = { onEdit(l.kind, l.id) }, onItems = { onItems(l.id) }, onMembers = { onMembers(l.id) }, onRecommend = { onRecommend(l.id) }, onOrders = { onOrders(l.id) }, onJobs = { onJobs(l.id) }, onOpenProfile = { onOpenProfile(l.id) },
+                onPaymentQr = if (noUpi && l.kind == "BUSINESS" && m.isOwner(l.id)) ({ vm.open(Routes.PAYMENT_QR) }) else null) }
             if (rows.isNotEmpty() && kind != "DRIVER") item { GhostButton(if (kind == "BUSINESS") "Add another business" else "Add another skill") { onEdit(kind, null) } }
             if (m.loaded) item {
                 BucksCard(tint = true) {
@@ -86,9 +90,10 @@ private fun EmptyListings(kind: String, onCreate: () -> Unit) {
     }
 }
 
+/** [onPaymentQr] is set for a business I own while I have no payment QR: the card then asks for one. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, onItems: () -> Unit, onMembers: () -> Unit, onRecommend: () -> Unit, onOrders: () -> Unit, onJobs: () -> Unit, onOpenProfile: () -> Unit) {
+private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, onItems: () -> Unit, onMembers: () -> Unit, onRecommend: () -> Unit, onOrders: () -> Unit, onJobs: () -> Unit, onOpenProfile: () -> Unit, onPaymentQr: (() -> Unit)? = null) {
     val role = m.roleIn(l.id); val manage = m.canManage(l.id); val recs = m.recommendations[l.id] ?: 0
     BucksCard {
         Row(verticalAlignment = Alignment.Top) {
@@ -115,6 +120,10 @@ private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, 
                 if (manage) ListingSwitch(l.online) { m.setOnline(l.id, it) }
             }
             else -> Notice("This listing is suspended and hidden from customers. Contact Bucks support to sort it out.", Modifier.padding(top = 10.dp))
+        }
+        if (onPaymentQr != null) {
+            Notice("Add your UPI QR so customers can pay your orders by UPI. Until then they have to pay you directly.", Modifier.padding(top = 10.dp))
+            SmallButton("Add payment QR", Modifier.padding(top = 8.dp), onClick = onPaymentQr)
         }
         FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (manage) SmallButton("Edit", tonal = true, onClick = onEdit)

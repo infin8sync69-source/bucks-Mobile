@@ -119,3 +119,36 @@ begin
 end $$;
 revoke execute on function public.open_moments(uuid, double precision, double precision) from public, anon;
 grant execute on function public.open_moments(uuid, double precision, double precision) to authenticated;
+
+-- ---------- sync requests and acceptances ----------
+-- Every request goes through request_sync(), which honours blocks and who_can_sync; a direct insert skipped both.
+drop policy if exists syncs_request on public.syncs;
+-- The addressee may only accept (PENDING -> ACCEPTED). Rewriting requester_id would forge an accepted sync with anyone.
+-- request_sync is security definer (runs as the owner) and passes this guard.
+create or replace function public.guard_sync() returns trigger language plpgsql set search_path = public, extensions as $$
+begin
+  if current_user = 'authenticated' and (new.requester_id <> old.requester_id or new.addressee_id <> old.addressee_id or new.created_at <> old.created_at
+      or (new.status <> old.status and not (old.status = 'PENDING' and new.status = 'ACCEPTED'))) then
+    raise exception 'not allowed';
+  end if;
+  return new;
+end $$;
+drop trigger if exists sync_guard on public.syncs;
+create trigger sync_guard before update on public.syncs for each row execute function public.guard_sync();
+revoke execute on function public.guard_sync() from authenticated, anon, public;
+
+-- ---------- editing a post ----------
+-- The author may edit the body, media, visibility, place and soft-delete it. Who wrote it, which listing it speaks for and its
+-- counters are fixed: posts_write checked can_manage_listing and zero counters on insert only, and post_counts (security
+-- definer, runs as the owner) keeps the counters.
+create or replace function public.guard_post() returns trigger language plpgsql set search_path = public, extensions as $$
+begin
+  if current_user = 'authenticated' and (new.author_id <> old.author_id or new.listing_id is distinct from old.listing_id or new.up <> old.up
+      or new.down <> old.down or new.comments <> old.comments or new.created_at <> old.created_at) then
+    raise exception 'not allowed';
+  end if;
+  return new;
+end $$;
+drop trigger if exists post_guard on public.posts;
+create trigger post_guard before update on public.posts for each row execute function public.guard_post();
+revoke execute on function public.guard_post() from authenticated, anon, public;

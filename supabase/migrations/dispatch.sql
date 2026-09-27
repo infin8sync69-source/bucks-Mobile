@@ -234,6 +234,7 @@ $$;
 -- The app calls this before removing the Firebase user. Trips, orders and reviews stay for the other party's records,
 -- so the profile is anonymised rather than deleted: presence goes, open requests are cancelled and trips I was driving
 -- go back to other drivers, the phone and UPI link are deleted, my listings are taken down (as delete_listing does),
+-- my posts, moments, comments and votes are deleted, my messages are blanked and I leave every chat,
 -- and the profile keeps no name, photo or home and no sign-in (signing up again with the same number starts afresh).
 alter table public.profiles drop constraint if exists profiles_status_check;
 alter table public.profiles add constraint profiles_status_check check (status in ('ACTIVE', 'BANNED', 'DELETED'));
@@ -250,6 +251,17 @@ begin
   delete from profile_private where profile_id = my;
   delete from syncs where my in (requester_id, addressee_id);
   update listings set status = 'DELETED', online = false where owner_id = my and status <> 'DELETED';
+  -- What I said and shared goes too: posts (their votes and comments cascade), moments, my comments and votes elsewhere,
+  -- my messages (blanked like "delete message", so the other side sees "Message deleted") and my place in every chat.
+  delete from posts where author_id = my;
+  delete from moments where author_id = my;
+  delete from post_comments where author_id = my;
+  delete from post_votes where profile_id = my;
+  update messages set deleted_at = now() where sender_id = my and deleted_at is null;
+  delete from conversation_members where profile_id = my;
+  delete from close_friends where my in (profile_id, friend_id);
+  delete from listing_syncs where profile_id = my;
+  if to_regclass('public.device_tokens') is not null then execute 'delete from public.device_tokens where profile_id = $1' using my; end if;   -- push.sql
   update profiles set name = '', bio = '', area = '', photo_url = null, home = null, status = 'DELETED', auth_uid = 'deleted:' || id::text where id = my;
 end $$;
 

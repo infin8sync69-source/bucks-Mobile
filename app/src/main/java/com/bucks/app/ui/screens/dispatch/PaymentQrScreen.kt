@@ -38,8 +38,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * A driver's payment QR: upload the QR image from their UPI app (or scan a printed one), Bucks reads the
- * `upi://pay?...` link inside it and keeps only that. Riders' apps then open it with the fare filled in.
+ * My payment QR, for drivers and shop owners alike: upload the QR image from a UPI app (or scan a printed one), Bucks reads the
+ * `upi://pay?...` link inside it and keeps only that. Riders paying a fare and buyers paying a shop order (contact_for_order
+ * gives them the owner's link) then open it with the amount filled in.
  */
 @Composable
 fun PaymentQrScreen(vm: BucksViewModel, onBack: () -> Unit) {
@@ -67,12 +68,12 @@ fun PaymentQrScreen(vm: BucksViewModel, onBack: () -> Unit) {
                         Column(Modifier.padding(start = 12.dp)) { Text("UPI payments are on", style = MaterialTheme.typography.titleMedium); Muted("Payments go to ${payee?.first ?: "you"}${payee?.let { " (${it.second})" } ?: ""}") } }
                     val bmp = remember(link) { qrBitmap(link, 512) }
                     Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp).size(200.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(8.dp)) { Image(bmp.asImageBitmap(), "Your UPI QR", Modifier.fillMaxSize()) }
-                    Muted("When a customer taps Pay by UPI after a trip, their app opens with this account and the fare already filled in. You can also show this QR for them to scan.", Modifier.padding(top = 14.dp), TextAlign.Center)
+                    Muted("When a customer taps Pay by UPI, after a trip or on an order from your shop, their app opens with this account and the amount already filled in. You can also show this QR for them to scan.", Modifier.padding(top = 14.dp), TextAlign.Center)
                 }
                 else -> BucksCard {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.padding(start = 12.dp)) { Text("No payment QR yet", style = MaterialTheme.typography.titleMedium); Muted("Customers pay you in cash until you add one.") } }
-                    Muted("Add the QR from your UPI app and customers can pay the fare by UPI straight after the trip. Bucks keeps only the payment link, not the picture.", Modifier.padding(top = 12.dp))
+                        Column(Modifier.padding(start = 12.dp)) { Text("No payment QR yet", style = MaterialTheme.typography.titleMedium); Muted("Customers can't pay you by UPI until you add one.") } }
+                    Muted("Add the QR from your UPI app and customers can pay you by UPI: riders straight after a trip or delivery, shoppers for their orders from your shop. Bucks keeps only the payment link, not the picture.", Modifier.padding(top = 12.dp))
                 }
             }
             if (pending == null && d.paymentLinkLoaded) {
@@ -90,7 +91,7 @@ fun PaymentQrScreen(vm: BucksViewModel, onBack: () -> Unit) {
             Spacer(Modifier.height(24.dp))
         }
     }
-    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text("Remove your payment QR?") }, text = { Text("Customers will only be able to pay you in cash until you add a QR again.") },
+    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text("Remove your payment QR?") }, text = { Text("Customers won't be able to pay you by UPI, for trips or shop orders, until you add a QR again.") },
         confirmButton = { TextButton({ confirmRemove = false; d.removePaymentLink() }) { Text("Remove", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmRemove = false }) { Text("Keep it") } })
 }
 

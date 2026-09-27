@@ -22,7 +22,7 @@ select 'invite admin: ' || (invite(pg_temp.shop(), null, (select short_code from
 select 'invite store rider: ' || (invite(pg_temp.shop(), null, (select short_code from profiles where auth_uid = 'rider'), 'STORE_RIDER') is not null);
 select pg_temp.as_user('admin'); select respond_invite((select id from invites where invitee_id = me() and status = 'PENDING'), true);
 select pg_temp.as_user('rider'); select respond_invite((select id from invites where invitee_id = me() and status = 'PENDING'), true);
-reset role; update listings set status = 'LIVE' where id = pg_temp.shop(); set role authenticated;
+reset role; update listings set status = 'LIVE', online = true where id = pg_temp.shop(); set role authenticated;
 
 \echo '== 1. Cart screen: anyone can see the shop has store riders (so "Store''s own rider" and cash on delivery can be offered)'
 select pg_temp.as_user('buyer');
@@ -90,7 +90,7 @@ select pg_temp.as_user('buyer'); select 'buyer newest first: ' || string_agg(sta
 select pg_temp.as_user('owner');
 insert into listings (kind, owner_id, title, category, area, location, details) values ('BUSINESS', me(), 'Ravi Bakery', 'Bakery', 'Jayanagar', geo(12.9260, 77.5940), '{"cod": true}');
 insert into items (listing_id, name, price) values ((select id from listings where title = 'Ravi Bakery'), 'Milk bread', 45);
-reset role; update listings set status = 'LIVE' where title = 'Ravi Bakery'; set role authenticated;
+reset role; update listings set status = 'LIVE', online = true where title = 'Ravi Bakery'; set role authenticated;
 select pg_temp.as_user('buyer');
 select 'store rider at a shop with none -> ' || pg_temp.expect_fail(format($$select place_order(%L, %L::jsonb, 12.93, 77.60, 'Deepa home', 'UPI', 'STORE_RIDER')$$, (select id from listings where title = 'Ravi Bakery'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Milk bread'), 'qty', 1))), 'no riders of its own');
 select 'COD + store rider at a shop with none -> ' || pg_temp.expect_fail(format($$select place_order(%L, %L::jsonb, 12.93, 77.60, 'Deepa home', 'COD', 'STORE_RIDER')$$, (select id from listings where title = 'Ravi Bakery'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Milk bread'), 'qty', 1))), 'no riders of its own');
@@ -134,3 +134,11 @@ reset role; update tasks set status = 'MATCHED', driver_id = pg_temp.pid('strang
 select pg_temp.as_user('owner');
 select 'shop cancels once a rider has it -> ' || pg_temp.expect_fail(format($$select update_order_status(%L, 'CANCELLED')$$, current_setting('t.o8')), 'rider already has');
 select 'order stays: ' || status from orders where id = current_setting('t.o8')::uuid;
+
+\echo '== 10. A shop switched off (closed) takes no orders until the owner opens it again'
+select pg_temp.as_user('owner'); update listings set online = false where id = pg_temp.shop();
+select pg_temp.as_user('buyer');
+select 'order while closed -> ' || pg_temp.expect_fail(format($$select place_order(%L, jsonb_build_array(jsonb_build_object('item_id', %L, 'qty', 1)), 12.93, 77.60, 'Deepa home', 'UPI', 'PICKUP')$$, pg_temp.shop(), (select id from items where name = 'Toor dal')), 'closed right now');
+select pg_temp.as_user('owner'); update listings set online = true where id = pg_temp.shop();
+select pg_temp.as_user('buyer');
+select 'order once open again: ' || (place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.93, 77.60, 'Deepa home', 'UPI', 'PICKUP') is not null);

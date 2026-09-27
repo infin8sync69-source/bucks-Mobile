@@ -38,7 +38,7 @@ interface BucksRepository {
     fun openChat(name: String, role: String): String
     fun sendMessage(chatId: String, text: String, mine: Boolean, attachment: Attachment? = null)
     fun markRead(chatId: String)
-    /** Cloud mode: the demo chats, posts, people and communities are replaced by real data, so empty them. */
+    /** Cloud mode: the demo chats, posts, people, communities and seeded shops/pros are replaced by real data, so empty them. */
     fun clearDemoSocial()
     fun follow(personId: String, follow: Boolean)
     fun join(communityId: String, join: Boolean)
@@ -128,7 +128,7 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
         j.optJSONArray("joined")?.let { a -> val ids = List(a.length()) { a.getString(it) }.toSet(); communities.update { l -> l.map { it.copy(joined = it.id in ids) } } }
         j.optJSONObject("session")?.let { parseSession(it.toString()) }?.also { saveSession(it) }
     }.getOrNull()
-    override fun clearDemoSocial() { chats.value = emptyList(); posts.value = emptyList(); people.value = emptyList(); communities.value = emptyList() }
+    override fun clearDemoSocial() { chats.value = emptyList(); posts.value = emptyList(); people.value = emptyList(); communities.value = emptyList(); providers.value = emptyList() }
     override fun markRead(chatId: String) = chats.update { l -> l.map { if (it.id == chatId) it.copy(unread = 0) else it } }
 
     // --- session persistence (SharedPreferences + JSON, no extra libraries) ---

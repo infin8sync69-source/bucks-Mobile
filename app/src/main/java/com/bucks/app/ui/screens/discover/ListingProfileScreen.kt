@@ -100,7 +100,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                         Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
                     SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
                     HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
-                    if (l.kind == "BUSINESS" && cartHere) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
+                    if (l.kind == "BUSINESS" && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
                 }
                 if (l.kind == "DRIVER" && !p.mine) {
                     if (vk != null && vk.carriesPassengers) {
@@ -125,7 +125,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
             }
             Spacer(Modifier.height(24.dp))
         }
-        if (l.kind == "BUSINESS" && cartCount > 0 && tab == "products") DarkButton("View cart · ${plural(cartCount, "item")}", Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
+        if (l.kind == "BUSINESS" && l.online && cartCount > 0 && tab == "products") DarkButton("View cart · ${plural(cartCount, "item")}", Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
     }
     // Commerce: asks "Start a new cart?" when an item from a second shop is added (vm.commerce.pendingSwitch).
     CartSwitchDialog(vm)
@@ -202,12 +202,15 @@ private fun ProductsTab(vm: BucksViewModel, p: ListingProfile, onMessage: () -> 
         return
     }
     val groups = items.groupBy { it.group.ifBlank { "Products" } }
+    // A closed shop (switched off by its owner) takes no orders: the server refuses them, so nothing can be added.
+    val open = p.listing.online
     Column(Modifier.padding(horizontal = Gutter, vertical = 4.dp)) {
+        if (!open && !p.mine) Notice("${p.listing.title} is closed now. You can order once they open again.", Modifier.padding(top = 12.dp))
         groups.forEach { (group, list) ->
             SectionTitle(group, Modifier.padding(top = 14.dp, bottom = 2.dp))
             list.forEachIndexed { i, item ->
                 if (i > 0) Divider()
-                ProductRow(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine) { delta -> vm.commerce.add(p.listing, item, delta) }
+                ProductRow(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine && open) { delta -> vm.commerce.add(p.listing, item, delta) }
             }
         }
     }

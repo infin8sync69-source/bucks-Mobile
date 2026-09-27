@@ -86,7 +86,8 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Order id -> the latest full row seen, shared by the order page and the lists. */
     val orders: SnapshotStateMap<String, CloudOrderRow> = mutableStateMapOf()
 
-    fun refreshMyOrders() = go { val me = social.me ?: return@go; val rows = Backend.myOrders(me.id); myOrders = rows; myOrdersLoaded = true; titlesFor(rows.map { it.listingId }) }
+    fun refreshMyOrders() = go { val me = social.me ?: return@go; val rows = Backend.myOrders(me.id); if (social.me?.id != me.id) return@go
+        myOrders = rows; myOrdersLoaded = true; titlesFor(rows.map { it.listingId }) }
     suspend fun titlesFor(ids: Collection<String>) { val missing = ids.distinct().filter { it !in listingTitles }; if (missing.isNotEmpty()) Backend.listingsByIds(missing).forEach { listingTitles[it.id] = it.title } }
     fun titleOf(listingId: String) = listingTitles[listingId] ?: "Shop"
 
@@ -126,6 +127,12 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         orders[o.id] = o
         social.namesFor(listOf(o.buyerId))
         if (!known && o.status == "PLACED") newOrderTick++
+    }
+    /** Sign-out and account deletion: nothing of this person's cart, orders or shop inbox stays for the next account on the phone. */
+    fun signedOut() {
+        stopOrders(); clear(); placing = false
+        myOrders = emptyList(); myOrdersLoaded = false; listingTitles.clear(); orders.clear()
+        vendorOrders = emptyList(); vendorLoaded = false
     }
     fun stopOrders() {
         liveJob?.cancel(); liveJob = null

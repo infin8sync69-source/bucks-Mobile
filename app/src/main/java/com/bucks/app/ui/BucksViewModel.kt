@@ -164,19 +164,23 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); repo.clearSession(); _s.value = freshState()
+    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
         // Remove this phone from my profile while the Firebase user can still sign that request, then sign out (Push.unregister never throws and gives up after a few seconds offline).
         viewModelScope.launch { try { Push.unregister() } finally { Cloud.signOut() } } }
-    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut()
+    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud()
         // Server first, while the Firebase user still exists to sign the request: this phone's push token, then presence, open tasks,
         // phone, UPI link and profile (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
         viewModelScope.launch {
             Push.unregister()
             val serverOk = !Backend.enabled || runCatching { Backend.deleteMyAccount() }.isSuccess
             if (!serverOk) { Cloud.signOut(); toast("Couldn't remove your account from the server. Sign in again and delete it once more."); return@launch }
-            Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }
+            // Success is only announced once both the server data and the Firebase sign-in are gone.
+            Cloud.deleteAccount { ok -> if (ok) toast("Your account and data were deleted.")
+                else { Cloud.signOut(); toast("Your profile, listings, posts and messages were removed, but your sign-in couldn't be. Sign in again and delete the account once more.") } }
         }
-        repo.deleteAccount(); _s.value = freshState(); toast("Your account and data were deleted.") }
+        repo.deleteAccount(); _s.value = freshState() }
+    /** Cart, orders, search results, listing syncs and my listings/vehicles belong to the person who signed out, not the next account on this phone. */
+    private fun signedOutCloud() { commerce.signedOut(); discover.signedOut(); myListings.signedOut() }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
     /** [plate]: in cloud builds, which of my checked vehicles to go online with (null = the first ACTIVE one). */
     fun setOnline(v: Boolean, plate: String? = null) { if (v && s.mockLocation) { toast("Turn off the fake-location app to go online."); return }; _s.update { it.copy(online = v) }
