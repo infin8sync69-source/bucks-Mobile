@@ -142,3 +142,19 @@ select 'order while closed -> ' || pg_temp.expect_fail(format($$select place_ord
 select pg_temp.as_user('owner'); update listings set online = true where id = pg_temp.shop();
 select pg_temp.as_user('buyer');
 select 'order once open again: ' || (place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.93, 77.60, 'Deepa home', 'UPI', 'PICKUP') is not null);
+
+\echo '== 11. What the rider collects at the door: the fee (buyer pays it), 0 (free delivery), the whole bill (store-rider COD); hidden from others'
+select pg_temp.as_user('buyer');
+select case when collect = (select delivery_fee from orders where id = current_setting('t.o2')::uuid) then 'ok, marketplace collect = fee: ' || collect else 'FAIL marketplace collect ' || coalesce(collect::text, 'null') end
+  from tasks_geo where order_id = current_setting('t.o2')::uuid;
+select case when collect = (select subtotal + delivery_fee from orders where id = current_setting('t.o4')::uuid) then 'ok, store-rider COD collect = whole bill: ' || collect else 'FAIL COD collect ' || coalesce(collect::text, 'null') end
+  from tasks_geo where order_id = current_setting('t.o4')::uuid;
+reset role; update orders set fee_paid_by = 'VENDOR' where id = current_setting('t.o2')::uuid; set role authenticated;
+select case when collect = 0 then 'ok, free delivery collect = 0' else 'FAIL free delivery collect ' || coalesce(collect::text, 'null') end
+  from tasks_geo where order_id = current_setting('t.o2')::uuid;
+select pg_temp.as_user('stranger');
+select case when public.order_collect(current_setting('t.o4')::uuid) is null then 'ok, stranger gets no amount' else 'FAIL stranger reads the COD amount' end;
+select pg_temp.as_user('rider');
+select case when public.order_collect(current_setting('t.o4')::uuid) is null then 'ok, ringing rider gets no amount yet' else 'FAIL unclaimed rider reads the amount' end;
+reset role; update tasks set driver_id = pg_temp.pid('rider'), status = 'COMPLETED' where order_id = current_setting('t.o4')::uuid; set role authenticated;
+select case when public.order_collect(current_setting('t.o4')::uuid) = (select subtotal + delivery_fee from orders where id = current_setting('t.o4')::uuid) then 'ok, rider holding the task reads the COD amount' else 'FAIL rider holding the task: ' || coalesce(public.order_collect(current_setting('t.o4')::uuid)::text, 'null') end;

@@ -15,6 +15,21 @@ language sql stable security definer set search_path = public, extensions as $$
   select coalesce((select sum(greatest(1, coalesce((l->>'qty')::int, 1)))::int from public.orders x, jsonb_array_elements(x.lines) l where x.id = o), 0)
 $$;
 
+-- What the rider takes from the buyer at the door for a delivery. MARKETPLACE: the fee when the buyer pays it, else 0 (the
+-- shop pays the rider at pick-up). STORE_RIDER: the whole COD bill (goods, plus the fee when the buyer pays it), 0 for UPI.
+-- The task's fare stays the rider's delivery fee (their earnings); this is only the amount to collect. Readable by the buyer,
+-- the shop's managers and the rider holding the task; null for anyone else (a ringing rider sees it once they claim).
+create or replace function public.order_collect(o uuid) returns int
+language sql stable security definer set search_path = public, extensions as $$
+  select case
+    when x.delivery_mode = 'MARKETPLACE' then case when x.fee_paid_by = 'BUYER' then x.delivery_fee else 0 end
+    when x.delivery_mode = 'STORE_RIDER' and x.payment = 'COD' then x.subtotal + case when x.fee_paid_by = 'BUYER' then x.delivery_fee else 0 end
+    else 0 end
+  from public.orders x where x.id = o
+    and (x.buyer_id = public.me() or public.can_manage_listing(x.listing_id)
+         or exists (select 1 from public.tasks t where t.order_id = x.id and t.driver_id = public.me()))
+$$;
+
 -- ---------- when a task's status last changed ----------
 -- Ringing (open_tasks_near), "my open task" and the buyer's "no rider yet" are timed from here, not from created_at:
 -- a task a driver handed back starts searching again now, and a finished trip is counted from when it finished.
@@ -47,7 +62,8 @@ create view public.tasks_geo with (security_invoker = true) as
          st_y(t.pickup::geometry)          as pickup_lat, st_x(t.pickup::geometry)          as pickup_lng,
          st_y(t.drop_at::geometry)         as drop_lat,   st_x(t.drop_at::geometry)         as drop_lng,
          st_y(t.driver_location::geometry) as driver_lat, st_x(t.driver_location::geometry) as driver_lng,
-         case when t.order_id is null then null else public.order_item_count(t.order_id) end as order_items
+         case when t.order_id is null then null else public.order_item_count(t.order_id) end as order_items,
+         case when t.order_id is null then null else public.order_collect(t.order_id) end as collect
   from public.tasks t;
 grant select on public.tasks_geo to authenticated;
 
@@ -267,10 +283,10 @@ end $$;
 
 -- order_item_count and task_pin run as the caller inside the security-invoker view, so authenticated needs execute on
 -- them too (one returns a count, the other only the caller's own PIN).
-revoke execute on function public.order_item_count(uuid), public.task_pin(uuid), public.online_drivers_near(double precision, double precision, int),
+revoke execute on function public.order_item_count(uuid), public.order_collect(uuid), public.task_pin(uuid), public.online_drivers_near(double precision, double precision, int),
   public.task_driver(uuid), public.my_open_task(), public.open_tasks_near(double precision, double precision), public.claim_task(uuid),
   public.advance_task(uuid, text, text, text), public.contact_for_task(uuid), public.review(uuid, uuid, uuid, int, text), public.delete_my_account() from public, anon;
-grant execute on function public.order_item_count(uuid), public.task_pin(uuid), public.online_drivers_near(double precision, double precision, int),
+grant execute on function public.order_item_count(uuid), public.order_collect(uuid), public.task_pin(uuid), public.online_drivers_near(double precision, double precision, int),
   public.task_driver(uuid), public.my_open_task(), public.open_tasks_near(double precision, double precision), public.claim_task(uuid),
   public.advance_task(uuid, text, text, text), public.contact_for_task(uuid), public.review(uuid, uuid, uuid, int, text), public.delete_my_account() to authenticated;
 -- Trigger bodies run only as triggers.

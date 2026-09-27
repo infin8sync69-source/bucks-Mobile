@@ -222,14 +222,28 @@ private fun PaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean, onCa
 private fun CloudPaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean, onCash: (Boolean) -> Unit) {
     val link = vm.dispatch.paymentLink; val delivery = dr.kind == VehicleKind.BIKE
     LaunchedEffect(Unit) { if (!vm.dispatch.paymentLinkLoaded) vm.dispatch.refreshPaymentLink() }
+    // Deliveries: the amount at the door comes from the order (free delivery = 0, store-rider COD = the whole bill), not the fee.
+    var collect by remember(dr.id) { mutableStateOf<Int?>(if (delivery) null else dr.fare) }
+    if (delivery) LaunchedEffect(dr.id) { collect = runCatching { com.bucks.app.data.Backend.taskGeo(dr.id)?.collect }.getOrNull() }
+    if (delivery && collect == 0) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Delivered · nothing to collect", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+            Muted("This order is already paid. Your ₹${dr.fare} delivery fee comes from the shop.", align = TextAlign.Center)
+            Spacer(Modifier.height(20.dp))
+            DarkButton("Done") { vm.driverPaid("shop") }
+        }
+        return
+    }
+    val amount = collect ?: dr.fare
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(if (delivery) "Delivered · delivery fee ₹${dr.fare}" else "Total payable ₹${dr.fare}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
-        if (dr.paidWith != null) PillGood("Customer paid by ${dr.paidWith}") else Muted("${dr.customer.substringBefore(' ')} sees the fare on their phone and can pay by UPI or cash.", align = TextAlign.Center)
+        Text(if (delivery) "Delivered · collect ₹$amount" else "Total payable ₹$amount", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+        if (delivery && collect == null) Muted("Checking what to collect…", align = TextAlign.Center)
+        if (dr.paidWith != null) PillGood("Customer paid by ${dr.paidWith}") else Muted("${dr.customer.substringBefore(' ')} sees the amount on their phone and can pay by UPI or cash.", align = TextAlign.Center)
         Spacer(Modifier.height(14.dp))
         if (link != null) {
-            val pay = upiPayLink(link, dr.fare, "Bucks ${if (delivery) "delivery" else "ride"}")
+            val pay = upiPayLink(link, amount, "Bucks ${if (delivery) "delivery" else "ride"}")
             val bmp = remember(pay) { qr(pay) }
-            Box(Modifier.size(200.dp).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small).background(androidx.compose.ui.graphics.Color.White).padding(10.dp)) { Image(bmp.asImageBitmap(), "UPI QR for ₹${dr.fare}", Modifier.fillMaxSize()) }
+            Box(Modifier.size(200.dp).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small).background(androidx.compose.ui.graphics.Color.White).padding(10.dp)) { Image(bmp.asImageBitmap(), "UPI QR for ₹$amount", Modifier.fillMaxSize()) }
             upiPayee(link)?.let { (pn, pa) -> Muted("$pn · $pa", Modifier.padding(top = 6.dp)) }
         } else Column(Modifier.fillMaxWidth()) {
             Muted(if (vm.dispatch.paymentLinkLoaded) "No UPI QR on your account yet, so this customer pays in cash. Add your QR to get paid by UPI next time." else "Checking your payment QR…", Modifier.padding(bottom = 8.dp))

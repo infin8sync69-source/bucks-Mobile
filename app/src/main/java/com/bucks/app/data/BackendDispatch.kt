@@ -29,7 +29,9 @@ import kotlinx.serialization.json.put
     val fare: Int = 0, val pin: String = "", val status: String, @SerialName("driver_id") val driverId: String? = null, @SerialName("vehicle_id") val vehicleId: String? = null,
     @SerialName("paid_with") val paidWith: String? = null, @SerialName("created_at") val createdAt: String = "", @SerialName("status_at") val statusAt: String = "",
     @SerialName("pickup_lat") val pickupLat: Double, @SerialName("pickup_lng") val pickupLng: Double, @SerialName("drop_lat") val dropLat: Double, @SerialName("drop_lng") val dropLng: Double,
-    @SerialName("driver_lat") val driverLat: Double? = null, @SerialName("driver_lng") val driverLng: Double? = null, @SerialName("order_items") val orderItems: Int? = null) {
+    @SerialName("driver_lat") val driverLat: Double? = null, @SerialName("driver_lng") val driverLng: Double? = null, @SerialName("order_items") val orderItems: Int? = null,
+    /** Delivery only: what the rider takes from the buyer at the door (0 = nothing); null when not readable yet. */
+    val collect: Int? = null) {
     val pickup get() = LatLng(pickupLat, pickupLng)
     val drop get() = LatLng(dropLat, dropLng)
     val driverAt: LatLng? get() = driverLat?.let { la -> driverLng?.let { LatLng(la, it) } }
