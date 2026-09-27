@@ -46,7 +46,8 @@ data class ListingProfile(
  */
 class Discover(private val scope: CoroutineScope, private val social: Social, private val toast: (String) -> Unit) {
     var query by mutableStateOf("")
-    var kind by mutableStateOf(KindFilter.ALL)
+    /** The selected kind chip; change it through [selectKind], which also re-runs the search. */
+    var kind by mutableStateOf(KindFilter.ALL); private set
     var radiusKm by mutableIntStateOf(10)
     var results by mutableStateOf<List<SearchHit>>(emptyList()); private set
     var searching by mutableStateOf(false); private set
@@ -86,7 +87,8 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
             finally { if (n == searchSeq) searching = false }
         }
     }
-    fun setKind(k: KindFilter) { if (kind != k) { kind = k; search() } }
+    // Named selectKind, not setKind: the property's own JVM setter is already setKind(KindFilter).
+    fun selectKind(k: KindFilter) { if (kind != k) { kind = k; search() } }
     fun setRadius(km: Int) { if (radiusKm != km) { radiusKm = km; search() } }
     /** The next wider radius chip, or null at the widest. */
     val widerRadius: Int? get() = RADIUS_CHOICES.firstOrNull { it > radiusKm }

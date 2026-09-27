@@ -60,7 +60,7 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
             if (d.query.isNotEmpty()) IconButton({ d.clear() }) { Icon(Icons.Rounded.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KindFilter.entries.forEach { k -> Chip(k.label, selected = d.kind == k, icon = k.kinds?.firstOrNull()?.let { kindIcon(it) }) { d.setKind(k) } }
+            KindFilter.entries.forEach { k -> Chip(k.label, selected = d.kind == k, icon = k.kinds?.firstOrNull()?.let { kindIcon(it) }) { d.selectKind(k) } }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Muted("Within"); RADIUS_CHOICES.forEach { km -> Chip("$km km", selected = d.radiusKm == km) { d.setRadius(km) } }
@@ -106,6 +106,6 @@ private fun EmptyResults(vm: BucksViewModel) {
             else -> "Try another word, like the item you need (sugar, tap repair), or a category (grocery, electrician)."
         }, Modifier.padding(top = 6.dp), align = TextAlign.Center)
         if (wider != null) SmallButton("Search within $wider km", Modifier.padding(top = 14.dp)) { d.setRadius(wider) }
-        if (d.kind != KindFilter.ALL) TextButton({ d.setKind(KindFilter.ALL) }) { Text("Show shops, pros and drivers") }
+        if (d.kind != KindFilter.ALL) TextButton({ d.selectKind(KindFilter.ALL) }) { Text("Show shops, pros and drivers") }
     }
 }
