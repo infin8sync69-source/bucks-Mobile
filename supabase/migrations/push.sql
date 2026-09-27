@@ -43,6 +43,13 @@ $$;
 revoke execute on function public.register_device_token(text, text), public.unregister_device_token(text) from public, anon;
 grant execute on function public.register_device_token(text, text), public.unregister_device_token(text) to authenticated;
 
+-- ---------- notification settings: my own orders and trips have their own switches ----------
+-- "orders" and "tasks" are my businesses' new orders and the trips I drive; "my_orders" and "my_trips" are updates on
+-- orders I place and rides or deliveries I book, so a customer who switches the business/driver ones off still hears
+-- "Your rider is here". A missing key means on (notify/index.ts wants()), so existing rows need no update.
+alter table public.user_settings alter column notify set default
+  '{"messages": true, "sync_requests": true, "moments": true, "comments": true, "orders": true, "tasks": true, "my_orders": true, "my_trips": true, "offers": false}';
+
 -- ---------- private configuration: the shared secret the Edge Function checks ----------
 -- Nobody reads this through the API (no policies, no grants); only the database owner and trigger functions can.
 -- Fill it once:  insert into public.push_config values ('webhook_secret', '<long random string>') on conflict (key) do update set value = excluded.value;

@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Firebase Cloud Messaging on the phone. The server side (supabase/functions/notify) sends data-only messages with
@@ -37,6 +38,9 @@ class BucksMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) { Push.register(token) }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // Nobody signed in on this phone: whatever still arrives was meant for the person who signed out (for example
+        // offline, when neither the server nor FCM could be told), so it is not shown.
+        if (FirebaseAuth.getInstance().currentUser == null) return
         val d = message.data
         val title = d["title"] ?: message.notification?.title ?: return
         val body = d["body"] ?: message.notification?.body ?: ""
@@ -61,6 +65,10 @@ object Push {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var registered: String? = null
+    /** Set while (and after) signing out, so a token FCM hands out in the meantime is not stored against the leaving person. */
+    @Volatile private var signingOut = false
+    /** How long sign-out waits on each network step (server, then FCM) before going ahead without it. */
+    private const val SIGN_OUT_STEP_MS = 5_000L
 
     /** Creates the channels (a no-op once they exist). Android keeps a channel's importance as first created. */
     fun ensureChannels(ctx: Context) {
@@ -82,25 +90,32 @@ object Push {
     /** After sign-in: fetch this phone's FCM token and store it against my profile. Does nothing in the demo build or when signed out. */
     fun registerIfSignedIn() {
         if (!Backend.enabled || FirebaseAuth.getInstance().currentUser == null) return
+        signingOut = false
         scope.launch { runCatching { register(FirebaseMessaging.getInstance().token.await()) } }
     }
 
     internal fun register(token: String) {
         if (token.isBlank()) return
-        scope.launch { runCatching { if (Backend.enabled && FirebaseAuth.getInstance().currentUser != null) { Backend.registerDeviceToken(token); registered = token } } }
+        scope.launch { runCatching { if (Backend.enabled && !signingOut && FirebaseAuth.getInstance().currentUser != null) { Backend.registerDeviceToken(token); registered = token } } }
     }
 
     /**
      * Before sign-out: remove this phone from my profile and retire the token at FCM, so nothing addressed to me reaches
-     * the next person who signs in here. Firebase issues a fresh token on the next [registerIfSignedIn].
+     * the next person who signs in here. Await it and only then call Cloud.signOut(): the request is signed with the
+     * Firebase user, and unregister_device_token refuses anonymous callers. The token comes from FCM when this process
+     * did not register it itself (after a restart). Never fails and gives up on each step after a few seconds, so
+     * signing out offline still works; BucksMessagingService then drops whatever arrives while nobody is signed in.
+     * Firebase issues a fresh token on the next [registerIfSignedIn].
      */
-    fun unregister() {
+    suspend fun unregister() {
         if (!Backend.enabled) return
-        val token = registered; registered = null
-        scope.launch {
-            if (token != null) runCatching { Backend.unregisterDeviceToken(token) }
-            runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
+        signingOut = true
+        val known = registered; registered = null
+        withTimeoutOrNull(SIGN_OUT_STEP_MS) {
+            val token = known ?: runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull()
+            if (token != null && FirebaseAuth.getInstance().currentUser != null) runCatching { Backend.unregisterDeviceToken(token) }
         }
+        withTimeoutOrNull(SIGN_OUT_STEP_MS) { runCatching { FirebaseMessaging.getInstance().deleteToken().await() } }
     }
 
     /** Only routes the app knows how to open; anything else opens the app on its usual first screen. */

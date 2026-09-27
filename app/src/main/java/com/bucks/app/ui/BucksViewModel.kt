@@ -164,11 +164,14 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); Push.unregister(); Cloud.signOut(); repo.clearSession(); _s.value = freshState() }
-    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); Push.unregister(); jobs.signedOut()
-        // Server first, while the Firebase user still exists to sign the request: presence, open tasks, phone, UPI link and
-        // profile go (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
+    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); repo.clearSession(); _s.value = freshState()
+        // Remove this phone from my profile while the Firebase user can still sign that request, then sign out (Push.unregister never throws and gives up after a few seconds offline).
+        viewModelScope.launch { try { Push.unregister() } finally { Cloud.signOut() } } }
+    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut()
+        // Server first, while the Firebase user still exists to sign the request: this phone's push token, then presence, open tasks,
+        // phone, UPI link and profile (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
         viewModelScope.launch {
+            Push.unregister()
             val serverOk = !Backend.enabled || runCatching { Backend.deleteMyAccount() }.isSuccess
             if (!serverOk) { Cloud.signOut(); toast("Couldn't remove your account from the server. Sign in again and delete it once more."); return@launch }
             Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }

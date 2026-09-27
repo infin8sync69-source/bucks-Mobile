@@ -13,12 +13,16 @@
 type Row = Record<string, any>;
 type Op = "INSERT" | "UPDATE" | "DELETE";
 type Kind = "messages" | "orders" | "tasks" | "social";
-type NotifyKey = "messages" | "sync_requests" | "moments" | "comments" | "orders" | "tasks" | "offers";
+// orders / tasks: my businesses' new orders and the trips I drive; my_orders / my_trips: orders I place and rides or
+// deliveries I book. Same keys and labels as NOTIFY_KEYS in the app (ui/screens/SettingsScreens.kt).
+type NotifyKey = "messages" | "sync_requests" | "moments" | "comments" | "orders" | "tasks" | "my_orders" | "my_trips" | "offers";
 
 interface DbEvent { table: string; type: Op; record: Row; old_record?: Row | null }
 /** One notification for one person, before their settings are applied. */
 interface Note {
-  to: string; key: NotifyKey; type: Kind; title: string; body: string; route: string;
+  to: string; key: NotifyKey; type: Kind; title: string; body: string;
+  /** Screen the tap opens (Push.safeRoute in the app). Empty: the tap only brings the app forward. */
+  route: string;
   /** Time-critical (a rider at the door): delivered loud even during quiet hours. */
   urgent?: boolean;
   /** Same tag replaces the previous one on the phone (FCM collapse key). */
@@ -137,7 +141,7 @@ async function forOrderStatus(o: Row): Promise<Note[]> {
   };
   const t = text[String(o.status)];
   if (!t) return [];
-  return [{ to: o.buyer_id, key: "orders", type: "orders", title: t[0], body: t[1], route: `cloud-order/${o.id}`, tag: `order-${o.id}` }];
+  return [{ to: o.buyer_id, key: "my_orders", type: "orders", title: t[0], body: t[1], route: `cloud-order/${o.id}`, tag: `order-${o.id}` }];
 }
 
 async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
@@ -146,8 +150,12 @@ async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
   const driver = nameOf(nm, t.driver_id ?? old?.driver_id);
   const pickup = t.pickup_label || (ride ? "your pick-up point" : "the shop");
   const drop = t.drop_label || "your address";
-  const route = ride ? "home" : `delivery/${t.id}`;
-  const note = (title: string, body: string, to = t.requester_id, r = route): Note => ({ to, key: "tasks", type: "tasks", title, body, route: r, urgent: true, tag: `task-${t.id}` });
+  // A ride's tap opens nothing: the rider's trip screen is already on top (a cold start restores it through
+  // dispatch.resume()), and "home" would push Home, which does not show the rider's trip, over it.
+  const route = ride ? "" : `delivery/${t.id}`;
+  // The person who booked it hears about their trip; the driver hears about cancellations and payment on Home (DriverTripScreen).
+  const note = (title: string, body: string): Note => ({ to: t.requester_id, key: "my_trips", type: "tasks", title, body, route, urgent: true, tag: `task-${t.id}` });
+  const toDriver = (to: string, title: string, body: string): Note => ({ to, key: "tasks", type: "tasks", title, body, route: "home", urgent: true, tag: `task-${t.id}` });
   switch (String(t.status)) {
     case "MATCHED":
       return [ride ? note("Rider found", `${driver} is coming to ${pickup}. Share PIN ${t.pin} when they arrive.`) : note("Rider assigned", `${driver} is going to ${pickup} to pick up your order.`)];
@@ -166,9 +174,9 @@ async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
       return [];
     case "CANCELLED":
       // The customer cancelled: tell the driver who was on the way.
-      return old?.driver_id ? [note(ride ? "Trip cancelled" : "Delivery cancelled", "The customer cancelled. Stay online for the next one.", old.driver_id, "home")] : [];
+      return old?.driver_id ? [toDriver(old.driver_id, ride ? "Trip cancelled" : "Delivery cancelled", "The customer cancelled. Stay online for the next one.")] : [];
     case "PAID":
-      return t.driver_id ? [note("Payment confirmed", `The customer marked ₹${t.fare} as paid${t.paid_with ? ` by ${String(t.paid_with).toLowerCase()}` : ""}.`, t.driver_id, "home")] : [];
+      return t.driver_id ? [toDriver(t.driver_id, "Payment confirmed", `The customer marked ₹${t.fare} as paid${t.paid_with ? ` by ${String(t.paid_with).toLowerCase()}` : ""}.`)] : [];
     default:
       return [];
   }
@@ -215,7 +223,7 @@ interface Settings { notify: Record<string, unknown> | null; quiet_hours: { from
 
 function wants(s: Settings | undefined, key: NotifyKey): boolean {
   const v = s?.notify?.[key];
-  return typeof v === "boolean" ? v : key !== "offers";   // same defaults as user_settings.notify in schema.sql
+  return typeof v === "boolean" ? v : key !== "offers";   // same defaults as user_settings.notify (schema.sql, push.sql)
 }
 function minutesOf(hhmm: unknown): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm ?? "").trim());

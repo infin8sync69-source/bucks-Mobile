@@ -87,7 +87,8 @@ fun PrivacyScreen(vm: BucksViewModel, onBack: () -> Unit) {
     }
 }
 
-private val NOTIFY_KEYS = listOf("messages" to "Messages", "sync_requests" to "Sync requests", "moments" to "Moments from synced people", "comments" to "Comments on my posts", "orders" to "Orders (for my businesses)", "tasks" to "Ride and delivery requests (when online)", "offers" to "Offers and deals nearby")
+// Keys the notify Edge Function checks (supabase/functions/notify/index.ts, NotifyKey); a missing key means on, except offers.
+private val NOTIFY_KEYS = listOf("messages" to "Messages", "sync_requests" to "Sync requests", "moments" to "Moments from synced people", "comments" to "Comments on my posts", "my_orders" to "Updates on orders I place", "my_trips" to "Updates on rides and deliveries I book", "orders" to "New orders for my businesses", "tasks" to "Trips I drive (cancellations, payments)", "offers" to "Offers and deals nearby")
 
 @Composable
 fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {

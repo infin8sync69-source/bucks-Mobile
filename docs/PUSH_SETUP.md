@@ -111,9 +111,9 @@ psql -d <scratch db> -f supabase/tests/local_auth_shim.sql -f supabase/schema.sq
 |---|---|---|---|
 | message inserted | every other member of the chat, unless they muted it or blocked the sender | `messages` | that chat |
 | order placed | owner and admins of the shop | `orders` | the shop's order inbox |
-| order status changed (accepted, rejected, ready, picked up, delivered) | the buyer | `orders` | that order |
-| task matched / arrived / (delivery) out for delivery / (ride) completed | the requester | `tasks` | delivery tracking, or Home for rides |
-| driver dropped a matched task (back to SEARCHING) | the requester | `tasks` | as above |
+| order status changed (accepted, rejected, ready, picked up, delivered) | the buyer | `my_orders` | that order |
+| task matched / arrived / (delivery) out for delivery / (ride) completed | the requester | `my_trips` | delivery tracking; for rides nothing: the tap brings the app forward on the trip screen |
+| driver dropped a matched task (back to SEARCHING) | the requester | `my_trips` | as above |
 | task cancelled by the customer, or marked paid | the driver | `tasks` | Home |
 | sync request / sync accepted | the addressee / the requester | `sync_requests` | Sync |
 | moment posted | people synced with the author (close friends only for CLOSE), not those who muted them; capped at 500 | `moments` | that person's moments |
@@ -122,7 +122,8 @@ psql -d <scratch db> -f supabase/tests/local_auth_shim.sql -f supabase/schema.sq
 Task inserts notify nobody: online drivers are rung through `open_tasks_near`, which they poll.
 
 Settings come from `user_settings.notify` (a key set to `false` switches that kind off; a missing key means on,
-except `offers`). `quiet_hours` (`{"from":"22:00","to":"07:00"}`, Asia/Kolkata, may wrap midnight) turns a
+except `offers`). `orders` and `tasks` cover my businesses' new orders and the trips I drive; `my_orders` and `my_trips`
+cover orders I place and rides or deliveries I book, so switching the first two off never silences "Your rider is here". `quiet_hours` (`{"from":"22:00","to":"07:00"}`, Asia/Kolkata, may wrap midnight) turns a
 notification quiet: it is sent with normal priority and `quiet=true`, and the app shows it on a silent channel.
 Ride, delivery and new-order notifications are never quiet: someone is waiting at the door.
 
@@ -134,8 +135,11 @@ Channels on the phone: Messages, Orders, Rides and deliveries (high importance, 
 - On sign-in the app calls `Push.registerIfSignedIn()`: FCM token → `register_device_token`, which takes the token over from
   whoever used the phone before.
 - FCM rotates tokens occasionally; `onNewToken` re-registers.
-- On sign-out `Push.unregister()` removes the row and retires the token at FCM, so the next person on the phone
-  never gets the previous person's notifications.
+- On sign-out (and account deletion) the app awaits `Push.unregister()` before signing out of Firebase, because
+  `unregister_device_token` needs the signed-in user: it removes the row (taking the token from FCM if this process
+  did not register it) and retires the token at FCM, so the next person on the phone never gets the previous person's
+  notifications. Each step gives up after a few seconds offline; the app then drops any push that arrives while nobody
+  is signed in.
 - When FCM answers `UNREGISTERED` (app uninstalled), the function deletes that token.
 
 ## Troubleshooting

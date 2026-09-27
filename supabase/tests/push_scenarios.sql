@@ -44,6 +44,18 @@ select 'after sign-out on phone B: ' || count(*) from device_tokens;
 select 'unregister someone else''s token silently does nothing: ' || (select unregister_device_token('fcm-token-phone-A') is null);
 select pg_temp.as_user('priya'); select 'Priya still has phone A: ' || count(*) from device_tokens;
 
+\echo '== 1b. Notification settings: my own orders and trips have their own switches, on by default'
+select pg_temp.as_user('arun');
+insert into user_settings (profile_id) values (me()) on conflict (profile_id) do nothing;
+select 'new settings row: my_orders=' || (notify->>'my_orders') || ' my_trips=' || (notify->>'my_trips') || ' orders=' || (notify->>'orders') || ' tasks=' || (notify->>'tasks') || ' offers=' || (notify->>'offers')
+  from user_settings where profile_id = me();
+select case when (notify->>'my_orders')::boolean and (notify->>'my_trips')::boolean then 'ok: customer updates on by default' else 'FAIL: my_orders/my_trips not on by default' end
+  from user_settings where profile_id = me();
+update user_settings set notify = notify || '{"orders": false, "tasks": false}' where profile_id = me();
+select case when (notify->>'my_orders')::boolean and (notify->>'my_trips')::boolean then 'ok: business/driver switches off, own order and trip updates still on' else 'FAIL: switching off orders/tasks turned off my own updates' end
+  from user_settings where profile_id = me();
+delete from user_settings where profile_id = me();
+
 \echo '== 2. The webhook secret is sealed'
 select 'app reads push_config -> ' || pg_temp.expect_fail($$select * from public.push_config$$, 'permission denied');
 select 'app calls notify_url() -> ' || pg_temp.expect_fail($$select public.notify_url()$$, 'permission denied');
