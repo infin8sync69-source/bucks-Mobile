@@ -38,6 +38,7 @@ import com.bucks.app.ui.list
 import com.bucks.app.ui.proRate
 import com.bucks.app.ui.screens.SignedImage
 import com.bucks.app.ui.screens.ago
+import com.bucks.app.ui.screens.commerce.CartSwitchDialog
 import com.bucks.app.ui.shareText
 import com.bucks.app.ui.str
 import com.bucks.app.ui.theme.status
@@ -126,6 +127,8 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
         }
         if (l.kind == "BUSINESS" && cartCount > 0 && tab == "products") DarkButton("View cart · ${plural(cartCount, "item")}", Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
     }
+    // Commerce: asks "Start a new cart?" when an item from a second shop is added (vm.commerce.pendingSwitch).
+    CartSwitchDialog(vm)
 }
 
 /** While the profile loads, or when the listing can't be shown. */

@@ -35,8 +35,12 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
                 "activity" -> {
                     SectionTitle("Rides", Modifier.padding(bottom = 4.dp))
                     if (s.rides.isEmpty()) Muted("No rides yet. Tap Taxi in Services when you need to go somewhere.") else s.rides.forEach { r -> ListRowCompact(r.kind.icon, r.dest.name, "₹${r.fare} · ${r.status.name.lowercase().replaceFirstChar { it.uppercase() }}" + (r.driver?.let { " · ${it.name}" } ?: "")) }
-                    SectionTitle("Orders", Modifier.padding(top = 20.dp, bottom = 4.dp))
-                    if (s.orders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.") else s.orders.forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, o.providerName, "₹${o.total} · ${o.status.label}") { onOrder(o.id) } }
+                    SectionTitle("Orders", Modifier.padding(top = 20.dp, bottom = 4.dp), action = if (vm.social.enabled) "See all" else null, onAction = if (vm.social.enabled) ({ onOpen(Routes.MY_ORDERS) }) else null)
+                    if (vm.social.enabled) {
+                        LaunchedEffect(vm.social.me?.id) { vm.commerce.refreshMyOrders() }
+                        if (vm.commerce.myOrders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.")
+                        else vm.commerce.myOrders.take(5).forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, vm.commerce.titleOf(o.listingId), "₹${o.subtotal + if (o.feePaidBy == "BUYER") o.deliveryFee else 0} · ${com.bucks.app.ui.screens.commerce.orderStatusLabel(o.status, o.deliveryMode)}") { onOpen(Routes.cloudOrder(o.id)) } }
+                    } else if (s.orders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.") else s.orders.forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, o.providerName, "₹${o.total} · ${o.status.label}") { onOrder(o.id) } }
                     SectionTitle("Service requests", Modifier.padding(top = 20.dp, bottom = 4.dp))
                     if (s.requests.isEmpty()) Muted("No service requests yet. Search for a plumber, tutor or any skill.") else s.requests.forEach { r -> ListRowCompact(Icons.Rounded.Handyman, r.providerName, "${r.category} · ${r.status.label}") { onRequest(r.id) } }
                 }

@@ -70,6 +70,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val cloud get() = Cloud.enabled
     /** Cloud social features (Sync, chat, feed, Moments, settings); active when Supabase and Firebase are configured. */
     val social = Social(viewModelScope, repo, ::toast)
+    /** Cloud commerce: cart over live items, checkout, my orders, order page and the vendor inbox. */
+    val commerce = Commerce(viewModelScope, social, ::toast)
     /** Cloud discovery: search over live listings and the universal listing profile. */
     val discover = Discover(viewModelScope, social, ::toast)
     /** Own listings, vehicles, admins and recommendation QR (cloud only). */

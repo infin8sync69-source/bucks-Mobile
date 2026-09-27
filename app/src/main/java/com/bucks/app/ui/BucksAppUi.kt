@@ -20,6 +20,7 @@ import androidx.navigation.navArgument
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.screens.*
+import com.bucks.app.ui.screens.commerce.*
 import com.bucks.app.ui.screens.discover.CloudSearchScreen
 import com.bucks.app.ui.screens.discover.ListingProfileScreen
 import com.bucks.app.ui.screens.manage.*
@@ -158,8 +159,8 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable("provider/{id}?tab={tab}", arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("tab") { type = NavType.StringType; defaultValue = "" })) { e ->
                                 val id = e.arguments!!.getString("id")!!
                                 ProviderScreen(vm, id, e.arguments?.getString("tab") ?: "", onBack = { nav.popBackStack() }, onRequest = { nav.navigate(Routes.request(id)) }, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, onMessages = messages) }
-                            composable(Routes.CART) { CartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { }) }
-                            composable(Routes.ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> OrderScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onVote = { nav.navigate(Routes.provider(it, "votes")) }, onChatWith = chatWith, onHome = home) }
+                            composable(Routes.CART) { if (vm.social.enabled) CloudCartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { id -> nav.navigate(Routes.cloudOrder(id)) { popUpTo(Routes.CART) { inclusive = true } } }) else CartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { }) }
+                            composable(Routes.ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!; if (vm.social.enabled) CloudOrderScreen(vm, id, onBack = { nav.popBackStack() }, onTrack = { nav.navigate(Routes.deliveryTrack(it)) }, onOpenListing = { nav.navigate(Routes.listing(it)) }) else OrderScreen(vm, id, onBack = { nav.popBackStack() }, onVote = { nav.navigate(Routes.provider(it, "votes")) }, onChatWith = chatWith, onHome = home) }
                             composable(Routes.REQUEST, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RequestScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onSent = { nav.navigate(Routes.requestStatus(it)) { popUpTo(Routes.HOME) } }) }
                             composable(Routes.REQUEST_STATUS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RequestStatusScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onVote = { nav.navigate(Routes.provider(it, "votes")) }, onChatWith = chatWith) }
                             composable(Routes.DESTINATION) { DestinationScreen(vm, onBack = { nav.popBackStack() }, onChosen = { nav.navigate(Routes.CHOOSE_RIDE) }) }
@@ -201,6 +202,11 @@ fun BucksAppUi(vm: BucksViewModel) {
                             // Discover (cloud-only): the universal listing profile for a business, skill or driver.
                             composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
                                 ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
+                            // Commerce (cloud-only): cart + checkout, order page, my orders and the vendor order inbox.
+                            composable(Routes.CLOUD_CART) { CloudCartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { id -> nav.navigate(Routes.cloudOrder(id)) { popUpTo(Routes.CLOUD_CART) { inclusive = true } } }) }
+                            composable(Routes.CLOUD_ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> CloudOrderScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onTrack = { nav.navigate(Routes.deliveryTrack(it)) }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
+                            composable(Routes.MY_ORDERS) { MyOrdersScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.cloudOrder(it)) }) }
+                            composable(Routes.VENDOR_ORDERS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> VendorOrdersScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.cloudOrder(it)) }) }
                             // Manage (cloud-only): own listings, products, vehicles, admins, invites and the recommendation QR.
                             composable(Routes.MY_LISTINGS) { MyListingsScreen(vm, onBack = { nav.popBackStack() },
                                 onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) },
