@@ -154,8 +154,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); Cloud.signOut(); repo.clearSession(); _s.value = UiState() }
-    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut()
+    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); Push.unregister(); Cloud.signOut(); repo.clearSession(); _s.value = UiState() }
+    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); Push.unregister(); jobs.signedOut()
         Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }
         repo.deleteAccount(); _s.value = UiState(); toast("Your account and data were deleted.") }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }

@@ -11,6 +11,7 @@ class BucksApp : Application() {
         super.onCreate()
         com.bucks.app.data.Cloud.init(this)
         com.bucks.app.data.Prefs.init(this)
+        com.bucks.app.data.Push.ensureChannels(this)
         repository = FakeBucksRepository(this)
     }
 }

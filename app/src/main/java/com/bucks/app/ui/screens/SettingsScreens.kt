@@ -105,7 +105,7 @@ fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
             PrimaryButton("Save", Modifier.padding(top = 20.dp)) {
                 val q = if (qOn && Regex("^\\d{2}:\\d{2}$").matches(from) && Regex("^\\d{2}:\\d{2}$").matches(to)) JsonObject(mapOf("from" to JsonPrimitive(from), "to" to JsonPrimitive(to))) else null
                 social.saveSettings(row.copy(quietHours = q)) }
-            Muted("Push notifications arrive once Firebase Cloud Messaging is connected; until then these choices are saved for that day.", Modifier.padding(top = 12.dp))
+            Muted("Notifications reach this phone even when Bucks is closed. Quiet hours make them silent; ride, delivery and new-order alerts still ring, because someone is waiting.", Modifier.padding(top = 12.dp))
         }
     }
 }

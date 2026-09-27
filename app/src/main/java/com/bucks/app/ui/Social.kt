@@ -46,6 +46,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun signedIn(name: String, phone: String) = go {
         val p = Backend.ensureProfile(name, phone); me = p; names[p.id] = p.name
         settings = Backend.mySettings(p.id)
+        Push.registerIfSignedIn()
         repo.clearDemoSocial()
         refreshInbox(); refreshSyncs()
     }

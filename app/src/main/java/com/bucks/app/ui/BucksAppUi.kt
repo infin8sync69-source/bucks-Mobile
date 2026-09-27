@@ -60,7 +60,7 @@ private val RIDE_STAGES = setOf(Routes.SEARCHING, Routes.DRIVER_FOUND, Routes.IN
 private val TAB_ROUTES = mapOf(BottomTab.HOME to Routes.HOME, BottomTab.FEED to Routes.FEED, BottomTab.SERVICES to Routes.SERVICES, BottomTab.RECOMMENDED to Routes.RECOMMENDED, BottomTab.ACCOUNT to "account")
 
 @Composable
-fun BucksAppUi(vm: BucksViewModel) {
+fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandled: () -> Unit = {}) {
     val sysDark = isSystemInDarkTheme()
     val dark = when (Prefs.theme) { Prefs.Theme.LIGHT -> false; Prefs.Theme.DARK -> true; else -> sysDark }
     BucksTheme(dark = dark, textScale = Prefs.textSize.scale) {
@@ -94,6 +94,8 @@ fun BucksAppUi(vm: BucksViewModel) {
             route in RIDE_STAGES -> nav.navigate(route) { popUpTo(Routes.HOME); launchSingleTop = true }
             route.startsWith("order/") -> nav.navigate(route) { popUpTo(Routes.CART) { inclusive = true } }
             else -> nav.navigate(route) } } }
+        // A tapped notification asked for a screen: open it once the person is signed in, then forget it (Push.safeRoute already vetted it).
+        LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect; runCatching { nav.navigate(r) { launchSingleTop = true } }; onStartRouteHandled() }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
