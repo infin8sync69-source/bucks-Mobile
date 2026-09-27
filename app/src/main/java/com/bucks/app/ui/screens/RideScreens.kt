@@ -100,7 +100,7 @@ fun ChooseRideScreen(vm: BucksViewModel, onBack: () -> Unit, onConfirm: () -> Un
         Sheet {
             Box(Modifier.fillMaxWidth()) { IconButton(onBack, Modifier.align(Alignment.CenterStart).size(32.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }; Text("Choose vehicle", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Center)) }
             Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                VehicleKind.entries.forEach { k -> val nearest = Geo.ring(me, drivers, k).firstOrNull(); val on = s.rideKind == k; val f = vm.fare(k, dest.km)
+                VehicleKind.PASSENGER.forEach { k -> val nearest = Geo.ring(me, drivers, k).firstOrNull(); val on = s.rideKind == k; val f = vm.fare(k, dest.km)
                     val away = nearest?.let { maxOf(1, (it.distanceKm * 2.5).toInt()) }; val eta = away?.let { HHMM.format(java.util.Date(System.currentTimeMillis() + (it + dest.km * 3).toLong() * 60_000)).lowercase() }
                     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer).border(if (on) 2.dp else 0.dp, if (on) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.small).clickable(enabled = nearest != null) { vm.setRideKind(k) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(k.icon, null, Modifier.size(40.dp), tint = if (nearest != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)

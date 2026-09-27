@@ -3,7 +3,10 @@ package com.bucks.app.data
 enum class ProviderType { BUSINESS, SKILL }
 enum class Scope { LOCAL, GLOBAL }
 enum class VehicleKind(val wheels: String, val label: String, val farePerKm: Int) {
-    BIKE("2", "Bike", 8), AUTO("3", "Auto", 12), CAB("4", "Cab", 18)
+    BIKE("2", "Bike", 8), AUTO("3", "Auto", 12), CAB("4", "Cab", 18);
+    /** Bikes carry goods only (pick-up and delivery), never passengers. */
+    val carriesPassengers get() = this != BIKE
+    companion object { val PASSENGER = entries.filter { it.carriesPassengers } }
 }
 
 data class Trust(val up: Int, val down: Int) {

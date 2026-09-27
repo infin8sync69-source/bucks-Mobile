@@ -39,7 +39,7 @@ data class UiState(
     val cart: Map<String, Int> = emptyMap(),
     val orders: List<Order> = emptyList(), val requests: List<ServiceRequest> = emptyList(), val rides: List<Ride> = emptyList(),
     val ride: Ride? = null, val driverRide: DriverRide? = null,
-    val rideKind: VehicleKind = VehicleKind.BIKE, val rideDest: Place? = null,
+    val rideKind: VehicleKind = VehicleKind.AUTO, val rideDest: Place? = null,
     val query: String = "", val sort: SortMode = SortMode.TRUST, val scope: ScopeFilter = ScopeFilter.ALL, val askMode: AskMode = AskMode.RESULTS, val lens: Lens = Lens.ALL,
     val agent: List<AgentMessage> = listOf(AgentMessage(false, "Tell me what you need — a ride, food, a plumber, a comparison — by typing or speaking.")),
     val thinking: Boolean = false, val voiceLang: String = "en-IN",
@@ -212,7 +212,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             Tools.CANCEL -> { cancelPending(); AgentMessage(false, "Cancelled.") to null }
             Tools.SHOW_MAP -> { s.pendingDest?.let { d -> _s.update { it.copy(pendingDest = null, rideDest = randomPlace(d)) } }; AgentMessage(false, "Opening the ride screen.") to { navTo(Routes.CHOOSE_RIDE) } }
             Tools.RIDE -> {
-                val k = runCatching { VehicleKind.valueOf(i.args["vehicle"] ?: "BIKE") }.getOrDefault(VehicleKind.BIKE)
+                val k = runCatching { VehicleKind.valueOf(i.args["vehicle"] ?: "AUTO") }.getOrDefault(VehicleKind.AUTO).takeIf { it.carriesPassengers } ?: VehicleKind.AUTO
                 val dest = i.args["destination"]?.takeIf { it.isNotBlank() }?.let { d -> Seed.PLACES.firstOrNull { it.equals(d, true) || it.lowercase().contains(d.lowercase().substringBefore(' ')) } }
                 _s.update { it.copy(rideKind = k) }
                 if (s.mockLocation) return AgentMessage(false, "Mock location is on, so I can't book a ride. Turn it off in developer settings.") to null
@@ -285,7 +285,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private fun randomPlace(name: String): Place { val ll = Geo.PLACES[name]; return if (ll != null) { val (x, y) = Geo.toPercent(ll); Place(name, x, y, (Geo.distanceKm(mePos, ll) * 10).roundToInt() / 10.0) } else Place(name, 20 + Random.nextFloat() * 60, 15 + Random.nextFloat() * 30, ((1.5 + Random.nextDouble() * 7) * 10).roundToInt() / 10.0) }
     fun startRide() = _s.update { it.copy(rideDest = null, pending = null) }
     fun chooseDest(name: String) = _s.update { it.copy(rideDest = randomPlace(name)) }
-    fun setRideKind(k: VehicleKind) = _s.update { it.copy(rideKind = k) }
+    fun setRideKind(k: VehicleKind) { if (k.carriesPassengers) _s.update { it.copy(rideKind = k) } }
     fun fare(k: VehicleKind, km: Double) = (k.farePerKm * km + 20).roundToInt()
     fun onlineCount(k: VehicleKind) = Geo.ring(mePos, repo.drivers.value, k).size
     private fun doRequestRide() {
