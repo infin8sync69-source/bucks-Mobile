@@ -9,6 +9,17 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.decodeRecord
+import io.github.jan.supabase.postgrest.query.filter.FilterOperator
+import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -30,6 +41,7 @@ object Backend {
             accessToken = { FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.await()?.token }
             install(Postgrest)
             install(Realtime)
+            install(Storage)
         }
     }
     private val db get() = client.postgrest
@@ -85,9 +97,8 @@ object Backend {
         else db.from("items").update(item) { select(); filter { eq("id", item.id) } }.decodeSingle()
     suspend fun deleteItem(id: String) { db.from("items").delete { filter { eq("id", id) } } }
 
-    // ---------- profile feed ----------
-    suspend fun posts(listingId: String): List<PostRow> = db.from("listing_posts").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
-    suspend fun addPost(listingId: String, me: String, body: String) { db.from("listing_posts").insert(buildJsonObject { put("listing_id", listingId); put("author_id", me); put("body", body) }) }
+    // ---------- a listing's own posts (its profile feed) ----------
+    suspend fun listingPosts(listingId: String): List<PostRow> = db.from("posts").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
 
     // ---------- admins ----------
     suspend fun invite(listingId: String?, vehicleId: String?, bucksId: String, role: String): String =
@@ -153,6 +164,97 @@ object Backend {
     }
     suspend fun applications(jobId: String): List<ApplicationRow> = db.from("applications").select { filter { eq("job_id", jobId) } }.decodeList()
     suspend fun setApplicationStatus(id: String, status: String) { db.from("applications").update({ set("status", status) }) { filter { eq("id", id) } } }
+
+    // ---------- settings, blocking, sync ----------
+    suspend fun mySettings(me: String): SettingsRow = db.from("user_settings").select { filter { eq("profile_id", me) } }.decodeSingleOrNull() ?: SettingsRow(me)
+    suspend fun saveSettings(row: SettingsRow) { db.from("user_settings").upsert(row) }
+    suspend fun block(me: String, other: String) { db.from("blocks").insert(buildJsonObject { put("blocker_id", me); put("blocked_id", other) }) }
+    suspend fun unblock(me: String, other: String) { db.from("blocks").delete { filter { eq("blocker_id", me); eq("blocked_id", other) } } }
+    suspend fun blocked(): List<BlockRow> = db.from("blocks").select().decodeList()
+    /** Returns PENDING, or ACCEPTED when they had already asked to sync with me. */
+    suspend fun sync(other: String): String = db.rpc("request_sync", buildJsonObject { put("p_other", other) }).decodeAs()
+    suspend fun unsync(me: String, other: String) {
+        db.from("syncs").delete { filter { or { and { eq("requester_id", me); eq("addressee_id", other) }; and { eq("requester_id", other); eq("addressee_id", me) } } } }
+    }
+    suspend fun closeFriends(): List<String> = db.from("close_friends").select().decodeList<CloseFriendRow>().map { it.friendId }
+    suspend fun setCloseFriend(me: String, friend: String, on: Boolean) {
+        if (on) db.from("close_friends").upsert(buildJsonObject { put("profile_id", me); put("friend_id", friend) })
+        else db.from("close_friends").delete { filter { eq("profile_id", me); eq("friend_id", friend) } }
+    }
+
+    // ---------- messaging ----------
+    suspend fun inbox(): List<InboxRow> = db.rpc("inbox").decodeList()
+    suspend fun startDirect(other: String): String = db.rpc("start_direct", buildJsonObject { put("p_other", other) }).decodeAs()
+    suspend fun startListingChat(listingId: String): String = db.rpc("start_listing_chat", buildJsonObject { put("p_listing", listingId) }).decodeAs()
+    suspend fun createGroup(title: String, members: List<String>): String =
+        db.rpc("create_group", buildJsonObject { put("p_title", title); put("p_members", buildJsonArray { members.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }) }).decodeAs()
+    suspend fun messages(conversationId: String, limit: Long = 50): List<MessageRow> =
+        db.from("messages").select { filter { eq("conversation_id", conversationId) }; order("created_at", Order.DESCENDING); limit(limit) }.decodeList<MessageRow>().reversed()
+    suspend fun send(conversationId: String, me: String, body: String, attachment: FileRef? = null, replyTo: String? = null): MessageRow =
+        db.from("messages").insert(buildJsonObject {
+            put("conversation_id", conversationId); put("sender_id", me); put("body", body); replyTo?.let { put("reply_to", it) }
+            attachment?.let { a -> put("attachment", buildJsonObject { put("path", a.path); put("name", a.name); put("mime", a.mime); put("size", a.size) }) }
+        }) { select() }.decodeSingle()
+    suspend fun editMessage(id: String, body: String) { db.from("messages").update({ set("body", body) }) { filter { eq("id", id) } } }
+    suspend fun deleteMessage(id: String) { db.from("messages").update({ set("deleted_at", "now()") }) { filter { eq("id", id) } } }
+    suspend fun markRead(conversationId: String) { db.rpc("mark_read", buildJsonObject { put("p_conv", conversationId) }) }
+    suspend fun seenUpTo(conversationId: String): String? = db.rpc("seen_up_to", buildJsonObject { put("p_conv", conversationId) }).decodeAs<String?>()
+    suspend fun mute(conversationId: String, me: String, untilIso: String?) {
+        db.from("conversation_members").update({ set("muted_until", untilIso) }) { filter { eq("conversation_id", conversationId); eq("profile_id", me) } }
+    }
+    /** New messages in a conversation as they arrive (row-level security still applies). */
+    fun liveMessages(conversationId: String): Flow<MessageRow> {
+        val channel = client.channel("conv-$conversationId")
+        return channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") { table = "messages"; filter("conversation_id", FilterOperator.EQ, conversationId) }
+            .map { it.decodeRecord<MessageRow>() }
+            .onStart { channel.subscribe() }
+    }
+
+    // ---------- files (Supabase Storage) ----------
+    /** Uploads to a private bucket; the first folder decides who may read it (see storage policies in schema.sql). */
+    suspend fun upload(bucket: String, path: String, bytes: ByteArray) { client.storage.from(bucket).upload(path, bytes) { upsert = false } }
+    suspend fun signedUrl(bucket: String, path: String): String = client.storage.from(bucket).createSignedUrl(path, 1.hours)
+    fun publicUrl(bucket: String, path: String): String = client.storage.from(bucket).publicUrl(path)
+
+    // ---------- feed ----------
+    suspend fun feed(at: LatLng, beforeIso: String? = null): List<FeedRow> =
+        db.rpc("feed", buildJsonObject { put("lat", at.lat); put("lng", at.lng); beforeIso?.let { put("before", it) } }).decodeList()
+    suspend fun post(me: String, body: String, media: List<String>, visibility: String, at: LatLng?, area: String, listingId: String? = null) {
+        db.from("posts").insert(buildJsonObject {
+            put("author_id", me); put("body", body); put("visibility", visibility); put("area", area); listingId?.let { put("listing_id", it) }
+            at?.let { put("location", point(it)) }
+            put("media", buildJsonArray { media.forEach { add(buildJsonObject { put("path", it) }) } })
+        })
+    }
+    suspend fun deletePost(id: String) { db.from("posts").delete { filter { eq("id", id) } } }
+    suspend fun vote(postId: String, me: String, vote: Int) {
+        if (vote == 0) db.from("post_votes").delete { filter { eq("post_id", postId); eq("profile_id", me) } }
+        else db.from("post_votes").upsert(buildJsonObject { put("post_id", postId); put("profile_id", me); put("vote", vote) })
+    }
+    suspend fun comments(postId: String): List<CommentRow> = db.from("post_comments").select { filter { eq("post_id", postId) }; order("created_at", Order.ASCENDING) }.decodeList()
+    suspend fun comment(postId: String, me: String, body: String) { db.from("post_comments").insert(buildJsonObject { put("post_id", postId); put("author_id", me); put("body", body) }) }
+
+    // ---------- moments ----------
+    suspend fun momentsTray(at: LatLng): List<TrayRow> = db.rpc("moments_tray", buildJsonObject { put("lat", at.lat); put("lng", at.lng) }).decodeList()
+    suspend fun momentsOf(author: String, at: LatLng): List<MomentRow> = db.rpc("moments_of", buildJsonObject { put("p_author", author); put("lat", at.lat); put("lng", at.lng) }).decodeList()
+    suspend fun postMoment(me: String, mediaPath: String, type: String, caption: String, audience: String, at: LatLng?, listingId: String? = null) {
+        db.from("moments").insert(buildJsonObject {
+            put("author_id", me); put("media_path", mediaPath); put("media_type", type); put("caption", caption); put("audience", audience)
+            listingId?.let { put("listing_id", it) }; at?.let { put("location", point(it)) }
+        })
+    }
+    suspend fun deleteMoment(id: String) { db.from("moments").delete { filter { eq("id", id) } } }
+    suspend fun viewMoment(id: String, reaction: String? = null) { db.rpc("view_moment", buildJsonObject { put("p_moment", id); put("p_reaction", reaction) }) }
+    suspend fun momentViewers(id: String): List<ViewerRow> = db.rpc("moment_viewers", buildJsonObject { put("p_moment", id) }).decodeList()
+    suspend fun replyToMoment(id: String, body: String): String = db.rpc("reply_to_moment", buildJsonObject { put("p_moment", id); put("p_body", body) }).decodeAs()
+    suspend fun muteMoments(me: String, other: String, on: Boolean) {
+        if (on) db.from("moment_mutes").upsert(buildJsonObject { put("profile_id", me); put("muted_id", other) })
+        else db.from("moment_mutes").delete { filter { eq("profile_id", me); eq("muted_id", other) } }
+    }
+
+    // ---------- suggestions ----------
+    suspend fun suggestPeople(at: LatLng): List<PersonSuggestion> = db.rpc("suggest_people", buildJsonObject { put("lat", at.lat); put("lng", at.lng) }).decodeList()
+    suspend fun suggestListings(at: LatLng): List<ListingSuggestion> = db.rpc("suggest_listings", buildJsonObject { put("lat", at.lat); put("lng", at.lng) }).decodeList()
 }
 
 // ---------- rows, named as in schema.sql ----------
@@ -169,7 +271,8 @@ object Backend {
 @Serializable data class MemberRow(@SerialName("listing_id") val listingId: String, @SerialName("profile_id") val profileId: String, val role: String)
 @Serializable data class ItemRow(val id: String? = null, @SerialName("listing_id") val listingId: String, val kind: String = "PRODUCT", val name: String, val price: Int, val mrp: Int? = null,
     val unit: String = "", @SerialName("group_name") val group: String = "", @SerialName("photo_url") val photoUrl: String? = null, @SerialName("in_stock") val inStock: Boolean = true, val sort: Int = 0)
-@Serializable data class PostRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("author_id") val authorId: String, val body: String = "", @SerialName("photo_url") val photoUrl: String? = null, @SerialName("created_at") val createdAt: String)
+@Serializable data class PostRow(val id: String, @SerialName("author_id") val authorId: String, @SerialName("listing_id") val listingId: String? = null, val body: String = "",
+    val media: kotlinx.serialization.json.JsonArray = kotlinx.serialization.json.JsonArray(emptyList()), val visibility: String = "LOCAL", val up: Int = 0, val down: Int = 0, val comments: Int = 0, @SerialName("created_at") val createdAt: String)
 @Serializable data class InviteRow(val id: String, @SerialName("listing_id") val listingId: String? = null, @SerialName("vehicle_id") val vehicleId: String? = null,
     @SerialName("inviter_id") val inviterId: String, @SerialName("invitee_id") val inviteeId: String, val role: String, val status: String)
 @Serializable data class VehicleRow(val id: String, @SerialName("owner_id") val ownerId: String, val kind: String, val model: String = "", val plate: String, val status: String = "PENDING")
@@ -186,3 +289,32 @@ object Backend {
 @Serializable data class JobRow(val id: String, @SerialName("listing_id") val listingId: String, val title: String, val description: String = "", val pay: String = "", @SerialName("job_type") val jobType: String = "FULL_TIME", val open: Boolean = true)
 @Serializable data class ApplicationRow(val id: String, @SerialName("job_id") val jobId: String, @SerialName("applicant_id") val applicantId: String,
     @SerialName("skill_listing_ids") val skillListingIds: List<String> = emptyList(), val note: String = "", val status: String)
+
+/** A file already uploaded to the "chat" bucket at [path]. */
+data class FileRef(val path: String, val name: String, val mime: String, val size: Long)
+
+@Serializable data class SettingsRow(@SerialName("profile_id") val profileId: String, @SerialName("who_can_message") val whoCanMessage: String = "SYNCED",
+    @SerialName("who_can_sync") val whoCanSync: String = "EVERYONE", @SerialName("moments_audience") val momentsAudience: String = "SYNCED",
+    @SerialName("read_receipts") val readReceipts: Boolean = true, @SerialName("show_online") val showOnline: Boolean = true, val discoverable: Boolean = true,
+    val notify: JsonObject = JsonObject(emptyMap()), @SerialName("quiet_hours") val quietHours: JsonObject? = null, val app: JsonObject = JsonObject(emptyMap()))
+@Serializable data class BlockRow(@SerialName("blocker_id") val blockerId: String, @SerialName("blocked_id") val blockedId: String)
+@Serializable data class CloseFriendRow(@SerialName("profile_id") val profileId: String, @SerialName("friend_id") val friendId: String)
+@Serializable data class InboxRow(@SerialName("conversation_id") val conversationId: String, val kind: String, val title: String? = null, @SerialName("other_id") val otherId: String? = null,
+    @SerialName("other_name") val otherName: String? = null, @SerialName("other_code") val otherCode: String? = null, @SerialName("last_body") val lastBody: String? = null,
+    @SerialName("last_at") val lastAt: String, val unread: Int = 0, val muted: Boolean = false, val archived: Boolean = false)
+@Serializable data class MessageRow(val id: String, @SerialName("conversation_id") val conversationId: String, @SerialName("sender_id") val senderId: String, val body: String = "",
+    val attachment: JsonObject? = null, @SerialName("reply_to") val replyTo: String? = null, @SerialName("moment_id") val momentId: String? = null,
+    @SerialName("created_at") val createdAt: String, @SerialName("edited_at") val editedAt: String? = null, @SerialName("deleted_at") val deletedAt: String? = null)
+@Serializable data class FeedRow(val id: String, @SerialName("author_id") val authorId: String, @SerialName("author_name") val authorName: String, @SerialName("author_code") val authorCode: String,
+    @SerialName("listing_id") val listingId: String? = null, @SerialName("listing_title") val listingTitle: String? = null, val body: String = "",
+    val media: kotlinx.serialization.json.JsonArray = kotlinx.serialization.json.JsonArray(emptyList()), val visibility: String, val area: String = "", val up: Int = 0, val down: Int = 0,
+    val comments: Int = 0, @SerialName("my_vote") val myVote: Int? = null, @SerialName("created_at") val createdAt: String, val synced: Boolean = false)
+@Serializable data class CommentRow(val id: String, @SerialName("post_id") val postId: String, @SerialName("author_id") val authorId: String, val body: String, @SerialName("created_at") val createdAt: String)
+@Serializable data class TrayRow(@SerialName("author_id") val authorId: String, @SerialName("author_name") val authorName: String, @SerialName("author_code") val authorCode: String,
+    @SerialName("listing_title") val listingTitle: String? = null, val moments: Int, val unseen: Int, @SerialName("latest_at") val latestAt: String, @SerialName("is_me") val isMe: Boolean)
+@Serializable data class MomentRow(val id: String, @SerialName("author_id") val authorId: String, @SerialName("media_path") val mediaPath: String, @SerialName("media_type") val mediaType: String,
+    val caption: String = "", val audience: String, @SerialName("created_at") val createdAt: String, @SerialName("expires_at") val expiresAt: String)
+@Serializable data class ViewerRow(@SerialName("viewer_id") val viewerId: String, val name: String, val reaction: String? = null, @SerialName("viewed_at") val viewedAt: String)
+@Serializable data class PersonSuggestion(val id: String, val name: String, @SerialName("short_code") val shortCode: String, val area: String = "", val mutual: Int = 0, @SerialName("distance_m") val distanceM: Double? = null)
+@Serializable data class ListingSuggestion(val id: String, val kind: String, val title: String, val category: String = "", val area: String = "",
+    @SerialName("synced_recommenders") val syncedRecommenders: Int = 0, @SerialName("distance_m") val distanceM: Double? = null)

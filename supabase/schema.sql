@@ -152,16 +152,6 @@ create table if not exists public.items (
 create index if not exists items_listing_idx on public.items (listing_id);
 create index if not exists items_name_trgm on public.items using gin (name gin_trgm_ops);
 
--- Feed posts on a skill or business profile (work samples, offers).
-create table if not exists public.listing_posts (
-  id          uuid primary key default public.uuid_v7(),
-  listing_id  uuid not null references public.listings on delete cascade,
-  author_id   uuid not null references public.profiles,
-  body        text not null default '',
-  photo_url   text,
-  created_at  timestamptz not null default now()
-);
-
 -- People sync with listings they like (shows their posts in the feed).
 create table if not exists public.listing_syncs (
   profile_id  uuid not null references public.profiles on delete cascade,
@@ -337,7 +327,6 @@ alter table public.syncs enable row level security;
 alter table public.listings enable row level security;
 alter table public.listing_members enable row level security;
 alter table public.items enable row level security;
-alter table public.listing_posts enable row level security;
 alter table public.listing_syncs enable row level security;
 alter table public.vehicles enable row level security;
 alter table public.vehicle_members enable row level security;
@@ -405,9 +394,6 @@ create policy members_remove on public.listing_members for delete to authenticat
 create policy items_read on public.items for select to authenticated using (exists (select 1 from public.listings l where l.id = listing_id));
 create policy items_write on public.items for all to authenticated using (public.can_manage_listing(listing_id)) with check (public.can_manage_listing(listing_id));
 
-create policy posts_read on public.listing_posts for select to authenticated using (exists (select 1 from public.listings l where l.id = listing_id));
-create policy posts_write on public.listing_posts for insert to authenticated with check (public.can_manage_listing(listing_id) and author_id = public.me());
-create policy posts_delete on public.listing_posts for delete to authenticated using (public.can_manage_listing(listing_id));
 
 create policy lsync_read on public.listing_syncs for select to authenticated using (true);
 create policy lsync_self on public.listing_syncs for insert to authenticated with check (profile_id = public.me());
@@ -725,10 +711,482 @@ create or replace view public.vehicle_stats with (security_invoker = true) as
   from public.vehicles v left join public.task_events e on e.vehicle_id = v.id and e.at > now() - interval '30 days'
   group by v.id;
 
+-- =====================================================================
+-- Social: settings, blocking, messaging, files, feed, moments, suggestions
+-- =====================================================================
+
+-- Per-person settings. Privacy fields are enforced by the database; the rest the app reads.
+create table if not exists public.user_settings (
+  profile_id        uuid primary key references public.profiles on delete cascade,
+  who_can_message   text not null default 'SYNCED'   check (who_can_message in ('EVERYONE', 'SYNCED', 'NOBODY')),
+  who_can_sync      text not null default 'EVERYONE' check (who_can_sync in ('EVERYONE', 'NOBODY')),
+  moments_audience  text not null default 'SYNCED'   check (moments_audience in ('SYNCED', 'LOCAL', 'CLOSE')),
+  read_receipts     boolean not null default true,    -- off: others don't see "seen", and you don't see theirs
+  show_online       boolean not null default true,
+  discoverable      boolean not null default true,    -- appear in people suggestions
+  notify            jsonb not null default '{"messages": true, "sync_requests": true, "moments": true, "comments": true, "orders": true, "tasks": true, "offers": false}',
+  quiet_hours       jsonb,                            -- {"from": "22:00", "to": "07:00"}
+  app               jsonb not null default '{}',      -- theme, text size, language, data saver, media auto-download...
+  updated_at        timestamptz not null default now()
+);
+create or replace function public.settings_of(p uuid) returns public.user_settings language sql stable security definer set search_path = public as $$
+  select coalesce((select s from user_settings s where s.profile_id = p), row(p, 'SYNCED', 'EVERYONE', 'SYNCED', true, true, true, '{}'::jsonb, null, '{}'::jsonb, now())::user_settings)
+$$;
+
+-- Close friends list for moments shared with "CLOSE".
+create table if not exists public.close_friends (
+  profile_id uuid not null references public.profiles on delete cascade,
+  friend_id  uuid not null references public.profiles on delete cascade,
+  primary key (profile_id, friend_id)
+);
+
+create table if not exists public.blocks (
+  blocker_id uuid not null references public.profiles on delete cascade,
+  blocked_id uuid not null references public.profiles on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id)
+);
+create or replace function public.blocked_between(a uuid, b uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from blocks where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a))
+$$;
+create or replace function public.synced(a uuid, b uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from syncs where status = 'ACCEPTED' and ((requester_id = a and addressee_id = b) or (requester_id = b and addressee_id = a)))
+$$;
+
+-- Sync requests respect the addressee's setting and blocks.
+create or replace function public.request_sync(p_other uuid) returns text language plpgsql security definer set search_path = public as $$
+declare other_setting text;
+begin
+  if p_other = me() then raise exception 'that is you'; end if;
+  if blocked_between(me(), p_other) then raise exception 'you cannot sync with this person'; end if;
+  if exists (select 1 from syncs where requester_id = p_other and addressee_id = me() and status = 'PENDING') then
+    update syncs set status = 'ACCEPTED' where requester_id = p_other and addressee_id = me(); return 'ACCEPTED';   -- they asked first
+  end if;
+  select who_can_sync into other_setting from settings_of(p_other);
+  if other_setting = 'NOBODY' then raise exception 'this person is not accepting sync requests'; end if;
+  insert into syncs (requester_id, addressee_id) values (me(), p_other) on conflict do nothing;
+  return 'PENDING';
+end $$;
+
+-- ---------- messaging ----------
+
+create table if not exists public.conversations (
+  id              uuid primary key default public.uuid_v7(),
+  kind            text not null default 'DIRECT' check (kind in ('DIRECT', 'GROUP', 'LISTING')),
+  title           text,                                 -- groups
+  listing_id      uuid references public.listings on delete cascade,  -- customer <-> business/pro inbox
+  direct_key      text unique,                          -- sorted pair of profile ids, so a DM is never duplicated
+  created_by      uuid not null references public.profiles,
+  last_message_at timestamptz not null default now(),
+  created_at      timestamptz not null default now()
+);
+create table if not exists public.conversation_members (
+  conversation_id uuid not null references public.conversations on delete cascade,
+  profile_id      uuid not null references public.profiles on delete cascade,
+  role            text not null default 'MEMBER' check (role in ('MEMBER', 'ADMIN')),
+  last_read_at    timestamptz not null default 'epoch',
+  muted_until     timestamptz,
+  archived        boolean not null default false,
+  primary key (conversation_id, profile_id)
+);
+create index if not exists conv_members_profile_idx on public.conversation_members (profile_id);
+create table if not exists public.messages (
+  id              uuid primary key default public.uuid_v7(),
+  conversation_id uuid not null references public.conversations on delete cascade,
+  sender_id       uuid not null references public.profiles,
+  body            text not null default '',
+  attachment      jsonb,                                -- {"path","name","mime","size","width","height"} in the "chat" bucket
+  reply_to        uuid references public.messages,
+  moment_id       uuid,                                 -- a reply to someone's moment
+  created_at      timestamptz not null default now(),
+  edited_at       timestamptz,
+  deleted_at      timestamptz,
+  check (deleted_at is not null or length(body) > 0 or attachment is not null)
+);
+create index if not exists messages_conv_idx on public.messages (conversation_id, created_at desc);
+
+create or replace function public.is_member(c uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from conversation_members where conversation_id = c and profile_id = public.me())
+$$;
+
+-- Open (or reuse) a one-to-one chat, following the other person's "who can message me" setting:
+-- EVERYONE = anyone; SYNCED = people they're synced with; NOBODY = no new chats.
+-- A driver and rider on an active trip can always message each other. Blocks always win.
+create or replace function public.start_direct(p_other uuid) returns uuid language plpgsql security definer set search_path = public as $$
+declare k text; c uuid; allowed boolean;
+begin
+  if p_other = me() then raise exception 'that is you'; end if;
+  if blocked_between(me(), p_other) then raise exception 'you cannot message this person'; end if;
+  k := least(me()::text, p_other::text) || ':' || greatest(me()::text, p_other::text);
+  select id into c from conversations where direct_key = k;
+  if c is not null then return c; end if;
+  allowed := case (select who_can_message from settings_of(p_other)) when 'EVERYONE' then true when 'SYNCED' then synced(me(), p_other) else false end
+          or exists (select 1 from tasks t where t.status in ('MATCHED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED') and
+                     ((t.requester_id = me() and t.driver_id = p_other) or (t.requester_id = p_other and t.driver_id = me())));
+  if not allowed then raise exception 'this person only takes messages from people they have synced with'; end if;
+  insert into conversations (kind, direct_key, created_by) values ('DIRECT', k, me()) returning id into c;
+  insert into conversation_members (conversation_id, profile_id) values (c, me()), (c, p_other);
+  return c;
+end $$;
+
+-- Message a business or pro: everyone who runs the listing (owner and admins) shares one inbox with the customer.
+create or replace function public.start_listing_chat(p_listing uuid) returns uuid language plpgsql security definer set search_path = public as $$
+declare c uuid; l listings;
+begin
+  select * into l from listings where id = p_listing and status = 'LIVE';
+  if not found then raise exception 'not available'; end if;
+  if listing_role(p_listing) is not null then raise exception 'this is your own listing'; end if;
+  select cm.conversation_id into c from conversations cv join conversation_members cm on cm.conversation_id = cv.id
+   where cv.kind = 'LISTING' and cv.listing_id = p_listing and cv.created_by = me() and cm.profile_id = me() limit 1;
+  if c is not null then return c; end if;
+  insert into conversations (kind, listing_id, created_by, title) values ('LISTING', p_listing, me(), l.title) returning id into c;
+  insert into conversation_members (conversation_id, profile_id) values (c, me());
+  insert into conversation_members (conversation_id, profile_id, role)
+    select c, profile_id, 'ADMIN' from listing_members where listing_id = p_listing and role in ('OWNER', 'ADMIN') on conflict do nothing;
+  return c;
+end $$;
+
+create or replace function public.create_group(p_title text, p_members uuid[]) returns uuid language plpgsql security definer set search_path = public as $$
+declare c uuid; m uuid;
+begin
+  insert into conversations (kind, title, created_by) values ('GROUP', p_title, me()) returning id into c;
+  insert into conversation_members (conversation_id, profile_id, role) values (c, me(), 'ADMIN');
+  foreach m in array coalesce(p_members, '{}') loop
+    if m <> me() and synced(me(), m) and not blocked_between(me(), m) then insert into conversation_members values (c, m) on conflict do nothing; end if;
+  end loop;
+  return c;
+end $$;
+
+create or replace function public.touch_conversation() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  update conversations set last_message_at = new.created_at where id = new.conversation_id;
+  update conversation_members set last_read_at = new.created_at where conversation_id = new.conversation_id and profile_id = new.sender_id;
+  return new;
+end $$;
+drop trigger if exists message_touch on public.messages;
+create trigger message_touch after insert on public.messages for each row execute function public.touch_conversation();
+
+-- Senders can edit their text or delete ("This message was deleted"); nothing else about a message changes.
+create or replace function public.guard_message() returns trigger language plpgsql as $$
+begin
+  if current_user = 'authenticated' and (new.sender_id <> old.sender_id or new.conversation_id <> old.conversation_id or new.created_at <> old.created_at) then raise exception 'not allowed'; end if;
+  if new.deleted_at is not null then new.body := ''; new.attachment := null; end if;
+  if new.body <> old.body then new.edited_at := now(); end if;
+  return new;
+end $$;
+drop trigger if exists message_guard on public.messages;
+create trigger message_guard before update on public.messages for each row execute function public.guard_message();
+
+-- Inbox: one row per conversation with the other person (or group/listing title), last message and unread count.
+create or replace function public.inbox() returns table (conversation_id uuid, kind text, title text, other_id uuid, other_name text, other_code text,
+  last_body text, last_at timestamptz, unread int, muted boolean, archived boolean)
+language sql stable security definer set search_path = public as $$
+  select c.id, c.kind,
+         coalesce(c.title, op.name), op.id, op.name, op.short_code,
+         (select case when m.deleted_at is not null then 'Message deleted' when m.body = '' then coalesce(m.attachment->>'name', 'Attachment') else m.body end
+            from messages m where m.conversation_id = c.id order by m.created_at desc limit 1),
+         c.last_message_at,
+         (select count(*)::int from messages m where m.conversation_id = c.id and m.sender_id <> me() and m.created_at > mine.last_read_at),
+         coalesce(mine.muted_until > now(), false), mine.archived
+  from conversation_members mine join conversations c on c.id = mine.conversation_id
+  left join lateral (select p.* from conversation_members o join profiles p on p.id = o.profile_id
+                      where o.conversation_id = c.id and o.profile_id <> me() and c.kind = 'DIRECT' limit 1) op on true
+  where mine.profile_id = me()
+  order by c.last_message_at desc
+$$;
+
+-- Mark read. Read receipts: the other side's last_read_at is only exposed if both have receipts on.
+create or replace function public.mark_read(p_conv uuid) returns void language sql security definer set search_path = public as $$
+  update conversation_members set last_read_at = now() where conversation_id = p_conv and profile_id = me()
+$$;
+create or replace function public.seen_up_to(p_conv uuid) returns timestamptz language sql stable security definer set search_path = public as $$
+  select case when (select read_receipts from settings_of(me())) then
+    (select min(o.last_read_at) from conversation_members o where o.conversation_id = p_conv and o.profile_id <> me() and (select read_receipts from settings_of(o.profile_id)))
+  end where is_member(p_conv)
+$$;
+
+-- ---------- feed ----------
+
+create table if not exists public.posts (
+  id          uuid primary key default public.uuid_v7(),
+  author_id   uuid not null references public.profiles on delete cascade,
+  listing_id  uuid references public.listings on delete cascade,     -- posted as a business / pro profile
+  body        text not null default '',
+  media       jsonb not null default '[]',                          -- [{"path","mime","width","height"}] in the "posts" bucket
+  visibility  text not null default 'LOCAL' check (visibility in ('PUBLIC', 'LOCAL', 'SYNCED')),
+  location    geography(point, 4326),
+  area        text not null default '',
+  up          int not null default 0,
+  down        int not null default 0,
+  comments    int not null default 0,
+  created_at  timestamptz not null default now(),
+  deleted_at  timestamptz,
+  check (length(body) > 0 or media <> '[]'::jsonb)
+);
+create index if not exists posts_created_idx on public.posts (created_at desc);
+create index if not exists posts_location_idx on public.posts using gist (location);
+create table if not exists public.post_votes (
+  post_id    uuid not null references public.posts on delete cascade,
+  profile_id uuid not null references public.profiles on delete cascade,
+  vote       smallint not null check (vote in (-1, 1)),
+  primary key (post_id, profile_id)
+);
+create table if not exists public.post_comments (
+  id         uuid primary key default public.uuid_v7(),
+  post_id    uuid not null references public.posts on delete cascade,
+  author_id  uuid not null references public.profiles on delete cascade,
+  body       text not null check (length(body) > 0),
+  created_at timestamptz not null default now()
+);
+create or replace function public.can_see_post(p public.posts) returns boolean language sql stable security definer set search_path = public as $$
+  select p.deleted_at is null and not blocked_between(me(), p.author_id) and
+         (p.author_id = me() or p.visibility in ('PUBLIC', 'LOCAL') or (p.visibility = 'SYNCED' and synced(me(), p.author_id)))
+$$;
+-- Counters kept by the database, so they can't be forged.
+create or replace function public.post_counts() returns trigger language plpgsql security definer set search_path = public as $$
+declare pid uuid := coalesce(new.post_id, old.post_id);
+begin
+  update posts set up = (select count(*) from post_votes where post_id = pid and vote = 1),
+                   down = (select count(*) from post_votes where post_id = pid and vote = -1),
+                   comments = (select count(*) from post_comments where post_id = pid) where id = pid;
+  return null;
+end $$;
+drop trigger if exists post_votes_count on public.post_votes;
+create trigger post_votes_count after insert or update or delete on public.post_votes for each row execute function public.post_counts();
+drop trigger if exists post_comments_count on public.post_comments;
+create trigger post_comments_count after insert or delete on public.post_comments for each row execute function public.post_counts();
+
+-- Feed: my synced people and listings, plus local posts within radius; newest first, lightly boosted by votes.
+create or replace function public.feed(lat double precision, lng double precision, radius_m int default 5000, before timestamptz default now(), lim int default 30)
+returns table (id uuid, author_id uuid, author_name text, author_code text, listing_id uuid, listing_title text, body text, media jsonb, visibility text, area text,
+               up int, down int, comments int, my_vote smallint, created_at timestamptz, synced boolean)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.author_id, a.name, a.short_code, p.listing_id, l.title, p.body, p.media, p.visibility, p.area, p.up, p.down, p.comments,
+         (select v.vote from post_votes v where v.post_id = p.id and v.profile_id = me()), p.created_at, synced(me(), p.author_id)
+  from posts p join profiles a on a.id = p.author_id left join listings l on l.id = p.listing_id
+  where p.created_at < before and can_see_post(p)
+    and (p.author_id = me() or synced(me(), p.author_id)
+         or (p.listing_id is not null and exists (select 1 from listing_syncs s where s.profile_id = me() and s.listing_id = p.listing_id))
+         or p.visibility = 'PUBLIC'
+         or (p.visibility = 'LOCAL' and p.location is not null and st_dwithin(p.location, geo(lat, lng), radius_m)))
+  order by p.created_at desc
+  limit lim
+$$;
+
+-- ---------- moments (24-hour stories) ----------
+
+create table if not exists public.moments (
+  id          uuid primary key default public.uuid_v7(),
+  author_id   uuid not null references public.profiles on delete cascade,
+  listing_id  uuid references public.listings on delete cascade,     -- a shop or pro can post moments too
+  media_path  text not null,                                        -- in the "moments" bucket
+  media_type  text not null default 'IMAGE' check (media_type in ('IMAGE', 'VIDEO')),
+  caption     text not null default '',
+  audience    text not null default 'SYNCED' check (audience in ('SYNCED', 'LOCAL', 'CLOSE')),
+  location    geography(point, 4326),
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null default now() + interval '24 hours'
+);
+create index if not exists moments_live_idx on public.moments (expires_at);
+create table if not exists public.moment_views (
+  moment_id  uuid not null references public.moments on delete cascade,
+  viewer_id  uuid not null references public.profiles on delete cascade,
+  reaction   text,                                                  -- an emoji, optional
+  viewed_at  timestamptz not null default now(),
+  primary key (moment_id, viewer_id)
+);
+-- People whose moments I've chosen to hide from my tray.
+create table if not exists public.moment_mutes (
+  profile_id uuid not null references public.profiles on delete cascade,
+  muted_id   uuid not null references public.profiles on delete cascade,
+  primary key (profile_id, muted_id)
+);
+create or replace function public.can_see_moment(m public.moments, lat double precision default null, lng double precision default null) returns boolean
+language sql stable security definer set search_path = public as $$
+  select m.expires_at > now() and not blocked_between(me(), m.author_id) and (
+    m.author_id = me()
+    or (m.audience = 'SYNCED' and synced(me(), m.author_id))
+    or (m.audience = 'CLOSE' and exists (select 1 from close_friends c where c.profile_id = m.author_id and c.friend_id = me()))
+    or (m.audience = 'LOCAL' and (synced(me(), m.author_id) or (lat is not null and m.location is not null and st_dwithin(m.location, geo(lat, lng), 5000)))))
+$$;
+
+-- The row of circles at the top of the feed: me first, then people with unseen moments, newest first.
+create or replace function public.moments_tray(lat double precision, lng double precision)
+returns table (author_id uuid, author_name text, author_code text, listing_title text, moments int, unseen int, latest_at timestamptz, is_me boolean)
+language sql stable security definer set search_path = public as $$
+  select m.author_id, a.name, a.short_code, max(l.title), count(*)::int,
+         count(*) filter (where not exists (select 1 from moment_views v where v.moment_id = m.id and v.viewer_id = me()) and m.author_id <> me())::int,
+         max(m.created_at), m.author_id = me()
+  from moments m join profiles a on a.id = m.author_id left join listings l on l.id = m.listing_id
+  where can_see_moment(m, lat, lng) and not exists (select 1 from moment_mutes x where x.profile_id = me() and x.muted_id = m.author_id)
+  group by m.author_id, a.name, a.short_code
+  order by (m.author_id = me()) desc, (count(*) filter (where not exists (select 1 from moment_views v where v.moment_id = m.id and v.viewer_id = me())) > 0) desc, max(m.created_at) desc
+$$;
+create or replace function public.moments_of(p_author uuid, lat double precision, lng double precision) returns setof public.moments
+language sql stable security definer set search_path = public as $$
+  select m.* from moments m where m.author_id = p_author and can_see_moment(m, lat, lng) order by m.created_at
+$$;
+create or replace function public.view_moment(p_moment uuid, p_reaction text default null) returns void language plpgsql security definer set search_path = public as $$
+declare m moments;
+begin
+  select * into m from moments where id = p_moment;
+  if not found or not can_see_moment(m, null, null) and m.audience <> 'LOCAL' then raise exception 'not available'; end if;
+  if m.author_id = me() then return; end if;
+  insert into moment_views (moment_id, viewer_id, reaction) values (p_moment, me(), p_reaction)
+    on conflict (moment_id, viewer_id) do update set reaction = coalesce(excluded.reaction, moment_views.reaction);
+end $$;
+-- Author sees who viewed (and reacted).
+create or replace function public.moment_viewers(p_moment uuid) returns table (viewer_id uuid, name text, reaction text, viewed_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select v.viewer_id, p.name, v.reaction, v.viewed_at from moment_views v join profiles p on p.id = v.viewer_id join moments m on m.id = v.moment_id
+  where v.moment_id = p_moment and m.author_id = me() order by v.viewed_at desc
+$$;
+-- Reply to a moment: lands in a direct chat with the author.
+create or replace function public.reply_to_moment(p_moment uuid, p_body text) returns uuid language plpgsql security definer set search_path = public as $$
+declare m moments; c uuid;
+begin
+  select * into m from moments where id = p_moment;
+  if not found or m.author_id = me() or not (synced(me(), m.author_id) or m.audience = 'LOCAL') then raise exception 'not available'; end if;
+  c := start_direct(m.author_id);
+  insert into messages (conversation_id, sender_id, body, moment_id) values (c, me(), p_body, p_moment);
+  return c;
+end $$;
+-- Hourly cleanup of expired moments (schedule with pg_cron; media files are removed by the storage cleanup job).
+create or replace function public.expire_moments() returns int language sql security definer set search_path = public as $$
+  with x as (delete from moments where expires_at < now() - interval '1 hour' returning 1) select count(*)::int from x
+$$;
+
+-- ---------- suggestions ("For you") ----------
+
+-- People you may know: friends of friends first, then active people nearby. Excludes blocked, already synced, undiscoverable.
+create or replace function public.suggest_people(lat double precision, lng double precision, lim int default 20)
+returns table (id uuid, name text, short_code text, area text, mutual int, distance_m double precision)
+language sql stable security definer set search_path = public as $$
+  with mine as (select case when requester_id = me() then addressee_id else requester_id end f from syncs where status = 'ACCEPTED' and me() in (requester_id, addressee_id))
+  select p.id, p.name, p.short_code, p.area,
+         (select count(*)::int from syncs s where s.status = 'ACCEPTED' and ((s.requester_id = p.id and s.addressee_id in (select f from mine)) or (s.addressee_id = p.id and s.requester_id in (select f from mine)))) as mutual,
+         st_distance(p.home, geo(lat, lng))
+  from profiles p
+  where p.id <> me() and p.status = 'ACTIVE' and (select discoverable from settings_of(p.id))
+    and p.id not in (select f from mine) and not blocked_between(me(), p.id)
+    and not exists (select 1 from syncs s where s.requester_id = me() and s.addressee_id = p.id)
+  order by mutual desc, st_distance(p.home, geo(lat, lng)) nulls last
+  limit lim
+$$;
+
+-- Listings recommended or reviewed well by people I'm synced with, near me.
+create or replace function public.suggest_listings(lat double precision, lng double precision, lim int default 20)
+returns table (id uuid, kind text, title text, category text, area text, synced_recommenders int, distance_m double precision)
+language sql stable security definer set search_path = public as $$
+  with mine as (select case when requester_id = me() then addressee_id else requester_id end f from syncs where status = 'ACCEPTED' and me() in (requester_id, addressee_id))
+  select l.id, l.kind, l.title, l.category, l.area,
+         ((select count(*) from recommendations r where r.listing_id = l.id and r.recommender_id in (select f from mine))
+          + (select count(*) from reviews v where v.listing_id = l.id and v.vote = 1 and v.author_id in (select f from mine)))::int as n,
+         st_distance(l.location, geo(lat, lng))
+  from listings l
+  where l.status = 'LIVE' and l.location is not null and st_dwithin(l.location, geo(lat, lng), 15000)
+  order by n desc, (l.trust_up - l.trust_down) desc, st_distance(l.location, geo(lat, lng))
+  limit lim
+$$;
+
+-- ---------- row-level security for the social tables ----------
+
+alter table public.user_settings enable row level security;
+alter table public.close_friends enable row level security;
+alter table public.blocks enable row level security;
+alter table public.conversations enable row level security;
+alter table public.conversation_members enable row level security;
+alter table public.messages enable row level security;
+alter table public.posts enable row level security;
+alter table public.post_votes enable row level security;
+alter table public.post_comments enable row level security;
+alter table public.moments enable row level security;
+alter table public.moment_views enable row level security;
+alter table public.moment_mutes enable row level security;
+
+create policy settings_self on public.user_settings for all to authenticated using (profile_id = public.me()) with check (profile_id = public.me());
+create policy close_self on public.close_friends for all to authenticated using (profile_id = public.me()) with check (profile_id = public.me());
+create policy blocks_self on public.blocks for all to authenticated using (blocker_id = public.me()) with check (blocker_id = public.me());
+-- Blocking also ends any sync.
+create or replace function public.on_block() returns trigger language plpgsql security definer set search_path = public as $$
+begin delete from syncs where (requester_id = new.blocker_id and addressee_id = new.blocked_id) or (requester_id = new.blocked_id and addressee_id = new.blocker_id); return new; end $$;
+drop trigger if exists block_unsync on public.blocks;
+create trigger block_unsync after insert on public.blocks for each row execute function public.on_block();
+
+create policy conv_read on public.conversations for select to authenticated using (public.is_member(id));
+create policy conv_rename on public.conversations for update to authenticated using (public.is_member(id) and kind = 'GROUP') with check (kind = 'GROUP');
+create policy cm_read on public.conversation_members for select to authenticated using (public.is_member(conversation_id));
+create policy cm_self on public.conversation_members for update to authenticated using (profile_id = public.me()) with check (profile_id = public.me());
+create policy cm_leave on public.conversation_members for delete to authenticated using (profile_id = public.me());
+create policy msg_read on public.messages for select to authenticated using (public.is_member(conversation_id));
+create policy msg_send on public.messages for insert to authenticated with check (
+  sender_id = public.me() and public.is_member(conversation_id)
+  and not exists (select 1 from public.conversations c join public.conversation_members o on o.conversation_id = c.id
+                  where c.id = messages.conversation_id and c.kind = 'DIRECT' and o.profile_id <> public.me() and public.blocked_between(public.me(), o.profile_id)));
+create policy msg_edit on public.messages for update to authenticated using (sender_id = public.me()) with check (sender_id = public.me());
+
+create policy posts_read on public.posts for select to authenticated using (public.can_see_post(posts));
+create policy posts_write on public.posts for insert to authenticated
+  with check (author_id = public.me() and up = 0 and down = 0 and comments = 0 and (listing_id is null or public.can_manage_listing(listing_id)));
+create policy posts_edit on public.posts for update to authenticated using (author_id = public.me()) with check (author_id = public.me());
+create policy posts_delete on public.posts for delete to authenticated using (author_id = public.me() or (listing_id is not null and public.can_manage_listing(listing_id)));
+create policy votes_self on public.post_votes for all to authenticated using (profile_id = public.me()) with check (profile_id = public.me());
+create policy comments_read on public.post_comments for select to authenticated using (exists (select 1 from public.posts p where p.id = post_id));
+create policy comments_write on public.post_comments for insert to authenticated with check (author_id = public.me() and exists (select 1 from public.posts p where p.id = post_id));
+create policy comments_delete on public.post_comments for delete to authenticated
+  using (author_id = public.me() or exists (select 1 from public.posts p where p.id = post_id and p.author_id = public.me()));
+
+create policy moments_read on public.moments for select to authenticated using (public.can_see_moment(moments, null, null));
+create policy moments_write on public.moments for insert to authenticated with check (author_id = public.me() and (listing_id is null or public.can_manage_listing(listing_id)) and expires_at <= now() + interval '24 hours 1 minute');
+create policy moments_delete on public.moments for delete to authenticated using (author_id = public.me());
+create policy mviews_read on public.moment_views for select to authenticated using (viewer_id = public.me());
+create policy mutes_self on public.moment_mutes for all to authenticated using (profile_id = public.me()) with check (profile_id = public.me());
+
+-- ---------- file storage (Supabase Storage) ----------
+-- Buckets: avatars and listing-media are public (profile and product photos); chat, moments, posts and docs are private.
+-- Paths: chat/<conversation_id>/<file>, moments/<profile_id>/<file>, posts/<profile_id>/<file>, docs/<profile_id>/<file>,
+--        listing-media/<listing_id>/<file>, avatars/<profile_id>/<file>.
+do $$ begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
+      ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp']),
+      ('listing-media', 'listing-media', true, 5242880, array['image/jpeg', 'image/png', 'image/webp']),
+      ('posts', 'posts', false, 15728640, array['image/jpeg', 'image/png', 'image/webp', 'video/mp4']),
+      ('moments', 'moments', false, 31457280, array['image/jpeg', 'image/png', 'image/webp', 'video/mp4']),
+      ('chat', 'chat', false, 26214400, null),
+      ('docs', 'docs', false, 10485760, array['image/jpeg', 'image/png', 'application/pdf'])
+    on conflict (id) do nothing;
+
+    drop policy if exists bucks_public_read on storage.objects;
+    drop policy if exists bucks_own_folder on storage.objects;
+    drop policy if exists bucks_listing_media on storage.objects;
+    drop policy if exists bucks_chat on storage.objects;
+    drop policy if exists bucks_moments_read on storage.objects;
+    drop policy if exists bucks_posts_read on storage.objects;
+    create policy bucks_public_read on storage.objects for select to authenticated using (bucket_id in ('avatars', 'listing-media'));
+    -- Your own folder in avatars, posts, moments, docs.
+    create policy bucks_own_folder on storage.objects for all to authenticated
+      using (bucket_id in ('avatars', 'posts', 'moments', 'docs') and (storage.foldername(name))[1] = public.me()::text)
+      with check (bucket_id in ('avatars', 'posts', 'moments', 'docs') and (storage.foldername(name))[1] = public.me()::text);
+    create policy bucks_listing_media on storage.objects for all to authenticated
+      using (bucket_id = 'listing-media' and public.can_manage_listing(((storage.foldername(name))[1])::uuid))
+      with check (bucket_id = 'listing-media' and public.can_manage_listing(((storage.foldername(name))[1])::uuid));
+    -- Chat files: any member of the conversation can upload and read.
+    create policy bucks_chat on storage.objects for all to authenticated
+      using (bucket_id = 'chat' and public.is_member(((storage.foldername(name))[1])::uuid))
+      with check (bucket_id = 'chat' and public.is_member(((storage.foldername(name))[1])::uuid));
+    -- Moment and post media: readable by whoever can see a live moment / visible post that uses the file.
+    create policy bucks_moments_read on storage.objects for select to authenticated
+      using (bucket_id = 'moments' and exists (select 1 from public.moments m where m.media_path = name and public.can_see_moment(m, null, null)));
+    create policy bucks_posts_read on storage.objects for select to authenticated
+      using (bucket_id = 'posts' and exists (select 1 from public.posts p where public.can_see_post(p) and p.media @> jsonb_build_array(jsonb_build_object('path', name))));
+  end if;
+end $$;
+
 -- Supabase Realtime: stream changes on these tables to the app (row-level security still applies).
 do $$ begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    begin alter publication supabase_realtime add table public.tasks, public.orders, public.driver_presence, public.invites; exception when duplicate_object then null; end;
+    begin alter publication supabase_realtime add table public.tasks, public.orders, public.driver_presence, public.invites, public.messages, public.conversation_members, public.moments, public.syncs; exception when duplicate_object then null; end;
   end if;
 end $$;
 
