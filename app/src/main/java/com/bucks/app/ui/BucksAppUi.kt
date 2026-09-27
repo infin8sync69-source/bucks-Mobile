@@ -20,6 +20,8 @@ import androidx.navigation.navArgument
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.screens.*
+import com.bucks.app.ui.screens.discover.CloudSearchScreen
+import com.bucks.app.ui.screens.discover.ListingProfileScreen
 import com.bucks.app.ui.theme.BucksTheme
 import kotlinx.coroutines.launch
 import android.Manifest
@@ -88,7 +90,7 @@ fun BucksAppUi(vm: BucksViewModel) {
             route.startsWith("order/") -> nav.navigate(route) { popUpTo(Routes.CART) { inclusive = true } }
             else -> nav.navigate(route) } } }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
-        val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
+        val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
         // A driver trip in progress is full-screen, like the design (no bottom navigation).
         val onTrip = s.driverRide != null && s.driverRide?.status != com.bucks.app.data.DriverRideStatus.RINGING && current == Routes.HOME
@@ -151,7 +153,7 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.RECOMMENDED) { RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
                                 AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { nav.navigate(Routes.SETTINGS_APPEARANCE) }, onOpen = { nav.navigate(it) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
-                            composable(Routes.SEARCH) { SearchScreen(vm, onBack = { nav.popBackStack() }, onProvider = { id, t -> nav.navigate(Routes.provider(id, t)) }, onRequest = { nav.navigate(Routes.request(it)) }, onMessages = messages, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, showToast = toast) }
+                            composable(Routes.SEARCH) { if (vm.social.enabled) CloudSearchScreen(vm, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onRide = { k -> vm.setRideKind(k); ride() }) else SearchScreen(vm, onBack = { nav.popBackStack() }, onProvider = { id, t -> nav.navigate(Routes.provider(id, t)) }, onRequest = { nav.navigate(Routes.request(it)) }, onMessages = messages, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, showToast = toast) }
                             composable("provider/{id}?tab={tab}", arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("tab") { type = NavType.StringType; defaultValue = "" })) { e ->
                                 val id = e.arguments!!.getString("id")!!
                                 ProviderScreen(vm, id, e.arguments?.getString("tab") ?: "", onBack = { nav.popBackStack() }, onRequest = { nav.navigate(Routes.request(id)) }, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, onMessages = messages) }
@@ -189,6 +191,9 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.SETTINGS_APPEARANCE) { AppearanceScreen(onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_BLOCKED) { BlockedScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_CLOSE) { CloseFriendsScreen(vm, onBack = { nav.popBackStack() }) }
+                            // Discover (cloud-only): the universal listing profile for a business, skill or driver.
+                            composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
+                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
                         }
                         if (s.call != null) CallOverlay(vm)
                         ConfirmationSheet(vm, toast)
