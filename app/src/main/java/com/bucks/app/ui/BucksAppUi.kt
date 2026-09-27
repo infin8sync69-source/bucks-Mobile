@@ -22,6 +22,7 @@ import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.screens.*
 import com.bucks.app.ui.screens.discover.CloudSearchScreen
 import com.bucks.app.ui.screens.discover.ListingProfileScreen
+import com.bucks.app.ui.screens.manage.*
 import com.bucks.app.ui.theme.BucksTheme
 import kotlinx.coroutines.launch
 import android.Manifest
@@ -118,7 +119,7 @@ fun BucksAppUi(vm: BucksViewModel) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
                         DrawerItem(Icons.Rounded.AccountCircle, "Manage profile", current.startsWith("account") || current == Routes.PROFILE) { closeMenu(); nav.navigate(Routes.PROFILE) }
-                        DrawerItem(Icons.Rounded.Inventory2, "Manage listings", current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL)) { closeMenu(); nav.navigate(Routes.LISTINGS) }
+                        DrawerItem(Icons.Rounded.Inventory2, "Manage listings", current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_LISTINGS || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (vm.social.enabled) Routes.MY_LISTINGS else Routes.LISTINGS) }
                         // Quick switch for the active vehicle, so a driver can go online from anywhere.
                         if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, online = s.online, onToggle = { on -> vm.setVehicleOnline(v.id, on); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate) }
                     }
@@ -169,16 +170,22 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.IN_RIDE) { InRideScreen(vm, toast) }
                             composable(Routes.PAY) { PayScreen(vm) }
                             composable(Routes.RATE_RIDE) { RateRideScreen(vm) }
-                            composable(Routes.PRO_CREATE) { ProCreateScreen(vm, onBack = { nav.popBackStack() }, onHome = home, onListings = { t -> nav.navigate("${Routes.LISTINGS}?tab=$t") { popUpTo(Routes.HOME) } }, onVehicleForm = { nav.navigate(Routes.VEHICLE_FORM) }) }
+                            // Manage (cloud): the demo "listings" entry points open the cloud hub / edit screens when Supabase is configured.
+                            composable(Routes.PRO_CREATE) {
+                                if (vm.social.enabled) MyListingsScreen(vm, onBack = { nav.popBackStack() }, onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) }, onItems = { nav.navigate(Routes.itemEdit(it, null)) }, onMembers = { nav.navigate(Routes.members(it)) }, onRecommend = { nav.navigate(Routes.recommendShow(it)) }, onOrders = { nav.navigate(Routes.vendorOrders(it)) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onVehicles = { nav.navigate(Routes.MY_VEHICLES) }, onInvites = { nav.navigate(Routes.INVITES) }, onOpenProfile = { nav.navigate(Routes.listing(it)) }, onScan = { nav.navigate(Routes.RECOMMEND_SCAN) })
+                                else ProCreateScreen(vm, onBack = { nav.popBackStack() }, onHome = home, onListings = { t -> nav.navigate("${Routes.LISTINGS}?tab=$t") { popUpTo(Routes.HOME) } }, onVehicleForm = { nav.navigate(Routes.VEHICLE_FORM) }) }
                             composable("${Routes.LISTINGS}?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "vehicles" })) { e ->
-                                ManageListingsScreen(vm, e.arguments?.getString("tab") ?: "vehicles", onBack = { nav.popBackStack() },
+                                if (vm.social.enabled) MyListingsScreen(vm, onBack = { nav.popBackStack() }, onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) }, onItems = { nav.navigate(Routes.itemEdit(it, null)) }, onMembers = { nav.navigate(Routes.members(it)) }, onRecommend = { nav.navigate(Routes.recommendShow(it)) }, onOrders = { nav.navigate(Routes.vendorOrders(it)) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onVehicles = { nav.navigate(Routes.MY_VEHICLES) }, onInvites = { nav.navigate(Routes.INVITES) }, onOpenProfile = { nav.navigate(Routes.listing(it)) }, onScan = { nav.navigate(Routes.RECOMMEND_SCAN) })
+                                else ManageListingsScreen(vm, e.arguments?.getString("tab") ?: "vehicles", onBack = { nav.popBackStack() },
                                     onVehicle = { id -> nav.navigate(if (id == null) Routes.VEHICLE_FORM else "${Routes.VEHICLE_FORM}?id=${Uri.encode(id)}") },
                                     onBusiness = { i -> vm.editBusiness(i); nav.navigate(Routes.PRO_CREATE) },
                                     onSkill = { n -> nav.navigate(if (n == null) Routes.ADD_SKILL else "${Routes.ADD_SKILL}?name=${Uri.encode(n)}") }) }
                             composable("${Routes.VEHICLE_FORM}?id={id}", arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
-                                VehicleFormScreen(vm, e.arguments?.getString("id"), onBack = { nav.popBackStack() }, onDone = { nav.navigate("${Routes.LISTINGS}?tab=vehicles") { popUpTo(Routes.HOME) } }) }
+                                if (vm.social.enabled) VehicleEditScreen(vm, e.arguments?.getString("id"), onBack = { nav.popBackStack() })
+                                else VehicleFormScreen(vm, e.arguments?.getString("id"), onBack = { nav.popBackStack() }, onDone = { nav.navigate("${Routes.LISTINGS}?tab=vehicles") { popUpTo(Routes.HOME) } }) }
                             composable("${Routes.ADD_SKILL}?name={name}", arguments = listOf(navArgument("name") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
-                                AddSkillScreen(vm, e.arguments?.getString("name"), onBack = { nav.popBackStack() }) }
+                                if (vm.social.enabled) ListingEditScreen(vm, kind = "SKILL", id = null, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() })
+                                else AddSkillScreen(vm, e.arguments?.getString("name"), onBack = { nav.popBackStack() }) }
                             composable(Routes.EARNINGS) { EarningsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.CREATE_POST) { CreatePostScreen(vm, onClose = { nav.popBackStack() }) }
                             composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
@@ -194,6 +201,34 @@ fun BucksAppUi(vm: BucksViewModel) {
                             // Discover (cloud-only): the universal listing profile for a business, skill or driver.
                             composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
                                 ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
+                            // Manage (cloud-only): own listings, products, vehicles, admins, invites and the recommendation QR.
+                            composable(Routes.MY_LISTINGS) { MyListingsScreen(vm, onBack = { nav.popBackStack() },
+                                onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) },
+                                onItems = { nav.navigate(Routes.itemEdit(it, null)) },
+                                onMembers = { nav.navigate(Routes.members(it)) },
+                                onRecommend = { nav.navigate(Routes.recommendShow(it)) },
+                                onOrders = { nav.navigate(Routes.vendorOrders(it)) },
+                                onJobs = { nav.navigate(Routes.listingJobs(it)) },
+                                onVehicles = { nav.navigate(Routes.MY_VEHICLES) },
+                                onInvites = { nav.navigate(Routes.INVITES) },
+                                onOpenProfile = { nav.navigate(Routes.listing(it)) },
+                                onScan = { nav.navigate(Routes.RECOMMEND_SCAN) }) }
+                            composable(Routes.MY_VEHICLES) { VehiclesScreen(vm, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.vehicleEdit(it)) }, onStats = { nav.navigate(Routes.VEHICLE_STATS) }, onMembers = { nav.navigate(Routes.members("v:$it")) }) }
+                            composable(Routes.VEHICLE_STATS) { VehicleStatsScreen(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.LISTING_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("kind") { type = NavType.StringType; defaultValue = "BUSINESS" })) { e ->
+                                ListingEditScreen(vm, kind = e.arguments?.getString("kind") ?: "BUSINESS", id = e.arguments?.getString("id"), onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
+                            // ITEM_EDIT convention (there is no separate items-list route): item == null -> the list (ItemsScreen); item == "new" -> add; any other id -> edit that item.
+                            composable(Routes.ITEM_EDIT, arguments = listOf(navArgument("listing") { type = NavType.StringType }, navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
+                                val listing = e.arguments!!.getString("listing")!!; val item = e.arguments?.getString("item")
+                                if (item == null) ItemsScreen(vm, listing, onBack = { nav.popBackStack() }, onEdit = { l, i -> nav.navigate(Routes.itemEdit(l, i ?: "new")) })
+                                else ItemEditScreen(vm, listing, item.takeUnless { it == "new" }, onBack = { nav.popBackStack() }) }
+                            composable(Routes.VEHICLE_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null })) { e -> VehicleEditScreen(vm, e.arguments?.getString("id"), onBack = { nav.popBackStack() }) }
+                            composable(Routes.RECOMMEND_SHOW, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RecommendShowScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
+                            composable(Routes.RECOMMEND_SCAN) { RecommendScanScreen(vm, onBack = { nav.popBackStack() }) }
+                            // MEMBERS convention: a plain id is a listing; "v:<vehicleId>" (built with Routes.members("v:$vehicleId")) is a vehicle.
+                            composable(Routes.MEMBERS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val raw = e.arguments!!.getString("id")!!
+                                if (raw.startsWith("v:")) MembersScreen(vm, vehicleId = raw.removePrefix("v:"), onBack = { nav.popBackStack() }) else MembersScreen(vm, listingId = raw, onBack = { nav.popBackStack() }) }
+                            composable(Routes.INVITES) { InvitesScreen(vm, onBack = { nav.popBackStack() }) }
                         }
                         if (s.call != null) CallOverlay(vm)
                         ConfirmationSheet(vm, toast)

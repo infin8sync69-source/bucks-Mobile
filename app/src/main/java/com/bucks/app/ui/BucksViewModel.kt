@@ -72,6 +72,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val social = Social(viewModelScope, repo, ::toast)
     /** Cloud discovery: search over live listings and the universal listing profile. */
     val discover = Discover(viewModelScope, social, ::toast)
+    /** Own listings, vehicles, admins and recommendation QR (cloud only). */
+    val myListings = MyListings(viewModelScope, social, ::toast)
     fun unreadCount(demoChats: List<Chat>) = if (social.enabled) social.unread else demoChats.sumOf { it.unread }
     private var driversReg: ListenerRegistration? = null; private var rideReg: ListenerRegistration? = null; private var openRidesReg: ListenerRegistration? = null; private var driverRideReg: ListenerRegistration? = null
     private var heartbeatJob: Job? = null
