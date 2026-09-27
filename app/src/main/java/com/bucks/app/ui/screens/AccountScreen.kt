@@ -41,6 +41,7 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
                         if (vm.commerce.myOrders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.")
                         else vm.commerce.myOrders.take(5).forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, vm.commerce.titleOf(o.listingId), "₹${o.subtotal + if (o.feePaidBy == "BUYER") o.deliveryFee else 0} · ${com.bucks.app.ui.screens.commerce.orderStatusLabel(o.status, o.deliveryMode)}") { onOpen(Routes.cloudOrder(o.id)) } }
                     } else if (s.orders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.") else s.orders.forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, o.providerName, "₹${o.total} · ${o.status.label}") { onOrder(o.id) } }
+                    if (vm.social.enabled) { SectionTitle("Jobs", Modifier.padding(top = 20.dp, bottom = 4.dp)); ListRowCompact(Icons.Rounded.Work, "My applications", "Jobs you applied to and where they stand") { onOpen(Routes.MY_APPLICATIONS) } }
                     SectionTitle("Service requests", Modifier.padding(top = 20.dp, bottom = 4.dp))
                     if (s.requests.isEmpty()) Muted("No service requests yet. Search for a plumber, tutor or any skill.") else s.requests.forEach { r -> ListRowCompact(Icons.Rounded.Handyman, r.providerName, "${r.category} · ${r.status.label}") { onRequest(r.id) } }
                 }

@@ -85,7 +85,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
 }
 
 /** Services that open for the pilot. Add a name here to unlock its tile; everything else shows a padlock and "coming soon". */
-private val LIVE_SERVICES = setOf("Taxi")
+private val LIVE_SERVICES = setOf("Taxi", "Jobs")
 private data class Offer(val name: String, val icon: ImageVector) { val live get() = name in LIVE_SERVICES }
 private val OFFERS = listOf(Offer("Taxi", Icons.Rounded.LocalTaxi), Offer("Jobs", Icons.Rounded.Work), Offer("Foods", Icons.Rounded.Restaurant), Offer("Shopping", Icons.Rounded.ShoppingBag), Offer("Pay", Icons.Rounded.Payments),
     Offer("Book Tickets", Icons.Rounded.ConfirmationNumber), Offer("Delivery", Icons.Rounded.LocalShipping), Offer("Community", Icons.Rounded.Groups), Offer("Networks", Icons.Rounded.People), Offer("Banking", Icons.Rounded.AccountBalance))

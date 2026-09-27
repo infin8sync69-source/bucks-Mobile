@@ -23,6 +23,7 @@ import com.bucks.app.ui.screens.*
 import com.bucks.app.ui.screens.commerce.*
 import com.bucks.app.ui.screens.discover.CloudSearchScreen
 import com.bucks.app.ui.screens.discover.ListingProfileScreen
+import com.bucks.app.ui.screens.jobs.*
 import com.bucks.app.ui.screens.manage.*
 import com.bucks.app.ui.theme.BucksTheme
 import kotlinx.coroutines.launch
@@ -105,7 +106,7 @@ fun BucksAppUi(vm: BucksViewModel) {
         val chatWith: (String, String) -> Unit = { n, r -> nav.navigate(Routes.chat(vm.openChat(n, r))) }
         val call: (String, String) -> Unit = { n, p -> vm.startCall(n, p) }
         val home: () -> Unit = { nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } } }
-        val query: (String) -> Unit = { q -> vm.setQuery(q); nav.navigate(Routes.SEARCH) }
+        val query: (String) -> Unit = { q -> if (q == "jobs" && vm.social.enabled) nav.navigate(Routes.JOBS_NEAR) else { vm.setQuery(q); nav.navigate(Routes.SEARCH) } }
         val ride: () -> Unit = { vm.startRide(); nav.navigate(Routes.DESTINATION) }
         val logout: () -> Unit = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }
 
@@ -235,6 +236,15 @@ fun BucksAppUi(vm: BucksViewModel) {
                             composable(Routes.MEMBERS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val raw = e.arguments!!.getString("id")!!
                                 if (raw.startsWith("v:")) MembersScreen(vm, vehicleId = raw.removePrefix("v:"), onBack = { nav.popBackStack() }) else MembersScreen(vm, listingId = raw, onBack = { nav.popBackStack() }) }
                             composable(Routes.INVITES) { InvitesScreen(vm, onBack = { nav.popBackStack() }) }
+                            // Jobs (cloud-only): a listing's jobs, post a job, the job page (apply / manage applications), my applications and jobs near me.
+                            composable(Routes.LISTING_JOBS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
+                                if (vm.social.enabled) ListingJobsScreen(vm, id, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onNew = { nav.navigate(Routes.jobNew(id)) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.JOB_NEW, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e ->
+                                if (vm.social.enabled) JobNewScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.JOB, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e ->
+                                if (vm.social.enabled) JobScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.MY_APPLICATIONS) { if (vm.social.enabled) MyApplicationsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onNear = { nav.navigate(Routes.JOBS_NEAR) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.JOBS_NEAR) { if (vm.social.enabled) JobsNearScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onMyApplications = { nav.navigate(Routes.MY_APPLICATIONS) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                         }
                         if (s.call != null) CallOverlay(vm)
                         ConfirmationSheet(vm, toast)
@@ -244,6 +254,10 @@ fun BucksAppUi(vm: BucksViewModel) {
         }
     }
 }
+
+/** Demo-mode fallback for the cloud-only jobs routes: say why and go back. */
+@Composable
+private fun JobsNeedCloud(vm: BucksViewModel, onBack: () -> Unit) { LaunchedEffect(Unit) { vm.toast("Jobs need the cloud build."); onBack() } }
 
 @Composable
 private fun DrawerItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) = NavigationDrawerItem(icon = { Icon(icon, null) }, label = { Text(label, style = MaterialTheme.typography.bodyLarge) }, selected = selected, onClick = onClick, shape = MaterialTheme.shapes.small, modifier = Modifier.padding(vertical = 1.dp),
