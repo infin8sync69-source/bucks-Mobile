@@ -30,6 +30,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     var suggestions by mutableStateOf<List<PersonSuggestion>>(emptyList()); private set
     var blocked by mutableStateOf<List<ProfileRow>>(emptyList()); private set
     var closeFriends by mutableStateOf<Set<String>>(emptySet()); private set
+    /** People whose Moments I've hidden from my tray. */
+    var mutedMoments by mutableStateOf<List<ProfileRow>>(emptyList()); private set
     /** True while a photo or file is uploading. */
     var busy by mutableStateOf(false); private set
     /** Profile id -> display name, filled as rows arrive. */
@@ -50,7 +52,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         repo.clearDemoSocial()
         refreshInbox(); refreshSyncs()
     }
-    fun signedOut() { me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet() }
+    fun signedOut() { me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
     fun profileSaved(name: String, area: String, bio: String) = go { val p = me ?: return@go; Backend.updateProfile(p.id, name, bio, area, here); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
 
     suspend fun namesFor(ids: Collection<String>) { val missing = ids.filter { it !in names }.distinct(); if (missing.isNotEmpty()) Backend.profiles(missing).forEach { names[it.id] = it.name } }
@@ -92,6 +94,22 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun mute(conv: String, on: Boolean) = go { val p = me ?: return@go; Backend.mute(conv, p.id, if (on) "2999-01-01T00:00:00Z" else null); refreshInbox() }
     suspend fun fileUrl(bucket: String, path: String) = Backend.signedUrl(bucket, path)
 
+    // ---------- groups and listing chats ----------
+    /** The conversation's own row: kind (DIRECT / GROUP / LISTING), title and listing id. Null when I'm not a member. */
+    suspend fun conversation(conv: String): ConversationRow? = Backend.conversation(conv)
+    /** Members of a group or listing inbox, admins first, with their names loaded into [names]. */
+    suspend fun members(conv: String): List<ConversationMemberRow> { val rows = Backend.conversationMembers(conv); namesFor(rows.map { it.profileId }); return rows }
+    /** Only synced people can be in a group (the database drops anyone else). */
+    fun createGroup(title: String, members: List<String>, onCreated: (String) -> Unit, onFailed: () -> Unit = {}) = scope.launch {
+        try { val id = Backend.createGroup(title.trim(), members); refreshInbox(); toast("Group created."); onCreated(id) } catch (e: Exception) { toast(friendly(e)); onFailed() } }
+    fun renameGroup(conv: String, title: String, then: () -> Unit = {}) = go { Backend.renameGroup(conv, title.trim()); refreshInbox(); toast("Group renamed."); then() }
+    fun addToGroup(conv: String, members: List<String>, then: () -> Unit = {}) = go {
+        val n = Backend.addGroupMembers(conv, members)
+        toast(when (n) { 0 -> "Nobody new was added. Only people synced with you can join."; 1 -> "1 person added."; else -> "$n people added." }); then() }
+    fun removeFromGroup(conv: String, member: String, then: () -> Unit = {}) = go { Backend.removeGroupMember(conv, member); toast("${nameOf(member)} removed."); then() }
+    /** Leaving deletes my membership row; the chat leaves my inbox and I can't read it any more. */
+    fun leaveConversation(conv: String, then: () -> Unit = {}) = go { val p = me ?: return@go; Backend.leaveConversation(conv, p.id); inbox = inbox.filterNot { it.conversationId == conv }; toast("You left the group."); then() }
+
     // ---------- feed ----------
     fun refreshFeed() = go { feed = Backend.feed(here); feedEnd = feed.size < 30; refreshTray() }
     fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feed(here, last.createdAt); feed = feed + more; feedEnd = more.size < 30 }
@@ -108,13 +126,21 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
 
     // ---------- moments ----------
     fun refreshTray() = go { tray = Backend.momentsTray(here) }
-    fun postMoment(f: Picked, caption: String, audience: String) = go { val p = me ?: return@go; busy = true
+    /** Photos (re-encoded by Upload.read) or MP4 videos up to [MAX_VIDEO_BYTES], the bucket's limit. */
+    fun postMoment(f: Picked, caption: String, audience: String) = go { val p = me ?: return@go
+        if (f.isVideo && f.bytes.size > MAX_VIDEO_BYTES) { toast("Videos up to 30 MB. Pick a shorter one."); return@go }
+        if (f.isVideo && f.mime != "video/mp4") { toast("Only MP4 videos can be shared."); return@go }
+        busy = true
         try { val path = "${p.id}/${f.objectName()}"; Backend.upload("moments", path, f.bytes); Backend.postMoment(p.id, path, if (f.isVideo) "VIDEO" else "IMAGE", caption, audience, here); toast("Your moment is up for 24 hours."); refreshTray() } finally { busy = false } }
     suspend fun momentsOf(author: String): List<Pair<MomentRow, String>> = Backend.momentsOf(author, here).map { it to Backend.signedUrl("moments", it.mediaPath) }
     fun viewMoment(id: String, reaction: String? = null) = go { Backend.viewMoment(id, reaction); if (reaction != null) toast("Sent $reaction") }
     fun replyToMoment(id: String, body: String, onOpen: (String) -> Unit) = go { onOpen(Backend.replyToMoment(id, body)) }
     suspend fun momentViewers(id: String) = Backend.momentViewers(id)
     fun deleteMoment(id: String) = go { Backend.deleteMoment(id); refreshTray() }
-    fun muteMoments(author: String, on: Boolean) = go { val p = me ?: return@go; Backend.muteMoments(p.id, author, on); refreshTray() }
+    fun muteMoments(author: String, on: Boolean) = go { val p = me ?: return@go; Backend.muteMoments(p.id, author, on); toast(if (on) "${nameOf(author)}'s moments are hidden. Unmute from the Moments row's More button." else "Unmuted."); refreshTray(); refreshMutedMoments() }
+    fun unmuteMoments(author: String) = muteMoments(author, false)
+    fun refreshMutedMoments() = go { val rows = Backend.momentMutes(); val people = Backend.profiles(rows.map { it.mutedId }); people.forEach { names[it.id] = it.name }; mutedMoments = people }
+
+    companion object { const val MAX_VIDEO_BYTES = 30 * 1024 * 1024 }
 }
 private fun Boolean.toInt() = if (this) 1 else 0
