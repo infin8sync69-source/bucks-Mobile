@@ -37,7 +37,10 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          # Surface Kotlin compile errors as annotations so they show on the run summary.
+          ./gradlew assembleDebug 2>&1 | tee build.log; status=${PIPESTATUS[0]}
+          grep -E "^e: |What went wrong|Could not resolve" -A2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+          [ "$status" = 0 ] || exit "$status"
           cp app/build/outputs/apk/debug/app-debug.apk bucks-pilot-${{ github.run_number }}.apk
 
       - name: Publish test build
