@@ -132,7 +132,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         if (f.isVideo && f.mime != "video/mp4") { toast("Only MP4 videos can be shared."); return@go }
         busy = true
         try { val path = "${p.id}/${f.objectName()}"; Backend.upload("moments", path, f.bytes); Backend.postMoment(p.id, path, if (f.isVideo) "VIDEO" else "IMAGE", caption, audience, here); toast("Your moment is up for 24 hours."); refreshTray() } finally { busy = false } }
-    suspend fun momentsOf(author: String): List<Pair<MomentRow, String>> = Backend.momentsOf(author, here).map { it to Backend.signedUrl("moments", it.mediaPath) }
+    /** Opening (not just listing) grants access to nearby moments from people I'm not synced with, so their media can be signed. */
+    suspend fun momentsOf(author: String): List<Pair<MomentRow, String>> = Backend.openMoments(author, here).map { it to Backend.signedUrl("moments", it.mediaPath) }
     fun viewMoment(id: String, reaction: String? = null) = go { Backend.viewMoment(id, reaction); if (reaction != null) toast("Sent $reaction") }
     fun replyToMoment(id: String, body: String, onOpen: (String) -> Unit) = go { onOpen(Backend.replyToMoment(id, body)) }
     suspend fun momentViewers(id: String) = Backend.momentViewers(id)

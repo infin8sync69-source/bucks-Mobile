@@ -84,3 +84,65 @@ select pg_temp.as_user('gpriya');
 delete from moment_mutes where profile_id = me() and muted_id = pg_temp.pid('garun');
 select 'after unmute: ' || string_agg(author_name || ' (' || moments || ' moment)', ', ') from moments_tray(12.9063, 77.5857) where not is_me;
 select 'video moment kept its type: ' || media_type from moments_of(pg_temp.pid('garun'), 12.9063, 77.5857);
+
+\echo '== 7. Members change only their own read/mute/archive state, never their role'
+select pg_temp.as_user('gpriya');
+select set_config('t.grp2', create_group('Tea stall', array[pg_temp.pid('garun')])::text, false) is not null;
+select pg_temp.as_user('garun');
+select 'member makes himself admin -> ' || pg_temp.expect_fail(format($$update conversation_members set role = 'ADMIN' where conversation_id = %L and profile_id = me()$$, current_setting('t.grp2')), 'not allowed');
+select 'member moves his row to another chat -> ' || pg_temp.expect_fail(format($$update conversation_members set conversation_id = %L where conversation_id = %L and profile_id = me()$$, current_setting('t.dm'), current_setting('t.grp2')), 'not allowed');
+select 'Arun is still: ' || role from conversation_members where conversation_id = current_setting('t.grp2')::uuid and profile_id = me();
+with x as (update conversation_members set muted_until = '2999-01-01', archived = true where conversation_id = current_setting('t.grp2')::uuid and profile_id = me() returning 1) select 'mute and archive still work: ' || count(*) from x;
+select 'marking read still works: ' || (mark_read(current_setting('t.grp2')::uuid) is null);
+select 'so he cannot remove the creator -> ' || pg_temp.expect_fail(format('select remove_group_member(%L, %L)', current_setting('t.grp2'), pg_temp.pid('gpriya')), 'admin');
+select pg_temp.as_user('gpriya');
+select 'Priya still in and admin: ' || role from conversation_members where conversation_id = current_setting('t.grp2')::uuid and profile_id = me();
+
+\echo '== 8. Members rename a group and change nothing else about it'
+select pg_temp.as_user('garun');
+select 'member sets direct_key -> ' || pg_temp.expect_fail(format($$update conversations set direct_key = 'x:y' where id = %L$$, current_setting('t.grp2')), 'permission denied');
+select 'member sets created_by -> ' || pg_temp.expect_fail(format($$update conversations set created_by = me() where id = %L$$, current_setting('t.grp2')), 'permission denied');
+select 'member sets last_message_at -> ' || pg_temp.expect_fail(format($$update conversations set last_message_at = '2999-01-01' where id = %L$$, current_setting('t.grp2')), 'permission denied');
+select 'member sets kind -> ' || pg_temp.expect_fail(format($$update conversations set kind = 'DIRECT' where id = %L$$, current_setting('t.grp2')), 'permission denied');
+update conversations set title = 'Tea at 5' where id = current_setting('t.grp2')::uuid;
+select 'rename still works: ' || title || ', direct_key ' || coalesce(direct_key, '(none)') from conversations where id = current_setting('t.grp2')::uuid;
+insert into messages (conversation_id, sender_id, body) values (current_setting('t.grp2')::uuid, me(), 'On my way');
+select 'last_message_at follows the message: ' || (c.last_message_at = m.created_at) from conversations c join messages m on m.conversation_id = c.id where c.id = current_setting('t.grp2')::uuid;
+
+\echo '== 9. Listing inbox: the people who run it see each customer; customers see the listing'
+select pg_temp.as_user('gpriya');
+insert into listings (kind, owner_id, title, category, area, location) values ('BUSINESS', me(), 'Priya Stores', 'Grocery', 'Jayanagar', geo(12.9063, 77.5857));
+reset role; update listings set status = 'LIVE' where title = 'Priya Stores'; set role authenticated;
+select pg_temp.as_user('garun');
+select set_config('t.lc1', start_listing_chat((select id from listings where title = 'Priya Stores'))::text, false) is not null;
+select 'Arun (customer) inbox: ' || title || ' / other ' || coalesce(other_name, '(none)') from inbox() where conversation_id = current_setting('t.lc1')::uuid;
+select pg_temp.as_user('gmeera');
+select set_config('t.lc2', start_listing_chat((select id from listings where title = 'Priya Stores'))::text, false) is not null;
+select pg_temp.as_user('gpriya');
+select 'Priya (owner) inbox: ' || string_agg(other_name || ' about ' || title, ', ' order by other_name) from inbox() where kind = 'LISTING';
+select 'owner rows carry the customer id: ' || bool_and(other_id is not null and other_code is not null) from inbox() where kind = 'LISTING';
+select 'direct chat unchanged: ' || title || ' / ' || other_name from inbox() where conversation_id = current_setting('t.dm')::uuid;
+select 'group has no other person: ' || coalesce(other_name, '(none)') from inbox() where conversation_id = current_setting('t.grp2')::uuid;
+
+\echo '== 10. Nearby moments from people I am not synced with open (media readable), far away or blocked they do not'
+select pg_temp.as_user('gravi');
+insert into moments (author_id, media_path, media_type, caption, audience, location) values (me(), pg_temp.pid('gravi') || '/street.mp4', 'VIDEO', 'Street food', 'LOCAL', geo(12.9063, 77.5857));
+reset role; insert into storage.objects (bucket_id, name) values ('moments', (select id::text from profiles where auth_uid = 'gravi') || '/street.mp4'); set role authenticated;
+select pg_temp.as_user('garun');
+select 'Arun tray has Ravi: ' || count(*) from moments_tray(12.9063, 77.5857) where author_id = pg_temp.pid('gravi');
+select 'before opening, moment row readable: ' || count(*) from moments where author_id = pg_temp.pid('gravi');
+select 'before opening, media readable: ' || count(*) from storage.objects where bucket_id = 'moments' and name like pg_temp.pid('gravi') || '/%';
+select 'open_moments returns: ' || count(*) from open_moments(pg_temp.pid('gravi'), 12.9063, 77.5857);
+select 'after opening, moment row readable: ' || count(*) from moments where author_id = pg_temp.pid('gravi');
+select 'after opening, media readable: ' || count(*) from storage.objects where bucket_id = 'moments' and name like pg_temp.pid('gravi') || '/%';
+select 'my access rows: ' || count(*) from moment_access;
+select 'writing my own access row -> ' || pg_temp.expect_fail(format('insert into moment_access (viewer_id, moment_id) values (me(), %L)', (select id from moments where author_id = pg_temp.pid('gravi'))), 'denied');
+select pg_temp.as_user('gmeera');
+select 'Meera far away, open_moments returns: ' || count(*) from open_moments(pg_temp.pid('gravi'), 13.3000, 77.9000);
+select 'Meera media readable: ' || count(*) from storage.objects where bucket_id = 'moments' and name like pg_temp.pid('gravi') || '/%';
+select 'Meera sees Arun''s access rows: ' || count(*) from moment_access;
+select pg_temp.as_user('gravi');
+insert into blocks (blocker_id, blocked_id) values (me(), pg_temp.pid('garun'));
+select pg_temp.as_user('garun');
+select 'after Ravi blocks Arun, media readable: ' || count(*) from storage.objects where bucket_id = 'moments' and name like pg_temp.pid('gravi') || '/%';
+select 'and open_moments returns: ' || count(*) from open_moments(pg_temp.pid('gravi'), 12.9063, 77.5857);

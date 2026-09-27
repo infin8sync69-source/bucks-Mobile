@@ -36,6 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -88,9 +92,11 @@ private fun JsonObject.s(k: String) = this[k]?.jsonPrimitive?.content ?: ""
 fun MomentVideo(url: String, paused: Boolean, modifier: Modifier = Modifier, loop: Boolean = false, muted: Boolean = false, onProgress: (Float) -> Unit = {}, onEnded: () -> Unit = {}) {
     val ctx = LocalContext.current
     var buffering by remember { mutableStateOf(true) }
-    val ended by rememberUpdatedState(onEnded); val progress by rememberUpdatedState(onProgress)
+    val ended by rememberUpdatedState(onEnded); val progress by rememberUpdatedState(onProgress); val isPaused by rememberUpdatedState(paused)
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val player = remember(url) {
-        ExoPlayer.Builder(ctx).build().apply {
+        // handleAudioFocus: a call or another app's audio pauses the clip instead of playing over it.
+        ExoPlayer.Builder(ctx).setAudioAttributes(AudioAttributes.DEFAULT, true).build().apply {
             setMediaItem(MediaItem.fromUri(url)); repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             volume = if (muted) 0f else 1f; prepare(); playWhenReady = !paused
         }
@@ -102,7 +108,13 @@ fun MomentVideo(url: String, paused: Boolean, modifier: Modifier = Modifier, loo
         player.addListener(listener)
         onDispose { player.removeListener(listener); player.release() }
     }
-    LaunchedEffect(player, paused) { player.playWhenReady = !paused }
+    // In the background (Home, a call, another app on top) the clip stops: no sound, and it can't reach its end and move the viewer on.
+    DisposableEffect(player, lifecycle) {
+        val observer = LifecycleEventObserver { _, e -> when (e) { Lifecycle.Event.ON_STOP -> player.pause(); Lifecycle.Event.ON_START -> player.setPlayWhenReady(!isPaused); else -> {} } }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(player, paused) { player.playWhenReady = !paused && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) }
     LaunchedEffect(player) { while (true) { val d = player.duration; if (d > 0) progress((player.currentPosition.toFloat() / d).coerceIn(0f, 1f)); delay(50) } }
     Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
         AndroidView(factory = { c -> PlayerView(c).apply { useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT; setShutterBackgroundColor(android.graphics.Color.BLACK) } }, update = { it.player = player }, modifier = Modifier.fillMaxSize())
@@ -349,13 +361,16 @@ fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String)
         if (social.inbox.isEmpty()) Column(Modifier.padding(Gutter)) { Muted("No conversations yet. Sync with someone, then message them from their profile, or start a group with people you've synced with.")
             SmallButton("New group", Modifier.padding(top = 12.dp), tonal = true, onClick = onNewGroup) }
         LazyColumn { items(social.inbox.filter { !it.archived }, key = { it.conversationId }) { c ->
-            ListRow(c.title ?: if (c.kind == "GROUP") "Group" else "Chat", listOfNotNull(c.lastBody?.take(60), ago(c.lastAt)).joinToString("  ·  "),
-                leading = { Box { if (c.kind == "GROUP") Avatar(icon = Icons.Rounded.Group) else Avatar(initials(c.title ?: "?")); if (c.kind == "LISTING") Icon(Icons.Rounded.Storefront, null, Modifier.align(Alignment.BottomEnd).size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
+            // A listing chat names the customer for the people who run the listing (the server fills other_* only for them); customers see the listing.
+            val customerRow = c.kind == "LISTING" && c.otherName != null
+            val name = c.otherName ?: c.title ?: if (c.kind == "GROUP") "Group" else "Chat"
+            ListRow(name, listOfNotNull(if (customerRow) c.title?.let { "about $it" } else null, c.lastBody?.take(60), ago(c.lastAt)).joinToString("  ·  "),
+                leading = { Box { if (c.kind == "GROUP") Avatar(icon = Icons.Rounded.Group) else Avatar(initials(name)); if (c.kind == "LISTING") Icon(Icons.Rounded.Storefront, null, Modifier.align(Alignment.BottomEnd).size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
                 trailing = { Row(verticalAlignment = Alignment.CenterVertically) { if (c.muted) Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); if (c.unread > 0) PillPurple("${c.unread}"); IconButton({ menuFor = c }) { Icon(Icons.Rounded.MoreVert, "More") } } },
                 onClick = { onOpen(c.conversationId) })
             Divider() } }
     }
-    menuFor?.let { c -> AlertDialog(onDismissRequest = { menuFor = null }, title = { Text(c.title ?: "Chat") }, text = { Column {
+    menuFor?.let { c -> AlertDialog(onDismissRequest = { menuFor = null }, title = { Text(c.otherName ?: c.title ?: "Chat") }, text = { Column {
         TextButton({ social.mute(c.conversationId, !c.muted); menuFor = null }) { Text(if (c.muted) "Unmute" else "Mute notifications") }
         if (c.kind == "GROUP") TextButton({ leaveFor = c; menuFor = null }) { Text("Leave group", color = MaterialTheme.colorScheme.error) }
         c.otherId?.let { o -> TextButton({ social.block(o); menuFor = null }) { Text("Block ${c.otherName ?: ""}", color = MaterialTheme.colorScheme.error) } }
@@ -436,7 +451,9 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
     val kind = conv?.kind ?: inboxRow?.kind ?: "DIRECT"
     val listingTitle = conv?.title ?: inboxRow?.title ?: "Listing"
     // A listing chat is named after the shop or pro; the people who run it see the customer's name instead.
-    val customer = if (kind == "LISTING" && members.any { it.profileId == meId && it.role == "ADMIN" }) members.firstOrNull { it.role == "MEMBER" }?.let { social.nameOf(it.profileId) } else null
+    // Until the members load, the inbox row names the customer (the server fills other_name only for the people who run the listing).
+    val customer = if (kind == "LISTING" && members.any { it.profileId == meId && it.role == "ADMIN" }) members.firstOrNull { it.role == "MEMBER" }?.let { social.nameOf(it.profileId) }
+        else if (kind == "LISTING" && members.isEmpty()) inboxRow?.otherName else null
     val title = when (kind) { "DIRECT" -> inboxRow?.title ?: "Chat"; "LISTING" -> customer ?: listingTitle; else -> conv?.title ?: inboxRow?.title ?: "Group" }
     LaunchedEffect(id) { conv = runCatching { social.conversation(id) }.getOrNull(); msgs = runCatching { social.messages(id) }.getOrDefault(emptyList()); social.markRead(id); seen = runCatching { social.seenUpTo(id) }.getOrNull() }
     LaunchedEffect(id, kind) { if (kind != "DIRECT") members = runCatching { social.members(id) }.getOrDefault(emptyList()) }

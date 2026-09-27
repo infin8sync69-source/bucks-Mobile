@@ -14,7 +14,7 @@ import kotlinx.serialization.json.put
  * Social extras on top of [Backend]: the open conversation's own row (kind, title, listing), group
  * membership (list, add, remove, leave, rename) and the list of people whose Moments I've muted.
  * Row-level security in schema.sql decides what each call may see; supabase/migrations/social-extras.sql
- * adds the two group functions.
+ * adds the two group functions and open_moments.
  */
 private val sdb get() = Backend.client.postgrest
 
@@ -44,6 +44,13 @@ suspend fun Backend.addGroupMembers(conversationId: String, members: List<String
 suspend fun Backend.removeGroupMember(conversationId: String, member: String) {
     sdb.rpc("remove_group_member", buildJsonObject { put("p_conv", conversationId); put("p_member", member) })
 }
+
+/**
+ * An author's live moments as I open them from where I am. Unlike [Backend.momentsOf] it also records access to the
+ * nearby (LOCAL) ones, so their media can be signed afterwards (the storage policy has no position of its own).
+ */
+suspend fun Backend.openMoments(author: String, at: LatLng): List<MomentRow> =
+    sdb.rpc("open_moments", buildJsonObject { put("p_author", author); put("lat", at.lat); put("lng", at.lng) }).decodeList()
 
 /** People whose Moments I've hidden from my tray (row-level security returns only my own rows). */
 suspend fun Backend.momentMutes(): List<MomentMuteRow> = sdb.from("moment_mutes").select().decodeList()
