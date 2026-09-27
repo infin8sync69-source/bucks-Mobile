@@ -11,12 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bucks.app.data.buyerTotal
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.screens.ago
 import kotlinx.coroutines.delay
 
-/** Every order I placed, newest first, with the shop's name, what I paid and where it stands. */
+/** Every order I placed, newest first, with the shop's name, what I paid in all (shop and rider) and where it stands. */
 @Composable
 fun MyOrdersScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
     val commerce = vm.commerce
@@ -35,9 +36,9 @@ fun MyOrdersScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> U
             else -> LazyColumn {
                 val live = commerce.myOrders.filter { orderLive(it.status) }; val past = commerce.myOrders.filterNot { orderLive(it.status) }
                 if (live.isNotEmpty()) item { SectionTitle("In progress", Modifier.padding(horizontal = Gutter).padding(top = 8.dp, bottom = 4.dp)) }
-                items(live, key = { it.id }) { o -> OrderListRow(vm, o.id, o.listingId, o.subtotal + if (o.feePaidBy == "BUYER") o.deliveryFee else 0, o.status, o.deliveryMode, o.createdAt) { onOpen(o.id) } }
+                items(live, key = { it.id }) { o -> OrderListRow(vm, o.id, o.listingId, buyerTotal(o.subtotal, o.deliveryFee, o.feePaidBy), o.status, o.deliveryMode, o.createdAt) { onOpen(o.id) } }
                 if (past.isNotEmpty()) item { SectionTitle("Earlier", Modifier.padding(horizontal = Gutter).padding(top = 16.dp, bottom = 4.dp)) }
-                items(past, key = { it.id }) { o -> OrderListRow(vm, o.id, o.listingId, o.subtotal + if (o.feePaidBy == "BUYER") o.deliveryFee else 0, o.status, o.deliveryMode, o.createdAt) { onOpen(o.id) } }
+                items(past, key = { it.id }) { o -> OrderListRow(vm, o.id, o.listingId, buyerTotal(o.subtotal, o.deliveryFee, o.feePaidBy), o.status, o.deliveryMode, o.createdAt) { onOpen(o.id) } }
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }

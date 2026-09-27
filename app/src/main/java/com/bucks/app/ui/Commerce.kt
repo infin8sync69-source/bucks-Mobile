@@ -58,15 +58,20 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** True when the shop has its own delivery riders (listing_members with role STORE_RIDER is readable by everyone). */
     suspend fun hasStoreRiders(listingId: String): Boolean = Backend.members(listingId).any { it.role == "STORE_RIDER" }
 
-    /** Places the order with the drop at [Social.here]; the server prices the lines and adds the delivery fee. */
-    fun checkout(mode: String, payment: String, dropLabel: String, onPlaced: (String) -> Unit) = go {
+    /**
+     * Places the order with the drop at [drop], the phone's real location (null until a fix arrives). Delivery needs it:
+     * the rider's map and the fee are worked out from it, so without one only pick-up can be placed. The server prices the
+     * lines and adds the delivery fee.
+     */
+    fun checkout(mode: String, payment: String, dropLabel: String, drop: LatLng?, onPlaced: (String) -> Unit) = go {
         val s = shop ?: run { toast("Your cart is empty."); return@go }
         val ls = lines.mapNotNull { l -> l.item.id?.let { it to l.qty } }.filter { it.second > 0 }
         if (ls.isEmpty()) { toast("Your cart is empty."); return@go }
+        val at = drop ?: if (mode == "PICKUP") social.here else { toast("Turn on location to get it delivered, or choose pick-up."); return@go }
         if (placing) return@go
         placing = true
         try {
-            val id = Backend.placeOrder(s.id, ls, social.here, dropLabel.trim(), payment, mode)
+            val id = Backend.placeOrder(s.id, ls, at, dropLabel.trim(), payment, mode)
             clear(); toast("Order placed. ${s.title} has 5 minutes to accept.")
             refreshMyOrders(); onPlaced(id)
         } finally { placing = false }
@@ -133,10 +138,10 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         toast(if (accept) "Accepted. The customer can see it is on the way." else "Rejected. The customer has been told.")
         refreshVendorOrder(id)
     }
-    /** READY for any accepted order; DELIVERED only for pick-up orders once collected. */
+    /** READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came). */
     fun updateOrderStatus(id: String, status: String) = go {
         Backend.updateOrderStatus(id, status)
-        toast(if (status == "READY") "Marked ready." else "Marked as collected. Thanks!")
+        toast(when (status) { "READY" -> "Marked ready."; "CANCELLED" -> "Order cancelled. The customer has been told."; else -> "Marked as collected. Thanks!" })
         refreshVendorOrder(id)
     }
     private suspend fun refreshVendorOrder(id: String) {

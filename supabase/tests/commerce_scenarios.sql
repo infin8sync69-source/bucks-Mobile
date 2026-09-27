@@ -85,3 +85,52 @@ select 'task only for store riders: ' || (pg_temp.pid('rider') = any(only_riders
 select pg_temp.as_user('admin'); select 'admin sees ' || count(*) || ' orders for the shop' from orders where listing_id = pg_temp.shop();
 select pg_temp.as_user('stranger'); select 'stranger sees ' || count(*) || ' orders' from orders where listing_id = pg_temp.shop();
 select pg_temp.as_user('buyer'); select 'buyer newest first: ' || string_agg(status, ' > ' order by created_at desc) from orders where buyer_id = me();
+
+\echo '== 8. Checks the server now makes itself: store riders must exist, cash on delivery only where the shop allows it'
+select pg_temp.as_user('owner');
+insert into listings (kind, owner_id, title, category, area, location, details) values ('BUSINESS', me(), 'Ravi Bakery', 'Bakery', 'Jayanagar', geo(12.9260, 77.5940), '{"cod": true}');
+insert into items (listing_id, name, price) values ((select id from listings where title = 'Ravi Bakery'), 'Milk bread', 45);
+reset role; update listings set status = 'LIVE' where title = 'Ravi Bakery'; set role authenticated;
+select pg_temp.as_user('buyer');
+select 'store rider at a shop with none -> ' || pg_temp.expect_fail(format($$select place_order(%L, %L::jsonb, 12.93, 77.60, 'Deepa home', 'UPI', 'STORE_RIDER')$$, (select id from listings where title = 'Ravi Bakery'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Milk bread'), 'qty', 1))), 'no riders of its own');
+select 'COD + store rider at a shop with none -> ' || pg_temp.expect_fail(format($$select place_order(%L, %L::jsonb, 12.93, 77.60, 'Deepa home', 'COD', 'STORE_RIDER')$$, (select id from listings where title = 'Ravi Bakery'), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Milk bread'), 'qty', 1))), 'no riders of its own');
+reset role; update listings set details = details || '{"cod": false}' where id = pg_temp.shop(); set role authenticated;
+select pg_temp.as_user('buyer');
+select 'COD where the shop turned it off -> ' || pg_temp.expect_fail(format($$select place_order(%L, %L::jsonb, 12.93, 77.60, 'Deepa home', 'COD', 'STORE_RIDER')$$, pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1))), 'does not take cash');
+reset role; update listings set details = details || '{"cod": true}' where id = pg_temp.shop(); set role authenticated;
+select pg_temp.as_user('buyer');
+select set_config('t.o5', place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.9300, 77.6000, 'Deepa home', 'COD', 'STORE_RIDER')::text, false) is not null;
+reset role; delete from listing_members where listing_id = pg_temp.shop() and role = 'STORE_RIDER'; set role authenticated;
+select pg_temp.as_user('owner');
+select 'accept after the last store rider left -> ' || pg_temp.expect_fail(format('select respond_order(%L, true)', current_setting('t.o5')), 'no store riders left');
+select 'order still waiting: ' || status || ', tasks: ' || (select count(*) from tasks where order_id = o.id) from orders o where id = current_setting('t.o5')::uuid;
+select respond_order(current_setting('t.o5')::uuid, false); select 'shop rejects instead: ' || status from orders where id = current_setting('t.o5')::uuid;
+reset role; insert into listing_members values (pg_temp.shop(), pg_temp.pid('rider'), 'STORE_RIDER'); set role authenticated;
+
+\echo '== 9. A delivery nobody will complete can be closed by the shop (not once a rider has it); the buyer can still call about a refund'
+select pg_temp.as_user('buyer');
+select 'buyer cancel is recorded as: ' || cancelled_by from orders where id = current_setting('t.o1')::uuid;
+select set_config('t.o6', place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.9300, 77.6000, 'Deepa home', 'UPI', 'MARKETPLACE')::text, false) is not null;
+select pg_temp.as_user('admin');
+select 'shop cancels before accepting -> ' || pg_temp.expect_fail(format($$select update_order_status(%L, 'CANCELLED')$$, current_setting('t.o6')), 'cannot go from placed');
+select respond_order(current_setting('t.o6')::uuid, true);
+select pg_temp.as_user('buyer');
+select 'buyer uses the shop''s cancel -> ' || pg_temp.expect_fail(format($$select update_order_status(%L, 'CANCELLED')$$, current_setting('t.o6')), 'not found');
+select pg_temp.as_user('admin');
+select update_order_status(current_setting('t.o6')::uuid, 'CANCELLED');
+select 'no rider came, shop closes it: ' || status || ' by ' || cancelled_by from orders where id = current_setting('t.o6')::uuid;
+select pg_temp.as_user('buyer');
+select 'its delivery task: ' || status from tasks where order_id = current_setting('t.o6')::uuid;
+select 'buyer can still call the shop -> ' || coalesce(phone, '-') || ' | ' || name from contact_for_order(current_setting('t.o6')::uuid);
+select set_config('t.o7', place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.9300, 77.6000, 'Deepa home', 'UPI', 'MARKETPLACE')::text, false) is not null;
+select pg_temp.as_user('owner'); select respond_order(current_setting('t.o7')::uuid, true);
+select pg_temp.as_user('buyer'); select 'buyer cancels the delivery task: ' || (advance_task((select id from tasks where order_id = current_setting('t.o7')::uuid), 'CANCELLED')).status;
+select pg_temp.as_user('owner'); select update_order_status(current_setting('t.o7')::uuid, 'CANCELLED');
+select 'after the buyer dropped the delivery: ' || status || ' by ' || cancelled_by from orders where id = current_setting('t.o7')::uuid;
+select pg_temp.as_user('buyer');
+select set_config('t.o8', place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.9300, 77.6000, 'Deepa home', 'UPI', 'MARKETPLACE')::text, false) is not null;
+select pg_temp.as_user('owner'); select respond_order(current_setting('t.o8')::uuid, true);
+reset role; update tasks set status = 'MATCHED', driver_id = pg_temp.pid('stranger') where order_id = current_setting('t.o8')::uuid; set role authenticated;
+select pg_temp.as_user('owner');
+select 'shop cancels once a rider has it -> ' || pg_temp.expect_fail(format($$select update_order_status(%L, 'CANCELLED')$$, current_setting('t.o8')), 'rider already has');
+select 'order stays: ' || status from orders where id = current_setting('t.o8')::uuid;

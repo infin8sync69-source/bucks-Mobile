@@ -29,10 +29,23 @@ import kotlinx.serialization.json.put
 @Serializable data class CloudOrderRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("buyer_id") val buyerId: String,
     val lines: List<OrderLine> = emptyList(), val subtotal: Int, @SerialName("delivery_fee") val deliveryFee: Int = 0,
     @SerialName("fee_paid_by") val feePaidBy: String = "BUYER", @SerialName("delivery_mode") val deliveryMode: String = "MARKETPLACE", val payment: String = "UPI",
-    @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String) {
-    /** What the buyer hands over: items plus the rider's fee unless the shop offers free delivery. */
-    val total: Int get() = subtotal + if (feePaidBy == "BUYER") deliveryFee else 0
+    @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String,
+    /** BUYER or SHOP once the order is CANCELLED (see commerce.sql); null otherwise and on older rows. */
+    @SerialName("cancelled_by") val cancelledBy: String? = null) {
+    /** Everything the buyer pays for this order: items plus the rider's fee unless the shop offers free delivery. */
+    val total: Int get() = buyerTotal(subtotal, deliveryFee, feePaidBy)
+    /**
+     * The part of [total] the buyer pays the Bucks rider directly at the door (UPI or cash): the fee of a marketplace delivery.
+     * The rider is independent of the shop and collects their own fare, so it never goes into the shop's UPI amount.
+     * With free delivery the shop settles the rider itself, so this is 0.
+     */
+    val feeAtDoor: Int get() = if (deliveryMode == "MARKETPLACE" && feePaidBy == "BUYER") deliveryFee else 0
+    /** What the buyer pays the shop: items, plus the delivery fee only when the shop's own rider delivers (the shop pays that rider). */
+    val toShop: Int get() = total - feeAtDoor
 }
+
+/** Items plus the delivery fee when the buyer pays it; the same rule for [CloudOrderRow] and [OrderRow] lists. */
+fun buyerTotal(subtotal: Int, deliveryFee: Int, feePaidBy: String): Int = subtotal + if (feePaidBy == "BUYER") deliveryFee else 0
 
 /** Counterparty details while an order is live: the buyer gets the shop owner's phone and UPI link, the shop gets the buyer's phone. */
 @Serializable data class OrderContactRow(val phone: String? = null, @SerialName("upi_uri") val upiUri: String? = null, val name: String? = null)
@@ -56,7 +69,7 @@ suspend fun Backend.contactForOrder(orderId: String): OrderContactRow? =
 /** Buyer cancels while the order is still PLACED. */
 suspend fun Backend.cancelOrder(orderId: String) { client.postgrest.rpc("cancel_order", buildJsonObject { put("p_order", orderId) }) }
 
-/** Vendor marks an accepted order READY, or a pick-up order DELIVERED once collected. */
+/** Vendor marks an accepted order READY, a pick-up order DELIVERED once collected, or CANCELLED when no rider has it (or the buyer never came). */
 suspend fun Backend.updateOrderStatus(orderId: String, status: String) {
     client.postgrest.rpc("update_order_status", buildJsonObject { put("p_order", orderId); put("p_status", status) })
 }

@@ -87,8 +87,10 @@ private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, onOpen: 
         }
         Text(orderLinesSummary(o.lines), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(rupees(o.subtotal), style = MaterialTheme.typography.titleMedium)
+            // What the customer pays the shop: a Bucks rider's fee goes to the rider, a store rider's fee comes to the shop.
+            Text(rupees(o.toShop), style = MaterialTheme.typography.titleMedium)
             if (o.deliveryMode != "PICKUP" && o.feePaidBy == "VENDOR") Muted("  + ${rupees(o.deliveryFee)} rider fee paid by you")
+            else if (o.deliveryMode == "STORE_RIDER" && o.deliveryFee > 0) Muted("  incl. ${rupees(o.deliveryFee)} delivery")
             Spacer(Modifier.weight(1f))
             PillGrey(paymentLabel(o.payment))
         }
@@ -108,7 +110,8 @@ private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, onOpen: 
             }
             else -> {}
         }
-        if (o.status == "ACCEPTED" && o.deliveryMode != "PICKUP") Muted("A rider is being rung. Mark it packed when it's ready to hand over.", Modifier.padding(top = 8.dp))
-        if (o.status == "READY" && o.deliveryMode != "PICKUP") Muted("Hand it to the rider; they'll ask the customer for a PIN on delivery.", Modifier.padding(top = 8.dp))
+        val payRider = if (o.deliveryMode == "MARKETPLACE" && o.feePaidBy == "VENDOR") " Free delivery: pay the rider ${rupees(o.deliveryFee)} when they collect it." else ""
+        if (o.status == "ACCEPTED" && o.deliveryMode != "PICKUP") Muted("A rider is being rung. Mark it packed when it's ready to hand over.$payRider", Modifier.padding(top = 8.dp))
+        if (o.status == "READY" && o.deliveryMode != "PICKUP") Muted("Hand it to the rider. They enter the customer's PIN when collecting.$payRider", Modifier.padding(top = 8.dp))
     }
 }

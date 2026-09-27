@@ -67,19 +67,30 @@ fun OrderLineRow(line: OrderLine) = Row(Modifier.fillMaxWidth().padding(vertical
     Text(rupees(line.price * line.qty), style = MaterialTheme.typography.titleSmall)
 }
 
-/** Subtotal, delivery fee (and who pays it) and the total the buyer hands over. */
+/**
+ * Subtotal, delivery fee (and who it is paid to) and what goes to the shop. A marketplace rider's fee is paid to the rider at the
+ * door, never through the shop, so it is shown under the shop's amount instead of inside it ([CloudOrderRow.feeAtDoor]).
+ * [forShop] words it for the shop owner or admin looking at their own order.
+ */
 @Composable
-fun OrderTotals(o: CloudOrderRow) {
+fun OrderTotals(o: CloudOrderRow, forShop: Boolean = false) {
     Row(Modifier.padding(top = 6.dp)) { Muted("Items", Modifier.weight(1f)); Muted(rupees(o.subtotal)) }
     if (o.deliveryMode != "PICKUP") Row(Modifier.padding(top = 4.dp)) {
-        Muted("Delivery fee", Modifier.weight(1f))
-        Muted(if (o.feePaidBy == "VENDOR") "${rupees(o.deliveryFee)} · paid by the shop" else rupees(o.deliveryFee))
+        Muted(if (o.feeAtDoor > 0) "Delivery fee · to the rider" else "Delivery fee", Modifier.weight(1f))
+        Muted(if (o.feePaidBy == "VENDOR") "${rupees(o.deliveryFee)} · ${if (forShop) "paid by you" else "paid by the shop"}" else rupees(o.deliveryFee))
     }
     Divider()
     Row(Modifier.padding(top = 8.dp)) {
-        Text(if (o.payment == "COD") "To pay in cash" else "To pay", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        Text(rupees(o.total), style = MaterialTheme.typography.titleLarge)
+        Text(when {
+            forShop -> if (o.payment == "COD") "Customer pays in cash" else "Customer pays you"
+            o.payment == "COD" -> "To pay in cash"
+            o.feeAtDoor > 0 -> "To pay the shop"
+            else -> "To pay"
+        }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text(rupees(o.toShop), style = MaterialTheme.typography.titleLarge)
     }
+    if (o.feeAtDoor > 0) Muted(if (forShop) "The customer pays the rider's ${rupees(o.feeAtDoor)} fee to the rider at the door." else "+ ${rupees(o.feeAtDoor)} to the rider at the door (UPI or cash).", Modifier.padding(top = 4.dp))
+    else if (forShop && o.feePaidBy == "VENDOR" && o.deliveryMode == "MARKETPLACE") Muted("Free delivery: hand the rider ${rupees(o.deliveryFee)} when they collect it.", Modifier.padding(top = 4.dp))
 }
 
 /* ---------- time ---------- */

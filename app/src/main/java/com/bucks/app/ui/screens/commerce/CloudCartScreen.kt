@@ -73,8 +73,9 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (String) -
             }
             Notice(when {
                 mode == "PICKUP" -> "No delivery fee. Collect it from ${shop.title}" + (if (shop.area.isBlank()) "" else " in ${shop.area}") + " once they mark it ready."
-                freeDelivery -> "Free delivery: ${shop.title} pays the rider's fee on this order."
-                else -> "Delivery fee is ₹20 + ₹8 per km from the shop to your drop point. Bucks adds it when you place the order and shows it on the order page."
+                freeDelivery -> "Free delivery: ${shop.title} pays the rider's fee on this order. You pay for the items only."
+                mode == "STORE_RIDER" -> "Delivery fee is ₹20 + ₹8 per km from the shop to your drop point. It goes to ${shop.title} with the items, since it's their rider."
+                else -> "Delivery fee is ₹20 + ₹8 per km from the shop to your drop point. You pay it to the Bucks rider at the door (UPI or cash); the order page shows the amount."
             }, Modifier.padding(top = 12.dp, bottom = 16.dp))
 
             Label("Pay with")
@@ -82,15 +83,21 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (String) -
                 Chip("Pay by UPI", selected = payment == "UPI", icon = Icons.Rounded.QrCode2) { payment = "UPI" }
                 if (codAllowed) Chip("Cash on delivery", selected = payment == "COD", icon = Icons.Rounded.Payments) { payment = "COD" }
             }
-            Muted(if (payment == "COD") "Pay the store's rider in cash when it arrives." else "You pay the shop through your UPI app from the order page; the shop's QR is filled in for you.", Modifier.padding(top = 8.dp, bottom = 16.dp))
+            Muted(when {
+                payment == "COD" -> "Pay the store's rider in cash when it arrives."
+                mode == "MARKETPLACE" && !freeDelivery -> "You pay the shop for the items through your UPI app from the order page; the shop's QR is filled in for you. The rider's fee is paid to the rider."
+                else -> "You pay the shop through your UPI app from the order page; the shop's QR is filled in for you."
+            }, Modifier.padding(top = 8.dp, bottom = 16.dp))
 
+            // Delivery needs the phone's real position: it is the rider's drop pin and what the fee is worked out from.
+            val here = s.me
             if (mode != "PICKUP") {
                 BucksField(dropLabel, { dropLabel = it.take(120) }, "Deliver to", "e.g. 4th block, near the park, 2nd floor")
-                if (s.me == null) Notice("Turn on location so the rider gets your exact drop point. Without it the fee is worked out from the centre of town.", Modifier.padding(bottom = 14.dp))
+                if (here == null) Notice("Turn on location to get it delivered. The rider needs your exact drop point, and the fee is worked out from it. You can still choose \"I'll pick up\".", Modifier.padding(bottom = 14.dp))
                 else Muted("Your current location is used as the drop point. The label helps the rider find the door.", Modifier.padding(bottom = 14.dp))
             }
-            PrimaryButton(if (commerce.placing) "Placing…" else "Place order · ${rupees(commerce.subtotal)}", enabled = !commerce.placing && commerce.lines.isNotEmpty() && (mode == "PICKUP" || dropLabel.isNotBlank())) {
-                commerce.checkout(mode, payment, if (mode == "PICKUP") shop.area else dropLabel, onPlaced)
+            PrimaryButton(if (commerce.placing) "Placing…" else "Place order · ${rupees(commerce.subtotal)}", enabled = !commerce.placing && commerce.lines.isNotEmpty() && (mode == "PICKUP" || (dropLabel.isNotBlank() && here != null))) {
+                commerce.checkout(mode, payment, if (mode == "PICKUP") shop.area else dropLabel, here, onPlaced)
             }
             Muted("${shop.title} has 5 minutes to accept. If they don't, nothing is charged and you can try another shop.", Modifier.padding(top = 12.dp).fillMaxWidth(), TextAlign.Center)
             Spacer(Modifier.height(24.dp))
