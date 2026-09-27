@@ -114,7 +114,10 @@ private fun PendingCard(link: String, saving: Boolean, onSave: () -> Unit, onDis
 private fun decodeQrImage(ctx: Context, uri: Uri): String? {
     val cr = ctx.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+    // A bounds-only decode always returns null (it only fills [bounds]), so check the stream and the size, not its result.
+    val head = cr.openInputStream(uri) ?: return null
+    head.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
     var sample = 1; while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
     val bmp = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample; inPreferredConfig = Bitmap.Config.ARGB_8888 }) } ?: return null
     val w = bmp.width; val h = bmp.height; val px = IntArray(w * h); bmp.getPixels(px, 0, w, 0, 0, w, h)

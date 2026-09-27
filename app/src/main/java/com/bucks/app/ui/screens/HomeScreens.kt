@@ -79,7 +79,8 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp))
                 Sheet { panel(); Spacer(Modifier.height(24.dp)) }
             }
-            if (s.receiving) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
+            // Cloud drivers with a checked vehicle get the button while offline too: it opens the sheet with their vehicle switch.
+            if (s.receiving || vm.cloudVehicle != null) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
             s.driverRide?.takeIf { it.status == DriverRideStatus.RINGING }?.let { dr -> RideRequestCard(dr, onAccept = { vm.driverAccept() }, onDecline = { vm.driverDecline() }, modifier = Modifier.align(Alignment.Center)) }
         }
     }

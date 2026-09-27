@@ -53,7 +53,10 @@ object Cloud {
     }
     fun signOut() { if (enabled) auth.signOut() }
 
-    /** Removes the Firebase account. Firebase may ask for a fresh sign-in first. Supabase rows go with the profile (cascade). */
+    /**
+     * Removes the Firebase account. Firebase may ask for a fresh sign-in first. Nothing on Supabase goes with it: call
+     * `Backend.deleteMyAccount()` (delete_my_account in dispatch.sql) first, while this user can still sign the request.
+     */
     fun deleteAccount(onDone: (Boolean) -> Unit) {
         val user = if (enabled) auth.currentUser else null
         if (user == null) { onDone(true); return }

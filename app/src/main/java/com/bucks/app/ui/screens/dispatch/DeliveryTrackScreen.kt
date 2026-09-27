@@ -65,8 +65,9 @@ fun DeliveryTrackScreen(vm: BucksViewModel, taskId: String, onBack: () -> Unit) 
 private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow?, phone: String?, modifier: Modifier, onCall: () -> Unit, onMessage: () -> Unit, onDone: () -> Unit) {
     val shop = t.pickup; val door = t.drop; val at = t.driverAt
     val moving = t.status in setOf("MATCHED", "ARRIVED", "IN_PROGRESS")
-    // open_tasks_near stops ringing a task 3 minutes after it was created; past that, "finding a rider" would be a lie.
-    val stale = t.status == "SEARCHING" && olderThanMinutes(t.createdAt, 3)
+    // open_tasks_near stops ringing a task 3 minutes after it started searching (created, or handed back by a rider);
+    // past that, "finding a rider" would be a lie.
+    val stale = t.status == "SEARCHING" && olderThanMinutes(t.statusAt.ifBlank { t.createdAt }, 3)
     val route = when (t.status) { "MATCHED" -> listOfNotNull(at, shop); "IN_PROGRESS" -> listOfNotNull(at ?: shop, door); else -> listOf(shop, door) }
     val pins = listOfNotNull(pinAt(door, "You", MaterialTheme.colorScheme.primary, true), pinAt(shop, t.pickupLabel.ifBlank { "Shop" }, MaterialTheme.status.bad),
         at?.takeIf { moving }?.let { pinAt(it, rider?.name?.substringBefore(' ') ?: "Rider", MaterialTheme.status.good) })

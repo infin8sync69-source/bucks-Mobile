@@ -59,9 +59,10 @@ suspend fun Backend.vendorOrders(listingId: String): List<CloudOrderRow> =
 suspend fun Backend.listingsByIds(ids: Collection<String>): List<ListingRow> =
     if (ids.isEmpty()) emptyList() else client.postgrest.from("listings").select { filter { isIn("id", ids.toList()) } }.decodeList()
 
-/** The delivery task an accepted delivery order created; readable by the buyer (requester) and the rider who took it. */
+/** The delivery task an accepted delivery order created; readable by the buyer (requester) and the rider who took it.
+ *  Read through `tasks_geo`: the API may not read `tasks.pin` directly (dispatch.sql), the view gives it to the buyer only. */
 suspend fun Backend.taskForOrder(orderId: String): TaskRow? =
-    client.postgrest.from("tasks").select { filter { eq("order_id", orderId) }; order("created_at", Order.DESCENDING); limit(1) }.decodeList<TaskRow>().firstOrNull()
+    client.postgrest.from("tasks_geo").select { filter { eq("order_id", orderId) }; order("created_at", Order.DESCENDING); limit(1) }.decodeList<TaskRow>().firstOrNull()
 
 suspend fun Backend.contactForOrder(orderId: String): OrderContactRow? =
     client.postgrest.rpc("contact_for_order", buildJsonObject { put("p_order", orderId) }).decodeList<OrderContactRow>().firstOrNull()

@@ -96,11 +96,14 @@ private fun OnlineFabCore(onClick: () -> Unit) = Box(Modifier.size(72.dp).shadow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Unit, onEarnings: () -> Unit) {
-    val s by vm.state.collectAsState(); val v = s.pro?.vehicle
+    // Cloud builds: the vehicle comes from My vehicles on the server (checked ones only); demo builds use the local one.
+    val s by vm.state.collectAsState(); val cloud = vm.dispatch.enabled; val v = if (cloud) null else s.pro?.vehicle; val cv = vm.cloudVehicle
     ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-        Text("You're online", style = MaterialTheme.typography.titleLarge); Muted("Only online listings receive rides, orders and service requests.")
+        Text(if (s.receiving) "You're online" else "You're offline", style = MaterialTheme.typography.titleLarge); Muted("Only online listings receive rides, orders and service requests.")
         Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (v != null) OnlineRow(v.kind.icon, "${v.model} · ${v.plate}", if (s.vehicleOnline) "Receiving ride requests" else "Offline", s.vehicleOnline) { vm.setVehicleOnline(v.id, it) }
+            if (cv != null) { val k = runCatching { VehicleKind.valueOf(cv.kind) }.getOrDefault(VehicleKind.AUTO)
+                OnlineRow(k.icon, "${cv.model.ifBlank { k.label }} · ${cv.plate}", when { s.vehicleOnline -> if (k == VehicleKind.BIKE) "Receiving delivery requests" else "Receiving ride requests"; s.online -> "Going online…"; else -> "Offline" }, s.vehicleOnline) { vm.setOnline(it, cv.plate) } }
             s.businesses.forEachIndexed { i, b -> OnlineRow(categoryIcon(b.category), b.name, if (b.online) "Open for orders" else "Closed", b.online) { vm.setBusinessOnline(i, it) } }
             s.pro?.skillListings.orEmpty().forEach { k -> OnlineRow(categoryIcon(k.name), k.name, if (k.online) "Taking service requests" else "Offline", k.online) { vm.setSkillOnline(k.name, it) } }
         }
@@ -109,7 +112,7 @@ fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Uni
             BucksCard(Modifier.weight(1f), onClick = { onDismiss(); onEarnings() }, padding = 14) { Text("₹${s.earnings}", style = MaterialTheme.typography.titleLarge); Muted("Today") }
             BucksCard(Modifier.weight(1f), onClick = { onDismiss(); onListings() }, padding = 14) { Text("${s.incoming.size}", style = MaterialTheme.typography.titleLarge); Muted("Incoming") } }
         // Cloud drivers get paid through the UPI QR they upload; the rider's app opens it with the fare filled in.
-        if (vm.dispatch.enabled && v != null) { val link = vm.dispatch.paymentLink
+        if (cloud && cv != null) { val link = vm.dispatch.paymentLink
             LaunchedEffect(Unit) { if (!vm.dispatch.paymentLinkLoaded) vm.dispatch.refreshPaymentLink() }
             Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).clickable { onDismiss(); vm.open(Routes.PAYMENT_QR) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.primary)

@@ -49,9 +49,12 @@ data class UiState(
     val syncStatus: SyncStatus = SyncStatus.SYNCED, val lastSynced: String = "Just now", val devices: List<LinkedDevice> = emptyList(),
     val call: CallState? = null,
     val me: LatLng? = null, val meX: Float = Seed.ME_X, val meY: Float = Seed.ME_Y, val locationGranted: Boolean = false, val mockLocation: Boolean = false,
+    /** Cloud builds: whether dispatch presence says I'm online with a checked vehicle ([Dispatch.online]). Null in demo builds, where the local vehicle decides. */
+    val dispatchOnline: Boolean? = null,
 ) {
     val biz: Business? get() = businesses.firstOrNull()
-    val vehicleOnline: Boolean get() = online && pro?.vehicle != null
+    /** Online with a vehicle: in cloud builds the server's presence (cloud vehicles never reach [pro]), in demo builds the local verified vehicle. */
+    val vehicleOnline: Boolean get() = online && (dispatchOnline ?: (pro?.vehicle != null))
     /** Online with anything that can take work: the active vehicle, a business or a skill. Only then do rides, orders and requests reach you. */
     val receiving: Boolean get() = vehicleOnline || businesses.any { it.online } || pro?.skillListings?.any { it.online } == true
 }
@@ -80,6 +83,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Cloud jobs: a business posts jobs, people apply with their skill profiles, managers shortlist / hire. */
     val jobs = Jobs(viewModelScope, social, ::toast)
     fun unreadCount(demoChats: List<Chat>) = if (social.enabled) social.unread else demoChats.sumOf { it.unread }
+    /** Cloud builds: the checked (ACTIVE) vehicle the online switch uses: the one online now, else the first ACTIVE one I own or drive. Null in demo builds. */
+    val cloudVehicle: VehicleRow? get() = if (!dispatch.enabled) null
+        else dispatch.vehicle?.takeIf { dispatch.online } ?: (if (myListings.loaded) myListings.vehicles else dispatch.vehicles).firstOrNull { it.status == "ACTIVE" }
+    /** A fresh UiState for sign-out and account deletion; cloud builds keep reading the online state from dispatch. */
+    private fun freshState() = UiState(dispatchOnline = if (dispatch.enabled) false else null)
 
     init {
         runCatching { Identity.ensureKey() }
@@ -92,6 +100,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         viewModelScope.launch { dispatch.ride.collect { r -> val prev = s.ride; if (prev == null && r == null) return@collect; _s.update { it.copy(ride = r) }; onCloudRide(prev, r) } }
         viewModelScope.launch { dispatch.driverRide.collect { d -> val prev = s.driverRide; if (prev == null && d == null) return@collect; _s.update { it.copy(driverRide = d) }; onCloudDriverRide(prev, d) } }
         viewModelScope.launch { dispatch.drivers.collect { if (dispatch.enabled) repo.replaceDrivers(it, mePos) } }
+        // Cloud builds: the vehicle switch, the OnlineFab and DriverLocationService follow the server presence.
+        if (dispatch.enabled) viewModelScope.launch { dispatch.onlineFlow.collect { on -> _s.update { it.copy(dispatchOnline = on) } } }
     }
     override fun onCleared() { dispatch.signedOut() }
     /** Opens any route from a screen that has no navigation callback for it (e.g. the payment QR from the online sheet). */
@@ -154,16 +164,23 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); Push.unregister(); Cloud.signOut(); repo.clearSession(); _s.value = UiState() }
+    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); Push.unregister(); Cloud.signOut(); repo.clearSession(); _s.value = freshState() }
     fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); Push.unregister(); jobs.signedOut()
-        Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }
-        repo.deleteAccount(); _s.value = UiState(); toast("Your account and data were deleted.") }
+        // Server first, while the Firebase user still exists to sign the request: presence, open tasks, phone, UPI link and
+        // profile go (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
+        viewModelScope.launch {
+            val serverOk = !Backend.enabled || runCatching { Backend.deleteMyAccount() }.isSuccess
+            if (!serverOk) { Cloud.signOut(); toast("Couldn't remove your account from the server. Sign in again and delete it once more."); return@launch }
+            Cloud.deleteAccount { ok -> if (!ok) toast("Couldn't remove your account from the server. Sign in again and delete it once more.") }
+        }
+        repo.deleteAccount(); _s.value = freshState(); toast("Your account and data were deleted.") }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
-    fun setOnline(v: Boolean) { if (v && s.mockLocation) { toast("Turn off the fake-location app to go online."); return }; _s.update { it.copy(online = v) }
+    /** [plate]: in cloud builds, which of my checked vehicles to go online with (null = the first ACTIVE one). */
+    fun setOnline(v: Boolean, plate: String? = null) { if (v && s.mockLocation) { toast("Turn off the fake-location app to go online."); return }; _s.update { it.copy(online = v) }
         autoRingJob?.cancel()
         if (dispatch.enabled) {
-            // Presence on the server; if it can't be published (no cloud vehicle yet, offline) we stay offline.
-            dispatch.setOnline(v, s.pro?.vehicle?.plate) { ok -> if (ok) toast(if (v) "Online. Nearby requests will ring you." else "Offline") else if (v) _s.update { it.copy(online = false) } }
+            // Presence on the server; if it can't be published (no checked cloud vehicle yet, offline) we stay offline.
+            dispatch.setOnline(v, plate ?: cloudVehicle?.plate) { ok -> if (ok) toast(if (v) "Online. Nearby requests will ring you." else "Offline") else if (v) _s.update { it.copy(online = false) } }
             return }
         toast(if (v) "Online. Nearby ride requests will ring you." else "Offline")
         // Demo dispatch: while a vehicle is online and idle, a nearby customer rings now and then.
@@ -202,7 +219,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         p.id.startsWith("biz-me-") -> s.businesses.firstOrNull { "biz-me-${it.name.lowercase()}" == p.id }?.online ?: false
         else -> true }
     fun toggleSavedPlace(name: String) = _s.update { it.copy(savedPlaces = if (name in it.savedPlaces) it.savedPlaces - name else it.savedPlaces + name) }
-    fun chooseDestAt(p: LatLng) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(rideDest = Place("Near ${Geo.nearestArea(p)}", x, y, (Geo.distanceKm(mePos, p) * 10).roundToInt() / 10.0)) } }
+    fun chooseDestAt(p: LatLng) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(rideDest = Place("Near ${Geo.nearestArea(p)}", x, y, (Geo.distanceKm(mePos, p) * 10).roundToInt() / 10.0, at = p)) } }
     fun isAgentQuery(q: String): Boolean { val l = q.lowercase(); return Regex("\\b(bike|scooter|taxi|cab|auto|ride|car|compare|cheapest|best|sort|my orders|my rides|history|post a request|go online|become|provider|pro profile|yes|confirm|cancel|show the map|book|take me|drop me)\\b").containsMatchIn(l) }
 
     /** Every typed or spoken command enters here. */
@@ -242,7 +259,9 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             Tools.SORT -> { val m = runCatching { SortMode.valueOf(i.args["by"] ?: "TRUST") }.getOrDefault(SortMode.TRUST); _s.update { it.copy(sort = m) }; AgentMessage(false, "Sorted by ${m.label.lowercase()}. Type a search term and I'll show results that way.") to null }
             Tools.ACTIVITY -> AgentMessage(false, "You have ${s.orders.size} orders, ${s.requests.size} service requests and ${s.rides.size} rides.") to { navTo(Routes.ACTIVITY) }
             Tools.POST_REQUEST -> { val what = i.args["what"]?.ifBlank { null } ?: raw; repo.addPost(Post("f${System.currentTimeMillis()}", s.user?.name ?: "You", "now", "Looking for $what near ${s.user?.area}. Any recommendations?", up = 0, down = 0)); AgentMessage(false, "Posted to your neighbourhood feed.") to { navTo(Routes.FEED) } }
-            Tools.GO_ONLINE -> if (s.pro?.vehicle != null) { _s.update { it.copy(role = Role.PROVIDER) }; setOnline(true); AgentMessage(false, "You're online.") to { navTo(Routes.HOME) } } else AgentMessage(false, "Attach a vehicle first and I'll put you online.") to { navTo(Routes.PRO_CREATE) }
+            // Cloud: dispatch finds my checked vehicle on the server and says why when there is none.
+            Tools.GO_ONLINE -> if (dispatch.enabled) { _s.update { it.copy(role = Role.PROVIDER) }; setOnline(true); AgentMessage(false, "Putting you online with your checked vehicle.") to { navTo(Routes.HOME) } }
+                else if (s.pro?.vehicle != null) { _s.update { it.copy(role = Role.PROVIDER) }; setOnline(true); AgentMessage(false, "You're online.") to { navTo(Routes.HOME) } } else AgentMessage(false, "Attach a vehicle first and I'll put you online.") to { navTo(Routes.PRO_CREATE) }
             Tools.BECOME_PRO -> AgentMessage(false, "Let's set up your pro profile.") to { navTo(Routes.PRO_CREATE) }
             Tools.SEARCH -> { val q = i.args["query"]?.ifBlank { null } ?: raw; val res = sorted(repo.search(q))
                 if (res.isEmpty()) AgentMessage(false, "No one offers \"$q\" yet. Want me to ask the community?", actions = listOf("Post a request for $q")) to null
@@ -298,7 +317,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun setRequestStatus(id: String, st: RequestStatus) { _s.update { u -> u.copy(requests = u.requests.map { if (it.id == id) it.copy(status = st) else it }) }; if (st == RequestStatus.COMPLETED) toast("Job done. Tell others how it went.") }
 
     // ---------- ride (customer) ----------
-    private fun randomPlace(name: String): Place { val ll = Geo.PLACES[name]; return if (ll != null) { val (x, y) = Geo.toPercent(ll); Place(name, x, y, (Geo.distanceKm(mePos, ll) * 10).roundToInt() / 10.0) } else Place(name, 20 + Random.nextFloat() * 60, 15 + Random.nextFloat() * 30, ((1.5 + Random.nextDouble() * 7) * 10).roundToInt() / 10.0) }
+    private fun randomPlace(name: String): Place { val ll = Geo.PLACES[name]; return if (ll != null) { val (x, y) = Geo.toPercent(ll); Place(name, x, y, (Geo.distanceKm(mePos, ll) * 10).roundToInt() / 10.0, at = ll) } else Place(name, 20 + Random.nextFloat() * 60, 15 + Random.nextFloat() * 30, ((1.5 + Random.nextDouble() * 7) * 10).roundToInt() / 10.0) }
     fun startRide() = _s.update { it.copy(rideDest = null, pending = null) }
     fun chooseDest(name: String) = _s.update { it.copy(rideDest = randomPlace(name)) }
     fun setRideKind(k: VehicleKind) { if (k.carriesPassengers) _s.update { it.copy(rideKind = k) } }
@@ -307,7 +326,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private fun doRequestRide() {
         if (dispatch.enabled) { val dest = s.rideDest ?: return
             val me = s.me ?: run { toast("Turn on location so your rider can find your pick-up point."); return }
-            val to = Geo.PLACES[dest.name] ?: Geo.fromPercent(dest.x, dest.y)
+            // The real point the rider chose; x/y are clamped to the drawn map, so a pick beyond its edge would move the drop.
+            val to = dest.at ?: Geo.PLACES[dest.name] ?: Geo.fromPercent(dest.x, dest.y)
             dispatch.requestRide(s.rideKind, me, s.user?.area?.ifBlank { null } ?: Geo.nearestArea(me), dest, to, fare(s.rideKind, dest.km)); return }
         val dest = s.rideDest ?: return; val k = s.rideKind; val id = "ride${System.currentTimeMillis()}"; val f = fare(k, dest.km)
         val ride = Ride(id, k, dest, f, RideStatus.SEARCHING, (1000 + Random.nextInt(9000)).toString(), signature = sign(Identity.txnPayload("ride", id, s.user?.id ?: "", "", f, System.currentTimeMillis())))
@@ -374,7 +394,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (d.status == DriverRideStatus.RINGING) { if (s.ride == null && s.pending == null) navTo(Routes.HOME); return }
         // A trip restored after the app was killed: back to the trip screen, and back on duty so location keeps flowing.
         navTo(Routes.HOME)
-        if (!s.online && s.pro?.vehicle != null) setOnline(true)
+        if (!s.online) setOnline(true)
     }
 
     // ---------- provider side ----------

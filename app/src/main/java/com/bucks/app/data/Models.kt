@@ -74,7 +74,8 @@ data class ProProfile(val vehicles: List<Vehicle> = emptyList(), val skillListin
 }
 data class Business(val name: String, val category: String, val scope: Scope, val items: List<Item>, val online: Boolean = true, val area: String = "", val followers: Int = 0)
 
-data class Place(val name: String, val x: Float, val y: Float, val km: Double)
+/** A destination. [x]/[y] place it on the drawn map (clamped to its edges); [at] is the real point when known, and is what a ride is booked to. */
+data class Place(val name: String, val x: Float, val y: Float, val km: Double, val at: LatLng? = null)
 
 enum class RideStatus { SEARCHING, MATCHED, ARRIVED, IN_RIDE, COMPLETED, PAID, NO_DRIVER, CANCELLED }
 data class Ride(

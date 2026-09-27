@@ -20,11 +20,14 @@ import kotlinx.serialization.json.put
  * online drivers for the map, the driver of a task, "my open task" for resuming, and realtime nudges on `tasks`.
  */
 
-/** A task with its points as lat/lng (view `tasks_geo`); PostgREST would otherwise return geography as EWKB hex. */
+/**
+ * A task with its points as lat/lng (view `tasks_geo`); PostgREST would otherwise return geography as EWKB hex.
+ * [pin] is only filled for the requester (blank for the driver); [statusAt] is when the status last changed.
+ */
 @Serializable data class TaskGeoRow(val id: String, val type: String, @SerialName("requester_id") val requesterId: String, @SerialName("order_id") val orderId: String? = null,
     @SerialName("vehicle_kind") val vehicleKind: String, @SerialName("pickup_label") val pickupLabel: String = "", @SerialName("drop_label") val dropLabel: String = "", val km: Double = 0.0,
     val fare: Int = 0, val pin: String = "", val status: String, @SerialName("driver_id") val driverId: String? = null, @SerialName("vehicle_id") val vehicleId: String? = null,
-    @SerialName("paid_with") val paidWith: String? = null, @SerialName("created_at") val createdAt: String = "",
+    @SerialName("paid_with") val paidWith: String? = null, @SerialName("created_at") val createdAt: String = "", @SerialName("status_at") val statusAt: String = "",
     @SerialName("pickup_lat") val pickupLat: Double, @SerialName("pickup_lng") val pickupLng: Double, @SerialName("drop_lat") val dropLat: Double, @SerialName("drop_lng") val dropLng: Double,
     @SerialName("driver_lat") val driverLat: Double? = null, @SerialName("driver_lng") val driverLng: Double? = null, @SerialName("order_items") val orderItems: Int? = null) {
     val pickup get() = LatLng(pickupLat, pickupLng)
@@ -48,6 +51,8 @@ suspend fun Backend.onlineDriversNear(at: LatLng, radiusM: Int = 5000): List<Nea
 suspend fun Backend.taskDriver(taskId: String): TaskDriverRow? = client.postgrest.rpc("task_driver", buildJsonObject { put("p_task", taskId) }).decodeList<TaskDriverRow>().firstOrNull()
 suspend fun Backend.myPaymentLink(me: String): String? = client.postgrest.from("profile_private").select { filter { eq("profile_id", me) } }.decodeSingleOrNull<PrivateRow>()?.upiUri?.takeIf { it.isNotBlank() }
 suspend fun Backend.clearPaymentLink(me: String) { client.postgrest.from("profile_private").update({ set("upi_uri", null as String?) }) { filter { eq("profile_id", me) } } }
+/** Account deletion on the server: presence off, open tasks cancelled or handed back, phone and UPI link deleted, profile anonymised. */
+suspend fun Backend.deleteMyAccount() { client.postgrest.rpc("delete_my_account") }
 
 /** Every change to one task as it happens (row-level security still applies). Close the channel with [Backend.closeChannel]. */
 fun Backend.liveTask(id: String): Pair<RealtimeChannel, Flow<Unit>> {

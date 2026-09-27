@@ -138,7 +138,8 @@ object Backend {
     suspend fun passTask(id: String, missed: Boolean) { db.rpc("pass_task", buildJsonObject { put("p_task", id); put("p_missed", missed) }) }
     suspend fun advanceTask(id: String, status: String, pin: String? = null, paidWith: String? = null): TaskRow =
         db.rpc("advance_task", buildJsonObject { put("p_task", id); put("p_status", status); put("p_pin", pin); put("p_paid_with", paidWith) }).decodeAs()
-    suspend fun task(id: String): TaskRow? = db.from("tasks").select { filter { eq("id", id) } }.decodeSingleOrNull()
+    /** Through the `tasks_geo` view: `tasks.pin` is withheld from the API (dispatch.sql), so `select *` on the table is refused. */
+    suspend fun task(id: String): TaskRow? = db.from("tasks_geo").select { filter { eq("id", id) } }.decodeSingleOrNull()
     suspend fun contactFor(taskId: String): ContactRow? = db.rpc("contact_for_task", buildJsonObject { put("p_task", taskId) }).decodeList<ContactRow>().firstOrNull()
 
     // ---------- orders ----------

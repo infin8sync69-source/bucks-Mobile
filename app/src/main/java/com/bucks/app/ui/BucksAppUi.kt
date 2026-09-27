@@ -116,7 +116,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
 
         ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = loggedIn, drawerContent = {
             ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface, drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp), modifier = Modifier.width(300.dp)) { s.user?.let { u ->
-                val v = s.pro?.vehicle
+                // Demo builds keep the local vehicle; cloud builds use my checked vehicle on the server (never in s.pro).
+                val v = if (vm.dispatch.enabled) null else s.pro?.vehicle; val cv = vm.cloudVehicle
                 Column(Modifier.fillMaxHeight()) {
                     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Manage accounts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
@@ -128,6 +129,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         DrawerItem(Icons.Rounded.Inventory2, "Manage listings", current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_LISTINGS || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (vm.social.enabled) Routes.MY_LISTINGS else Routes.LISTINGS) }
                         // Quick switch for the active vehicle, so a driver can go online from anywhere.
                         if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, online = s.online, onToggle = { on -> vm.setVehicleOnline(v.id, on); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate) }
+                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), online = s.vehicleOnline, onToggle = { on -> vm.setOnline(on, cv.plate); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(cv.id)}") }) { Muted(cv.plate) }
                     }
                     Spacer(Modifier.weight(1f))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)

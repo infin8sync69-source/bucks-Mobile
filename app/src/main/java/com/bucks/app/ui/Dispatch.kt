@@ -39,8 +39,12 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     /** My UPI payment link (decoded from the QR I uploaded), or null. */
     var paymentLink by mutableStateOf<String?>(null); private set
     var paymentLinkLoaded by mutableStateOf(false); private set
-    /** True while presence says I'm online. */
+    /** True while presence says I'm online. [onlineFlow] carries the same value for [BucksViewModel]'s UiState. */
     var online by mutableStateOf(false); private set
+    private val _online = MutableStateFlow(false); val onlineFlow: StateFlow<Boolean> = _online.asStateFlow()
+    private fun markOnline(v: Boolean) { online = v; _online.value = v }
+    /** My vehicles on the server (owned or driven), loaded after sign-in and whenever I go online; the online switch uses the ACTIVE ones. */
+    var vehicles by mutableStateOf<List<VehicleRow>>(emptyList()); private set
     /** True while a request is being sent or a claim is in flight (buttons show progress). */
     var busy by mutableStateOf(false); private set
 
@@ -90,7 +94,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
 
     private fun rideStatus(s: String) = when (s) { "SEARCHING" -> RideStatus.SEARCHING; "MATCHED" -> RideStatus.MATCHED; "ARRIVED" -> RideStatus.ARRIVED; "IN_PROGRESS" -> RideStatus.IN_RIDE
         "COMPLETED" -> RideStatus.COMPLETED; "PAID" -> RideStatus.PAID; "NO_DRIVER" -> RideStatus.NO_DRIVER; else -> RideStatus.CANCELLED }
-    private fun placeOf(t: TaskGeoRow): Place { val (x, y) = Geo.toPercent(t.drop); return Place(t.dropLabel.ifBlank { Geo.nearestArea(t.drop) }, x, y, t.km) }
+    private fun placeOf(t: TaskGeoRow): Place { val (x, y) = Geo.toPercent(t.drop); return Place(t.dropLabel.ifBlank { Geo.nearestArea(t.drop) }, x, y, t.km, at = t.drop) }
     private fun kindOf(s: String) = runCatching { VehicleKind.valueOf(s) }.getOrDefault(VehicleKind.AUTO)
 
     /** Maps a task row onto the rider's [Ride]; fetches the driver's name, vehicle and phone once per driver. */
@@ -135,7 +139,8 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     // =====================================================================
     // Driver
     // =====================================================================
-    private var vehicle: VehicleRow? = null
+    /** The vehicle my presence is published for while online. */
+    var vehicle by mutableStateOf<VehicleRow?>(null); private set
     private var heartbeatJob: Job? = null; private var ringJob: Job? = null; private var countdownJob: Job? = null; private var tripJob: Job? = null
     private val nudges = Channel<Unit>(Channel.CONFLATED)
     /** Requests this driver declined, missed or dropped; they don't ring again. */
@@ -146,14 +151,14 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     fun setOnline(on: Boolean, plate: String?, onResult: (Boolean) -> Unit = {}) = scope.launch {
         try {
             val me = social.me ?: waitForMe() ?: run { toast("Still signing in. Try again in a moment."); onResult(false); return@launch }
-            if (!on) { stopDriverLoops(); online = false; vehicle?.let { v -> runCatching { Backend.setPresence(me.id, v.id, v.kind, false, here) } }; onResult(true); return@launch }
-            val mine = Backend.myVehicles(); val norm = plate?.uppercase()?.replace(" ", "")
+            if (!on) { stopDriverLoops(); markOnline(false); vehicle?.let { v -> runCatching { Backend.setPresence(me.id, v.id, v.kind, false, here) } }; onResult(true); return@launch }
+            val mine = Backend.myVehicles(); vehicles = mine; val norm = plate?.uppercase()?.replace(" ", "")
             // Only a checked (ACTIVE) vehicle may go online; the presence policy refuses the others, so say why instead of failing.
             val active = mine.filter { it.status == "ACTIVE" }
             val v = active.firstOrNull { it.plate == norm } ?: active.firstOrNull()
             if (v == null) { toast(if (mine.isEmpty()) "Add your vehicle under My vehicles before going online." else "Bucks is still checking your vehicle. You can go online once it's active."); onResult(false); return@launch }
             Backend.setPresence(me.id, v.id, v.kind, true, here)
-            vehicle = v; online = true; startDriverLoops(me.id, v); onResult(true)
+            vehicle = v; markOnline(true); startDriverLoops(me.id, v); onResult(true)
         } catch (e: Exception) { toast(friendly(e)); onResult(false) }
     }
     private fun startDriverLoops(me: String, v: VehicleRow) {
@@ -271,6 +276,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     /** After sign-in: pick up the trip a killed app was on, as rider or driver. */
     fun resume() = go {
         val me = waitForMe() ?: return@go
+        refreshVehicles()
         val t = Backend.myOpenTask() ?: return@go
         if (t.driverId == me.id) restoreDriverTrip(t)
         else if (t.requesterId == me.id && t.type == "RIDE") { rideDriver = null; ridePhone = null; _ride.value = Ride(t.id, kindOf(t.vehicleKind), placeOf(t), t.fare, rideStatus(t.status), t.pin); applyRide(t)
@@ -287,6 +293,9 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
             kind = kindOf(t.vehicleKind), driver = me, pickup = t.pickup, drop = t.drop, progress = if (status == DriverRideStatus.DONE) 1f else 0f, paidWith = if (t.status == "PAID") t.paidWith else null)
         loadCustomerPhone(t.id); followDriverTask(t.id)
     }
+
+    /** Reloads [vehicles] (after sign-in; the manage screens keep their own list). */
+    suspend fun refreshVehicles() { runCatching { Backend.myVehicles() }.onSuccess { vehicles = it } }
 
     private var driversJob: Job? = null; private var mapViewers = 0
     /** Polls `online_drivers_near` every 15 s while a map is showing (45 s otherwise) so pins and "n riders nearby" stay fresh. */
@@ -314,7 +323,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         val me = social.me; val v = vehicle
         stopFollowingRide(); stopDriverTask(); stopDriverLoops(); stopDriversFeed()
         if (online && me != null && v != null) scope.launch { runCatching { Backend.setPresence(me.id, v.id, v.kind, false, here) } }
-        online = false; vehicle = null; passed.clear(); _ride.value = null; _driverRide.value = null; rideDriver = null; ridePhone = null; paymentLink = null; paymentLinkLoaded = false
+        markOnline(false); vehicle = null; vehicles = emptyList(); passed.clear(); _ride.value = null; _driverRide.value = null; rideDriver = null; ridePhone = null; paymentLink = null; paymentLinkLoaded = false
     }
 }
 
