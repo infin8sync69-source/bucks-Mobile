@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 // Firebase (phone sign-in, live rides) switches on when app/google-services.json exists; without it the app runs its on-device demo.
 if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
@@ -21,6 +22,10 @@ android {
         // Put GEMINI_API_KEY=... in local.properties to enable the cloud intent engine. Without it the app uses the on-device rule engine only.
         val props = Properties().apply { val f = rootProject.file("local.properties"); if (f.exists()) f.inputStream().use { load(it) } }
         buildConfigField("String", "GEMINI_API_KEY", "\"${props.getProperty("GEMINI_API_KEY", "")}\"")
+        // Supabase project (see SUPABASE_SETUP.md): from local.properties, or environment variables on CI.
+        fun cfg(k: String) = props.getProperty(k) ?: System.getenv(k) ?: ""
+        buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("SUPABASE_ANON_KEY")}\"")
     }
     buildTypes {
         release {
@@ -62,5 +67,10 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.realtime)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.kotlinx.coroutines.play.services)
     debugImplementation(libs.androidx.ui.tooling)
 }
