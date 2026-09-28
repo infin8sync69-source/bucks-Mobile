@@ -84,6 +84,10 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val jobs = Jobs(viewModelScope, social, ::toast)
     /** Which services are open where I stand, and the documents my listings need (services.sql). */
     val services = Services(viewModelScope, social, ::toast)
+    /** One-tap updates for test builds from GitHub Releases (never in Play builds). */
+    val updates = Updates(viewModelScope, ::toast)
+    /** Sample Moments for the demo build (the online build reads real ones from the server). */
+    val demoMoments = com.bucks.app.ui.screens.DemoMoments()
     fun unreadCount(demoChats: List<Chat>) = if (social.enabled) social.unread else demoChats.sumOf { it.unread }
     /** Cloud builds: the checked (ACTIVE) vehicle the online switch uses: the one online now, else the first ACTIVE one I own or drive. Null in demo builds. */
     val cloudVehicle: VehicleRow? get() = if (!dispatch.enabled) null

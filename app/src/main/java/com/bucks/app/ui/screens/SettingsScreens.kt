@@ -59,6 +59,8 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
     BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
         Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Cloud understanding", style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." else "Off. The built-in rules work offline.") }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
     SectionTitle("About", Modifier.padding(top = 22.dp, bottom = 6.dp))
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    SettingRow(Icons.Rounded.SystemUpdate, "App version", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + if (com.bucks.app.data.AppUpdate.enabled) (if (vm.updates.checking) " · Checking…" else " · Check for updates") else "") { vm.updates.check(ctx, manual = true) }
     SettingRow(Icons.Rounded.Gavel, "Community rules") { showToast("Review only what you actually ordered or booked. Every review needs a reason. One account per person.") }
     SectionTitle("Account", Modifier.padding(top = 22.dp, bottom = 6.dp))
     SettingRow(Icons.Rounded.Logout, "Log out", onClick = onLogout)

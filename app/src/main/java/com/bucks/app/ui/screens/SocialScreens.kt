@@ -41,14 +41,19 @@ fun FeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, s
     val ctx = LocalContext.current
     val s by vm.state.collectAsState(); val posts by vm.repo.posts.collectAsState(); val chats by vm.repo.chats.collectAsState()
     var compose by remember { mutableStateOf(false) }; var text by remember { mutableStateOf("") }; var comments by remember { mutableStateOf<String?>(null) }
+    var viewing by remember { mutableStateOf<String?>(null) }; var composingMoment by remember { mutableStateOf(false) }; val myName = s.user?.name?.ifBlank { null } ?: "You"
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Feed", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         LazyColumn {
+            // Moments first, like the online feed: 24-hour updates from neighbours and shops, unseen ones ringed.
+            item { MomentsTray(vm.demoMoments.tray(myName), myName, onOpen = { viewing = it }, onNew = { composingMoment = true }) }
             item { Box(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) { ComposeBar("Share with your neighbours") { compose = true } } }
             items(posts, key = { it.id }) { p -> PostCard(p, s.postVotes[p.id] ?: 0, onVote = { vm.votePost(p.id, it) }, onComments = { comments = p.id }, onShare = { sharePost(ctx, p) }) }
         }
     }
     if (compose) ModalBottomSheet(onDismissRequest = { compose = false }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("New post", style = MaterialTheme.typography.titleLarge); BucksField(text, { text = it }, placeholder = "Ask for a recommendation, share a deal, thank a provider", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 4); PrimaryButton("Post") { vm.addPost(text.trim()); if (text.isNotBlank()) { text = ""; compose = false } } } }
     comments?.let { id -> PostCommentsSheet(vm, id) { comments = null } }
+    viewing?.let { id -> DemoMomentViewer(vm.demoMoments, id, myName, onReply = { showToast("Replies to Moments open in the online version.") }, onClose = { viewing = null }) }
+    if (composingMoment) DemoMomentComposer(onShare = { t, c -> vm.demoMoments.add(t, c); composingMoment = false; showToast("Shared for 24 hours.") }, onDismiss = { composingMoment = false })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

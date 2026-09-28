@@ -29,9 +29,26 @@ jobs:
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then echo "$GOOGLE_SERVICES_JSON" > app/google-services.json; echo "Firebase: on"; else echo "Firebase: off (demo mode)"; fi
 
+      # One fixed signing key for every test build, so each installs over the last (and the in-app updater works).
+      # Created once with scripts/setup-pilot-signing.sh, which stores it in the PILOT_KEYSTORE_B64 / PILOT_KEYSTORE_PASSWORD secrets.
+      - name: Pilot signing key
+        env:
+          PILOT_KEYSTORE_B64: ${{ secrets.PILOT_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$PILOT_KEYSTORE_B64" ]; then
+            echo "$PILOT_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pilot.jks"
+            echo "PILOT_KEYSTORE_FILE=$RUNNER_TEMP/pilot.jks" >> "$GITHUB_ENV"
+            echo "Signing: pilot key (installs over earlier builds)"
+          else
+            echo "::warning::No PILOT_KEYSTORE_B64 secret: this APK is signed with a throwaway key and cannot update an earlier install. Run scripts/setup-pilot-signing.sh once."
+          fi
+
       # The runner image ships the Android SDK; Gradle installs any missing platform itself.
       - name: Build debug APK
         env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_BRANCH: ${{ github.ref_name }}
+          PILOT_KEYSTORE_PASSWORD: ${{ secrets.PILOT_KEYSTORE_PASSWORD }}
           # The anon key is Supabase's client-side key (safe in the app; row-level security does the protecting). A repository secret overrides it.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://lboxctryrktwdsvywfqp.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3hjdHJ5cmt0d2Rzdnl3ZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Nzg4NjgsImV4cCI6MjEwNjA1NDg2OH0.f723OaejTwcD3AZsASkaF6XYLMIhYmdIqVWphasImcg' }}
@@ -44,6 +61,10 @@ jobs:
           [ "$status" = 0 ] || exit "$status"
           cp app/build/outputs/apk/debug/app-debug.apk bucks-pilot-${{ github.run_number }}.apk
 
+      # What's new: the commit message (minus attribution trailers), shown in the app's update prompt.
+      - name: Release notes
+        run: git log -1 --pretty=format:'%s%n%n%b' | { grep -viE '^(co-authored-by|claude-session):' || true; } > notes.md
+
       - name: Publish test build
         uses: softprops/action-gh-release@v2
         with:
@@ -51,5 +72,5 @@ jobs:
           name: Test build ${{ github.run_number }} (${{ github.ref_name }})
           target_commitish: ${{ github.sha }}
           prerelease: true
-          body: "Debug build of ${{ github.sha }} for device testing. Not for Play Store."
+          body_path: notes.md
           files: bucks-pilot-${{ github.run_number }}.apk

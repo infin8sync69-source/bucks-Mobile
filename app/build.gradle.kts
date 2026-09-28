@@ -17,8 +17,15 @@ android {
         applicationId = "com.bucks.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.2.0"
+        // CI passes the GitHub run number, so every test build is newer than the last and installs over it; a local build is 1.
+        val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = buildNumber
+        versionName = "0.2.$buildNumber"
+        buildConfigField("int", "BUILD_NUMBER", "$buildNumber")
+        // Where test builds are published (GitHub Releases "build-N"), and which branch this one came from: the in-app
+        // updater only offers newer builds of the same branch.
+        buildConfigField("String", "UPDATE_REPO", "\"infin8sync69-source/bucks-Mobile\"")
+        buildConfigField("String", "BUILD_BRANCH", "\"${System.getenv("BUILD_BRANCH") ?: ""}\"")
         // Put GEMINI_API_KEY=... in local.properties to enable the cloud intent engine. Without it the app uses the on-device rule engine only.
         val props = Properties().apply { val f = rootProject.file("local.properties"); if (f.exists()) f.inputStream().use { load(it) } }
         buildConfigField("String", "GEMINI_API_KEY", "\"${props.getProperty("GEMINI_API_KEY", "")}\"")
@@ -27,8 +34,22 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("SUPABASE_ANON_KEY")}\"")
     }
+    // The pilot key (a CI secret, see scripts/setup-pilot-signing.sh). Every test build must carry the same signature, or Android
+    // refuses to install it over the previous one. Without the secret, builds fall back to a throwaway debug key.
+    val pilotKeystore = System.getenv("PILOT_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (pilotKeystore != null) create("pilot") {
+            storeFile = pilotKeystore; storePassword = System.getenv("PILOT_KEYSTORE_PASSWORD"); keyAlias = "pilot"; keyPassword = System.getenv("PILOT_KEYSTORE_PASSWORD")
+        }
+    }
     buildTypes {
+        debug {
+            if (pilotKeystore != null) signingConfig = signingConfigs.getByName("pilot")
+            // Test builds update themselves from GitHub Releases (data/AppUpdate.kt). Never in a Play build: Play forbids self-updating.
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+        }
         release {
+            buildConfigField("boolean", "SELF_UPDATE", "false")
             // R8 shrinks and optimises the release build; Compose is several times faster than in a debug build.
             isMinifyEnabled = true
             isShrinkResources = true

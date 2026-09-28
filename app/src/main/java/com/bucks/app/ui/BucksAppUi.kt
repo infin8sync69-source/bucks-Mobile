@@ -290,6 +290,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             }
         }
         if (showIntro) com.bucks.app.ui.components.BrandIntro { showIntro = false }
+        // Test builds: a newer build on GitHub shows a one-tap update once the intro is out of the way.
+        LaunchedEffect(showIntro) { if (!showIntro) vm.updates.check(ctx, manual = false) }
+        if (!showIntro) UpdatePrompt(vm.updates)
         }
     }
 }
