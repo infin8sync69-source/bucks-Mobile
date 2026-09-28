@@ -114,11 +114,11 @@ fun BucksWordmark(
 fun BucksLoader(modifier: Modifier = Modifier, height: Dp = 22.dp, color: Color = MaterialTheme.colorScheme.primary, label: String = "Loading") {
     if (rememberReducedMotion()) { BucksWordmark(modifier, height, color.copy(alpha = 0.6f), contentDescription = label); return }
     val phase = rememberInfiniteTransition(label = "loader").animateFloat(0f, 1f, infiniteRepeatable(tween(1150, easing = LinearEasing), RepeatMode.Restart), label = "wave")
-    BucksWordmark(modifier, height, color, contentDescription = label) { i ->
+    BucksWordmark(modifier, height, color, contentDescription = label, pose = { i ->
         var x = phase.value - i * 0.11f; if (x < 0f) x += 1f
         val bump = if (x < 0.42f) sin(x / 0.42f * PI).toFloat() else 0f
         LetterPose(dy = -0.2f * bump, scaleY = 1f + 0.07f * bump, scaleX = 1f - 0.03f * bump, alpha = 0.5f + 0.5f * bump)
-    }
+    })
 }
 
 /** The launch motion's state: each letter springs up from below the baseline, one after another, then a light sweeps across. */
