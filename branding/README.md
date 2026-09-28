@@ -24,3 +24,7 @@ python3 branding/generate_assets.py                  # writes the files above an
 - `res/drawable/bucks_wordmark.xml` (the wordmark as a vector drawable)
 - `res/drawable/ic_stat_bucks.xml` (notification icon: the "b")
 - `ui/components/BrandPaths.kt` (the letter paths that the splash motion and the loader animate; see `ui/components/Brand.kt`)
+
+## Motion previews
+
+`preview_splash.gif` (welcome screen launch) and `preview_loader.gif` (the wordmark loader) are rendered by `render_previews.py` with the same spring and timings as `ui/components/Brand.kt`.

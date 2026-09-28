@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
@@ -79,6 +80,8 @@ private val letters: List<Letter> by lazy {
 fun BucksWordmark(
     modifier: Modifier = Modifier, height: Dp = 28.dp, color: Color = MaterialTheme.colorScheme.primary, contentDescription: String? = "Bucks",
     sheen: () -> Float = { -1f }, pose: (Int) -> LetterPose = { LetterPose.Rest },
+    /** The sweep has to differ from the letters to show: a lavender glint on white letters, white on coloured ones. */
+    sheenColor: Color = if (color.luminance() > 0.5f) Color(0xFFBE98FF) else Color.White,
 ) {
     val width = height * (BrandPaths.WIDTH / BrandPaths.HEIGHT)
     val a11y = if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription; role = Role.Image } else Modifier
@@ -96,7 +99,7 @@ fun BucksWordmark(
             if (at >= 0f) {
                 // A soft diagonal band of light, drawn only on the letters (SrcAtop over the offscreen layer).
                 val w = BrandPaths.WIDTH; val band = w * 0.28f; val x = -band + (w + band * 2) * at
-                drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.55f), Color.Transparent), start = Offset(x - band, 0f), end = Offset(x, BrandPaths.HEIGHT * 0.6f)),
+                drawRect(Brush.linearGradient(listOf(sheenColor.copy(alpha = 0f), sheenColor.copy(alpha = 0.85f), sheenColor.copy(alpha = 0f)), start = Offset(x - band, 0f), end = Offset(x, BrandPaths.HEIGHT * 0.6f)),
                     size = androidx.compose.ui.geometry.Size(w, BrandPaths.HEIGHT), blendMode = BlendMode.SrcAtop)
             }
         }
