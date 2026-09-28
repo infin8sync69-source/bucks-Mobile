@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "717745308020",
+    "project_id": "gen-lang-client-0213345088",
+    "storage_bucket": "gen-lang-client-0213345088.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:717745308020:android:9a34a52f766c03f248ec21",
+        "android_client_info": {
+          "package_name": "com.bucks.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "717745308020-a3uvgbs8dpd1qo321p7hfoi7pq2jt9fe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5KKvPeWLVS1XqfYH-BARXwDI7WbitcY0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "717745308020-a3uvgbs8dpd1qo321p7hfoi7pq2jt9fe.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

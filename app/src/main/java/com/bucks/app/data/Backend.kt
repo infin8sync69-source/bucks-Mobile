@@ -41,7 +41,14 @@ object Backend {
 
     val client: SupabaseClient by lazy {
         createSupabaseClient(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY) {
-            accessToken = { FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.await()?.token }
+            // Supabase only accepts a Firebase token that carries role=authenticated, which the setSupabaseRole function
+            // (firebase/functions) adds just after sign-up. The token cached at sign-in predates it, so fetch a fresh one
+            // until the claim is there; after that the cached token is used as normal.
+            accessToken = {
+                val user = FirebaseAuth.getInstance().currentUser
+                val cached = user?.getIdToken(false)?.await()
+                if (user != null && cached != null && cached.claims["role"] == null) user.getIdToken(true).await()?.token else cached?.token
+            }
             install(Postgrest)
             install(Realtime)
             install(Storage)
