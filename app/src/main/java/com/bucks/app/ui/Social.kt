@@ -55,6 +55,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         repo.clearDemoSocial()
         refreshInbox(); refreshSyncs()
     }
+    /** Starts a new year on my Bucks ID card (allowed in its last 30 days or after it lapsed). */
+    fun renewBucksId() = go { val t = Backend.renewBucksId(); me = me?.copy(idIssuedAt = t); toast("Your Bucks ID is renewed for a year.") }
     fun signedOut() { me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
     fun profileSaved(name: String, area: String, bio: String) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, here); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
 
@@ -73,7 +75,10 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     }
     fun refreshSuggestions() = go { suggestions = Backend.suggestPeople(here) }
     /** Sync by Bucks ID, typed or scanned. */
-    fun syncWithCode(code: String) = go { val p = Backend.profileByCode(code) ?: run { toast("No one has the Bucks ID ${code.uppercase()}."); return@go }; if (p.id == me?.id) { toast("That's your own Bucks ID."); return@go }; syncWith(p.id, p.name) }
+    fun syncWithCode(code: String) = go { val p = Backend.profileByCode(code) ?: run { toast("No one has the Bucks ID ${code.uppercase()}."); return@go }; if (p.id == me?.id) { toast("That's your own Bucks ID."); return@go }
+        // An ID card lapses a year after issue; the owner renews it in one tap from Menu > Bucks ID.
+        BucksIdCardInfo.of(p.idIssuedAt)?.takeIf { it.expired }?.let { toast("${p.name.ifBlank { "Their" }}'s Bucks ID expired on ${it.validTill}. Ask them to renew it from Menu > Bucks ID."); return@go }
+        syncWith(p.id, p.name) }
     fun syncWith(id: String, name: String) = go { val r = Backend.sync(id); toast(if (r == "ACCEPTED") "You and $name are now synced." else "Sync request sent to $name."); refreshSyncs(); refreshSuggestions() }
     fun acceptSync(requester: String) = go { val p = me ?: return@go; Backend.acceptSync(requester, p.id); toast("Synced."); refreshSyncs() }
     fun unsync(other: String) = go { val p = me ?: return@go; Backend.unsync(p.id, other); refreshSyncs() }

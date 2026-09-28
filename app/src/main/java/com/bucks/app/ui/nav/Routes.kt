@@ -14,6 +14,8 @@ object Routes {
     // ---- cloud marketplace (reserved names; each feature owns its screens, see docs/FEATURE_CONTRACT.md) ----
     const val LISTING = "l/{id}"; fun listing(id: String) = "l/${Uri.encode(id)}"                       // universal profile: business / skill / driver
     const val MY_LISTINGS = "my/listings"; const val MY_VEHICLES = "my/vehicles"; const val VEHICLE_STATS = "my/vehicle-stats"
+    /** The Studio's dashboard for one of my listings; BUCKS_ID is my ID card. */
+    const val STUDIO_LISTING = "studio/{id}"; fun studioListing(id: String) = "studio/${Uri.encode(id)}"; const val BUCKS_ID = "bucks-id"
     const val LISTING_EDIT = "edit-listing?id={id}&kind={kind}&service={service}"
     /** [service]: the Services tile a new business starts under (FOOD, GROCERY, ...), from "List it" on a locked tile. */
     fun listingEdit(id: String?, kind: String, service: String? = null) = "edit-listing?kind=$kind" + (id?.let { "&id=${Uri.encode(it)}" } ?: "") + (service?.let { "&service=$it" } ?: "")

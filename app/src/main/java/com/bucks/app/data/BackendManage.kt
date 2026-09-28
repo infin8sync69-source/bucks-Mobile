@@ -51,6 +51,7 @@ suspend fun Backend.updateItem(item: ItemRow): ItemRow {
     return mdb.from("items").update({
         set("name", item.name); set("price", item.price); set("mrp", item.mrp); set("unit", item.unit); set("group_name", item.group)
         set("photo_url", item.photoUrl); set("in_stock", item.inStock); set("sort", item.sort)
+        set("description", item.description); set("stock", item.stock); set("photos", mediaJson(item.photos)); set("details", item.details)
     }) { select(); filter { eq("id", id) } }.decodeSingle()
 }
 /** How many neighbours have recommended each listing (the community cap counts these; it goes live at 7). */

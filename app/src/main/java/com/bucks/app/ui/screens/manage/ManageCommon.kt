@@ -43,25 +43,27 @@ internal val LANGUAGES = listOf("Kannada", "English", "Hindi", "Tamil", "Telugu"
 internal val LEVELS = listOf("Amateur", "Intermediate", "Expert")
 internal val UNITS = listOf("1 kg", "500 g", "1 piece", "1 plate", "1 litre", "per hour", "per visit", "per day")
 internal val VEHICLE_KINDS = listOf("AUTO" to "Auto", "CAB" to "Cab", "BIKE" to "Bike (delivery only)")
-internal const val NEEDED = MyListings.NEEDED
+internal val NEEDED: Int get() = MyListings.NEEDED
 
 internal fun JsonObject.str(k: String): String = (this[k] as? JsonPrimitive)?.contentOrNull ?: ""
 internal fun JsonObject.bool(k: String): Boolean = (this[k] as? JsonPrimitive)?.booleanOrNull ?: false
 internal fun JsonObject.int(k: String): Int? = (this[k] as? JsonPrimitive)?.intOrNull
 internal fun JsonObject.strings(k: String): List<String> = (this[k] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
 
-internal fun kindLabel(kind: String) = when (kind) { "BUSINESS" -> "Business"; "SKILL" -> "Skill"; "DRIVER" -> "Driver"; else -> "Listing" }
+internal fun kindLabel(kind: String) = when (kind) { "BUSINESS" -> "Business"; "SKILL" -> "Skill"; "DRIVER" -> "Driver"; "ASSET" -> "Asset"; else -> "Listing" }
 internal fun vehicleKindLabel(k: String) = when (k) { "AUTO" -> "Auto"; "CAB" -> "Cab"; "BIKE" -> "Bike"; else -> k }
 internal fun vehicleIcon(k: String): ImageVector = when (k) { "BIKE" -> Icons.Rounded.TwoWheeler; "AUTO" -> Icons.Rounded.ElectricRickshaw; else -> Icons.Rounded.LocalTaxi }
 internal fun listingIcon(kind: String, category: String): ImageVector = when (kind) {
     "DRIVER" -> Icons.Rounded.LocalTaxi
     "BUSINESS" -> categoryIcon(category).let { if (it == Icons.Rounded.Handyman) Icons.Rounded.Storefront else it }
+    "ASSET" -> assetIcon(category)
     else -> categoryIcon(category)
 }
 /** What a listing's online switch means to its owner. */
 internal fun onlineLabel(kind: String, on: Boolean) = when (kind) {
     "BUSINESS" -> if (on) "Open for orders" else "Closed"
     "SKILL" -> if (on) "Taking requests" else "Not taking requests"
+    "ASSET" -> if (on) "Available" else "Not available"
     else -> if (on) "Available" else "Unavailable"
 }
 internal fun roleLabel(role: String, vehicle: Boolean) = when (role) {

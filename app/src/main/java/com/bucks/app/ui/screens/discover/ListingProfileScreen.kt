@@ -47,7 +47,8 @@ import kotlinx.serialization.json.JsonPrimitive
 
 private fun plural(n: Int, one: String, many: String = one + "s") = "$n ${if (n == 1) one else many}"
 /** Details keys the About tab renders with a proper label; everything else gets a generic row. */
-private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio")
+private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
+    "cod", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable")
 
 /**
  * The universal public profile of a listing: the same header for a shop, a pro and a driver, then tabs by kind.
@@ -60,10 +61,12 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val p = d.profiles[id]
     if (p == null) { ProfilePlaceholder(vm, id, onBack); return }
     val l = p.listing
+    val photos = l.gallery.isNotEmpty()
     val tabs = when (l.kind) {
-        "BUSINESS" -> listOf("products" to "Products", "jobs" to "Jobs", "about" to "About", "reviews" to "Reviews")
-        "SKILL" -> listOf("services" to "Services", "feed" to "Feed", "about" to "About", "reviews" to "Reviews")
-        else -> listOf("about" to "About", "reviews" to "Reviews")
+        "BUSINESS" -> listOfNotNull("products" to "Products", ("photos" to "Photos").takeIf { photos }, "feed" to "Feed", "jobs" to "Jobs", "about" to "About", "reviews" to "Reviews")
+        "SKILL" -> listOfNotNull("services" to "Services", ("photos" to "Portfolio").takeIf { photos }, "feed" to "Feed", "about" to "About", "reviews" to "Reviews")
+        "ASSET" -> listOfNotNull("about" to "Details", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
+        else -> listOfNotNull("about" to "About", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
     }
     var tab by rememberSaveable(id) { mutableStateOf(tabs.first().first) }
     val trust = Trust(l.trustUp, l.trustDown)
@@ -92,9 +95,10 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     OnlineDot(l.online); Spacer(Modifier.width(6.dp))
                     Muted(listOfNotNull(onlineText(l.kind, l.online), distance?.let { "$it away" }, l.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
                 }
+                if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
                 Muted(listOfNotNull("${p.recommendations} in-person recommendations", "${p.syncs} synced", if (p.members > 1) "team of ${p.members}" else null).joinToString(" · "), Modifier.padding(top = 6.dp))
-                if (p.mine) Notice("This is your listing. Edit it, its products and its team from Account > My listings.", Modifier.padding(top = 12.dp))
+                if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Studio.", Modifier.padding(top = 12.dp))
                 else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Button({ message() }, Modifier.weight(1f).height(44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
@@ -102,6 +106,8 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
                     if (l.kind == "BUSINESS" && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
                 }
+                if (l.kind == "ASSET" && !p.mine) PrimaryButton(if (l.details.str("mode") == "SELL") "Enquire about buying" else "Enquire about renting", Modifier.padding(top = 12.dp)) {
+                    d.startListingChat(id, onOpenChat, "Hi, I'm interested in ${l.title}. Is it still available?") }
                 if (l.kind == "DRIVER" && !p.mine) {
                     if (vk != null && vk.carriesPassengers) {
                         PrimaryButton("Book a ${vk.label.lowercase()}", Modifier.padding(top = 12.dp)) { onBook(vk) }
@@ -120,6 +126,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 "jobs" -> JobsTab(p) { onJobs(id) }
                 "services" -> ServicesTab(vm, p, onOpenChat)
                 "feed" -> FeedTab(vm, p)
+                "photos" -> GalleryTab(l)
                 "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()) }
                 "reviews" -> ReviewsTab(vm, p)
             }
@@ -162,7 +169,11 @@ private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Uni
 /** Cover band (primary gradient), back and share on top, the photo or initials overlapping the bottom edge. */
 @Composable
 private fun ListingCover(l: ListingRow, onBack: () -> Unit, onShare: () -> Unit) = Box(Modifier.fillMaxWidth().height(170.dp)) {
-    Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimaryContainer))))
+    Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimaryContainer)))) {
+        // The first gallery photo fills the band, darkened at the top so back and share stay readable.
+        l.gallery.firstOrNull()?.let { g -> AsyncImage(g.url, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f), androidx.compose.ui.graphics.Color.Transparent)))) }
+    }
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onPrimary) }
         Spacer(Modifier.weight(1f))
@@ -196,35 +207,39 @@ private fun ProductsTab(vm: BucksViewModel, p: ListingProfile, onMessage: () -> 
     val items = p.products
     if (items.isEmpty()) {
         Column(Modifier.padding(Gutter)) {
-            Muted(if (p.mine) "No products yet. Add them from Account > My listings." else "${p.listing.title} hasn't listed products yet. Message them to ask what's in stock.")
+            Muted(if (p.mine) "No products yet. Add them from Menu > Studio." else "${p.listing.title} hasn't listed products yet. Message them to ask what's in stock.")
             if (!p.mine) SmallButton("Message", Modifier.padding(top = 12.dp), tonal = true, onClick = onMessage)
         }
         return
     }
     val groups = items.groupBy { it.group.ifBlank { "Products" } }
+    var open by remember { mutableStateOf<ItemRow?>(null) }
     // A closed shop (switched off by its owner) takes no orders: the server refuses them, so nothing can be added.
-    val open = p.listing.online
+    val shopOpen = p.listing.online
     Column(Modifier.padding(horizontal = Gutter, vertical = 4.dp)) {
-        if (!open && !p.mine) Notice("${p.listing.title} is closed now. You can order once they open again.", Modifier.padding(top = 12.dp))
+        if (!shopOpen && !p.mine) Notice("${p.listing.title} is closed now. You can order once they open again.", Modifier.padding(top = 12.dp))
         groups.forEach { (group, list) ->
             SectionTitle(group, Modifier.padding(top = 14.dp, bottom = 2.dp))
             list.forEachIndexed { i, item ->
                 if (i > 0) Divider()
-                ProductRow(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine && open) { delta -> vm.commerce.add(p.listing, item, delta) }
+                ProductRow(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine && shopOpen, onOpen = { open = item }) { delta -> vm.commerce.add(p.listing, item, delta) }
             }
         }
     }
+    open?.let { item -> ItemSheet(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine && shopOpen && item.inStock, onDismiss = { open = null }) { delta -> vm.commerce.add(p.listing, item, delta) } }
 }
 
 /** One product: photo when it has one, name, unit, price with the MRP struck through when higher; out of stock is greyed and can't be added. */
 @Composable
-private fun ProductRow(item: ItemRow, qty: Int, canAdd: Boolean, onAdd: (Int) -> Unit) {
+private fun ProductRow(item: ItemRow, qty: Int, canAdd: Boolean, onOpen: () -> Unit, onAdd: (Int) -> Unit) {
     val dim = if (item.inStock) 1f else 0.45f
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Backend.listingPhoto(item.photoUrl)?.let { url -> AsyncImage(url, item.name, Modifier.padding(end = 12.dp).size(52.dp).clip(MaterialTheme.shapes.small).alpha(dim), contentScale = ContentScale.Crop) }
+    Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Backend.listingPhoto(item.photos.firstOrNull()?.url ?: item.photoUrl)?.let { url -> AsyncImage(url, item.name, Modifier.padding(end = 12.dp).size(52.dp).clip(MaterialTheme.shapes.small).alpha(dim), contentScale = ContentScale.Crop) }
         Column(Modifier.weight(1f).padding(end = 12.dp).alpha(dim)) {
             Text(item.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (item.unit.isNotBlank()) Muted(item.unit, maxLines = 1)
+            if (item.description.isNotBlank()) Muted(item.description, maxLines = 1)
+            item.stock?.takeIf { it in 1..5 && item.inStock }?.let { Text("Only $it left", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.status.warn) }
             Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("₹${"%,d".format(item.price)}", style = MaterialTheme.typography.titleMedium)
                 item.mrp?.takeIf { it > item.price }?.let { Text("₹${"%,d".format(it)}", style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -246,7 +261,7 @@ private fun JobsTab(p: ListingProfile, onJobs: () -> Unit) = Column(Modifier.pad
             Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    if (p.mine) Muted("Post a job and manage applications from Account > My listings.", Modifier.padding(top = 10.dp))
+    if (p.mine) Muted("Post a job and manage applications from Menu > Studio.", Modifier.padding(top = 10.dp))
 }
 
 /* ---------- SKILL: Services and Feed ---------- */
@@ -257,14 +272,15 @@ private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, onOpenChat: (Stri
     Column(Modifier.padding(Gutter)) {
         Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Payments, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(proRate(l.details, services.minOfOrNull { it.price }), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp)) }
         if (services.isEmpty()) {
-            Muted(if (p.mine) "No services listed yet. Add them from Account > My listings." else "No services listed yet. Describe what you need; $first confirms the price before starting.", Modifier.padding(top = 8.dp))
+            Muted(if (p.mine) "No services listed yet. Add them from Menu > Studio." else "No services listed yet. Describe what you need; $first confirms the price before starting.", Modifier.padding(top = 8.dp))
             if (!p.mine) PrimaryButton("Request a visit", Modifier.padding(top = 14.dp)) { d.startListingChat(l.id, onOpenChat, "Hi, I need help with ${l.category.ifBlank { "a job" }.lowercase()}. Are you available?") }
         } else {
             Column(Modifier.padding(top = 8.dp)) {
                 services.forEachIndexed { i, s ->
                     if (i > 0) Divider()
                     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis); Muted(listOfNotNull("₹${"%,d".format(s.price)}", s.unit.ifBlank { null }).joinToString(" · "), maxLines = 1) }
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis); Muted(servicePrice(s), maxLines = 1)
+                            if (s.description.isNotBlank()) Muted(s.description, maxLines = 2) }
                         if (!p.mine) SmallButton("Request", tonal = true) { d.startListingChat(l.id, onOpenChat, "Hi, I'd like to request: ${s.name} (₹${s.price}${if (s.unit.isNotBlank()) " " + s.unit else ""}). When are you free?") }
                     }
                 }
@@ -317,6 +333,17 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
                 det.str("level")?.let { AboutRow(Icons.Rounded.WorkspacePremium, "Experience", it.lowercase().replaceFirstChar { c -> c.uppercase() }) }
                 det.list("languages").takeIf { it.isNotEmpty() }?.let { AboutRow(Icons.Rounded.Language, "Languages", it.joinToString(", ")) }
             }
+            "ASSET" -> {
+                AboutRow(Icons.Rounded.Sell, "Listing", assetPrice(det))
+                det.str("deposit")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { AboutRow(Icons.Rounded.Savings, "Deposit", inr(it.toLong())) }
+                det.str("area_sqft")?.let { AboutRow(Icons.Rounded.SquareFoot, "Size", "$it sq ft") }
+                det.str("bedrooms")?.let { AboutRow(Icons.Rounded.Bed, "Bedrooms", it) }
+                det.str("furnishing")?.let { AboutRow(Icons.Rounded.Chair, "Furnishing", it) }
+                det.str("available_from")?.let { AboutRow(Icons.Rounded.Event, "Available from", it) }
+                det.str("year")?.let { AboutRow(Icons.Rounded.CalendarMonth, "Year", it) }
+                det.str("km_driven")?.let { AboutRow(Icons.Rounded.Speed, "Driven", "$it km") }
+                if (det.str("negotiable") == "true") AboutRow(Icons.Rounded.Handshake, "Price", "Negotiable")
+            }
             "DRIVER" -> {
                 AboutRow(vk?.icon ?: Icons.Rounded.DirectionsCar, "Vehicle", listOfNotNull(vk?.label, det.str("model")).joinToString(" · ").ifBlank { "Not shared" })
                 vk?.let { AboutRow(Icons.Rounded.Payments, "Fare", "₹${it.farePerKm} per km, plus ₹20 base fare" + if (it.carriesPassengers) "" else " · parcels only") }
@@ -331,7 +358,7 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
         // Checked documents: a tick for each, with the number only where the law wants customers to see it (FSSAI, GST, RERA).
         // The files themselves are private to the owner and Bucks.
         badges.forEach { b -> AboutRow(Icons.Rounded.VerifiedUser, b.label, listOfNotNull(b.number.ifBlank { null }, "checked by Bucks", b.expiresOn?.let { "valid till ${humanDate(it)}" }).joinToString(" · ")) }
-        AboutRow(Icons.Rounded.Verified, "Status", when (l.status) { "LIVE" -> "Live: ${p.recommendations} neighbours recommended it in person"; "PENDING" -> "Not live yet: ${p.recommendations} of 7 recommendations"; else -> "Suspended" })
+        AboutRow(Icons.Rounded.Verified, "Status", when (l.status) { "LIVE" -> "Live: ${p.recommendations} neighbours recommended it in person"; "PENDING" -> "Not live yet: ${p.recommendations} of ${com.bucks.app.ui.MyListings.NEEDED} recommendations"; else -> "Suspended" })
     }
     if (p.similar.isNotEmpty()) {
         Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceContainer))
@@ -377,3 +404,69 @@ private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile) = Column(Modifier.
 internal fun humanDate(iso: String): String = runCatching {
     java.time.LocalDate.parse(iso.take(10)).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))
 }.getOrDefault(iso)
+
+/* ---------- Studio additions: gallery, asset prices, product details ---------- */
+
+private fun assetPrice(d: JsonObject) = com.bucks.app.ui.screens.manage.assetPriceLine(d)
+private fun inr(n: Long) = com.bucks.app.ui.screens.manage.rupees(n)
+
+/** "Starting from ₹500 · per visit · about 1 hour", or "Price on quote". */
+private fun servicePrice(s: ItemRow): String {
+    val pricing = s.details.str("pricing") ?: "FIXED"
+    val money = when { pricing == "QUOTE" && s.price == 0 -> "Price on quote"; pricing == "FROM" -> "From ${inr(s.price.toLong())}"; pricing == "QUOTE" -> "Usually ${inr(s.price.toLong())}"; else -> inr(s.price.toLong()) }
+    return listOfNotNull(money, s.unit.ifBlank { null } ?: when (pricing) { "HOURLY" -> "per hour"; "VISIT" -> "per visit"; else -> null }, s.details.str("duration")?.let { "about $it" }).joinToString(" · ")
+}
+
+/** A listing's photos (portfolio for a pro) in a grid; tap for full size with the caption. */
+@Composable
+private fun GalleryTab(l: ListingRow) {
+    var open by remember { mutableStateOf<Int?>(null) }
+    val g = l.gallery
+    Column(Modifier.padding(Gutter)) {
+        g.chunked(3).forEachIndexed { row, photos ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                photos.forEachIndexed { i, ph ->
+                    AsyncImage(ph.url, ph.caption.ifBlank { null }, Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).clickable { open = row * 3 + i }, contentScale = ContentScale.Crop)
+                }
+                repeat(3 - photos.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+    open?.let { i -> val ph = g.getOrNull(i) ?: return@let
+        androidx.compose.ui.window.Dialog(onDismissRequest = { open = null }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black).systemBarsPadding()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { open = null }) { Icon(Icons.Rounded.Close, "Close", tint = androidx.compose.ui.graphics.Color.White) }
+                    Text("${i + 1} of ${g.size}", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.labelLarge)
+                }
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    AsyncImage(ph.url, ph.caption.ifBlank { null }, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                    if (i > 0) IconButton(onClick = { open = i - 1 }, modifier = Modifier.align(Alignment.CenterStart)) { Icon(Icons.Rounded.ChevronLeft, "Previous", tint = androidx.compose.ui.graphics.Color.White) }
+                    if (i < g.lastIndex) IconButton(onClick = { open = i + 1 }, modifier = Modifier.align(Alignment.CenterEnd)) { Icon(Icons.Rounded.ChevronRight, "Next", tint = androidx.compose.ui.graphics.Color.White) }
+                }
+                if (ph.caption.isNotBlank()) Text(ph.caption, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Gutter))
+            }
+        }
+    }
+}
+
+/** A product's own page as a sheet: its photos, description, price, stock and the add button. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ItemSheet(item: ItemRow, qty: Int, canAdd: Boolean, onDismiss: () -> Unit, onAdd: (Int) -> Unit) = ModalBottomSheet(onDismissRequest = onDismiss) {
+    val photos = item.photos.map { it.url }.ifEmpty { listOfNotNull(item.photoUrl?.takeIf { it.isNotBlank() }) }
+    Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
+        if (photos.isNotEmpty()) Row(Modifier.horizontalScrollIfNeeded().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            photos.forEach { u -> AsyncImage(u, item.name, Modifier.size(if (photos.size == 1) 280.dp else 220.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer), contentScale = ContentScale.Crop) }
+        }
+        Text(item.name, style = MaterialTheme.typography.titleLarge)
+        Muted(listOfNotNull(item.unit.ifBlank { null }, item.details.str("brand"), item.group.ifBlank { null }).joinToString(" · "))
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(inr(item.price.toLong()), style = MaterialTheme.typography.headlineSmall)
+            item.mrp?.takeIf { it > item.price }?.let { Text(inr(it.toLong()), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); PillGood("${(it - item.price) * 100 / it}% off") }
+        }
+        when { !item.inStock -> PillGrey("Out of stock"); item.stock != null && item.stock <= 5 -> Text("Only ${item.stock} left", color = MaterialTheme.status.warn, style = MaterialTheme.typography.labelLarge); else -> {} }
+        if (item.description.isNotBlank()) Text(item.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+        if (canAdd) Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) { AddStepper(qty, onAdd) }
+    }
+}

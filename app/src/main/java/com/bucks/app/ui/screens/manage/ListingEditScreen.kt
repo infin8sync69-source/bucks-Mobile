@@ -20,6 +20,7 @@ import com.bucks.app.ui.BUSINESS_SERVICES
 import com.bucks.app.ui.serviceDef
 import com.bucks.app.ui.serviceForCategory
 import com.bucks.app.ui.components.*
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -32,7 +33,7 @@ import kotlinx.serialization.json.put
  * created (so create it at the shop); on edit it only moves if the owner asks.
  */
 @Composable
-fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () -> Unit, onDone: () -> Unit, service: String? = null, onDocs: (String) -> Unit = {}) {
+fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () -> Unit, onDone: () -> Unit, service: String? = null, onDocs: (String) -> Unit = {}, onCreated: ((String) -> Unit)? = null) {
     val m = vm.myListings
     LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
     val existing = id?.let { m.listing(it) }
@@ -44,11 +45,11 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
             else CenteredLoading() }
         return
     }
-    key(existing?.id) { ListingForm(vm, kind, existing, onBack, onDone, service, onDocs) }
+    key(existing?.id) { ListingForm(vm, kind, existing, onBack, onDone, service, onDocs, onCreated) }
 }
 
 @Composable
-private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit, initialService: String?, onDocs: (String) -> Unit) {
+private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit, initialService: String?, onDocs: (String) -> Unit, onCreated: ((String) -> Unit)?) {
     val m = vm.myListings; val social = vm.social; val st by vm.state.collectAsState()
     // A real location fix, null until one arrives (location denied, GPS off, or not yet). social.here would be the map's
     // default centre in that case, which must never become a listing's position: nobody at the real shop could recommend it.
@@ -70,24 +71,47 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var languages by remember { mutableStateOf(d.strings("languages").toSet()) }
     var vehicleKind by remember { mutableStateOf(d.str("vehicle_kind").ifBlank { "AUTO" }) }
     var model by remember { mutableStateOf(d.str("model")) }
+    // Assets: what it is, what the owner wants (sell / rent / lease / PG), the price and the facts buyers ask first.
+    var mode by remember { mutableStateOf(d.str("mode").ifBlank { "SELL" }) }
+    var price by remember { mutableStateOf(d.num("price")?.toLong()?.takeIf { it > 0 }?.toString() ?: "") }
+    var priceUnit by remember { mutableStateOf(d.str("price_unit").ifBlank { "TOTAL" }) }
+    var deposit by remember { mutableStateOf(d.num("deposit")?.toLong()?.takeIf { it > 0 }?.toString() ?: "") }
+    var areaSqft by remember { mutableStateOf(d.num("area_sqft")?.toLong()?.takeIf { it > 0 }?.toString() ?: "") }
+    var bedrooms by remember { mutableStateOf(d.int("bedrooms")?.toString() ?: "") }
+    var furnishing by remember { mutableStateOf(d.str("furnishing")) }
+    var availableFrom by remember { mutableStateOf(d.str("available_from")) }
+    var year by remember { mutableStateOf(d.int("year")?.toString() ?: "") }
+    var kmDriven by remember { mutableStateOf(d.int("km_driven")?.toString() ?: "") }
+    var negotiable by remember { mutableStateOf(d.bool("negotiable")) }
     var photo by remember { mutableStateOf<Picked?>(null) }; var preview by remember { mutableStateOf<Uri?>(null) }
     var moveHere by remember { mutableStateOf(existing == null) }
     var confirmDelete by remember { mutableStateOf(false) }
     val pick = rememberImagePicker(onUnusable = { vm.toast("Couldn't read that image. Try a JPG or PNG photo.") }) { p, u -> photo = p; preview = u }
     val owner = existing == null || m.isOwner(existing.id)
     val driverTitle = "${social.me?.name?.ifBlank { null } ?: "Driver"} - ${vehicleKindLabel(vehicleKind)}"
-    val screenTitle = when { existing == null && kind == "BUSINESS" -> "Add a business"; existing == null && kind == "SKILL" -> "Add a skill"; existing == null -> "Your driver profile"; else -> "Edit ${kindLabel(kind).lowercase()}" }
+    val screenTitle = when { existing == null && kind == "BUSINESS" -> "Add a business"; existing == null && kind == "SKILL" -> "Add a skill"; existing == null && kind == "ASSET" -> "List an asset"; existing == null -> "Your driver profile"; else -> "Edit ${kindLabel(kind).lowercase()}" }
 
     fun save() {
         val t = if (kind == "DRIVER") driverTitle else title.trim()
-        if (t.isBlank()) { vm.toast(if (kind == "SKILL") "Name the skill, like Plumber or Maths tutor." else "Add the business name."); return }
-        if (kind != "DRIVER" && category.isBlank()) { vm.toast("Pick a category so people can find you."); return }
+        if (t.isBlank()) { vm.toast(when (kind) { "SKILL" -> "Name the skill, like Plumber or Maths tutor."; "ASSET" -> "Give it a title, like 2BHK flat in 4th Block."; else -> "Add the business name." }); return }
+        if (kind != "DRIVER" && category.isBlank()) { vm.toast(if (kind == "ASSET") "Pick what it is: house, flat, shop, vehicle…" else "Pick a category so people can find you."); return }
+        if (kind == "ASSET" && price.isNotBlank() && price.toLongOrNull() == null) { vm.toast("Enter the price in rupees, numbers only."); return }
+        if (kind == "ASSET" && year.isNotBlank() && (year.toIntOrNull() ?: 0) !in 1950..2100) { vm.toast("Enter the year it was made, like 2019."); return }
         if (kind == "BUSINESS" && (radius.toIntOrNull() ?: 0) !in 1..50) { vm.toast("Delivery radius should be between 1 and 50 km."); return }
         val details = buildJsonObject {
             d.forEach { (k, v) -> put(k, v) }   // keep anything other features stored
             when (kind) {
                 "BUSINESS" -> { put("hours", hours.trim()); put("free_delivery", freeDelivery); put("delivery_radius_km", radius.toInt()); put("cod", cod) }
                 "SKILL" -> { put("level", level); put("rate", rate.trim()); put("languages", buildJsonArray { languages.forEach { add(JsonPrimitive(it)) } }) }
+                "ASSET" -> {
+                    put("mode", mode); put("price", price.toLongOrNull() ?: 0L); put("price_unit", priceUnit); put("negotiable", negotiable)
+                    // Blank facts are removed, not saved as empty: the profile only shows what the owner filled in.
+                    for ((k, v) in listOf("deposit" to deposit, "area_sqft" to areaSqft, "bedrooms" to bedrooms, "year" to year, "km_driven" to kmDriven)) {
+                        val n = v.toLongOrNull()
+                        if (n != null && n > 0) put(k, n) else put(k, JsonNull)
+                    }
+                    for ((k, v) in listOf("furnishing" to furnishing, "available_from" to availableFrom)) { if (v.isNotBlank()) put(k, v.trim()) else put(k, JsonNull) }
+                }
                 else -> { put("vehicle_kind", vehicleKind); put("model", model.trim()); put("languages", buildJsonArray { languages.forEach { add(JsonPrimitive(it)) } }) }
             }
         }
@@ -95,8 +119,8 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         if (existing == null) {
             val at = fix ?: run { vm.toast("Turn on location so Bucks can save where your shop is."); return }
             // A new business or skill goes straight on to its documents: they are the other half of going live.
-            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details, photo, if (kind == "BUSINESS") service else null) { row -> if (kind == "DRIVER") onDone() else onDocs(row.id) }
-        } else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) fix else null, details, photo,
+            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details.withoutNulls(), photo, if (kind == "BUSINESS") service else null) { row -> when { onCreated != null -> onCreated(row.id); kind == "DRIVER" -> onDone(); else -> onDocs(row.id) } }
+        } else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) fix else null, details.withoutNulls(), photo,
             if (kind == "BUSINESS" && service != existing.service && !serviceLocked) service else null) { onDone() }
     }
 
@@ -136,6 +160,38 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         BucksField(description, { description = it.take(600) }, "About your work", "Years of experience, what you specialise in", singleLine = false, minLines = 3)
                         BucksField(area, { area = it.take(60) }, "Area you work in", "Jayanagar")
                     }
+                    "ASSET" -> {
+                        Label("What is it?")
+                        FlowChips(ASSET_TYPES, setOf(category)) { category = it }
+                        Muted(if (category in PROPERTY_TYPES) "Property: Bucks checks the owner's ID (and RERA for builders) before it goes live. Files stay private." else "Vehicles and equipment need no documents to go live.", Modifier.padding(top = 6.dp, bottom = 14.dp))
+                        Label("You want to")
+                        Row(Modifier.horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ASSET_MODES.filter { (k, _) -> k != "PG" || category in RESIDENTIAL_TYPES }.forEach { (k, l) -> Chip(l, selected = mode == k) { mode = k; priceUnit = when (k) { "SELL" -> "TOTAL"; "LEASE" -> "YEAR"; else -> "MONTH" } } }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        BucksField(title, { title = it.take(80) }, "Title", when (category) { "Vehicle" -> "Honda Activa 2019, single owner"; "Plot / Land" -> "30x40 plot near Kanakapura Road"; "Shop", "Office", "Commercial space" -> "Ground-floor shop on 11th Main"; else -> "2BHK flat in 4th Block, east facing" })
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            BucksField(price, { price = it.filter { c -> c.isDigit() }.take(10) }, if (mode == "SELL") "Price (₹)" else "Rent (₹)", if (mode == "SELL") "4500000" else "28000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            if (mode != "SELL") BucksField(deposit, { deposit = it.filter { c -> c.isDigit() }.take(10) }, "Deposit (₹)", "150000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        }
+                        price.toLongOrNull()?.takeIf { it > 0 }?.let { Muted(rupees(it) + (PRICE_UNITS.firstOrNull { u -> u.first == priceUnit }?.second?.takeIf { u -> u != "Total" }?.let { u -> " $u" } ?: ""), Modifier.padding(bottom = 6.dp)) }
+                            ?: Muted("Leave the price empty to show \"Price on request\".", Modifier.padding(bottom = 6.dp))
+                        ChipRow(PRICE_UNITS.map { it.second }, PRICE_UNITS.firstOrNull { it.first == priceUnit }?.second, Modifier.padding(bottom = 6.dp)) { picked -> priceUnit = PRICE_UNITS.first { it.second == picked }.first }
+                        SwitchRow("Price is negotiable", null, negotiable) { negotiable = it }
+                        SectionTitle("Details", Modifier.padding(top = 8.dp, bottom = 4.dp))
+                        if (category == "Vehicle") Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            BucksField(year, { year = it.filter { c -> c.isDigit() }.take(4) }, "Year", "2019", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(kmDriven, { kmDriven = it.filter { c -> c.isDigit() }.take(7) }, "Km driven", "18000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        } else if (category !in setOf("Equipment", "Other")) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            BucksField(areaSqft, { areaSqft = it.filter { c -> c.isDigit() }.take(7) }, "Size (sq ft)", "1100", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            if (category in RESIDENTIAL_TYPES) BucksField(bedrooms, { bedrooms = it.filter { c -> c.isDigit() }.take(2) }, "Bedrooms", "2", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        }
+                        if (category in RESIDENTIAL_TYPES || category in setOf("Office", "Shop", "Commercial space")) { Label("Furnishing"); ChipRow(FURNISHING, furnishing.ifBlank { null }, Modifier.padding(bottom = 14.dp)) { furnishing = if (furnishing == it) "" else it } }
+                        if (mode != "SELL") BucksField(availableFrom, { availableFrom = it.take(40) }, "Available from", "Immediately, or 1 November")
+                        BucksField(description, { description = it.take(600) }, "Description", "Condition, what's included, nearby landmarks, who it suits", singleLine = false, minLines = 3)
+                        BucksField(area, { area = it.take(60) }, "Area / locality", "Jayanagar 4th Block")
+                        Muted("Add more photos from the listing's Photos tab after saving.", Modifier.padding(bottom = 10.dp))
+                    }
                     else -> {
                         BucksCard(Modifier.padding(bottom = 14.dp), padding = 12) { Muted("Shown to riders as"); Text(driverTitle, style = MaterialTheme.typography.titleMedium) }
                         Label("What you drive"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { VEHICLE_KINDS.forEach { (k, l) -> Chip(l, selected = vehicleKind == k, icon = vehicleIcon(k)) { vehicleKind = k } } }
@@ -147,10 +203,10 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         BucksField(area, { area = it.take(60) }, "Home area", "Jayanagar")
                     }
                 }
-                PhotoField(if (kind == "BUSINESS") "Shop photo" else "Profile photo", existing?.photoUrl, preview, if (kind == "BUSINESS") Icons.Rounded.Storefront else Icons.Rounded.Person, onPick = pick, onClear = { photo = null; preview = null })
+                PhotoField(when (kind) { "BUSINESS" -> "Cover photo"; "ASSET" -> "Cover photo"; else -> "Profile photo" }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
                 Label("Location")
                 when {
-                    existing == null && fix != null -> Muted("Saved as where you are now: near ${Geo.nearestArea(fix)}. Neighbours within 3 km of this spot can recommend you, so create it at your shop or where you usually work.")
+                    existing == null && fix != null -> Muted("Saved as where you are now: near ${Geo.nearestArea(fix)}. Neighbours within 3 km of this spot can recommend you, so create it " + (if (kind == "ASSET") "at the property or where the asset is kept." else "at your shop or where you usually work."))
                     existing == null -> Notice(if (st.locationGranted) "Waiting for your location… Bucks saves the listing where you are, so create it at your shop or where you usually work."
                                                else "Turn on location so Bucks can save where your shop is. Neighbours within 3 km of that spot can recommend you, so create it at your shop or where you usually work.")
                     fix != null -> SwitchRow("Move to where I am now", "Near ${Geo.nearestArea(fix)}. Leave off if you're not at the shop.", moveHere) { moveHere = it }
@@ -167,3 +223,6 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     if (confirmDelete && existing != null) ConfirmDialog("Delete ${existing.title}?", "Its products, members, recommendations and reviews go with it. Orders customers already placed stay in their history. This can't be undone.", "Delete",
         onConfirm = { m.deleteListing(existing.id) { onDone() } }, onDismiss = { confirmDelete = false })
 }
+
+/** Drops keys set to null (facts the owner cleared), so they leave the listing instead of being stored as null. */
+private fun JsonObject.withoutNulls() = JsonObject(filterValues { it !is JsonNull })

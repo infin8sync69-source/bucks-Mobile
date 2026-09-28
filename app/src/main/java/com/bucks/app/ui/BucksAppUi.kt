@@ -44,6 +44,9 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import android.content.pm.PackageManager
 import android.os.Build
@@ -123,27 +126,61 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface, drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp), modifier = Modifier.width(300.dp)) { s.user?.let { u ->
                 // Demo builds keep the local vehicle; cloud builds use my checked vehicle on the server (never in s.pro).
                 val v = if (vm.dispatch.enabled) null else s.pro?.vehicle; val cv = vm.cloudVehicle
-                Column(Modifier.fillMaxHeight()) {
-                    Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Manage accounts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                val studio = vm.social.enabled; val m = vm.myListings
+                // The menu is the professional side (Studio); the personal profile lives in the bottom bar. Fresh numbers each time it opens.
+                LaunchedEffect(drawer.isOpen) { if (drawer.isOpen && studio && vm.social.me != null) m.refresh() }
+                Column(Modifier.fillMaxHeight()) { Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Studio", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                         IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close menu", tint = MaterialTheme.colorScheme.primary) }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    // Bucks ID: a mini card that opens the full card with QR and barcode.
+                    vm.social.me?.takeIf { studio }?.let { me ->
+                        val info = BucksIdCardInfo.of(me.idIssuedAt)
+                        Row(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF811FF0), androidx.compose.ui.graphics.Color(0xFF4A0AA6))))
+                            .clickable { closeMenu(); nav.navigate(Routes.BUCKS_ID) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Badge, null, tint = androidx.compose.ui.graphics.Color.White)
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                Text("Bucks ID  ${pretty(me.shortCode)}", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleSmall)
+                                Text(when { info == null -> "Tap to show your card"; info.expired -> "Expired · tap to renew"; info.renewable -> "Renew soon · valid till ${info.validTill}"; else -> "Valid till ${info.validTill}" },
+                                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(Icons.Rounded.QrCode2, "Show card", tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                    }
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.AccountCircle, "Manage profile", current.startsWith("account") || current == Routes.PROFILE) { closeMenu(); nav.navigate(Routes.PROFILE) }
-                        DrawerItem(Icons.Rounded.Inventory2, "Manage listings", current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_LISTINGS || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (vm.social.enabled) Routes.MY_LISTINGS else Routes.LISTINGS) }
+                        DrawerItem(Icons.Rounded.Dashboard, if (studio) "Studio home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
+                        // Quick access: every listing I run, one tap to its dashboard, and the switch right here when it's live.
+                        if (studio) m.listings.sortedWith(compareBy({ it.status != "LIVE" }, { it.title.lowercase() })).forEach { l ->
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { closeMenu(); nav.navigate(Routes.studioListing(l.id)) }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                PhotoOrIcon(l.photoUrl ?: l.gallery.firstOrNull()?.url, studioIcon(l), size = 40)
+                                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                    Text(l.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(when (l.status) { "LIVE" -> onlineLabel(l.kind, l.online); "SUSPENDED" -> "Suspended"; else -> "${kindLabel(l.kind)} · not live yet" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                }
+                                if (l.status == "LIVE" && m.canManage(l.id)) ListingSwitch(l.online) { on -> m.setOnline(l.id, on) }
+                            }
+                        }
                         // Quick switch for the active vehicle, so a driver can go online from anywhere.
                         if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, online = s.online, onToggle = { on -> vm.setVehicleOnline(v.id, on); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate) }
-                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), online = s.vehicleOnline, onToggle = { on -> vm.setOnline(on, cv.plate); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(cv.id)}") }) { Muted(cv.plate) }
+                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), online = s.vehicleOnline, onToggle = { on -> vm.setOnline(on, cv.plate); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate(Routes.vehicleEdit(cv.id)) }) { Muted(cv.plate) }
+                        if (studio) DrawerItem(Icons.Rounded.AddCircleOutline, "Create a listing", false) { closeMenu(); nav.navigate(Routes.MY_LISTINGS) }
                     }
-                    Spacer(Modifier.weight(1f))
+                    if (studio) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                        Column(Modifier.padding(12.dp)) {
+                            DrawerItem(Icons.Rounded.MailOutline, if (m.pendingCount > 0) "Invites (${m.pendingCount})" else "Invites", current == Routes.INVITES) { closeMenu(); nav.navigate(Routes.INVITES) }
+                            DrawerItem(Icons.Rounded.ShoppingBag, "My orders", current == Routes.MY_ORDERS) { closeMenu(); nav.navigate(Routes.MY_ORDERS) }
+                            DrawerItem(Icons.Rounded.Work, "Jobs and applications", current == Routes.MY_APPLICATIONS) { closeMenu(); nav.navigate(Routes.MY_APPLICATIONS) }
+                            DrawerItem(Icons.Rounded.QrCodeScanner, "Recommend a neighbour", current == Routes.RECOMMEND_SCAN) { closeMenu(); nav.navigate(Routes.RECOMMEND_SCAN) }
+                        }
+                    }
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
                         DrawerItem(Icons.Rounded.Settings, "Account settings", false) { closeMenu(); nav.navigate("account?tab=settings") }
                         DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
-                    }
-                    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer).clickable { closeMenu(); nav.navigate("account?tab=profile") }.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(initials(u.name), size = 44); Column(Modifier.padding(start = 14.dp)) { Text(u.name, style = MaterialTheme.typography.titleMedium); Text(u.bio.ifBlank { u.area }, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
             } }
@@ -238,18 +275,27 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.MY_ORDERS) { MyOrdersScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.cloudOrder(it)) }) }
                             composable(Routes.VENDOR_ORDERS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> VendorOrdersScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.cloudOrder(it)) }) }
                             // Manage (cloud-only): own listings, products, vehicles, admins, invites and the recommendation QR.
-                            composable(Routes.MY_LISTINGS) { MyListingsScreen(vm, onBack = { nav.popBackStack() },
+                            // Studio (cloud-only): the professional space. The hub lists everything I run; each listing has a dashboard.
+                            composable(Routes.MY_LISTINGS) { StudioScreen(vm, onBack = { nav.popBackStack() },
+                                onOpen = { nav.navigate(Routes.studioListing(it)) },
+                                onCreate = { kind -> when (kind) { "VEHICLE" -> nav.navigate(Routes.vehicleEdit(null)); else -> nav.navigate(Routes.listingEdit(null, kind)) } },
+                                onVehicle = { nav.navigate(Routes.vehicleEdit(it)) },
+                                onVehicles = { nav.navigate(Routes.MY_VEHICLES) },
+                                onInvites = { nav.navigate(Routes.INVITES) },
+                                onScan = { nav.navigate(Routes.RECOMMEND_SCAN) },
+                                onBucksId = { nav.navigate(Routes.BUCKS_ID) }) }
+                            composable(Routes.STUDIO_LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ListingDashboardScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() },
                                 onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) },
-                                onItems = { nav.navigate(Routes.itemEdit(it, null)) },
+                                onItem = { l, i -> nav.navigate(Routes.itemEdit(l, i ?: "new")) },
+                                onDocs = { nav.navigate(Routes.listingDocs(it)) },
                                 onMembers = { nav.navigate(Routes.members(it)) },
                                 onRecommend = { nav.navigate(Routes.recommendShow(it)) },
                                 onOrders = { nav.navigate(Routes.vendorOrders(it)) },
                                 onJobs = { nav.navigate(Routes.listingJobs(it)) },
-                                onVehicles = { nav.navigate(Routes.MY_VEHICLES) },
-                                onInvites = { nav.navigate(Routes.INVITES) },
                                 onOpenProfile = { nav.navigate(Routes.listing(it)) },
-                                onScan = { nav.navigate(Routes.RECOMMEND_SCAN) },
-                                onDocs = { nav.navigate(Routes.listingDocs(it)) }) }
+                                onPaymentQr = { nav.navigate(Routes.PAYMENT_QR) },
+                                onVehicles = { nav.navigate(Routes.MY_VEHICLES) }) }
+                            composable(Routes.BUCKS_ID) { BucksIdScreen(vm, onBack = { nav.popBackStack() }, onSync = { nav.navigate(Routes.SYNC) }) }
                             composable(Routes.MY_VEHICLES) { VehiclesScreen(vm, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.vehicleEdit(it)) }, onStats = { nav.navigate(Routes.VEHICLE_STATS) }, onMembers = { nav.navigate(Routes.members("v:$it")) }) }
                             composable(Routes.VEHICLE_STATS) { VehicleStatsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.LISTING_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("kind") { type = NavType.StringType; defaultValue = "BUSINESS" },
@@ -257,8 +303,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 val editingId = e.arguments?.getString("id")
                                 ListingEditScreen(vm, kind = e.arguments?.getString("kind") ?: "BUSINESS", id = editingId, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() },
                                     service = e.arguments?.getString("service"),
-                                    // A just-created listing goes on to its documents in place of the empty "Add" form.
-                                    onDocs = { id -> nav.navigate(Routes.listingDocs(id)) { if (editingId == null) popUpTo(Routes.LISTING_EDIT) { inclusive = true } } }) }
+                                    onDocs = { id -> nav.navigate(Routes.listingDocs(id)) },
+                                    // A just-created listing opens its dashboard (with the go-live checklist) in place of the empty "Add" form.
+                                    onCreated = { id -> nav.navigate(Routes.studioListing(id)) { popUpTo(Routes.LISTING_EDIT) { inclusive = true } } }) }
                             composable(Routes.LISTING_DOCS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ListingDocsScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
                             composable(Routes.STAFF_REVIEW) { StaffReviewScreen(vm, onBack = { nav.popBackStack() }) }
                             // ITEM_EDIT convention (there is no separate items-list route): item == null -> the list (ItemsScreen); item == "new" -> add; any other id -> edit that item.

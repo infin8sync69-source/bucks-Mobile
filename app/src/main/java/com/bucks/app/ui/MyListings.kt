@@ -1,6 +1,7 @@
 package com.bucks.app.ui
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,7 +18,10 @@ import kotlinx.serialization.json.JsonObject
  * actions wrapped in go { }, so every failure reaches the person as a toast.
  */
 class MyListings(private val scope: CoroutineScope, private val social: Social, private val toast: (String) -> Unit) {
-    companion object { /** Local recommendations a listing needs before it goes live (settings.min_recommendations). */ const val NEEDED = 7 }
+    companion object {
+        /** Local recommendations a listing needs before it goes live: settings.min_recommendations, read on every refresh (7 until then). */
+        var NEEDED by mutableIntStateOf(7)
+    }
 
     val me: ProfileRow? get() = social.me
 
@@ -34,6 +38,12 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     val vehicleMembers: SnapshotStateMap<String, List<VehicleMemberRow>> = mutableStateMapOf()
     /** listing id -> how many neighbours have recommended it. */
     val recommendations: SnapshotStateMap<String, Int> = mutableStateMapOf()
+    /** listing id -> its own posts (the listing's feed), newest first. */
+    val posts: SnapshotStateMap<String, List<PostRow>> = mutableStateMapOf()
+    /** listing id -> customer reviews, newest first. */
+    val reviews: SnapshotStateMap<String, List<ReviewRow>> = mutableStateMapOf()
+    /** listing id -> recommendations, syncs, team size and open jobs. */
+    val counts: SnapshotStateMap<String, ListingCounts> = mutableStateMapOf()
     /** Invites waiting for my answer. */
     var invites by mutableStateOf<List<InviteForMe>>(emptyList()); private set
     /** Invites I sent that are still pending. */
@@ -70,7 +80,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     /** Sign-out and account deletion: the next account on this phone starts with nothing of mine. */
     fun signedOut() {
         listings = emptyList(); roles = emptyMap(); vehicles = emptyList(); vehicleDocs = emptyMap()
-        items.clear(); members.clear(); vehicleMembers.clear(); recommendations.clear()
+        items.clear(); members.clear(); vehicleMembers.clear(); recommendations.clear(); posts.clear(); reviews.clear(); counts.clear()
         invites = emptyList(); sentInvites = emptyList(); stats = emptyList(); token = null
         loading = false; loaded = false; error = null; busy = false
     }
@@ -82,6 +92,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
             val ls = Backend.myListings(p.id).sortedBy { it.title.lowercase() }
             val rs = Backend.myRoles(p.id)
             val (vs, docs) = Backend.myVehiclesWithDocs()
+            runCatching { Backend.minRecommendations() }.getOrNull()?.let { if (it > 0) NEEDED = it }
             if (me?.id != p.id) return@go   // signed out (or someone else signed in) while this was loading
             listings = ls; roles = rs
             vehicleDocs = docs; vehicles = vs.sortedBy { it.model.lowercase() }
@@ -118,6 +129,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     private fun savedMessage(kind: String, title: String) = when (kind) {
         "BUSINESS" -> "$title is saved. It goes live once $NEEDED neighbours recommend it."
         "SKILL" -> "$title is saved. It goes live once $NEEDED neighbours recommend you."
+        "ASSET" -> "$title is saved. It goes live once $NEEDED neighbours vouch for it and Bucks checks any documents it needs."
         else -> "Your driver profile is saved. It goes live once $NEEDED neighbours recommend you."
     }
     /**
@@ -150,22 +162,83 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
         toast(when (l.kind) {
             "BUSINESS" -> if (on) "${l.title} is open. Orders will reach you." else "${l.title} is closed. No orders until you open again."
             "SKILL" -> if (on) "${l.title} is online. Requests will reach you." else "${l.title} is offline."
+            "ASSET" -> if (on) "${l.title} is shown as available." else "${l.title} is marked not available. It stays on your profile."
             else -> if (on) "You're shown as available." else "You're shown as unavailable." }) }
 
     // ---------- products and services ----------
-    fun saveItem(item: ItemRow, photo: Picked?, onDone: () -> Unit) = go { busy = true
+    /**
+     * Saves a product or service with its photos: [keep] are photos it already had (in order), [add] new ones to upload.
+     * The first photo becomes photo_url, which search and older app versions show. Photos taken out are deleted afterwards.
+     */
+    fun saveItem(item: ItemRow, keep: List<MediaPhoto>, add: List<Picked>, onDone: () -> Unit) = go { busy = true
         try {
-            var row = item
-            if (photo != null) { val path = "${item.listingId}/${photo.objectName()}"; Backend.upload("listing-media", path, photo.bytes); row = row.copy(photoUrl = Backend.publicUrl("listing-media", path)) }
+            val uploaded = add.map { MediaPhoto(Backend.uploadListingMedia(item.listingId, it)) }
+            val photos = (keep + uploaded).take(8)
+            val row = item.copy(photos = photos, photoUrl = photos.firstOrNull()?.url)
+            // Photos taken out are deleted, unless a copy of this item (Duplicate) still shows them.
+            val usedElsewhere = items[item.listingId].orEmpty().filter { it.id != item.id }.flatMap { it.photos.map { p -> p.url } }.toSet()
+            val dropped = item.photos.map { it.url }.filter { u -> photos.none { it.url == u } && u !in usedElsewhere }
             // Existing items go column by column (updateItem): a whole-row update drops default values, so "back in stock" or a cleared MRP would never reach the server.
             val saved = if (row.id == null) Backend.saveItem(row) else Backend.updateItem(row)
             items[item.listingId] = (items[item.listingId].orEmpty().filterNot { it.id == saved.id } + saved).sortedWith(compareBy({ it.sort }, { it.name.lowercase() }))
             toast(if (item.id == null) "${saved.name} added." else "Saved."); onDone()
+            if (dropped.isNotEmpty()) runCatching { Backend.deleteListingMedia(dropped) }
         } finally { busy = false } }
+    /** A copy of [item] named "<name> (copy)", out of stock until the owner checks it, with the same photos. */
+    fun duplicateItem(item: ItemRow) = go {
+        val copy = item.copy(id = null, name = "${item.name} (copy)".take(80), inStock = false, sort = items[item.listingId].orEmpty().size)
+        val saved = Backend.saveItem(copy)
+        items[item.listingId] = items[item.listingId].orEmpty() + saved; toast("Copied. Edit it and switch it on when it's ready.") }
     fun setInStock(item: ItemRow, on: Boolean) = go { val id = item.id ?: return@go
         items[item.listingId] = items[item.listingId].orEmpty().map { if (it.id == id) it.copy(inStock = on) else it }
         try { Backend.updateItem(item.copy(inStock = on)) } catch (e: Exception) { items[item.listingId] = items[item.listingId].orEmpty().map { if (it.id == id) it.copy(inStock = !on) else it }; throw e } }
-    fun deleteItem(item: ItemRow, onDone: () -> Unit) = go { val id = item.id ?: return@go; Backend.deleteItem(id); items[item.listingId] = items[item.listingId].orEmpty().filterNot { it.id == id }; toast("${item.name} removed."); onDone() }
+    fun deleteItem(item: ItemRow, onDone: () -> Unit) = go { val id = item.id ?: return@go; Backend.deleteItem(id); items[item.listingId] = items[item.listingId].orEmpty().filterNot { it.id == id }; toast("${item.name} removed."); onDone()
+        // Photos shared with a copy of this item stay; only files no other item uses are deleted.
+        val stillUsed = items[item.listingId].orEmpty().flatMap { it.photos.map { p -> p.url } }.toSet()
+        item.photos.map { it.url }.filter { it !in stillUsed }.takeIf { it.isNotEmpty() }?.let { runCatching { Backend.deleteListingMedia(it) } } }
+
+    // ---------- gallery (photos, portfolio) ----------
+    private fun galleryOf(listingId: String) = listing(listingId)?.gallery.orEmpty()
+    private suspend fun saveGallery(listingId: String, g: List<MediaPhoto>) {
+        Backend.setGallery(listingId, g); listings = listings.map { if (it.id == listingId) it.copy(gallery = g) else it }
+    }
+    /** Uploads [photos] and adds them to the end of the gallery (20 at most). The first photo of an empty listing also becomes its cover. */
+    fun addGalleryPhotos(listingId: String, photos: List<Picked>) = go { busy = true
+        try {
+            val room = 20 - galleryOf(listingId).size
+            if (room <= 0) { toast("The gallery holds 20 photos. Remove one to add another."); return@go }
+            val added = photos.take(room).map { MediaPhoto(Backend.uploadListingMedia(listingId, it)) }
+            saveGallery(listingId, galleryOf(listingId) + added)
+            if (listing(listingId)?.photoUrl.isNullOrBlank()) added.firstOrNull()?.let { setCoverNow(listingId, it.url) }
+            toast(if (photos.size > room) "Added $room. The gallery holds 20 photos." else if (added.size == 1) "Photo added." else "${added.size} photos added.")
+        } finally { busy = false } }
+    fun removeGalleryPhoto(listingId: String, url: String) = go {
+        saveGallery(listingId, galleryOf(listingId).filterNot { it.url == url })
+        if (listing(listingId)?.photoUrl != url) runCatching { Backend.deleteListingMedia(listOf(url)) }
+        toast("Photo removed.") }
+    fun setCaption(listingId: String, url: String, caption: String) = go {
+        saveGallery(listingId, galleryOf(listingId).map { if (it.url == url) it.copy(caption = caption.trim().take(200)) else it }); toast("Caption saved.") }
+    /** Moves a photo one place towards the start (-1) or the end (+1). */
+    fun moveGalleryPhoto(listingId: String, url: String, by: Int) = go {
+        val g = galleryOf(listingId).toMutableList(); val i = g.indexOfFirst { it.url == url }; val j = i + by
+        if (i < 0 || j !in g.indices) return@go
+        g.add(j, g.removeAt(i)); saveGallery(listingId, g) }
+    private suspend fun setCoverNow(listingId: String, url: String) { Backend.setListingPhoto(listingId, url); listings = listings.map { if (it.id == listingId) it.copy(photoUrl = url) else it } }
+    fun setCover(listingId: String, url: String) = go { setCoverNow(listingId, url); toast("Cover photo changed.") }
+
+    // ---------- the listing's feed, reviews and numbers ----------
+    fun loadPosts(listingId: String) = go { val rows = Backend.listingPosts(listingId); social.namesFor(rows.map { it.authorId }); posts[listingId] = rows }
+    /** Posts as the listing: shown on its profile and, to people nearby and those synced with it, in the feed. */
+    fun postAs(listingId: String, body: String, photo: Picked?, onDone: () -> Unit) = go { val p = me ?: return@go; val l = listing(listingId) ?: return@go; busy = true
+        try {
+            val media = photo?.let { f -> listOf("${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) }) }.orEmpty()
+            val at = runCatching { Backend.listingPoint(listingId) }.getOrNull() ?: social.here
+            Backend.post(p.id, body.trim(), media, "LOCAL", at, l.area, listingId)
+            toast("Posted as ${l.title}."); onDone(); posts[listingId] = Backend.listingPosts(listingId)
+        } finally { busy = false } }
+    fun deletePost(post: PostRow) = go { Backend.deletePost(post.id); post.listingId?.let { lid -> posts[lid] = posts[lid].orEmpty().filterNot { it.id == post.id } }; toast("Post deleted.") }
+    fun loadReviews(listingId: String) = go { val rows = Backend.reviews(listingId); social.namesFor(rows.map { it.authorId }); reviews[listingId] = rows }
+    fun loadCounts(listingId: String) = go { Backend.listingCounts(listingId)?.let { counts[listingId] = it; recommendations[listingId] = it.recommendations } }
 
     // ---------- vehicles ----------
     private suspend fun uploadDocs(meId: String, docs: List<Pair<String, Picked>>): List<VehicleDoc> =

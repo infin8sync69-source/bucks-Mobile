@@ -89,7 +89,7 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
 }
 
 enum class BottomTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Rounded.Home), FEED("Feed", Icons.Rounded.VideoLibrary), SERVICES("Services", Icons.Rounded.GridView), RECOMMENDED("For you", Icons.Rounded.Leaderboard), ACCOUNT("Account", Icons.Rounded.Person)
+    HOME("Home", Icons.Rounded.Home), FEED("Feed", Icons.Rounded.VideoLibrary), SERVICES("Services", Icons.Rounded.GridView), RECOMMENDED("For you", Icons.Rounded.Leaderboard), ACCOUNT("Profile", Icons.Rounded.Person)
 }
 @Composable
 fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {

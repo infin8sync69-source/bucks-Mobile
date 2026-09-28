@@ -77,10 +77,11 @@ private fun kindLine(h: SearchHit): String = when (h.kind) {
 fun onlineText(kind: String, online: Boolean): String = when (kind) {
     "BUSINESS" -> if (online) "Open now" else "Closed now"
     "SKILL" -> if (online) "Available now" else "Not available right now"
+    "ASSET" -> if (online) "Available" else "Not available now"
     else -> if (online) "Online now" else "Offline"
 }
 
-fun kindIcon(kind: String): ImageVector = when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "SKILL" -> Icons.Rounded.Handyman; else -> Icons.Rounded.LocalTaxi }
+fun kindIcon(kind: String): ImageVector = when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "SKILL" -> Icons.Rounded.Handyman; "ASSET" -> Icons.Rounded.Sell; else -> Icons.Rounded.LocalTaxi }
 
 /** Shop / Pro / Driver pill with its icon. */
 @Composable

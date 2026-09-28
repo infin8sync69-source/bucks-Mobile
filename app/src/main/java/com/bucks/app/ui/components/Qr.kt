@@ -33,9 +33,16 @@ fun qrBitmap(text: String, size: Int = 640): Bitmap {
     return Bitmap.createBitmap(px, size, size, Bitmap.Config.RGB_565)
 }
 
+/** A Code 128 barcode of [text] (the Bucks ID card's strip), black on white, [w] x [h] pixels. */
+fun barcodeBitmap(text: String, w: Int = 900, h: Int = 180): Bitmap {
+    val m = com.google.zxing.oned.Code128Writer().encode(text, BarcodeFormat.CODE_128, w, h, mapOf(EncodeHintType.MARGIN to 0))
+    val px = IntArray(m.width * m.height) { i -> if (m[i % m.width, i / m.width]) android.graphics.Color.BLACK else android.graphics.Color.WHITE }
+    return Bitmap.createBitmap(px, m.width, m.height, Bitmap.Config.RGB_565)
+}
+
 /** Opens Google's built-in code scanner (no camera permission or extra screen of our own). */
 fun scanQr(ctx: Context, onResult: (String) -> Unit, onError: (String) -> Unit) {
-    val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).enableAutoZoom().build()
+    val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE, Barcode.FORMAT_CODE_128).enableAutoZoom().build()
     val scanner = GmsBarcodeScanning.getClient(ctx, options)
     // The scanner module downloads on first use; ask for it up front so the first scan doesn't fail silently.
     ModuleInstall.getClient(ctx).installModules(ModuleInstallRequest.newBuilder().addApi(scanner).build())

@@ -90,7 +90,7 @@ object Backend {
         db.from("profiles").update({ set("name", name); set("bio", bio); set("area", area); home?.let { set("home", point(it)) } }) { filter { eq("id", id) } }
     }
     /** The columns the API may read from profiles; `home` is withheld (manage.sql), so `select *` would be refused. */
-    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "trust_up", "trust_down")
+    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "trust_up", "trust_down", "id_issued_at")
     suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select(PROFILE_COLUMNS) { filter { isIn("id", ids.toList()) } }.decodeList()
     suspend fun profileByCode(code: String): ProfileRow? =
         db.from("profiles").select(PROFILE_COLUMNS) { filter { eq("short_code", code.trim().uppercase()) } }.decodeSingleOrNull()
@@ -303,19 +303,32 @@ object Backend {
 // ---------- rows, named as in schema.sql ----------
 
 @Serializable data class ProfileRow(val id: String, @SerialName("short_code") val shortCode: String, val name: String = "", val bio: String = "", val area: String = "",
-    @SerialName("photo_url") val photoUrl: String? = null, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0)
+    @SerialName("photo_url") val photoUrl: String? = null, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
+    /** When the current Bucks ID card was issued; it is valid for a year (studio.sql renew_bucks_id). */
+    @SerialName("id_issued_at") val idIssuedAt: String? = null)
+/** A photo in a listing's gallery or a product's photos: a public listing-media URL and an optional caption (studio.sql). */
+@Serializable data class MediaPhoto(val url: String, val caption: String = "")
 @Serializable data class SyncRow(@SerialName("requester_id") val requesterId: String, @SerialName("addressee_id") val addresseeId: String, val status: String)
 @Serializable data class ListingRow(val id: String, val kind: String, @SerialName("owner_id") val ownerId: String, val title: String, val category: String = "", val description: String = "",
     @SerialName("photo_url") val photoUrl: String? = null, val area: String = "", val details: JsonObject = JsonObject(emptyMap()), val status: String = "PENDING", val online: Boolean = false,
     @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
     /** FOOD, GROCERY, ... (services.sql); GIGS for skills, null for drivers. */
-    val service: String? = null, @SerialName("compliance_hold") val complianceHold: Boolean = false)
+    val service: String? = null, @SerialName("compliance_hold") val complianceHold: Boolean = false,
+    /** Up to 20 photos: the shop, a worker's portfolio, the rooms of a flat. The cover stays in [photoUrl]. */
+    val gallery: List<MediaPhoto> = emptyList())
 @Serializable data class SearchHit(val id: String, val kind: String, val title: String, val category: String = "", val description: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", val online: Boolean = false, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0, val details: JsonObject = JsonObject(emptyMap()),
     @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null)
 @Serializable data class MemberRow(@SerialName("listing_id") val listingId: String, @SerialName("profile_id") val profileId: String, val role: String)
 @Serializable data class ItemRow(val id: String? = null, @SerialName("listing_id") val listingId: String, val kind: String = "PRODUCT", val name: String, val price: Int, val mrp: Int? = null,
-    val unit: String = "", @SerialName("group_name") val group: String = "", @SerialName("photo_url") val photoUrl: String? = null, @SerialName("in_stock") val inStock: Boolean = true, val sort: Int = 0)
+    val unit: String = "", @SerialName("group_name") val group: String = "", @SerialName("photo_url") val photoUrl: String? = null, @SerialName("in_stock") val inStock: Boolean = true, val sort: Int = 0,
+    val description: String = "",
+    /** How many are left; null when the owner doesn't count stock. 0 means out of stock (the server switches it off). */
+    val stock: Int? = null,
+    /** Up to 8 photos; the first one is also [photoUrl], which search and older screens show. */
+    val photos: List<MediaPhoto> = emptyList(),
+    /** Service extras: duration, pricing (FIXED / HOURLY / VISIT / QUOTE); product extras: veg, brand. */
+    val details: JsonObject = JsonObject(emptyMap()))
 @Serializable data class PostRow(val id: String, @SerialName("author_id") val authorId: String, @SerialName("listing_id") val listingId: String? = null, val body: String = "",
     val media: kotlinx.serialization.json.JsonArray = kotlinx.serialization.json.JsonArray(emptyList()), val visibility: String = "LOCAL", val up: Int = 0, val down: Int = 0, val comments: Int = 0, @SerialName("created_at") val createdAt: String)
 @Serializable data class InviteRow(val id: String, @SerialName("listing_id") val listingId: String? = null, @SerialName("vehicle_id") val vehicleId: String? = null,

@@ -18,7 +18,7 @@ import kotlin.math.roundToInt
 
 /** The kind chips on the search screen; [kinds] is what search_listings receives (null = every kind). */
 enum class KindFilter(val label: String, val kinds: List<String>?) {
-    ALL("All", null), SHOPS("Shops", listOf("BUSINESS")), PROS("Pros", listOf("SKILL")), DRIVERS("Drivers", listOf("DRIVER"))
+    ALL("All", null), SHOPS("Shops", listOf("BUSINESS")), PROS("Pros", listOf("SKILL")), ASSETS("Buy & rent", listOf("ASSET")), DRIVERS("Drivers", listOf("DRIVER"))
 }
 /** Search radius chips, in km. */
 val RADIUS_CHOICES = listOf(3, 10, 25)

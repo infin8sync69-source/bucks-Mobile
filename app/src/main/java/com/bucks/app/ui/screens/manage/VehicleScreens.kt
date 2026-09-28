@@ -28,7 +28,6 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.screens.SignedImage
 
-private val DOC_KINDS = listOf("RC" to "Registration certificate (RC)", "INSURANCE" to "Insurance", "PERMIT" to "Permit")
 private const val MAX_DOC_BYTES = 10 * 1024 * 1024
 
 @Composable
@@ -67,7 +66,9 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
                         Muted(when (v.status) {
                             "ACTIVE" -> "Ready. Go online from Home to take " + (if (v.kind == "BIKE") "deliveries." else "rides and deliveries.")
                             "SUSPENDED" -> "Suspended: it can't go online. Contact Bucks support."
-                            else -> if (docs.size < 3 && owner) "Upload all three documents (RC, insurance, permit) so Bucks can check the vehicle." else "Bucks is checking the documents. You'll be able to go online once it's active."
+                            else -> vehicleDocKinds(v.kind).filter { dk -> dk.required && docs.none { it.kind == dk.key } }.takeIf { it.isNotEmpty() && owner }
+                                ?.let { missing -> "Still needed: ${missing.joinToString(", ") { it.label }}. Bucks checks them before the vehicle can go online." }
+                                ?: "Bucks is checking the documents. You'll be able to go online once it's active."
                         }, Modifier.padding(top = 10.dp))
                         Muted(when { people == null -> "…"; people.size <= 1 -> "Only you drive it"; else -> "${people.size} people can drive it" }, Modifier.padding(top = 4.dp))
                         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -149,11 +150,16 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
                 Spacer(Modifier.height(14.dp))
                 BucksField(model, { if (owner) model = it.take(60) }, "Model", "Honda Activa, Bajaj RE, Maruti Dzire", readOnly = !owner)
                 BucksField(plate, { if (owner) plate = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12) }, "Number plate", "KA05AB1234", readOnly = !owner, keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Characters))
-                SectionTitle("Documents", Modifier.padding(top = 4.dp, bottom = 2.dp))
-                Muted("Photos of the RC, insurance and permit. Bucks checks them before the vehicle can go online; nobody else sees them.", Modifier.padding(bottom = 8.dp))
-                DOC_KINDS.forEach { (k, label) ->
+                val kinds = vehicleDocKinds(kind.ifBlank { "CAB" })
+                val requiredDone = kinds.count { dk -> dk.required && (added.containsKey(dk.key) || kept.any { it.kind == dk.key }) }; val requiredAll = kinds.count { it.required }
+                Row(Modifier.padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SectionTitle("Documents", Modifier.weight(1f)); if (requiredDone == requiredAll) PillGood("All required added") else PillWarn("$requiredDone of $requiredAll required")
+                }
+                LinearProgressIndicator(progress = { requiredDone.toFloat() / requiredAll }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(4.dp).clip(MaterialTheme.shapes.small))
+                Muted("Clear photos or PDFs. Bucks checks them before the vehicle can go online; nobody else sees them.", Modifier.padding(bottom = 8.dp))
+                kinds.forEach { dk -> val k = dk.key; val label = dk.label
                     val have = kept.firstOrNull { it.kind == k }; val new = added[k]
-                    val optional = k == "PERMIT" && kind == "BIKE"
+                    val optional = !dk.required
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(56.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
                             when {
@@ -164,8 +170,8 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
                             }
                         }
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(label + if (optional) " (optional for bikes)" else "", style = MaterialTheme.typography.titleSmall)
-                            Muted(when { new != null -> "Ready to upload: ${new.name}"; have != null -> "Uploaded"; else -> "Not added yet" })
+                            Text(label + if (optional) " (optional)" else "", style = MaterialTheme.typography.titleSmall)
+                            Muted(when { new != null -> "Ready to upload: ${new.name}"; have != null -> "Uploaded"; else -> dk.hint })
                         }
                         if (owner) {
                             if (new != null || have != null) IconButton(onClick = { added.remove(k); kept.removeAll { it.kind == k } }) { Icon(Icons.Rounded.Close, "Remove") }

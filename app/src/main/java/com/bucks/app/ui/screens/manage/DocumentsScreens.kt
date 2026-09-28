@@ -99,7 +99,7 @@ fun ListingDocsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit)
 }
 
 /** Local recommendations a listing needs (settings.min_recommendations). */
-private const val MyListingsNeeded = com.bucks.app.ui.MyListings.NEEDED
+private val MyListingsNeeded: Int get() = com.bucks.app.ui.MyListings.NEEDED
 
 @Composable
 private fun DocRow(r: ComplianceRow, uploading: Boolean, modifier: Modifier, onPick: () -> Unit, onRemove: (() -> Unit)?) = BucksCard(modifier.padding(bottom = 10.dp), padding = 14) {

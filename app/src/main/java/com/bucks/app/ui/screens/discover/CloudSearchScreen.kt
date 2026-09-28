@@ -107,7 +107,7 @@ private fun EmptyResults(vm: BucksViewModel) {
         Text(if (q.isBlank()) "Nothing listed within ${d.radiusKm} km yet" else "No results for “$q” within ${d.radiusKm} km", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
         Muted(when {
             wider != null -> "Widen the search to see more."
-            q.isBlank() -> "Be the first: list your shop, skill or vehicle from Account > My listings."
+            q.isBlank() -> "Be the first: list your shop, skill or vehicle from Menu > Studio."
             else -> "Try another word, like the item you need (sugar, tap repair), or a category (grocery, electrician)."
         }, Modifier.padding(top = 6.dp), align = TextAlign.Center)
         if (wider != null) SmallButton("Search within $wider km", Modifier.padding(top = 14.dp)) { d.setRadius(wider) }
