@@ -86,3 +86,15 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
 /** Tile attribution required by OpenStreetMap. */
 @Composable
 fun MapAttribution(modifier: Modifier = Modifier) = Text("© OpenStreetMap contributors", modifier, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+/**
+ * Road route between two points (MapServices.route), refetched only when either end moves ~200 m, so a moving car does
+ * not ask the routing server every few seconds. Null while loading, offline, or when an end is missing: draw a straight line.
+ */
+@Composable
+fun rememberRoadRoute(from: LatLng?, to: LatLng?): com.bucks.app.data.MapServices.RoadRoute? {
+    val key = if (from == null || to == null) null else listOf(from.lat, from.lng, to.lat, to.lng).map { Math.round(it * 500) }
+    var route by remember { mutableStateOf<com.bucks.app.data.MapServices.RoadRoute?>(null) }
+    LaunchedEffect(key) { route = if (from == null || to == null) null else com.bucks.app.data.MapServices.route(from, to) ?: route }
+    return route
+}

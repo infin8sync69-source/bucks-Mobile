@@ -101,21 +101,21 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     private suspend fun applyRide(t: TaskGeoRow) {
         val prev = _ride.value; val st = rideStatus(t.status); val kind = kindOf(t.vehicleKind)
         val pos = t.driverAt
-        var driver: Driver? = null; var dx = prev?.driverX ?: 0f; var dy = prev?.driverY ?: 0f
+        var driver: Driver? = null; var dx = prev?.driverX ?: 0f; var dy = prev?.driverY ?: 0f; var drvAt = prev?.driverAt
         if (t.driverId != null) {
             if (rideDriver?.profileId != t.driverId) { rideDriver = runCatching { Backend.taskDriver(t.id) }.getOrNull(); ridePhone = runCatching { Backend.contactFor(t.id)?.phone }.getOrNull() }
             else if (ridePhone.isNullOrBlank()) ridePhone = runCatching { Backend.contactFor(t.id)?.phone }.getOrNull()
             val d = rideDriver
-            (pos ?: if (prev?.driver == null) t.pickup else null)?.let { p -> Geo.toPercent(p).let { dx = it.first; dy = it.second } }
+            (pos ?: if (prev?.driver == null) t.pickup else null)?.let { p -> drvAt = p; Geo.toPercent(p).let { dx = it.first; dy = it.second } }
             driver = Driver(t.driverId, d?.name?.ifBlank { null } ?: social.names[t.driverId] ?: "Your rider", d?.kind?.let(::kindOf) ?: kind, d?.plate.orEmpty(), d?.model.orEmpty(), dx, dy,
-                pos?.let { round1(Geo.distanceKm(it, t.pickup)) } ?: 0.0, d?.up ?: 0, d?.down ?: 0, true, ridePhone.orEmpty())
-        } else { rideDriver = null; ridePhone = null }
+                pos?.let { round1(Geo.distanceKm(it, t.pickup)) } ?: 0.0, d?.up ?: 0, d?.down ?: 0, true, ridePhone.orEmpty(), at = drvAt)
+        } else { rideDriver = null; ridePhone = null; drvAt = null }
         val eta = if (st in setOf(RideStatus.MATCHED, RideStatus.ARRIVED)) pos?.let { max(1, (Geo.distanceKm(it, t.pickup) * 2.5).roundToInt()) } ?: (prev?.etaMin ?: 0) else 0
         val progress = when {
             st == RideStatus.IN_RIDE && pos != null -> (1 - Geo.distanceKm(pos, t.drop) / t.km.coerceAtLeast(0.1)).toFloat().coerceIn(0f, 1f)
             st == RideStatus.COMPLETED || st == RideStatus.PAID -> 1f
             else -> prev?.progress ?: 0f }
-        _ride.value = Ride(t.id, kind, placeOf(t), t.fare, st, t.pin, driver, dx, dy, eta, progress, t.paidWith ?: prev?.paidWith, prev?.reason, prev?.signature ?: "")
+        _ride.value = Ride(t.id, kind, placeOf(t), t.fare, st, t.pin, driver, dx, dy, eta, progress, t.paidWith ?: prev?.paidWith, prev?.reason, prev?.signature ?: "", driverAt = drvAt)
         if (st == RideStatus.SEARCHING && prev != null && prev.status != RideStatus.SEARCHING) startNoDriverTimer(t.id)
         if (st in setOf(RideStatus.PAID, RideStatus.CANCELLED, RideStatus.NO_DRIVER)) stopFollowingRide()
     }
@@ -305,7 +305,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     suspend fun refreshDrivers() { runCatching { Backend.onlineDriversNear(here, 10_000) }.onSuccess { rows -> _drivers.value = rows.mapNotNull { r ->
         val kind = runCatching { VehicleKind.valueOf(r.kind) }.getOrNull() ?: return@mapNotNull null
         val (x, y) = Geo.toPercent(LatLng(r.lat, r.lng))
-        Driver(r.profileId, r.name.ifBlank { "Rider" }, kind, r.plate, r.model, x, y, round1(Geo.distanceKm(here, LatLng(r.lat, r.lng))), r.up, r.down, true) } } }
+        Driver(r.profileId, r.name.ifBlank { "Rider" }, kind, r.plate, r.model, x, y, round1(Geo.distanceKm(here, LatLng(r.lat, r.lng))), r.up, r.down, true, at = LatLng(r.lat, r.lng)) } } }
     /** Call from a screen that shows the map (DisposableEffect) to poll faster while it is visible. */
     fun mapShown() { mapViewers++ }
     fun mapHidden() { mapViewers = max(0, mapViewers - 1) }

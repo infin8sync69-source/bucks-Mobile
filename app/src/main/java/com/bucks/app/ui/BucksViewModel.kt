@@ -49,6 +49,8 @@ data class UiState(
     val syncStatus: SyncStatus = SyncStatus.SYNCED, val lastSynced: String = "Just now", val devices: List<LinkedDevice> = emptyList(),
     val call: CallState? = null,
     val me: LatLng? = null, val meX: Float = Seed.ME_X, val meY: Float = Seed.ME_Y, val locationGranted: Boolean = false, val mockLocation: Boolean = false,
+    /** Street-level name of where I am ("12th Main, Indiranagar"), looked up from the map; null until known or offline. */
+    val hereLabel: String? = null,
     /** Cloud builds: whether dispatch presence says I'm online with a checked vehicle ([Dispatch.online]). Null in demo builds, where the local vehicle decides. */
     val dispatchOnline: Boolean? = null,
 ) {
@@ -203,7 +205,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
 
     // ---------- location ----------
     fun onLocation(p: LatLng, mocked: Boolean) { social.here = p; val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.")
-        if (dispatch.enabled) dispatch.driverMoved(p) }
+        if (dispatch.enabled) dispatch.driverMoved(p)
+        // Name the pick-up point from the map, again only after moving ~250 m (the lookup service is shared and free).
+        if (labelledAt?.let { Geo.distanceKm(it, p) > 0.25 } != false) { labelledAt = p
+            viewModelScope.launch { MapServices.label(p)?.let { l -> if (s.me == p) _s.update { it.copy(hereLabel = l) } } } } }
+    private var labelledAt: LatLng? = null
     fun onLocationDenied() = _s.update { it.copy(locationGranted = false) }
     val mePos: LatLng get() = s.me ?: Geo.fromPercent(s.meX, s.meY)
 
@@ -234,7 +240,13 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         p.id.startsWith("biz-me-") -> s.businesses.firstOrNull { "biz-me-${it.name.lowercase()}" == p.id }?.online ?: false
         else -> true }
     fun toggleSavedPlace(name: String) = _s.update { it.copy(savedPlaces = if (name in it.savedPlaces) it.savedPlaces - name else it.savedPlaces + name) }
-    fun chooseDestAt(p: LatLng) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(rideDest = Place("Near ${Geo.nearestArea(p)}", x, y, (Geo.distanceKm(mePos, p) * 10).roundToInt() / 10.0, at = p)) } }
+    /** A point dropped on the map: named from the map's address data once it answers ("Pinned location" until then). */
+    fun chooseDestAt(p: LatLng) { chooseDestPlace("Pinned location", p)
+        viewModelScope.launch { MapServices.label(p)?.let { l -> _s.update { u -> if (u.rideDest?.at == p) u.copy(rideDest = u.rideDest.copy(name = l)) else u } } } }
+    /** A searched place (MapServices.search) or a pinned point. The distance is straight-line until the road route arrives ([setDestKm]). */
+    fun chooseDestPlace(name: String, p: LatLng) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(rideDest = Place(name, x, y, (Geo.distanceKm(mePos, p) * 10).roundToInt() / 10.0, at = p)) } }
+    /** The road distance for the chosen destination, so the fare follows the roads rather than a straight line. */
+    fun setDestKm(km: Double) { if (km > 0) _s.update { u -> u.rideDest?.let { d -> if (d.km != km) u.copy(rideDest = d.copy(km = km)) else u } ?: u } }
     fun isAgentQuery(q: String): Boolean { val l = q.lowercase(); return Regex("\\b(bike|scooter|taxi|cab|auto|ride|car|compare|cheapest|best|sort|my orders|my rides|history|post a request|go online|become|provider|pro profile|yes|confirm|cancel|show the map|book|take me|drop me)\\b").containsMatchIn(l) }
 
     /** Every typed or spoken command enters here. */
@@ -343,7 +355,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             val me = s.me ?: run { toast("Turn on location so your rider can find your pick-up point."); return }
             // The real point the rider chose; x/y are clamped to the drawn map, so a pick beyond its edge would move the drop.
             val to = dest.at ?: Geo.PLACES[dest.name] ?: Geo.fromPercent(dest.x, dest.y)
-            dispatch.requestRide(s.rideKind, me, s.user?.area?.ifBlank { null } ?: Geo.nearestArea(me), dest, to, fare(s.rideKind, dest.km)); return }
+            dispatch.requestRide(s.rideKind, me, s.hereLabel ?: s.user?.area?.ifBlank { null } ?: Geo.nearestArea(me), dest, to, fare(s.rideKind, dest.km)); return }
         val dest = s.rideDest ?: return; val k = s.rideKind; val id = "ride${System.currentTimeMillis()}"; val f = fare(k, dest.km)
         val ride = Ride(id, k, dest, f, RideStatus.SEARCHING, (1000 + Random.nextInt(9000)).toString(), signature = sign(Identity.txnPayload("ride", id, s.user?.id ?: "", "", f, System.currentTimeMillis())))
         _s.update { it.copy(ride = ride) }; navTo(Routes.SEARCHING)

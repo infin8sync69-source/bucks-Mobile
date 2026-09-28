@@ -40,7 +40,9 @@ data class Provider(
 data class Driver(
     val id: String, val name: String, val vehicle: VehicleKind, val plate: String, val model: String,
     val x: Float, val y: Float, val distanceKm: Double, val up: Int, val down: Int, val online: Boolean, val phone: String = "",
-) { val trust get() = Trust(up, down); val pos: LatLng get() = Geo.fromPercent(x, y) }
+    /** Real position (cloud builds). x/y are the demo's Bengaluru grid, which clamps anything outside it to its edge. */
+    val at: LatLng? = null,
+) { val trust get() = Trust(up, down); val pos: LatLng get() = at ?: Geo.fromPercent(x, y) }
 
 data class Post(
     val id: String, val who: String, val ago: String, val text: String,
@@ -82,6 +84,8 @@ data class Ride(
     val id: String, val kind: VehicleKind, val dest: Place, val fare: Int, val status: RideStatus,
     val pin: String, val driver: Driver? = null, val driverX: Float = 0f, val driverY: Float = 0f,
     val etaMin: Int = 0, val progress: Float = 0f, val paidWith: String? = null, val reason: String? = null, val signature: String = "",
+    /** Where the driver really is (cloud builds); driverX/driverY stay for the demo's simulated drive. */
+    val driverAt: LatLng? = null,
 )
 
 /** DONE = collect payment; RATE = rate the customer. */

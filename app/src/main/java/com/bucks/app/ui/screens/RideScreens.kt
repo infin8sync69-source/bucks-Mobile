@@ -59,24 +59,34 @@ fun DestinationScreen(vm: BucksViewModel, onBack: () -> Unit, onChosen: () -> Un
                 Muted("Drag the map to place the pin", Modifier.padding(bottom = 10.dp)); DarkButton("Set destination here", enabled = center != null) { center?.let { vm.chooseDestAt(it); picked = s.rideDest?.name; onMap = false; onChosen() } } } }
     }; return }
     val places = Geo.PLACES.keys.filter { it.contains(f, ignoreCase = true) }
+    // Anywhere in the map's address data, nearest first; the built-in list above stays for offline and quick picks.
+    var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var searching by remember { mutableStateOf(false) }
+    var pickedHit by remember { mutableStateOf<MapServices.PlaceHit?>(null) }
+    LaunchedEffect(f) { if (f.trim().length < 3 || f == picked) { hits = emptyList(); return@LaunchedEffect }; kotlinx.coroutines.delay(350); searching = true; hits = MapServices.search(f, me); searching = false }
     Column(Modifier.fillMaxSize()) {
         IconButton(onBack, Modifier.padding(8.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
         Column(Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 14.dp, vertical = 6.dp)) {
-            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.status.good)); Text(s.user?.area?.let { "Current location · $it" } ?: "Current location", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Rounded.MyLocation, "Using current location", Modifier.size(18.dp)) }
+            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.status.good)); Text((s.hereLabel ?: s.user?.area)?.let { "Current location · $it" } ?: "Current location", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Rounded.MyLocation, "Using current location", Modifier.size(18.dp)) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.status.bad))
-                BasicTextField(f, { f = it; picked = null }, Modifier.weight(1f).padding(start = 12.dp), singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                BasicTextField(f, { f = it; picked = null; pickedHit = null }, Modifier.weight(1f).padding(start = 12.dp), singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     decorationBox = { inner -> Box { if (f.isEmpty()) Muted("Enter destination"); inner() } }) }
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            Text(if (f.isBlank()) "Frequently visited" else "Matches", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
-            places.forEach { name -> PlaceRow(name, Geo.distanceKm(me, Geo.PLACES.getValue(name)), saved = name in s.savedPlaces, selected = picked == name, onStar = { vm.toggleSavedPlace(name) }) { picked = name; f = name } }
-            if (places.isEmpty()) Muted("No place with that name. Try another spelling, or pick it on the map.", Modifier.padding(vertical = 12.dp))
+            if (hits.isNotEmpty() || searching) {
+                Text("Places", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
+                if (searching && hits.isEmpty()) Muted("Searching the map…", Modifier.padding(vertical = 8.dp))
+                hits.forEach { h -> HitRow(h, Geo.distanceKm(me, h.at), selected = pickedHit == h) { pickedHit = h; picked = null } }
+            }
+            if (places.isNotEmpty()) Text(if (f.isBlank()) "Frequently visited" else "Matches", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
+            places.forEach { name -> PlaceRow(name, Geo.distanceKm(me, Geo.PLACES.getValue(name)), saved = name in s.savedPlaces, selected = picked == name, onStar = { vm.toggleSavedPlace(name) }) { picked = name; pickedHit = null; f = name } }
+            if (places.isEmpty() && hits.isEmpty() && !searching && f.trim().length >= 3) Muted("No place with that name. Try another spelling, or pick it on the map.", Modifier.padding(vertical = 12.dp))
             Row(Modifier.fillMaxWidth().clickable { savedOpen = !savedOpen }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Star, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary); Text("Saved places", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 10.dp)); Icon(if (savedOpen) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null) }
             if (savedOpen) { if (s.savedPlaces.isEmpty()) Muted("Star a place to save it.", Modifier.padding(bottom = 8.dp)); s.savedPlaces.forEach { name -> Geo.PLACES[name]?.let { ll -> PlaceRow(name, Geo.distanceKm(me, ll), saved = true, selected = picked == name, onStar = { vm.toggleSavedPlace(name) }) { picked = name; f = name } } } }
         }
         Row(Modifier.align(Alignment.CenterHorizontally).padding(vertical = 10.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { onMap = true }.padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" Select on map") }
-        DarkButton("Confirm", Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp), enabled = picked != null) { picked?.let { vm.chooseDest(it); onChosen() } }
+        DarkButton("Confirm", Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp), enabled = picked != null || pickedHit != null) {
+            pickedHit?.let { vm.chooseDestPlace(it.name, it.at); onChosen() } ?: picked?.let { vm.chooseDest(it); onChosen() } }
     }
 }
 
@@ -90,16 +100,29 @@ private fun PlaceRow(name: String, km: Double, saved: Boolean, selected: Boolean
     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 }
 
-private fun Place.latLng() = Geo.fromPercent(x, y)
+@Composable
+private fun HitRow(h: MapServices.PlaceHit, km: Double, selected: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent).clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.LocationOn, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) { Text(h.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(listOf(h.detail, "${"%.1f".format(km)} km away").filter { it.isNotBlank() }.joinToString(" · "), maxLines = 1) }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+}
+
+/** The real point when known (searched, pinned or cloud); the demo's grid position otherwise. */
+private fun Place.latLng() = at ?: Geo.fromPercent(x, y)
 private val HHMM = java.text.SimpleDateFormat("h:mma", java.util.Locale.ENGLISH)
 
 @Composable
 fun ChooseRideScreen(vm: BucksViewModel, onBack: () -> Unit, onConfirm: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState()
     val dest = s.rideDest ?: return; val me = vm.mePos
+    // The road route: its line on the map, and its distance for the fare (straight line until it arrives or when offline).
+    val road = rememberRoadRoute(me, dest.latLng())
+    LaunchedEffect(road) { road?.let { vm.setDestKm(it.km) } }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MeColor, true), pinAt(dest.latLng(), dest.name, MaterialTheme.colorScheme.primary)) + drivers.filter { it.online }.map { MapPin(it.x, it.y, "", MaterialTheme.status.good) }, route = listOf(me, dest.latLng()))
+            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MeColor, true), pinAt(dest.latLng(), dest.name, MaterialTheme.colorScheme.primary)) + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }, route = road?.points ?: listOf(me, dest.latLng()))
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet {
             Box(Modifier.fillMaxWidth()) { IconButton(onBack, Modifier.align(Alignment.CenterStart).size(32.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }; Text("Choose vehicle", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Center)) }
@@ -137,7 +160,11 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
     val n = vm.onlineCount(r.kind)
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
-        SimMap(Modifier.weight(1f).fillMaxWidth(), listOf(MapPin(s.meX, s.meY, "You", MeColor, true), MapPin(r.dest.x, r.dest.y, r.dest.name, MaterialTheme.status.bad)) + drivers.filter { it.online && it.vehicle == r.kind }.map { MapPin(it.x, it.y, "", MaterialTheme.colorScheme.primary) }, radiusAt = Offset(s.meX, s.meY))
+        // The 5 km circle the request rings within, with the riders of this kind that are in it.
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.mePos, "You", MeColor, true), pinAt(r.dest.latLng(), r.dest.name, MaterialTheme.status.bad)) + drivers.filter { it.online && it.vehicle == r.kind }.map { pinAt(it.pos, "", MaterialTheme.colorScheme.primary) },
+                zoom = 13.0, circle = vm.mePos to 5000.0)
+            MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet {
             if (r.status == RideStatus.SEARCHING) {
                 Row(verticalAlignment = Alignment.CenterVertically) { PulseRings(Modifier.size(56.dp)) { Icon(r.kind.icon, null, Modifier.size(26.dp).breathe(amount = 0.08f), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 12.dp)) { Text("Ringing $n rider${if (n > 1) "s" else ""}", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · within 5 km · first to accept gets the ride") } }
@@ -154,9 +181,9 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
 fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
     val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }; val ctx = LocalContext.current
-    val me = vm.mePos; val car = Geo.fromPercent(r.driverX, r.driverY)
+    val me = vm.mePos; val car = r.driverAt ?: Geo.fromPercent(r.driverX, r.driverY); val road = rememberRoadRoute(car, me)
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f).fillMaxWidth()) { BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MaterialTheme.colorScheme.primary, true), pinAt(car, d.name.substringBefore(' '), MaterialTheme.status.good)), zoom = 15.0, route = listOf(car, me)); MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
+        Box(Modifier.weight(1f).fillMaxWidth()) { BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MaterialTheme.colorScheme.primary, true), pinAt(car, d.name.substringBefore(' '), MaterialTheme.status.good)), zoom = 15.0, route = road?.points ?: listOf(car, me)); MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet { Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
             // The headline slides to the new status so "your rider is here" can't be missed.
             AnimatedContent(if (arrived) "Your rider is here" else "Pick-up in ${r.etaMin} min", Modifier.align(Alignment.CenterHorizontally), transitionSpec = {
@@ -194,7 +221,10 @@ fun InRideScreen(vm: BucksViewModel, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return; val ctx = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
-        SimMap(Modifier.weight(1f).fillMaxWidth(), listOf(MapPin(r.dest.x, r.dest.y, r.dest.name, MaterialTheme.status.bad), MapPin(r.driverX, r.driverY, "You", MaterialTheme.status.good, true)), route = Offset(r.driverX, r.driverY) to Offset(r.dest.x, r.dest.y))
+        val car = r.driverAt ?: Geo.fromPercent(r.driverX, r.driverY); val road = rememberRoadRoute(car, r.dest.latLng())
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(r.dest.latLng(), r.dest.name, MaterialTheme.status.bad), pinAt(car, "You", MaterialTheme.status.good, true)), zoom = 15.0, route = road?.points ?: listOf(car, r.dest.latLng()))
+            MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet {
             Text("On the way to ${r.dest.name}", style = MaterialTheme.typography.titleLarge)
             Muted("${"%.1f".format((1 - r.progress) * r.dest.km)} km left · ${d.name} · ${d.plate}")

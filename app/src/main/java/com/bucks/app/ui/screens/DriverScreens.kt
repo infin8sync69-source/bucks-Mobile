@@ -151,8 +151,11 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
         else -> Triple(pickup, drop, lerp(pickup, drop, dr.progress)) }
     Column(Modifier.fillMaxSize().imePadding()) {
         if (dr.status != DriverRideStatus.DONE) Box(Modifier.weight(1f).fillMaxWidth()) {
-            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(car, "You", MeColor, true), pinAt(to, "", MaterialTheme.colorScheme.primary)), route = if (from != to && car != to) listOf(car, to) else emptyList())
+            val road = rememberRoadRoute(car.takeIf { from != to && car != to }, to)
+            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(car, "You", MeColor, true), pinAt(to, "", MaterialTheme.colorScheme.primary)), route = if (from != to && car != to) road?.points ?: listOf(car, to) else emptyList())
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp))
+            // Turn-by-turn in the phone's own navigation app (Google Maps, or any app that handles a map link).
+            if (from != to) SmallButton(road?.let { "Navigate · ${it.minutes} min" } ?: "Navigate", Modifier.align(Alignment.TopEnd).padding(12.dp)) { openNavigation(ctx, to) }
         }
         Surface(Modifier.fillMaxWidth().then(if (dr.status == DriverRideStatus.DONE) Modifier.weight(1f) else Modifier), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
             Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -268,4 +271,12 @@ fun MessageBar(hint: String, onCall: () -> Unit, onMessage: () -> Unit) = Row(Mo
     Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onCall), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Call, "Call", Modifier.size(20.dp)) }
     Row(Modifier.weight(1f).padding(start = 10.dp).height(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onMessage).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Muted(hint, Modifier.weight(1f)); Icon(Icons.AutoMirrored.Rounded.Send, "Message", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+}
+
+/** Opens driving directions to [to] in Google Maps, else in any app that takes a map link, else says so. */
+fun openNavigation(ctx: android.content.Context, to: LatLng) {
+    val nav = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q=${to.lat},${to.lng}&mode=d")).setPackage("com.google.android.apps.maps")
+    val any = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:${to.lat},${to.lng}?q=${to.lat},${to.lng}"))
+    runCatching { ctx.startActivity(nav) }.recoverCatching { ctx.startActivity(any) }
+        .onFailure { android.widget.Toast.makeText(ctx, "Install Google Maps to get turn-by-turn directions.", android.widget.Toast.LENGTH_SHORT).show() }
 }

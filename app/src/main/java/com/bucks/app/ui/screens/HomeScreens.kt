@@ -74,7 +74,8 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     run {
         // Provider pins come from the demo seed only (cloud sign-in clears it); cloud listings have no map position here, so the map shows me and the riders online.
         val shopPins = providers.filter { it.scope == Scope.LOCAL }.take(6)
-        val pins = listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { MapPin(it.x, it.y, "", MaterialTheme.status.good) }
+        // Me and online riders at their real positions; the demo's sample shops keep their spots on the Bengaluru grid.
+        val pins = listOf(pinAt(vm.mePos, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }
         // Same content on phones (in the sheet) and wide screens (in the side panel): the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
             SearchBar("Where to, or what do you need?", onClick = onSearch)
@@ -171,7 +172,7 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // Natural height up to ~60% of the screen, and never tall enough (with the footer) to reach the top bar on short screens.
         val sheetMax = (maxHeight * 0.6f).coerceAtMost(maxHeight - 120.dp).coerceAtLeast(0.dp)
-        BucksMap(Modifier.fillMaxSize(), listOf(MapPin(s.meX, s.meY, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) })
+        BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.mePos, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) })
         BucksTopBar(onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         // Same footer as Home (legend + OSM attribution) sitting on the map just above the sheet; this map has no rider pins.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
