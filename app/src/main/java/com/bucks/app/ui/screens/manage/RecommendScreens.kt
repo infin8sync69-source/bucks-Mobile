@@ -42,26 +42,26 @@ fun RecommendShowScreen(vm: BucksViewModel, listingId: String, onBack: () -> Uni
             if (l != null && l.status == "LIVE") {
                 Spacer(Modifier.height(24.dp)); Avatar(icon = Icons.Rounded.Check, size = 72)
                 Text("You're live", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 14.dp))
-                Muted("$n neighbours recommended ${l.title}. Customers nearby can find it now. Switch it on from My listings to start taking work.", Modifier.padding(top = 6.dp), TextAlign.Center)
+                Muted("$n people nearby recommended ${l.title}. Customers nearby can find it now. Switch it on from My listings to start taking work.", Modifier.padding(top = 6.dp), TextAlign.Center)
                 SmallButton("Back to my listings", Modifier.padding(top = 20.dp), onClick = onBack)
             } else {
-                Muted("Ask a neighbour to open Bucks and scan this", Modifier.padding(top = 4.dp, bottom = 16.dp), TextAlign.Center)
+                Muted("Ask someone nearby to open Bucks and scan this", Modifier.padding(top = 4.dp, bottom = 16.dp), TextAlign.Center)
                 Box(Modifier.size(260.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(10.dp), contentAlignment = Alignment.Center) {
                     if (qr != null) Image(qr.asImageBitmap(), "Recommendation QR code", Modifier.fillMaxSize()) else BucksLoader(Modifier.align(Alignment.Center))
                 }
                 Text("$n of $NEEDED", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 16.dp))
-                Muted(if (n == 0) "No recommendations yet" else "neighbours have recommended you")
+                Muted(if (n == 0) "No recommendations yet" else "people nearby have recommended you")
                 LinearProgressIndicator(progress = { (n.toFloat() / NEEDED).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(8.dp).clip(CircleShape))
                 Muted("The code changes every 90 seconds. Keep this screen open while they scan; the count updates on its own.", Modifier.padding(top = 10.dp), TextAlign.Center)
                 Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SmallButton("Share how to help", Modifier.weight(1f)) {
-                        shareText(ctx, "I've listed ${l?.title ?: "my work"} on Bucks and need $NEEDED neighbours to recommend it before it goes live. If you live within 3 km and have had Bucks for over 2 weeks, come by and scan the code on my phone: open Bucks, My listings, Recommend a neighbour. Thank you!")
+                        shareText(ctx, "I've listed ${l?.title ?: "my work"} on Bucks and need $NEEDED people nearby to recommend it before it goes live. If you live within 3 km and have had Bucks for over 2 weeks, come by and scan the code on my phone: open Bucks, My listings, Recommend a local. Thank you!")
                     }
                     SmallButton("New code", Modifier.weight(0.7f), tonal = true) { m.refreshToken(listingId) }
                 }
                 SectionTitle("Who can recommend you", Modifier.padding(top = 24.dp, bottom = 4.dp))
                 RecommendRules()
-                Notice("Ask regular customers and neighbours who know your work. When $NEEDED have scanned, the listing goes live on its own and you'll see it under My listings.", Modifier.padding(top = 12.dp))
+                Notice("Ask regular customers and people nearby who know your work. When $NEEDED have scanned, the listing goes live on its own and you'll see it under My listings.", Modifier.padding(top = 12.dp))
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -87,7 +87,7 @@ fun RecommendScanScreen(vm: BucksViewModel, onBack: () -> Unit) {
         }, onError = { vm.toast(it) })
     }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Recommend a neighbour", onBack = onBack)
+        BucksTopBar("Recommend a local", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(icon = Icons.Rounded.QrCodeScanner, size = 72)

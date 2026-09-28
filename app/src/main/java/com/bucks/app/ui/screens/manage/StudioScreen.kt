@@ -106,7 +106,7 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
                             }
                             BucksCard(Modifier.weight(1f), onClick = onScan) {
                                 Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.primary)
-                                Text("Recommend a neighbour", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Scan their code in person.")
+                                Text("Recommend a local", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Scan their code in person.")
                             }
                         }
                     }
@@ -129,7 +129,7 @@ private fun StudioEmpty(filter: StudioFilter, onCreate: (String) -> Unit) = Buck
         StudioFilter.SKILL -> Triple("No skill profile yet", "Show what you do, what you charge and photos of your work. Neighbours request you directly.", "SKILL")
         StudioFilter.ASSET -> Triple("No assets listed", "Sell, rent or lease a house, flat, plot, shop, vehicle or equipment to people nearby.", "ASSET")
         StudioFilter.DRIVING -> Triple("Not driving yet", "Add your vehicle with its documents, then your driver profile, to take rides and deliveries.", "VEHICLE")
-        StudioFilter.ALL -> Triple("Start your professional space", "Pick what you want to offer. Every listing goes live once neighbours recommend it in person and Bucks checks any documents it needs.", "")
+        StudioFilter.ALL -> Triple("Start your professional space", "Pick what you want to offer. Every listing goes live once people nearby recommend it in person and Bucks checks any documents it needs.", "")
     }
     Text(title, style = MaterialTheme.typography.titleMedium); Muted(text, Modifier.padding(top = 4.dp))
     if (kind.isNotBlank()) PrimaryButton("Create", Modifier.padding(top = 14.dp)) { onCreate(kind) }

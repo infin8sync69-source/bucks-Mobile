@@ -36,7 +36,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     val items: SnapshotStateMap<String, List<ItemRow>> = mutableStateMapOf()
     val members: SnapshotStateMap<String, List<MemberRow>> = mutableStateMapOf()
     val vehicleMembers: SnapshotStateMap<String, List<VehicleMemberRow>> = mutableStateMapOf()
-    /** listing id -> how many neighbours have recommended it. */
+    /** listing id -> how many people nearby have recommended it. */
     val recommendations: SnapshotStateMap<String, Int> = mutableStateMapOf()
     /** listing id -> its own posts (the listing's feed), newest first. */
     val posts: SnapshotStateMap<String, List<PostRow>> = mutableStateMapOf()
@@ -127,10 +127,10 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
         val path = "$listingId/${photo.objectName()}"; Backend.upload("listing-media", path, photo.bytes); return Backend.publicUrl("listing-media", path)
     }
     private fun savedMessage(kind: String, title: String) = when (kind) {
-        "BUSINESS" -> "$title is saved. It goes live once $NEEDED neighbours recommend it."
-        "SKILL" -> "$title is saved. It goes live once $NEEDED neighbours recommend you."
-        "ASSET" -> "$title is saved. It goes live once $NEEDED neighbours vouch for it and Bucks checks any documents it needs."
-        else -> "Your driver profile is saved. It goes live once $NEEDED neighbours recommend you."
+        "BUSINESS" -> "$title is saved. It goes live once $NEEDED people nearby recommend it."
+        "SKILL" -> "$title is saved. It goes live once $NEEDED people nearby recommend you."
+        "ASSET" -> "$title is saved. It goes live once $NEEDED people nearby vouch for it and Bucks checks any documents it needs."
+        else -> "Your driver profile is saved. It goes live once $NEEDED people nearby recommend you."
     }
     /**
      * Creates a listing at [at], a real location fix (the form only offers Save once it has one; the map's default centre

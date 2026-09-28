@@ -33,14 +33,17 @@ object AppUpdate {
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The newest release of this branch that is newer than the installed build, or null. Throws on network errors. */
-    suspend fun latest(): Release? = withContext(Dispatchers.IO) {
+    suspend fun latest(): Release? = releases().filter { it.build > currentBuild }.maxByOrNull { it.build }
+    /** The newest published build of this branch, installed or not (what an invite link points to). Throws on network errors. */
+    suspend fun newest(): Release? = releases().maxByOrNull { it.build }
+    private suspend fun releases(): List<Release> = withContext(Dispatchers.IO) {
         val c = URL("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases?per_page=30").openConnection() as HttpURLConnection
         c.connectTimeout = 10_000; c.readTimeout = 15_000
         c.setRequestProperty("Accept", "application/vnd.github+json"); c.setRequestProperty("User-Agent", "Bucks-Android")
         try {
             if (c.responseCode != 200) throw IOException("GitHub answered ${c.responseCode}")
             val all = json.parseToJsonElement(c.inputStream.bufferedReader().use { it.readText() }) as JsonArray
-            all.mapNotNull { e -> (e as? JsonObject)?.let(::parse) }.filter { it.build > currentBuild }.maxByOrNull { it.build }
+            all.mapNotNull { e -> (e as? JsonObject)?.let(::parse) }
         } finally { c.disconnect() }
     }
 

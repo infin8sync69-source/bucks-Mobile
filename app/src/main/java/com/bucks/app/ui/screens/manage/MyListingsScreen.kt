@@ -57,8 +57,8 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
             if (rows.isNotEmpty() && kind != "DRIVER") item { GhostButton(if (kind == "BUSINESS") "Add another business" else "Add another skill") { onEdit(kind, null) } }
             if (m.loaded) item {
                 BucksCard(tint = true) {
-                    Text("Recommend a neighbour", style = MaterialTheme.typography.titleMedium)
-                    Muted("Know a shop, driver or worker nearby who does good work? Scan the code on their phone and help them go live. $NEEDED recommendations from neighbours take a listing live.", Modifier.padding(top = 4.dp))
+                    Text("Recommend a local", style = MaterialTheme.typography.titleMedium)
+                    Muted("Know a shop, driver or worker nearby who does good work? Scan the code on their phone and help them go live. $NEEDED recommendations from people nearby take a listing live.", Modifier.padding(top = 4.dp))
                     if (onScan != null) SmallButton("Scan their code", Modifier.padding(top = 10.dp), onClick = onScan)
                 }
             }
@@ -73,17 +73,17 @@ private fun EmptyListings(kind: String, onCreate: () -> Unit) {
         when (kind) {
             "BUSINESS" -> {
                 Text("No business yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Add your shop, restaurant, pharmacy or any business. Put your products in with prices so customers nearby can order. It goes live once $NEEDED neighbours recommend it by scanning your QR code in person.", Modifier.padding(top = 4.dp))
+                Muted("Add your shop, restaurant, pharmacy or any business. Put your products in with prices so customers nearby can order. It goes live once $NEEDED people nearby recommend it by scanning your QR code in person.", Modifier.padding(top = 4.dp))
                 PrimaryButton("Add a business", Modifier.padding(top = 14.dp), onClick = onCreate)
             }
             "SKILL" -> {
                 Text("No skills yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Add what you do: plumber, electrician, tutor, doctor, carpenter, designer. Each skill is its own listing with services and prices. It goes live once $NEEDED neighbours recommend you.", Modifier.padding(top = 4.dp))
+                Muted("Add what you do: plumber, electrician, tutor, doctor, carpenter, designer. Each skill is its own listing with services and prices. It goes live once $NEEDED people nearby recommend you.", Modifier.padding(top = 4.dp))
                 PrimaryButton("Add a skill", Modifier.padding(top = 14.dp), onClick = onCreate)
             }
             else -> {
                 Text("No driver profile yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Create your driver profile to take auto and cab rides or bike deliveries. You have one driver profile; add the vehicles you drive under Vehicles. It goes live once $NEEDED neighbours recommend you.", Modifier.padding(top = 4.dp))
+                Muted("Create your driver profile to take auto and cab rides or bike deliveries. You have one driver profile; add the vehicles you drive under Vehicles. It goes live once $NEEDED people nearby recommend you.", Modifier.padding(top = 4.dp))
                 PrimaryButton("Create your driver profile", Modifier.padding(top = 14.dp), onClick = onCreate)
             }
         }
@@ -109,7 +109,7 @@ private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, 
         }
         when (l.status) {
             "PENDING" -> {
-                Muted(if (recs == 0) "Not visible to customers yet. Ask $NEEDED neighbours who know your work to scan your code." else "${(NEEDED - recs).coerceAtLeast(0)} more neighbours need to scan your code before customers can find you.", Modifier.padding(top = 10.dp))
+                Muted(if (recs == 0) "Not visible to customers yet. Ask $NEEDED people nearby who know your work to scan your code." else "${(NEEDED - recs).coerceAtLeast(0)} more people nearby need to scan your code before customers can find you.", Modifier.padding(top = 10.dp))
                 if (manage) PrimaryButton("Get recommended", Modifier.padding(top = 10.dp), onClick = onRecommend)
             }
             "LIVE" -> Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {

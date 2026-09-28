@@ -84,7 +84,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
             Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(l.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    if (l.status == "LIVE") { Spacer(Modifier.width(6.dp)); Icon(Icons.Rounded.Verified, "Verified by neighbours", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary) }
+                    if (l.status == "LIVE") { Spacer(Modifier.width(6.dp)); Icon(Icons.Rounded.Verified, "Verified by locals", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary) }
                 }
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     KindBadge(l.kind)
@@ -149,7 +149,7 @@ private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Uni
                 id in d.missing -> {
                     Icon(Icons.Rounded.SearchOff, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("This listing isn't available", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-                    Muted("It may have been removed, or it isn't live yet. A listing goes live once 7 neighbours recommend it in person.", Modifier.padding(top = 6.dp), align = TextAlign.Center)
+                    Muted("It may have been removed, or it isn't live yet. A listing goes live once 7 people nearby recommend it in person.", Modifier.padding(top = 6.dp), align = TextAlign.Center)
                     SmallButton("Try again", Modifier.padding(top = 14.dp), tonal = true) { d.open(id) }
                     TextButton(onBack) { Text("Back") }
                 }
@@ -358,7 +358,7 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
         // Checked documents: a tick for each, with the number only where the law wants customers to see it (FSSAI, GST, RERA).
         // The files themselves are private to the owner and Bucks.
         badges.forEach { b -> AboutRow(Icons.Rounded.VerifiedUser, b.label, listOfNotNull(b.number.ifBlank { null }, "checked by Bucks", b.expiresOn?.let { "valid till ${humanDate(it)}" }).joinToString(" · ")) }
-        AboutRow(Icons.Rounded.Verified, "Status", when (l.status) { "LIVE" -> "Live: ${p.recommendations} neighbours recommended it in person"; "PENDING" -> "Not live yet: ${p.recommendations} of ${com.bucks.app.ui.MyListings.NEEDED} recommendations"; else -> "Suspended" })
+        AboutRow(Icons.Rounded.Verified, "Status", when (l.status) { "LIVE" -> "Live: ${p.recommendations} people nearby recommended it in person"; "PENDING" -> "Not live yet: ${p.recommendations} of ${com.bucks.app.ui.MyListings.NEEDED} recommendations"; else -> "Suspended" })
     }
     if (p.similar.isNotEmpty()) {
         Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceContainer))

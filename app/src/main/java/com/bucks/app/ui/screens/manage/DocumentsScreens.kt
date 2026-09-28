@@ -78,7 +78,7 @@ fun ListingDocsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit)
                     l.status == "LIVE" -> "Keep required documents in date. Seven days after one expires, the listing pauses until a new one is checked."
                     l.status == "SUSPENDED" && l.complianceHold -> "A required document expired. Upload a new one; you go live again as soon as Bucks checks it."
                     l.status == "SUSPENDED" -> "Bucks suspended this listing. Contact support."
-                    else -> "Two things take it live: ${MyListingsNeeded} neighbours recommend it in person ($recs so far), and Bucks checks the required documents below ($checked of ${required.size} checked)."
+                    else -> "Two things take it live: ${MyListingsNeeded} people nearby recommend it in person ($recs so far), and Bucks checks the required documents below ($checked of ${required.size} checked)."
                 }, Modifier.padding(top = 4.dp))
             }
             Notice("Only you and Bucks staff can open these files. Customers see a \"checked by Bucks\" tick, plus the number for FSSAI, GST and RERA, which businesses are expected to show.")

@@ -164,7 +164,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                     Text("Go live", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); Muted("$done of ${steps.size} done")
                 }
                 LinearProgressIndicator(progress = { done.toFloat() / steps.size }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp).height(6.dp).clip(CircleShape))
-                Muted("Two things take it live: $NEEDED neighbours recommending it in person and Bucks checking any documents it needs. The rest makes people pick you.", Modifier.padding(bottom = 4.dp))
+                Muted("Two things take it live: $NEEDED people nearby recommending it in person and Bucks checking any documents it needs. The rest makes people pick you.", Modifier.padding(bottom = 4.dp))
                 steps.forEach { s -> GoLiveRow(s) { goTo(s.target) } }
             }
         }
@@ -412,7 +412,7 @@ private fun ReviewsManageTab(vm: BucksViewModel, l: ListingRow) {
         }
         item {
             BucksCard(tint = true) {
-                Text("$recs neighbour${if (recs == 1) "" else "s"} recommended you in person", style = MaterialTheme.typography.titleSmall)
+                Text("$recs ${if (recs == 1) "person" else "people"} nearby recommended you in person", style = MaterialTheme.typography.titleSmall)
                 Muted(if (l.status == "PENDING") "${(NEEDED - recs).coerceAtLeast(0)} more take you live. Show your code to people who know your work." else "Recommendations are how you went live. Reviews below come from completed orders and trips.")
             }
         }

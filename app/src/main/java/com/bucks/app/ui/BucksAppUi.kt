@@ -173,7 +173,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             DrawerItem(Icons.Rounded.MailOutline, if (m.pendingCount > 0) "Invites (${m.pendingCount})" else "Invites", current == Routes.INVITES) { closeMenu(); nav.navigate(Routes.INVITES) }
                             DrawerItem(Icons.Rounded.ShoppingBag, "My orders", current == Routes.MY_ORDERS) { closeMenu(); nav.navigate(Routes.MY_ORDERS) }
                             DrawerItem(Icons.Rounded.Work, "Jobs and applications", current == Routes.MY_APPLICATIONS) { closeMenu(); nav.navigate(Routes.MY_APPLICATIONS) }
-                            DrawerItem(Icons.Rounded.QrCodeScanner, "Recommend a neighbour", current == Routes.RECOMMEND_SCAN) { closeMenu(); nav.navigate(Routes.RECOMMEND_SCAN) }
+                            DrawerItem(Icons.Rounded.QrCodeScanner, "Recommend a local", current == Routes.RECOMMEND_SCAN) { closeMenu(); nav.navigate(Routes.RECOMMEND_SCAN) }
                         }
                     }
                     }
@@ -199,7 +199,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.OTP) { OtpScreen(vm, s.tempPhone, onBack = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.PROFILE) }, showToast = toast) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call) }
-                            composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { vm.discover.useService(null); nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query,
+                            composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { vm.discover.useService(null); nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onRecommend = { nav.navigate(Routes.RECOMMEND_SCAN) },
                                 // An open (or quiet) tile: taxi and auto book a ride of that kind, jobs open jobs near me, the rest search that service.
                                 onOpenService = { key -> when (key) {
                                     "TAXI" -> { vm.setRideKind(com.bucks.app.data.VehicleKind.CAB); ride() }

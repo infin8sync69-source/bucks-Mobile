@@ -112,7 +112,7 @@ internal fun goLiveSteps(l: ListingRow, items: List<ItemRow>?, compliance: List<
             else -> "${needs.size - verified - pending} required document${if (needs.size - verified - pending == 1) "" else "s"} to upload. Only Bucks sees the files."
         }, compliance != null && verified == needs.size, true, waiting = pending > 0 && verified + pending == needs.size, action = "Upload", target = "DOCS")
     }
-    steps += GoLiveStep("Get recommended", "$recs of $NEEDED neighbours have recommended you in person.", recs >= NEEDED, true, action = "Show code", target = "RECOMMEND")
+    steps += GoLiveStep("Get recommended", "$recs of $NEEDED people nearby have recommended you in person.", recs >= NEEDED, true, action = "Show code", target = "RECOMMEND")
     return steps
 }
 

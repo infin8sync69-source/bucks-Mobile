@@ -1,5 +1,18 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import com.bucks.app.ui.Invite
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,14 +26,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bucks.app.data.*
@@ -35,7 +46,6 @@ import androidx.compose.ui.semantics.semantics
 import com.bucks.app.ui.Role
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
-import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.data.DriverLocationService
 
 val MeColor = Color(0xFF1D4ED8)
@@ -130,8 +140,8 @@ private fun ServiceTile(def: ServiceDef, st: ServiceState?, index: Int, modifier
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceState?, onDismiss: () -> Unit, onList: () -> Unit) {
-    val cloud = vm.social.enabled
+private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceState?, onDismiss: () -> Unit, onList: () -> Unit, onRecommend: () -> Unit) {
+    val cloud = vm.social.enabled; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,7 +149,7 @@ private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceSta
                 Text(if (st?.state == "SOON" || !cloud) "${def.label} is coming soon" else "${def.label} isn't open near you yet", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 14.dp))
             }
             if (st != null && st.state == "LOCKED") {
-                Text("It opens here once ${st.minSupply} ${st.supplyNoun} within ${st.radiusKm} of you are on Bucks and checked.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
+                Text("Not enough ${st.supplyNoun} near you have joined Bucks and been recommended by locals yet. It opens once ${st.minSupply} within ${st.radiusKm} of you are live.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
                 val progress = if (st.minSupply == 0) 1f else (st.supply.toFloat() / st.minSupply).coerceIn(0f, 1f)
                 val shown by animateFloatAsState(progress, tween(Motion.LONG * 2, easing = Motion.Emphasized), label = "unlock")
                 LinearProgressIndicator(progress = { shown }, Modifier.fillMaxWidth().padding(top = 14.dp).height(8.dp).clip(CircleShape))
@@ -151,7 +161,14 @@ private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceSta
                 if (st?.mine == true) GhostButton("You'll be told when it opens · Stop", Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
                 else PrimaryButton("Notify me when it opens", Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Help it open: bring the people it needs onto Bucks, or vouch for one you know.
+            SectionTitle("Help it open here", Modifier.padding(top = 22.dp, bottom = 8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallButton("Invite to Bucks", Modifier.weight(1f), tonal = true) { Invite.share(ctx, scope, Invite.forService(def.label, st?.supplyNoun ?: def.label.lowercase())) }
+                if (cloud) SmallButton("Recommend a local", Modifier.weight(1f), tonal = true, onClick = onRecommend)
+            }
+            Muted("Know ${st?.supplyNoun ?: "someone who offers this"} nearby? Send them Bucks through WhatsApp or any app, then scan their code in person to recommend them.", Modifier.padding(top = 8.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Muted(def.joinPrompt, Modifier.weight(1f)); TextButton(onClick = onList) { Text(def.joinAction) }
             }
         }
@@ -160,7 +177,7 @@ private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceSta
 
 @Composable
 fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit,
-                   onOpenService: (String) -> Unit = {}, onListService: (String) -> Unit = {}) {
+                   onOpenService: (String) -> Unit = {}, onListService: (String) -> Unit = {}, onRecommend: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
     // Which services are open here: read when the screen opens and whenever I move a real distance (the counts are per place).
     // Without a real fix the map's default centre would stand in for "here", so nothing is checked until one arrives.
@@ -177,8 +194,30 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
         // Same footer as Home (legend + OSM attribution) sitting on the map just above the sheet; this map has no rider pins.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false, shops = shopPins.isNotEmpty())
-            Sheet(Modifier.heightIn(max = sheetMax)) { Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                Text("Services near you", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 14.dp))
+            // Drag the handle (or keep scrolling down past the top of the list) to fold the panel away and see the map; drag up or tap to open.
+            var folded by rememberSaveable { mutableStateOf(false) }
+            var pull by remember { mutableFloatStateOf(0f) }
+            val dragState = rememberDraggableState { d -> pull += d }
+            val foldOnPull = remember { object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset { if (available.y < 0) pull = 0f; return Offset.Zero }
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y > 0) { pull += available.y; if (pull > 160f) { folded = true; pull = 0f } }
+                    return Offset.Zero
+                }
+            } }
+            val open = SERVICE_CATALOG.count { vm.services.state(it.key)?.usable == true }
+            Surface(Modifier.fillMaxWidth().heightIn(max = sheetMax).animateContentSize(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
+              Column(Modifier.padding(horizontal = 20.dp).padding(bottom = if (folded) 12.dp else 16.dp)) {
+                Column(Modifier.fillMaxWidth().draggable(dragState, Orientation.Vertical, onDragStopped = { if (pull > 60f) folded = true else if (pull < -60f) folded = false; pull = 0f })
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { folded = !folded }.padding(top = 12.dp)) {
+                    Box(Modifier.align(Alignment.CenterHorizontally).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
+                    Row(Modifier.padding(top = 12.dp, bottom = if (folded) 0.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Services near you", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        if (folded && vm.social.enabled) Muted("$open of ${SERVICE_CATALOG.size} open", Modifier.padding(end = 6.dp))
+                        Icon(if (folded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, if (folded) "Show services" else "Hide services", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (!folded) Column(Modifier.weight(1f, fill = false).nestedScroll(foldOnPull).verticalScroll(rememberScrollState())) {
                 // Every service gets a tile, 5 per row (the last row padded so tiles keep their width). Locked ones open a sheet saying
                 // what unlocks them here; open ones go straight in; quiet ones go in with a word about nobody being online.
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { SERVICE_CATALOG.chunked(5).forEach { row ->
@@ -204,8 +243,9 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
                 FlowChips(Seed.SKILLS.take(18)) { onQuery(it.lowercase()) }
                 // Room under the last chip row so scrolling to the end never leaves it sliced by the sheet edge.
                 Spacer(Modifier.height(24.dp))
-            } }
+              } }
+            }
         }
     }
-    sheetFor?.let { key -> serviceDef(key)?.let { def -> ServiceLockSheet(vm, def, vm.services.state(key), onDismiss = { sheetFor = null }, onList = { sheetFor = null; onListService(key) }) } }
+    sheetFor?.let { key -> serviceDef(key)?.let { def -> ServiceLockSheet(vm, def, vm.services.state(key), onDismiss = { sheetFor = null }, onList = { sheetFor = null; onListService(key) }, onRecommend = { sheetFor = null; onRecommend() }) } }
 }
