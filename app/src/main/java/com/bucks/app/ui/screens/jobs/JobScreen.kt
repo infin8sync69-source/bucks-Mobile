@@ -179,7 +179,7 @@ private fun ApplySheet(vm: BucksViewModel, job: JobPageRow, onDismiss: () -> Uni
         Text("Apply: ${job.title}", style = MaterialTheme.typography.titleLarge)
         Muted("${job.listingTitle} · ${job.pay.ifBlank { "Pay on request" }}", Modifier.padding(top = 2.dp, bottom = 14.dp))
         Label("Apply with")
-        if (skills.isEmpty()) Notice("You don't have a skill profile yet. Add one under Menu > Studio > Create > Skill profile (for example Delivery driver, Tailor, Electrician) so businesses can see your experience and reviews. You can still apply now with a note.")
+        if (skills.isEmpty()) Notice("You don't have a skill profile yet. Add one under Menu > Bucks Pro > Create > Skill profile (for example Delivery driver, Tailor, Electrician) so businesses can see your experience and reviews. You can still apply now with a note.")
         else FlowChips(skills.map { it.title }, selected = skills.filter { it.id in selected }.map { it.title }.toSet()) { title -> skills.firstOrNull { it.title == title }?.let { s -> selected = if (s.id in selected) selected - s.id else selected + s.id } }
         BucksField(note, { note = it.take(500) }, "Note to the business", "When you can start, experience, what you'd like to know", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 3, keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
         PrimaryButton(if (jobs.busy) "Sending…" else "Send application", enabled = !jobs.busy && (selected.isNotEmpty() || note.isNotBlank())) {

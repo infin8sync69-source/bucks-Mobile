@@ -131,7 +131,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                 LaunchedEffect(drawer.isOpen) { if (drawer.isOpen && studio && vm.social.me != null) m.refresh() }
                 Column(Modifier.fillMaxHeight()) { Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Studio", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                        Text("Bucks Pro", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                         IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close menu", tint = MaterialTheme.colorScheme.primary) }
                     }
                     // Bucks ID: a mini card that opens the full card with QR and barcode.
@@ -146,11 +146,11 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 Text(when { info == null -> "Tap to show your card"; info.expired -> "Expired · tap to renew"; info.renewable -> "Renew soon · valid till ${info.validTill}"; else -> "Valid till ${info.validTill}" },
                                     color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
                             }
-                            Icon(Icons.Rounded.QrCode2, "Show card", tint = androidx.compose.ui.graphics.Color.White)
+                            Icon(Icons.Rounded.ChevronRight, "Show card", tint = androidx.compose.ui.graphics.Color.White)
                         }
                     }
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.GridView, if (studio) "Studio home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
+                        DrawerItem(Icons.Rounded.GridView, if (studio) "Bucks Pro home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
                         // Quick access: every listing I run, one tap to its dashboard, and the switch right here when it's live.
                         if (studio) m.listings.sortedWith(compareBy({ it.status != "LIVE" }, { it.title.lowercase() })).forEach { l ->
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { closeMenu(); nav.navigate(Routes.studioListing(l.id)) }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

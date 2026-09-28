@@ -76,8 +76,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun refreshSuggestions() = go { suggestions = Backend.suggestPeople(here) }
     /** Sync by Bucks ID, typed or scanned. */
     fun syncWithCode(code: String) = go { val p = Backend.profileByCode(code) ?: run { toast("No one has the Bucks ID ${code.uppercase()}."); return@go }; if (p.id == me?.id) { toast("That's your own Bucks ID."); return@go }
-        // An ID card lapses a year after issue; the owner renews it in one tap from Menu > Bucks ID.
-        BucksIdCardInfo.of(p.idIssuedAt)?.takeIf { it.expired }?.let { toast("${p.name.ifBlank { "Their" }}'s Bucks ID expired on ${it.validTill}. Ask them to renew it from Menu > Bucks ID."); return@go }
+        // An ID card lapses a year after issue; the owner renews it in one tap from Menu > Bucks Pro.
+        BucksIdCardInfo.of(p.idIssuedAt)?.takeIf { it.expired }?.let { toast("${p.name.ifBlank { "Their" }}'s Bucks ID expired on ${it.validTill}. Ask them to renew it from Menu > Bucks Pro."); return@go }
         syncWith(p.id, p.name) }
     fun syncWith(id: String, name: String) = go { val r = Backend.sync(id); toast(if (r == "ACCEPTED") "You and $name are now synced." else "Sync request sent to $name."); refreshSyncs(); refreshSuggestions() }
     fun acceptSync(requester: String) = go { val p = me ?: return@go; Backend.acceptSync(requester, p.id); toast("Synced."); refreshSyncs() }

@@ -59,7 +59,7 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            BucksTopBar("Studio", onBack = onBack, actions = {
+            BucksTopBar("Bucks Pro", onBack = onBack, actions = {
                 IconButton(onClick = onScan) { Icon(Icons.Rounded.QrCodeScanner, "Recommend someone") }
                 IconButton(onClick = onInvites) { BadgedBox(badge = { if (m.pendingCount > 0) Badge { Text("${m.pendingCount}") } }) { Icon(Icons.Rounded.MailOutline, "Invites") } }
             })
@@ -102,7 +102,7 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             BucksCard(Modifier.weight(1f), onClick = onBucksId) {
                                 Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.primary)
-                                Text("Bucks ID card", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Show it so people sync with you.")
+                                Text("Your Bucks Pro ID", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Show it so people sync with you.")
                             }
                             BucksCard(Modifier.weight(1f), onClick = onScan) {
                                 Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.primary)

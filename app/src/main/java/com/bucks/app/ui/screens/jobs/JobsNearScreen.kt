@@ -35,7 +35,7 @@ fun JobsNearScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> U
             if (!s.locationGranted) item { Notice("Location is off, so this shows jobs around the city centre. Allow location in Settings to see jobs around you.") }
             when {
                 jobs.loadingNear && jobs.near.isEmpty() -> item { JobsLoading("Finding jobs near you…") }
-                jobs.near.isEmpty() -> item { Muted("No open jobs within 15 km right now. Businesses post here when they need people; check back in a day or two. Meanwhile, add a skill profile under Menu > Studio so they can find you.", Modifier.padding(top = 8.dp)) }
+                jobs.near.isEmpty() -> item { Muted("No open jobs within 15 km right now. Businesses post here when they need people; check back in a day or two. Meanwhile, add a skill profile under Menu > Bucks Pro so they can find you.", Modifier.padding(top = 8.dp)) }
                 list.isEmpty() -> item { Muted("No ${Jobs.typeLabel(type).lowercase()} jobs nearby. Tap All to see every job.", Modifier.padding(top = 8.dp)) }
                 else -> items(list, key = { it.id }) { j ->
                     JobCard(j.title, j.pay, j.jobType, j.createdAt, details = listOf(j.listingTitle, listOf(j.area, Jobs.distance(j.distanceM)).filter { it.isNotBlank() }.joinToString(", "))) { onOpen(j.id) }

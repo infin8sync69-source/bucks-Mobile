@@ -98,7 +98,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
                 Muted(listOfNotNull("${p.recommendations} in-person recommendations", "${p.syncs} synced", if (p.members > 1) "team of ${p.members}" else null).joinToString(" · "), Modifier.padding(top = 6.dp))
-                if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Studio.", Modifier.padding(top = 12.dp))
+                if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Bucks Pro.", Modifier.padding(top = 12.dp))
                 else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Button({ message() }, Modifier.weight(1f).height(44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
@@ -207,7 +207,7 @@ private fun ProductsTab(vm: BucksViewModel, p: ListingProfile, onMessage: () -> 
     val items = p.products
     if (items.isEmpty()) {
         Column(Modifier.padding(Gutter)) {
-            Muted(if (p.mine) "No products yet. Add them from Menu > Studio." else "${p.listing.title} hasn't listed products yet. Message them to ask what's in stock.")
+            Muted(if (p.mine) "No products yet. Add them from Menu > Bucks Pro." else "${p.listing.title} hasn't listed products yet. Message them to ask what's in stock.")
             if (!p.mine) SmallButton("Message", Modifier.padding(top = 12.dp), tonal = true, onClick = onMessage)
         }
         return
@@ -261,7 +261,7 @@ private fun JobsTab(p: ListingProfile, onJobs: () -> Unit) = Column(Modifier.pad
             Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    if (p.mine) Muted("Post a job and manage applications from Menu > Studio.", Modifier.padding(top = 10.dp))
+    if (p.mine) Muted("Post a job and manage applications from Menu > Bucks Pro.", Modifier.padding(top = 10.dp))
 }
 
 /* ---------- SKILL: Services and Feed ---------- */
@@ -272,7 +272,7 @@ private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, onOpenChat: (Stri
     Column(Modifier.padding(Gutter)) {
         Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Payments, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(proRate(l.details, services.minOfOrNull { it.price }), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp)) }
         if (services.isEmpty()) {
-            Muted(if (p.mine) "No services listed yet. Add them from Menu > Studio." else "No services listed yet. Describe what you need; $first confirms the price before starting.", Modifier.padding(top = 8.dp))
+            Muted(if (p.mine) "No services listed yet. Add them from Menu > Bucks Pro." else "No services listed yet. Describe what you need; $first confirms the price before starting.", Modifier.padding(top = 8.dp))
             if (!p.mine) PrimaryButton("Request a visit", Modifier.padding(top = 14.dp)) { d.startListingChat(l.id, onOpenChat, "Hi, I need help with ${l.category.ifBlank { "a job" }.lowercase()}. Are you available?") }
         } else {
             Column(Modifier.padding(top = 8.dp)) {

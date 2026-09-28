@@ -42,35 +42,43 @@ import com.bucks.app.ui.theme.status
 fun BucksIdScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit) {
     val me = vm.social.me; val ctx = LocalContext.current; val s by vm.state.collectAsState()
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Bucks ID", onBack = onBack)
+        BucksTopBar("Bucks Pro", onBack = onBack)
         if (me == null) { Column(Modifier.padding(Gutter)) { Muted("Your Bucks ID appears once you're signed in and your profile is saved. Check your connection and open this again.") }; return@ContentColumn }
         val info = BucksIdCardInfo.of(me.idIssuedAt)
         val qr = remember(me.shortCode) { qrBitmap(BucksQr.forBucksId(me.shortCode), 480) }
         val bar = remember(me.shortCode) { barcodeBitmap(BucksQr.forBucksId(me.shortCode)) }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
-            // The card itself: credit-card proportions, brand gradient.
-            Column(Modifier.fillMaxWidth().aspectRatio(1.586f).clip(RoundedCornerShape(20.dp))
-                .background(Brush.linearGradient(listOf(Color(0xFF811FF0), Color(0xFF4A0AA6)))).padding(18.dp)) {
+            // The card: natural height (no fixed ratio, so nothing is cut off at large font sizes), brand gradient.
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF8B2CF5), Color(0xFF5B12C8), Color(0xFF3A0A8C)))).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BucksWordmark(height = 22.dp, color = Color.White)
+                    BucksWordmark(height = 24.dp, color = Color.White)
+                    Text(" pro", color = Color.White, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
                     Spacer(Modifier.weight(1f))
-                    Text("ID CARD", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 2.sp))
-                }
-                Spacer(Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape), contentAlignment = Alignment.Center) {
-                        Text(initials(me.name.ifBlank { s.user?.name ?: "?" }).ifBlank { "?" }, color = Color.White, style = MaterialTheme.typography.titleMedium)
-                    }
-                    Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                        Text(me.name.ifBlank { s.user?.name ?: "" }, color = Color.White, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
-                        Text(me.area.ifBlank { s.user?.area ?: "" }.substringBefore(','), color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    Row(Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Verified, null, Modifier.size(16.dp), tint = Color.White)
+                        Text(if (info?.expired == true) " Expired" else " Verified", color = Color.White, style = MaterialTheme.typography.labelMedium)
                     }
                 }
-                Text(pretty(me.shortCode), color = Color.White, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp, fontFamily = FontFamily.Monospace), modifier = Modifier.padding(top = 12.dp))
-                Text(me.id, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), maxLines = 1)
-                Row(Modifier.padding(top = 8.dp)) {
-                    Column(Modifier.weight(1f)) { Text("VALID FROM", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall); Text(info?.validFrom ?: "–", color = Color.White, style = MaterialTheme.typography.labelLarge) }
-                    Column(Modifier.weight(1f)) { Text("VALID TILL", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall); Text(info?.validTill ?: "–", color = Color.White, style = MaterialTheme.typography.labelLarge) }
+                Row(Modifier.padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(56.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).border(2.dp, Color.White.copy(alpha = 0.7f), CircleShape), contentAlignment = Alignment.Center) {
+                        Text(initials(me.name.ifBlank { s.user?.name ?: "?" }).ifBlank { "?" }, color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                    }
+                    Column(Modifier.padding(start = 14.dp).weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(me.name.ifBlank { s.user?.name ?: "" }, color = Color.White, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            if (info?.expired != true) Icon(Icons.Rounded.Verified, "Verified", Modifier.padding(start = 6.dp).size(20.dp), tint = Color(0xFF7CF0C0))
+                        }
+                        Text(me.area.ifBlank { s.user?.area ?: "" }.substringBefore(',').ifBlank { "Bengaluru" }, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    }
+                }
+                Text("BUCKS ID", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp), modifier = Modifier.padding(top = 20.dp))
+                Text(pretty(me.shortCode), color = Color.White, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 4.sp, fontFamily = FontFamily.Monospace))
+                Text(me.id, color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color.White.copy(alpha = 0.2f))
+                Row {
+                    Column(Modifier.weight(1f)) { Text("VALID FROM", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp)); Text(info?.validFrom ?: "–", color = Color.White, style = MaterialTheme.typography.titleSmall) }
+                    Column(Modifier.weight(1f)) { Text("VALID TILL", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp)); Text(info?.validTill ?: "–", color = Color.White, style = MaterialTheme.typography.titleSmall) }
                 }
             }
             // Barcode strip under the card: scans with the same scanner as the QR.
@@ -78,15 +86,14 @@ fun BucksIdScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit) {
                 Image(bar.asImageBitmap(), "Bucks ID barcode", Modifier.fillMaxWidth().height(64.dp), contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None)
             }
             val st = MaterialTheme.status
-            Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                when {
-                    info == null -> PillGrey("Validity unknown")
-                    info.expired -> PillBad("Expired on ${info.validTill}")
-                    info.renewable -> PillWarn("Expires in ${info.daysLeft} day${if (info.daysLeft == 1L) "" else "s"}")
-                    else -> PillGood("Valid · ${info.daysLeft} days left")
-                }
-                Spacer(Modifier.weight(1f))
-                if (info != null && info.renewable) SmallButton("Renew for a year") { vm.social.renewBucksId() }
+            // Status in words, with colour and an icon, readable in sunlight.
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).clip(MaterialTheme.shapes.medium).background(when { info == null -> MaterialTheme.colorScheme.surfaceContainer; info.expired -> st.badTint; info.renewable -> st.warnTint; else -> st.goodTint })
+                .padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                val c = when { info == null -> MaterialTheme.colorScheme.onSurfaceVariant; info.expired -> st.bad; info.renewable -> st.warn; else -> st.good }
+                Icon(if (info?.expired == true) Icons.Rounded.Cancel else Icons.Rounded.Verified, null, tint = c)
+                Text(when { info == null -> "Checking validity…"; info.expired -> "Expired on ${info.validTill}"; info.renewable -> "Expires in ${info.daysLeft} day${if (info.daysLeft == 1L) "" else "s"}"; else -> "Active · ${info.daysLeft} days left" },
+                    color = c, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(start = 10.dp))
+                if (info != null && info.renewable) SmallButton("Renew") { vm.social.renewBucksId() }
             }
             if (info?.expired == true) Notice("An expired ID can't be used by others to sync with you. Renew it: it takes a second and keeps the same ID.", Modifier.padding(top = 10.dp))
 
