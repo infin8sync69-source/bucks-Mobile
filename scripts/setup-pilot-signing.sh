@@ -8,15 +8,22 @@
 # Keep the backup it writes to your home folder: if the key is lost, every tester has to reinstall once more.
 set -euo pipefail
 REPO="${REPO:-infin8sync69-source/bucks-Mobile}"
-command -v keytool >/dev/null || { echo "keytool not found. Install a JDK, or use the one in Android Studio (…/jbr/bin/keytool)."; exit 1; }
+# macOS ships a placeholder keytool that only says "Unable to locate a Java Runtime", so check that it really runs.
+if ! keytool -help >/dev/null 2>&1; then
+  echo "Java is not installed (keytool doesn't run). Install it with:  brew install --cask temurin   then run this script again."; exit 1
+fi
 command -v gh >/dev/null || { echo "GitHub CLI not found. Install it and run: gh auth login"; exit 1; }
+gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run:  gh auth login   (as infin8sync69-source), then this script again."; exit 1; }
+trap 'echo "Stopped at line $LINENO. Paste this output to get help."' ERR
+echo "Creating the pilot signing key…"
 if gh secret list -R "$REPO" | grep -q '^PILOT_KEYSTORE_B64'; then
   echo "PILOT_KEYSTORE_B64 already exists on $REPO. Replacing it would break updates for everyone who installed a pilot build."; exit 1
 fi
 PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 keytool -genkeypair -keystore "$TMP/pilot.jks" -storetype PKCS12 -alias pilot -keyalg RSA -keysize 4096 -validity 10000 \
-  -storepass "$PASS" -keypass "$PASS" -dname "CN=Bucks pilot, O=Bucks, C=IN" >/dev/null 2>&1
+  -storepass "$PASS" -keypass "$PASS" -dname "CN=Bucks pilot, O=Bucks, C=IN" >/dev/null
+echo "Saving it as GitHub secrets on $REPO…"
 base64 < "$TMP/pilot.jks" | tr -d '\n' | gh secret set PILOT_KEYSTORE_B64 -R "$REPO"
 printf '%s' "$PASS" | gh secret set PILOT_KEYSTORE_PASSWORD -R "$REPO"
 BACKUP="$HOME/bucks-pilot-signing"; mkdir -p "$BACKUP"; chmod 700 "$BACKUP"
