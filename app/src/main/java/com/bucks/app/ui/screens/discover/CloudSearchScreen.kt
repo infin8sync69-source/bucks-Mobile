@@ -60,7 +60,12 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
             if (d.query.isNotEmpty()) IconButton({ d.clear() }) { Icon(Icons.Rounded.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KindFilter.entries.forEach { k -> Chip(k.label, selected = d.kind == k, icon = k.kinds?.firstOrNull()?.let { kindIcon(it) }) { d.selectKind(k) } }
+            // Opened from a Services tile: that service is the first chip; tapping it widens the search to everything.
+            d.service?.let { key -> com.bucks.app.ui.serviceDef(key)?.let { def -> Chip("${def.label} ✕", selected = true, icon = def.icon) { d.useService(null); d.search() } } }
+            KindFilter.entries.forEach { k -> Chip(k.label, selected = d.kind == k && d.service == null, icon = k.kinds?.firstOrNull()?.let { kindIcon(it) }) { d.useService(null); d.selectKind(k); d.search() } }
+        }
+        d.service?.let { vm.services.state(it) }?.takeIf { it.delivery && !it.deliveryNow }?.let {
+            Notice("No Bucks riders are online near you right now. Order for pickup, or from shops with their own riders.", Modifier.padding(start = Gutter, end = Gutter, top = 10.dp))
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Muted("Within"); RADIUS_CHOICES.forEach { km -> Chip("$km km", selected = d.radiusKm == km) { d.setRadius(km) } }

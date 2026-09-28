@@ -49,6 +49,8 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     /** The selected kind chip; change it through [selectKind], which also re-runs the search. */
     var kind by mutableStateOf(KindFilter.ALL); private set
     var radiusKm by mutableIntStateOf(10)
+    /** A service tile (FOOD, GROCERY, ...) the search is limited to, or null. Set through [useService]. */
+    var service by mutableStateOf<String?>(null); private set
     var results by mutableStateOf<List<SearchHit>>(emptyList()); private set
     var searching by mutableStateOf(false); private set
     /** True once a search has returned, so the empty state never shows before the first results. */
@@ -83,7 +85,7 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
         val n = ++searchSeq
         searchJob = scope.launch {
             searching = true
-            try { results = Backend.search(query.trim(), social.here, radiusKm * 1000, kind.kinds); searched = true }
+            try { results = Backend.search(query.trim(), social.here, radiusKm * 1000, kind.kinds, service?.let { listOf(it) }); searched = true }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { toast(friendly(e)) }
             finally { if (n == searchSeq) searching = false }
@@ -95,6 +97,14 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     /** The next wider radius chip, or null at the widest. */
     val widerRadius: Int? get() = RADIUS_CHOICES.firstOrNull { it > radiusKm }
     fun clear() { query = ""; search() }
+    /**
+     * Opens search limited to one service (a Services tile), or clears that limit (null). Does not search by itself: the search
+     * screen runs one when it opens. The service's own radius is used, so results match what unlocked the tile.
+     */
+    fun useService(key: String?, radiusM: Int? = null) {
+        service = key
+        if (key != null) { query = ""; kind = KindFilter.ALL; radiusM?.let { m -> radiusKm = RADIUS_CHOICES.firstOrNull { it * 1000 >= m } ?: RADIUS_CHOICES.last() } }
+    }
 
     // ---------- profile ----------
     /**
@@ -136,7 +146,7 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     /** Sign-out and account deletion: results, profiles (which carry "mine" and "synced") and my listing syncs belong to this person only. */
     fun signedOut() {
         searchJob?.cancel(); searchJob = null; searchSeq++
-        query = ""; results = emptyList(); searching = false; searched = false
+        query = ""; service = null; results = emptyList(); searching = false; searched = false
         profiles.clear(); loading = emptySet(); missing = emptySet(); failed = emptySet()
         mySyncs = emptySet(); syncing = emptySet(); syncsLoaded = false
     }

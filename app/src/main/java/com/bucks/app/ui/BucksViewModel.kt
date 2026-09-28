@@ -82,6 +82,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val myListings = MyListings(viewModelScope, social, ::toast)
     /** Cloud jobs: a business posts jobs, people apply with their skill profiles, managers shortlist / hire. */
     val jobs = Jobs(viewModelScope, social, ::toast)
+    /** Which services are open where I stand, and the documents my listings need (services.sql). */
+    val services = Services(viewModelScope, social, ::toast)
     fun unreadCount(demoChats: List<Chat>) = if (social.enabled) social.unread else demoChats.sumOf { it.unread }
     /** Cloud builds: the checked (ACTIVE) vehicle the online switch uses: the one online now, else the first ACTIVE one I own or drive. Null in demo builds. */
     val cloudVehicle: VehicleRow? get() = if (!dispatch.enabled) null
@@ -167,11 +169,13 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
         // Remove this phone from my profile while the Firebase user can still sign that request, then sign out (Push.unregister never throws and gives up after a few seconds offline).
         viewModelScope.launch { try { Push.unregister() } finally { Cloud.signOut() } } }
-    fun deleteAccount() { autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud()
+    fun deleteAccount() { val meId = social.me?.id; autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud()
         // Server first, while the Firebase user still exists to sign the request: this phone's push token, then presence, open tasks,
         // phone, UPI link and profile (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
         viewModelScope.launch {
             Push.unregister()
+            // Private documents (listing and vehicle papers) live only in my storage folder; remove them before the rows go.
+            if (Backend.enabled && meId != null) runCatching { Backend.deleteMyDocFiles(meId) }
             val serverOk = !Backend.enabled || runCatching { Backend.deleteMyAccount() }.isSuccess
             if (!serverOk) { Cloud.signOut(); toast("Couldn't remove your account from the server. Sign in again and delete it once more."); return@launch }
             // Success is only announced once both the server data and the Firebase sign-in are gone.
@@ -180,7 +184,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         }
         repo.deleteAccount(); _s.value = freshState() }
     /** Cart, orders, search results, listing syncs and my listings/vehicles belong to the person who signed out, not the next account on this phone. */
-    private fun signedOutCloud() { commerce.signedOut(); discover.signedOut(); myListings.signedOut() }
+    private fun signedOutCloud() { commerce.signedOut(); discover.signedOut(); myListings.signedOut(); services.signedOut() }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
     /** [plate]: in cloud builds, which of my checked vehicles to go online with (null = the first ACTIVE one). */
     fun setOnline(v: Boolean, plate: String? = null) { if (v && s.mockLocation) { toast("Turn off the fake-location app to go online."); return }; _s.update { it.copy(online = v) }

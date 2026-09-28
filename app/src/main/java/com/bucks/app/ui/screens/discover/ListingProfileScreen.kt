@@ -120,7 +120,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 "jobs" -> JobsTab(p) { onJobs(id) }
                 "services" -> ServicesTab(vm, p, onOpenChat)
                 "feed" -> FeedTab(vm, p)
-                "about" -> AboutTab(p, vk, distance, onOpenListing)
+                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()) }
                 "reviews" -> ReviewsTab(vm, p)
             }
             Spacer(Modifier.height(24.dp))
@@ -300,7 +300,7 @@ private fun ListingPost(vm: BucksViewModel, post: PostRow, title: String) = Colu
 /* ---------- About and Reviews (every kind) ---------- */
 
 @Composable
-private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onOpenListing: (String) -> Unit) = Column {
+private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onOpenListing: (String) -> Unit, badges: List<com.bucks.app.data.BadgeRow> = emptyList()) = Column {
     val l = p.listing; val det = l.details
     Column(Modifier.padding(Gutter)) {
         if (l.description.isNotBlank()) Text(l.description, style = MaterialTheme.typography.bodyMedium) else Muted("No description yet.")
@@ -328,6 +328,9 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
         det.entries.filter { (k, v) -> k !in KNOWN_DETAILS && v is JsonPrimitive }.forEach { (k, _) ->
             det.str(k)?.let { v -> AboutRow(Icons.Rounded.Info, k.replace('_', ' ').replaceFirstChar { c -> c.uppercase() }, when (v) { "true" -> "Yes"; "false" -> "No"; else -> v }) }
         }
+        // Checked documents: a tick for each, with the number only where the law wants customers to see it (FSSAI, GST, RERA).
+        // The files themselves are private to the owner and Bucks.
+        badges.forEach { b -> AboutRow(Icons.Rounded.VerifiedUser, b.label, listOfNotNull(b.number.ifBlank { null }, "checked by Bucks", b.expiresOn?.let { "valid till ${humanDate(it)}" }).joinToString(" · ")) }
         AboutRow(Icons.Rounded.Verified, "Status", when (l.status) { "LIVE" -> "Live: ${p.recommendations} neighbours recommended it in person"; "PENDING" -> "Not live yet: ${p.recommendations} of 7 recommendations"; else -> "Suspended" })
     }
     if (p.similar.isNotEmpty()) {
@@ -369,3 +372,8 @@ private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile) = Column(Modifier.
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
     }
 }
+
+/** "2027-03-12" -> "12 Mar 2027"; anything unparseable comes back unchanged. */
+internal fun humanDate(iso: String): String = runCatching {
+    java.time.LocalDate.parse(iso.take(10)).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))
+}.getOrDefault(iso)

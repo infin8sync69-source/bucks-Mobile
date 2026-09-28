@@ -52,6 +52,8 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
     SettingRow(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { if (cloud) onOpen(Routes.SETTINGS_NOTIFS) else showToast("Notification settings need the online build.") }
     SettingRow(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
     if (cloud) { SettingRow(Icons.Rounded.Block, "Blocked people") { onOpen(Routes.SETTINGS_BLOCKED) }; SettingRow(Icons.Rounded.Favorite, "Close friends", "Who sees Moments you share with close friends") { onOpen(Routes.SETTINGS_CLOSE) } }
+    LaunchedEffect(cloud) { if (cloud) vm.services.checkStaff() }
+    if (vm.services.isStaff) SettingRow(Icons.Rounded.FactCheck, "Review documents", "Bucks staff: shop and pro documents waiting for a check") { onOpen(Routes.STAFF_REVIEW) }
     if (vm.dispatch.enabled) ListRow("Payment QR", "How customers pay you by UPI: rides, deliveries and shop orders", leading = { Avatar(icon = Icons.Rounded.QrCode2) }, trailing = { Icon(Icons.Rounded.ChevronRight, null) }) { onOpen(Routes.PAYMENT_QR) }
     SectionTitle("Voice and AI", Modifier.padding(top = 22.dp, bottom = 10.dp))
     BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }

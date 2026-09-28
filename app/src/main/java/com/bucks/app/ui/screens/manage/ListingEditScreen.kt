@@ -16,6 +16,9 @@ import com.bucks.app.data.Geo
 import com.bucks.app.data.ListingRow
 import com.bucks.app.data.Picked
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.BUSINESS_SERVICES
+import com.bucks.app.ui.serviceDef
+import com.bucks.app.ui.serviceForCategory
 import com.bucks.app.ui.components.*
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -29,7 +32,7 @@ import kotlinx.serialization.json.put
  * created (so create it at the shop); on edit it only moves if the owner asks.
  */
 @Composable
-fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () -> Unit, onDone: () -> Unit) {
+fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () -> Unit, onDone: () -> Unit, service: String? = null, onDocs: (String) -> Unit = {}) {
     val m = vm.myListings
     LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
     val existing = id?.let { m.listing(it) }
@@ -41,11 +44,11 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
             else CenteredLoading() }
         return
     }
-    key(existing?.id) { ListingForm(vm, kind, existing, onBack, onDone) }
+    key(existing?.id) { ListingForm(vm, kind, existing, onBack, onDone, service, onDocs) }
 }
 
 @Composable
-private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit) {
+private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit, initialService: String?, onDocs: (String) -> Unit) {
     val m = vm.myListings; val social = vm.social; val st by vm.state.collectAsState()
     // A real location fix, null until one arrives (location denied, GPS off, or not yet). social.here would be the map's
     // default centre in that case, which must never become a listing's position: nobody at the real shop could recommend it.
@@ -53,6 +56,9 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     val d = existing?.details ?: JsonObject(emptyMap())
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var category by remember { mutableStateOf(existing?.category ?: "") }
+    // Which Services tile a business belongs to; it decides the documents it needs. Fixed once the listing is live.
+    var service by remember { mutableStateOf(existing?.service?.takeIf { it in BUSINESS_SERVICES } ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: existing?.category?.let { serviceForCategory(it) } ?: "FOOD") }
+    val serviceLocked = existing != null && existing.status != "PENDING"
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var area by remember { mutableStateOf(existing?.area?.ifBlank { null } ?: social.me?.area?.substringBefore(',')?.ifBlank { null } ?: fix?.let { Geo.nearestArea(it) } ?: "") }
     var hours by remember { mutableStateOf(d.str("hours")) }
@@ -88,8 +94,10 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         val cat = if (kind == "DRIVER") vehicleKindLabel(vehicleKind) else category
         if (existing == null) {
             val at = fix ?: run { vm.toast("Turn on location so Bucks can save where your shop is."); return }
-            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details, photo) { onDone() }
-        } else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) fix else null, details, photo) { onDone() }
+            // A new business or skill goes straight on to its documents: they are the other half of going live.
+            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details, photo, if (kind == "BUSINESS") service else null) { row -> if (kind == "DRIVER") onDone() else onDocs(row.id) }
+        } else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) fix else null, details, photo,
+            if (kind == "BUSINESS" && service != existing.service && !serviceLocked) service else null) { onDone() }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -100,7 +108,13 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                 when (kind) {
                     "BUSINESS" -> {
                         BucksField(title, { title = it.take(80) }, "Business name", "Sri Lakshmi Stores")
-                        Label("Category"); FlowChips(BUSINESS_CATEGORIES, setOf(category)) { category = it }
+                        Label("Service")
+                        FlowChips(BUSINESS_SERVICES.map { serviceDef(it)!!.label }, setOf(serviceDef(service)!!.label)) { picked ->
+                            if (serviceLocked) vm.toast("A live listing can't move to another service. Ask Bucks support.")
+                            else { service = BUSINESS_SERVICES.first { serviceDef(it)!!.label == picked }; if (category !in serviceDef(service)!!.categories) category = "" }
+                        }
+                        Muted(if (serviceLocked) "Customers find you under ${serviceDef(service)!!.label}. It can't change while you're live." else "Where customers find you in Services. It decides the documents Bucks checks.", Modifier.padding(top = 6.dp, bottom = 12.dp))
+                        Label("Category"); FlowChips(serviceDef(service)!!.categories, setOf(category)) { category = it }
                         Spacer(Modifier.height(14.dp))
                         BucksField(description, { description = it.take(600) }, "About the business", "What you sell, what you're known for", singleLine = false, minLines = 3)
                         BucksField(hours, { hours = it.take(80) }, "Opening hours", "9 am - 9 pm, closed Sundays")
@@ -146,6 +160,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         }
         Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
             PrimaryButton(if (m.busy) "Saving…" else if (existing == null) "Save" else "Save changes", enabled = !m.busy && (existing != null || fix != null)) { save() }
+            if (existing != null && kind != "DRIVER" && m.canManage(existing.id)) SmallButton("Documents for Bucks to check", Modifier.padding(bottom = 6.dp), tonal = true) { onDocs(existing.id) }
             if (existing != null && owner) BadButton("Delete this ${kindLabel(kind).lowercase()}", Modifier.padding(top = 4.dp)) { confirmDelete = true }
         }
     }

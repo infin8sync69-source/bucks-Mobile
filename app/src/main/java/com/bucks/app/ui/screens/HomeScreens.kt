@@ -25,6 +25,13 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.ServiceDef
+import com.bucks.app.ui.SERVICE_CATALOG
+import com.bucks.app.ui.serviceDef
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.bucks.app.ui.Role
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
@@ -92,34 +99,72 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     if (showOnline) OnlineSheet(vm, onDismiss = { showOnline = false }, onListings = onListings, onEarnings = onEarnings)
 }
 
-/** Services that open for the pilot. Add a name here to unlock its tile; everything else shows a padlock and "coming soon". */
-private val LIVE_SERVICES = setOf("Taxi", "Jobs")
-private data class Offer(val name: String, val icon: ImageVector) { val live get() = name in LIVE_SERVICES }
-private val OFFERS = listOf(Offer("Taxi", Icons.Rounded.LocalTaxi), Offer("Jobs", Icons.Rounded.Work), Offer("Foods", Icons.Rounded.Restaurant), Offer("Shopping", Icons.Rounded.ShoppingBag), Offer("Pay", Icons.Rounded.Payments),
-    Offer("Book Tickets", Icons.Rounded.ConfirmationNumber), Offer("Delivery", Icons.Rounded.LocalShipping), Offer("Community", Icons.Rounded.Groups), Offer("Networks", Icons.Rounded.People), Offer("Banking", Icons.Rounded.AccountBalance))
-
+/**
+ * One tile of the Services menu. Its state comes from the server (services_near, docs/SERVICES_UNLOCK.md): LOCKED and SOON
+ * show a padlock and dim; QUIET (unlocked, nobody online right now) gets an amber dot; OPEN is plain.
+ */
 @Composable
-private fun OfferTile(o: Offer, index: Int, modifier: Modifier, onClick: () -> Unit) {
-    val fg = if (o.live) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+private fun ServiceTile(def: ServiceDef, st: ServiceState?, index: Int, modifier: Modifier, onClick: () -> Unit) {
+    val locked = st == null || !st.usable
+    val fg = if (!locked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     val src = remember { MutableInteractionSource() }; var nope by remember { mutableIntStateOf(0) }; val haptic = LocalHapticFeedback.current
-    // Tiles assemble in reading order; a locked tile shakes and its padlock wiggles instead of opening.
+    // Tiles assemble in reading order; a locked tile shakes and its padlock wiggles before its sheet opens.
     Box(modifier.height(64.dp).enterStagger(index).shakeOn(nope).pressScale(src, 0.93f)) {
         Column(Modifier.fillMaxSize().padding(top = 4.dp, end = 4.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(interactionSource = src, indication = LocalIndication.current) { if (!o.live) { nope++; haptic.performHapticFeedback(HapticFeedbackType.LongPress) }; onClick() }.padding(horizontal = 2.dp),
+            .clickable(interactionSource = src, indication = LocalIndication.current) { if (locked) { nope++; haptic.performHapticFeedback(HapticFeedbackType.LongPress) }; onClick() }.padding(horizontal = 2.dp)
+            .semantics { contentDescription = def.label + when (st?.state) { "OPEN" -> ""; "QUIET" -> ", nobody online right now"; "SOON" -> ", coming soon"; else -> ", locked near you" } },
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(o.icon, null, tint = fg)
-            Text(o.name, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = fg, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(def.icon, null, tint = fg)
+            Text(def.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = fg, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        // Padlock badge on the top-right corner, like the design.
-        if (!o.live) Box(Modifier.align(Alignment.TopEnd).size(18.dp).clip(MaterialTheme.shapes.extraSmall).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Lock, "Locked", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (locked) Box(Modifier.align(Alignment.TopEnd).size(18.dp).clip(MaterialTheme.shapes.extraSmall).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Lock, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else if (st?.state == "QUIET") Box(Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp).size(8.dp).clip(CircleShape).background(MaterialTheme.status.warn))
+    }
+}
+
+/**
+ * What a locked or coming-soon tile explains: what unlocks it here, how far along it is, "notify me", and the way in for
+ * providers ("Run a restaurant? List it").
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceState?, onDismiss: () -> Unit, onList: () -> Unit) {
+    val cloud = vm.social.enabled
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(def.icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                Text(if (st?.state == "SOON" || !cloud) "${def.label} is coming soon" else "${def.label} isn't open near you yet", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 14.dp))
+            }
+            if (st != null && st.state == "LOCKED") {
+                Text("It opens here once ${st.minSupply} ${st.supplyNoun} within ${st.radiusKm} of you are on Bucks and checked.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
+                val progress = if (st.minSupply == 0) 1f else (st.supply.toFloat() / st.minSupply).coerceIn(0f, 1f)
+                val shown by animateFloatAsState(progress, tween(Motion.LONG * 2, easing = Motion.Emphasized), label = "unlock")
+                LinearProgressIndicator(progress = { shown }, Modifier.fillMaxWidth().padding(top = 14.dp).height(8.dp).clip(CircleShape))
+                Muted("${st.supply} of ${st.minSupply} so far", Modifier.padding(top = 6.dp))
+            } else Text(if (cloud) "Bucks is still building ${def.label.lowercase()}. Tell us you want it and we'll let you know when it opens." else "It opens in the online version of Bucks.",
+                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
+            if (st != null && st.interested > 0) Muted("${st.interested} ${if (st.interested == 1) "person" else "people"} near you ${if (st.interested == 1) "is" else "are"} waiting for it.", Modifier.padding(top = 10.dp))
+            if (cloud) {
+                if (st?.mine == true) GhostButton("You'll be told when it opens · Stop", Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
+                else PrimaryButton("Notify me when it opens", Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Muted(def.joinPrompt, Modifier.weight(1f)); TextButton(onClick = onList) { Text(def.joinAction) }
+            }
         }
     }
 }
 
 @Composable
-fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit) {
+fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit,
+                   onOpenService: (String) -> Unit = {}, onListService: (String) -> Unit = {}) {
     val s by vm.state.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
+    // Which services are open here: read when the screen opens and whenever I move a real distance (the counts are per place).
+    // Without a real fix the map's default centre would stand in for "here", so nothing is checked until one arrives.
+    LaunchedEffect(s.me?.let { (it.lat * 200).toInt() to (it.lng * 200).toInt() }) { if (s.me != null) vm.services.refresh() }
+    var sheetFor by remember { mutableStateOf<String?>(null) }
     DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
     val cats = if (vm.social.enabled) CLOUD_CATEGORIES else providers.map { it.category }.distinct()
     val shopPins = providers.filter { it.scope == Scope.LOCAL }
@@ -132,16 +177,25 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false, shops = shopPins.isNotEmpty())
             Sheet(Modifier.heightIn(max = sheetMax)) { Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                Text("Services we offer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 14.dp))
-                // Every service gets a tile, 5 per row; locked ones are dimmed with a padlock and only say "coming soon".
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { OFFERS.chunked(5).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { row.forEach { o ->
-                        OfferTile(o, OFFERS.indexOf(o), Modifier.weight(1f)) {
-                            if (!o.live) vm.toast("${o.name} is coming soon")
-                            else when (o.name) { "Taxi" -> onRide(); "Jobs" -> onQuery("jobs"); "Foods" -> onQuery("food"); "Shopping" -> onQuery("grocery"); else -> vm.toast("${o.name} is coming soon") }
+                Text("Services near you", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 14.dp))
+                // Every service gets a tile, 5 per row (the last row padded so tiles keep their width). Locked ones open a sheet saying
+                // what unlocks them here; open ones go straight in; quiet ones go in with a word about nobody being online.
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { SERVICE_CATALOG.chunked(5).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        row.forEach { def -> val st = vm.services.state(def.key)
+                            ServiceTile(def, st, SERVICE_CATALOG.indexOf(def), Modifier.weight(1f)) {
+                                when {
+                                    st == null || !st.usable -> sheetFor = def.key
+                                    st.state == "QUIET" && st.minOnline > 0 -> { vm.toast(if (st.delivery) "Most ${st.supplyNoun} near you are closed right now." else "No ${st.supplyNoun} online near you right now. Try again in a few minutes."); onOpenService(def.key) }
+                                    else -> onOpenService(def.key)
+                                }
+                            }
                         }
-                    } }
+                        repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 } }
+                vm.services.error?.let { Muted("Couldn't check which services are open here. $it", Modifier.padding(top = 8.dp)) }
+                if (vm.social.enabled && s.me == null) Muted("Turn on location to see which services are open where you are.", Modifier.padding(top = 8.dp))
                 SearchBar("Search or ask anything", Modifier.padding(top = 14.dp), onClick = onSearch)
                 SectionTitle("Categories", Modifier.padding(top = 18.dp, bottom = 10.dp))
                 FlowChips(cats) { onQuery(it.lowercase()) }
@@ -152,4 +206,5 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
             } }
         }
     }
+    sheetFor?.let { key -> serviceDef(key)?.let { def -> ServiceLockSheet(vm, def, vm.services.state(key), onDismiss = { sheetFor = null }, onList = { sheetFor = null; onListService(key) }) } }
 }

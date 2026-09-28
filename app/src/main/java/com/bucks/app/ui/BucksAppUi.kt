@@ -114,7 +114,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val chatWith: (String, String) -> Unit = { n, r -> nav.navigate(Routes.chat(vm.openChat(n, r))) }
         val call: (String, String) -> Unit = { n, p -> vm.startCall(n, p) }
         val home: () -> Unit = { nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } } }
-        val query: (String) -> Unit = { q -> if (q == "jobs" && vm.social.enabled) nav.navigate(Routes.JOBS_NEAR) else { vm.setQuery(q); nav.navigate(Routes.SEARCH) } }
+        val query: (String) -> Unit = { q -> vm.discover.useService(null); if (q == "jobs" && vm.social.enabled) nav.navigate(Routes.JOBS_NEAR) else { vm.setQuery(q); nav.navigate(Routes.SEARCH) } }
         val ride: () -> Unit = { vm.startRide(); nav.navigate(Routes.DESTINATION) }
         val logout: () -> Unit = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }
 
@@ -162,7 +162,20 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.OTP) { OtpScreen(vm, s.tempPhone, onBack = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.PROFILE) }, showToast = toast) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call) }
-                            composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query) }
+                            composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { vm.discover.useService(null); nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query,
+                                // An open (or quiet) tile: taxi and auto book a ride of that kind, jobs open jobs near me, the rest search that service.
+                                onOpenService = { key -> when (key) {
+                                    "TAXI" -> { vm.setRideKind(com.bucks.app.data.VehicleKind.CAB); ride() }
+                                    "AUTO" -> { vm.setRideKind(com.bucks.app.data.VehicleKind.AUTO); ride() }
+                                    "JOBS" -> query("jobs")
+                                    else -> { vm.discover.useService(key, vm.services.state(key)?.radiusM); nav.navigate(Routes.SEARCH) } } },
+                                // "List it" on a locked tile: the supply side of that service signs up.
+                                onListService = { key -> when {
+                                    !vm.social.enabled -> nav.navigate(Routes.LISTINGS)
+                                    key in setOf("TAXI", "AUTO", "PARCEL") -> nav.navigate(Routes.MY_VEHICLES)
+                                    key == "GIGS" -> nav.navigate(Routes.listingEdit(null, "SKILL"))
+                                    key == "JOBS" -> nav.navigate(Routes.MY_LISTINGS)
+                                    else -> nav.navigate(Routes.listingEdit(null, "BUSINESS", key)) } }) }
                             composable(Routes.FEED) { if (vm.social.enabled) CloudFeedScreen(vm, openMenu, messages, onOpenMoments = { nav.navigate(Routes.moments(it)) }, onNewMoment = { nav.navigate(Routes.MOMENT_NEW) }) else FeedScreen(vm, openMenu, messages, toast) }
                             composable(Routes.RECOMMENDED) { RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith, onListing = { nav.navigate(Routes.listing(it)) }) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
@@ -235,11 +248,19 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onVehicles = { nav.navigate(Routes.MY_VEHICLES) },
                                 onInvites = { nav.navigate(Routes.INVITES) },
                                 onOpenProfile = { nav.navigate(Routes.listing(it)) },
-                                onScan = { nav.navigate(Routes.RECOMMEND_SCAN) }) }
+                                onScan = { nav.navigate(Routes.RECOMMEND_SCAN) },
+                                onDocs = { nav.navigate(Routes.listingDocs(it)) }) }
                             composable(Routes.MY_VEHICLES) { VehiclesScreen(vm, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.vehicleEdit(it)) }, onStats = { nav.navigate(Routes.VEHICLE_STATS) }, onMembers = { nav.navigate(Routes.members("v:$it")) }) }
                             composable(Routes.VEHICLE_STATS) { VehicleStatsScreen(vm, onBack = { nav.popBackStack() }) }
-                            composable(Routes.LISTING_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("kind") { type = NavType.StringType; defaultValue = "BUSINESS" })) { e ->
-                                ListingEditScreen(vm, kind = e.arguments?.getString("kind") ?: "BUSINESS", id = e.arguments?.getString("id"), onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
+                            composable(Routes.LISTING_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("kind") { type = NavType.StringType; defaultValue = "BUSINESS" },
+                                    navArgument("service") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
+                                val editingId = e.arguments?.getString("id")
+                                ListingEditScreen(vm, kind = e.arguments?.getString("kind") ?: "BUSINESS", id = editingId, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() },
+                                    service = e.arguments?.getString("service"),
+                                    // A just-created listing goes on to its documents in place of the empty "Add" form.
+                                    onDocs = { id -> nav.navigate(Routes.listingDocs(id)) { if (editingId == null) popUpTo(Routes.LISTING_EDIT) { inclusive = true } } }) }
+                            composable(Routes.LISTING_DOCS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ListingDocsScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
+                            composable(Routes.STAFF_REVIEW) { StaffReviewScreen(vm, onBack = { nav.popBackStack() }) }
                             // ITEM_EDIT convention (there is no separate items-list route): item == null -> the list (ItemsScreen); item == "new" -> add; any other id -> edit that item.
                             composable(Routes.ITEM_EDIT, arguments = listOf(navArgument("listing") { type = NavType.StringType }, navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
                                 val listing = e.arguments!!.getString("listing")!!; val item = e.arguments?.getString("item")

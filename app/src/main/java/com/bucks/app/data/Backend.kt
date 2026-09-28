@@ -73,23 +73,26 @@ object Backend {
     suspend fun mySyncs(): List<SyncRow> = db.from("syncs").select().decodeList()
 
     // ---------- listings: business, skill, driver ----------
-    suspend fun search(q: String, at: LatLng, radiusM: Int = 10_000, kinds: List<String>? = null): List<SearchHit> =
+    suspend fun search(q: String, at: LatLng, radiusM: Int = 10_000, kinds: List<String>? = null, services: List<String>? = null): List<SearchHit> =
         db.rpc("search_listings", buildJsonObject {
             put("q", q); put("lat", at.lat); put("lng", at.lng); put("radius_m", radiusM)
             if (kinds != null) put("kinds", buildJsonArray { kinds.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
+            if (services != null) put("services", buildJsonArray { services.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
         }).decodeList()
     suspend fun listing(id: String): ListingRow? = db.from("listings").select { filter { eq("id", id) } }.decodeSingleOrNull()
     suspend fun myListings(me: String): List<ListingRow> {
         val ids = db.from("listing_members").select { filter { eq("profile_id", me) } }.decodeList<MemberRow>().map { it.listingId }
         return if (ids.isEmpty()) emptyList() else db.from("listings").select { filter { isIn("id", ids) } }.decodeList()
     }
-    suspend fun createListing(me: String, kind: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject = JsonObject(emptyMap())): ListingRow =
+    suspend fun createListing(me: String, kind: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject = JsonObject(emptyMap()), service: String? = null): ListingRow =
         db.from("listings").insert(buildJsonObject {
             put("kind", kind); put("owner_id", me); put("title", title); put("category", category); put("description", description); put("area", area)
+            service?.let { put("service", it) }
             at?.let { put("location", point(it)) }; put("details", details)
         }) { select() }.decodeSingle()
-    suspend fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject) {
-        db.from("listings").update({ set("title", title); set("category", category); set("description", description); set("area", area); at?.let { set("location", point(it)) }; set("details", details) }) { filter { eq("id", id) } }
+    /** [service]: only sent when it changes (the server refuses a change once the listing is live). */
+    suspend fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, service: String? = null) {
+        db.from("listings").update({ set("title", title); set("category", category); set("description", description); set("area", area); at?.let { set("location", point(it)) }; set("details", details); service?.let { set("service", it) } }) { filter { eq("id", id) } }
     }
     suspend fun setOnline(id: String, online: Boolean) { db.from("listings").update({ set("online", online) }) { filter { eq("id", id) } } }
     suspend fun deleteListing(id: String) { db.from("listings").delete { filter { eq("id", id) } } }
@@ -273,7 +276,9 @@ object Backend {
 @Serializable data class SyncRow(@SerialName("requester_id") val requesterId: String, @SerialName("addressee_id") val addresseeId: String, val status: String)
 @Serializable data class ListingRow(val id: String, val kind: String, @SerialName("owner_id") val ownerId: String, val title: String, val category: String = "", val description: String = "",
     @SerialName("photo_url") val photoUrl: String? = null, val area: String = "", val details: JsonObject = JsonObject(emptyMap()), val status: String = "PENDING", val online: Boolean = false,
-    @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0)
+    @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
+    /** FOOD, GROCERY, ... (services.sql); GIGS for skills, null for drivers. */
+    val service: String? = null, @SerialName("compliance_hold") val complianceHold: Boolean = false)
 @Serializable data class SearchHit(val id: String, val kind: String, val title: String, val category: String = "", val description: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", val online: Boolean = false, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0, val details: JsonObject = JsonObject(emptyMap()),
     @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null)

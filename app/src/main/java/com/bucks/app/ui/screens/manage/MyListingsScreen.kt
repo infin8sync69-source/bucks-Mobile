@@ -31,7 +31,7 @@ private val KINDS = listOf("BUSINESS", "SKILL", "DRIVER")
 @Composable
 fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: String, id: String?) -> Unit, onItems: (listingId: String) -> Unit, onMembers: (listingId: String) -> Unit,
                      onRecommend: (listingId: String) -> Unit, onOrders: (listingId: String) -> Unit, onJobs: (listingId: String) -> Unit, onVehicles: () -> Unit, onInvites: () -> Unit,
-                     onOpenProfile: (listingId: String) -> Unit, onScan: (() -> Unit)? = null) {
+                     onOpenProfile: (listingId: String) -> Unit, onScan: (() -> Unit)? = null, onDocs: (listingId: String) -> Unit = {}) {
     val m = vm.myListings
     var tab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { m.refresh(); if (vm.dispatch.enabled && !vm.dispatch.paymentLinkLoaded) vm.dispatch.refreshPaymentLink() }
@@ -52,7 +52,7 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
             val err = m.error
             if (err != null && !m.loaded && rows.isEmpty()) item { LoadError(err) { m.refresh() } }
             if (rows.isEmpty() && m.loaded) item { EmptyListings(kind) { onEdit(kind, null) } }
-            items(rows, key = { it.id }) { l -> ListingManageCard(m, l, onEdit = { onEdit(l.kind, l.id) }, onItems = { onItems(l.id) }, onMembers = { onMembers(l.id) }, onRecommend = { onRecommend(l.id) }, onOrders = { onOrders(l.id) }, onJobs = { onJobs(l.id) }, onOpenProfile = { onOpenProfile(l.id) },
+            items(rows, key = { it.id }) { l -> ListingManageCard(m, l, onEdit = { onEdit(l.kind, l.id) }, onItems = { onItems(l.id) }, onMembers = { onMembers(l.id) }, onRecommend = { onRecommend(l.id) }, onOrders = { onOrders(l.id) }, onJobs = { onJobs(l.id) }, onOpenProfile = { onOpenProfile(l.id) }, onDocs = { onDocs(l.id) },
                 onPaymentQr = if (noUpi && l.kind == "BUSINESS" && m.isOwner(l.id)) ({ vm.open(Routes.PAYMENT_QR) }) else null) }
             if (rows.isNotEmpty() && kind != "DRIVER") item { GhostButton(if (kind == "BUSINESS") "Add another business" else "Add another skill") { onEdit(kind, null) } }
             if (m.loaded) item {
@@ -93,7 +93,7 @@ private fun EmptyListings(kind: String, onCreate: () -> Unit) {
 /** [onPaymentQr] is set for a business I own while I have no payment QR: the card then asks for one. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, onItems: () -> Unit, onMembers: () -> Unit, onRecommend: () -> Unit, onOrders: () -> Unit, onJobs: () -> Unit, onOpenProfile: () -> Unit, onPaymentQr: (() -> Unit)? = null) {
+private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, onItems: () -> Unit, onMembers: () -> Unit, onRecommend: () -> Unit, onOrders: () -> Unit, onJobs: () -> Unit, onOpenProfile: () -> Unit, onPaymentQr: (() -> Unit)? = null, onDocs: () -> Unit = {}) {
     val role = m.roleIn(l.id); val manage = m.canManage(l.id); val recs = m.recommendations[l.id] ?: 0
     BucksCard {
         Row(verticalAlignment = Alignment.Top) {
@@ -129,6 +129,7 @@ private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, 
             if (manage) SmallButton("Edit", tonal = true, onClick = onEdit)
             if (manage && l.kind == "BUSINESS") SmallButton("Products", tonal = true, onClick = onItems)
             if (manage && l.kind == "SKILL") SmallButton("Services", tonal = true, onClick = onItems)
+            if (manage && l.kind != "DRIVER") SmallButton("Documents", tonal = true, onClick = onDocs)
             if (l.kind != "DRIVER") SmallButton("Members", tonal = true, onClick = onMembers)
             if (manage && l.kind == "BUSINESS") { SmallButton("Orders", tonal = true, onClick = onOrders); SmallButton("Jobs", tonal = true, onClick = onJobs) }
             SmallButton("View profile", tonal = true, onClick = onOpenProfile)

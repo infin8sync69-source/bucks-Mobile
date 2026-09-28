@@ -14,7 +14,13 @@ object Routes {
     // ---- cloud marketplace (reserved names; each feature owns its screens, see docs/FEATURE_CONTRACT.md) ----
     const val LISTING = "l/{id}"; fun listing(id: String) = "l/${Uri.encode(id)}"                       // universal profile: business / skill / driver
     const val MY_LISTINGS = "my/listings"; const val MY_VEHICLES = "my/vehicles"; const val VEHICLE_STATS = "my/vehicle-stats"
-    const val LISTING_EDIT = "edit-listing?id={id}&kind={kind}"; fun listingEdit(id: String?, kind: String) = "edit-listing?kind=$kind" + (id?.let { "&id=${Uri.encode(it)}" } ?: "")
+    const val LISTING_EDIT = "edit-listing?id={id}&kind={kind}&service={service}"
+    /** [service]: the Services tile a new business starts under (FOOD, GROCERY, ...), from "List it" on a locked tile. */
+    fun listingEdit(id: String?, kind: String, service: String? = null) = "edit-listing?kind=$kind" + (id?.let { "&id=${Uri.encode(it)}" } ?: "") + (service?.let { "&service=$it" } ?: "")
+    /** The documents a listing's service needs (services.sql). */
+    const val LISTING_DOCS = "listing-docs/{id}"; fun listingDocs(id: String) = "listing-docs/${Uri.encode(id)}"
+    /** Bucks staff: documents waiting for review. */
+    const val STAFF_REVIEW = "staff/review"
     const val ITEM_EDIT = "edit-item/{listing}?item={item}"; fun itemEdit(listing: String, item: String?) = "edit-item/${Uri.encode(listing)}" + (item?.let { "?item=${Uri.encode(it)}" } ?: "")
     const val VEHICLE_EDIT = "edit-vehicle?id={id}"; fun vehicleEdit(id: String?) = "edit-vehicle" + (id?.let { "?id=${Uri.encode(it)}" } ?: "")
     const val RECOMMEND_SHOW = "recommend/{id}"; fun recommendShow(id: String) = "recommend/${Uri.encode(id)}"; const val RECOMMEND_SCAN = "recommend-scan"

@@ -36,7 +36,8 @@ import java.io.ByteArrayOutputStream
 
 /* Shared bits for the Manage screens: category lists, details helpers, small composables. */
 
-internal val BUSINESS_CATEGORIES = listOf("Restaurant", "Grocery", "Bakery", "Pharmacy", "Vegetables", "Hardware", "Electronics", "Mobile repair", "Furniture", "Salon", "Tailor", "Other")
+/** Every category a business can pick, across its service (ui/Services.kt SERVICE_CATALOG). Pharmacy is left out on purpose: selling medicines online needs its own licensing. */
+internal val BUSINESS_CATEGORIES = com.bucks.app.ui.BUSINESS_SERVICES.flatMap { com.bucks.app.ui.serviceDef(it)!!.categories }
 internal val SKILL_CATEGORIES = listOf("Plumber", "Electrician", "Tutor", "Doctor", "Carpenter", "Painter", "Cleaner", "Driver", "Designer", "Software developer", "Other")
 internal val LANGUAGES = listOf("Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam", "Urdu")
 internal val LEVELS = listOf("Amateur", "Intermediate", "Expert")

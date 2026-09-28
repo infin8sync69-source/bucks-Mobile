@@ -27,6 +27,17 @@ select set_config('request.jwt.claims', '{"sub":"buyer"}', false);
 select 'buyer sees pending listing? ' || count(*) from listings where title = 'Asha Biryani House';
 
 \echo '== 3. Community cap: 7 local, in-person recommendations make it LIVE'
+-- With services.sql applied a listing also needs its required documents verified; give this one its FSSAI and ID up front.
+reset role;
+do $$ begin
+  if to_regclass('public.listing_documents') is not null then
+    insert into listing_documents (listing_id, doc_type, path, number, expires_on, status, uploaded_by)
+    select l.id, d.t, l.owner_id::text || '/doc.pdf', d.n, d.e, 'VERIFIED', l.owner_id
+    from listings l, (values ('OWNER_ID', '', null::date), ('FSSAI', '12345678901234', current_date + 365)) d(t, n, e)
+    where l.title = 'Asha Biryani House';
+  end if;
+end $$;
+set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"owner"}', false);
 select set_config('t.tok', recommend_token(id), false) is not null from listings where title = 'Asha Biryani House';
 select set_config('request.jwt.claims', '{"sub":"newbie"}', false);
