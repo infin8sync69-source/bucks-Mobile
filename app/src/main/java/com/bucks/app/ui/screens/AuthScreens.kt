@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -28,12 +32,31 @@ import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.Purple
 import com.bucks.app.ui.theme.PurpleDeep
 
+/**
+ * Welcome screen for people who are not signed in. The wordmark plays its entrance in the middle of the purple field
+ * (letters spring up one after another, a light sweeps across), glides up into place, then the promise and the button
+ * rise in. With reduced motion everything is simply there.
+ */
 @Composable
 fun SplashScreen(onStart: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Purple).padding(32.dp), horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.Bottom) {
-        Text("bucks", style = MaterialTheme.typography.displaySmall, color = Color.White)
-        Text("Rides, food, skilled people and local shops — ranked only by the people who used them.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(top = 12.dp, bottom = 40.dp))
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PurpleDeep)) { Text("Get started", style = MaterialTheme.typography.labelLarge) }
+    val reduced = rememberReducedMotion()
+    val entrance = remember { WordmarkEntrance() }; val settle = remember { Animatable(0f) }; val copy = remember { Animatable(0f) }
+    LightSystemBars()
+    LaunchedEffect(Unit) {
+        if (reduced) { entrance.snapIn(); settle.snapTo(1f); copy.snapTo(1f); return@LaunchedEffect }
+        entrance.play()
+        settle.animateTo(1f, tween(620, easing = Motion.Emphasized))
+        copy.animateTo(1f, tween(460, easing = Motion.Emphasized))
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(Purple).systemBarsPadding()) {
+        val lift = with(LocalDensity.current) { (maxHeight * 0.16f).toPx() }
+        BucksWordmark(Modifier.align(Alignment.Center).graphicsLayer { translationY = -lift * settle.value; val z = 1f - 0.12f * settle.value; scaleX = z; scaleY = z },
+            height = 72.dp, color = Color.White, sheen = { entrance.sheen.value }, pose = entrance::pose)
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 32.dp, vertical = 32.dp)
+            .graphicsLayer { alpha = copy.value; translationY = (1f - copy.value) * 48f }, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Rides, food, skilled people and local shops, ranked only by the people who used them.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = .88f), textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 32.dp))
+            Button(onClick = onStart, enabled = copy.value > 0.3f, modifier = Modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PurpleDeep, disabledContainerColor = Color.White, disabledContentColor = PurpleDeep)) { Text("Get started", style = MaterialTheme.typography.labelLarge) }
+        }
     }
 }
 

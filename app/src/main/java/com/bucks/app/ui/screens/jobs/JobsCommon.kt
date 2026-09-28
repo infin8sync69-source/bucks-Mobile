@@ -30,7 +30,7 @@ fun ApplicationStatusPill(status: String) {
 /** Centred spinner with a line under it, for a screen that is still loading. */
 @Composable
 fun JobsLoading(text: String = "Loading…") = Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-    CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp); Muted(text, Modifier.padding(top = 12.dp))
+    BucksLoader(); Muted(text, Modifier.padding(top = 12.dp))
 }
 
 /** One job in a list: title, pay, type pill and a line of details (business, distance, posted time, counts). */

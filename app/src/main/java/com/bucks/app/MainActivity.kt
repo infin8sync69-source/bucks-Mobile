@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.bucks.app.data.Push
 import com.bucks.app.ui.BucksAppUi
 import com.bucks.app.ui.BucksViewModel
@@ -19,6 +20,7 @@ class MainActivity : FragmentActivity() {
     private var startRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()   // purple launch field (Theme.Bucks.Starting), then Theme.Bucks
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Only a fresh launch takes the route from the intent; after a rotation the screen is already where it should be.

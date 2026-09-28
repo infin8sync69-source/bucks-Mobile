@@ -25,11 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.bucks.app.R
 
-val Purple = Color(0xFF6E0FF2)
+val Purple = Color(0xFF811FF0)   // the logo's purple (branding/, app icon, splash)
 val PurpleDeep = Color(0xFF4A0AA6)
 val PurpleTint = Color(0xFFEFE6FE)
 /** Vivid brand purple from the Home design: wordmark, badges, selected navigation. */
-val Brand = Color(0xFF6E0FF2)
+val Brand = Purple
 val Ink = Color(0xFF15111C)
 val Good = Color(0xFF117A47)
 val GoodTint = Color(0xFFE6F4EC)

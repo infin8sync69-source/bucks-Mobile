@@ -118,7 +118,7 @@ fun MomentVideo(url: String, paused: Boolean, modifier: Modifier = Modifier, loo
     LaunchedEffect(player) { while (true) { val d = player.duration; if (d > 0) progress((player.currentPosition.toFloat() / d).coerceIn(0f, 1f)); delay(50) } }
     Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
         AndroidView(factory = { c -> PlayerView(c).apply { useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT; setShutterBackgroundColor(android.graphics.Color.BLACK) } }, update = { it.player = player }, modifier = Modifier.fillMaxSize())
-        if (buffering) CircularProgressIndicator(color = Color.White)
+        if (buffering) BucksLoader(color = Color.White, label = "Buffering")
     }
 }
 
@@ -287,7 +287,7 @@ fun MomentViewerScreen(vm: BucksViewModel, author: String, onClose: () -> Unit, 
                     }
                 }
             }
-        } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+        } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { BucksLoader(color = Color.White) }
     }
     viewers?.let { list -> AlertDialog(onDismissRequest = { viewers = null }, title = { Text("Seen by ${list.size}") }, text = { Column { if (list.isEmpty()) Muted("No views yet."); list.take(30).forEach { v -> Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(v.name), size = 32); Text(v.name, Modifier.weight(1f).padding(start = 10.dp)); Text(v.reaction ?: "") } } } }, confirmButton = { TextButton({ viewers = null }) { Text("Close") } }) }
 }
@@ -324,7 +324,7 @@ fun NewMomentScreen(vm: BucksViewModel, onClose: () -> Unit) {
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val p = picked; val u = preview
             when {
-                reading -> Column(horizontalAlignment = Alignment.CenterHorizontally) { CircularProgressIndicator(color = Color.White); Text("Preparing…", color = Color.White.copy(alpha = .7f), modifier = Modifier.padding(top = 12.dp)) }
+                reading -> Column(horizontalAlignment = Alignment.CenterHorizontally) { BucksLoader(color = Color.White, label = "Preparing"); Text("Preparing…", color = Color.White.copy(alpha = .7f), modifier = Modifier.padding(top = 12.dp)) }
                 p != null && u != null && p.isVideo -> MomentVideo(u.toString(), paused = false, modifier = Modifier.fillMaxSize(), loop = true)
                 p != null && u != null -> AsyncImage(u, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                 else -> Column(Modifier.padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {

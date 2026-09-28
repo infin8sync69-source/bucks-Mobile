@@ -155,7 +155,7 @@ internal fun InfoRow(icon: ImageVector, title: String, detail: String) {
 }
 
 @Composable
-internal fun CenteredLoading() = Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+internal fun CenteredLoading() = Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { BucksLoader() }
 
 /** The rules for who may recommend a listing, in plain words. Shown on both recommendation screens. */
 @Composable

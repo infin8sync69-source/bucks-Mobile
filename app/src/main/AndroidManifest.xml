@@ -23,12 +23,15 @@
         android:theme="@style/Theme.Bucks">
         <service android:name=".data.DriverLocationService" android:foregroundServiceType="location" android:exported="false" />
         <!-- Push notifications (Firebase Cloud Messaging); see data/Push.kt and docs/PUSH_SETUP.md. -->
+        <!-- Icon and colour Firebase uses when it shows a notification itself (app in the background). -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_bucks" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/bucks_purple" />
         <service android:name=".data.BucksMessagingService" android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-        <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
+        <activity android:name=".MainActivity" android:exported="true" android:theme="@style/Theme.Bucks.Starting" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

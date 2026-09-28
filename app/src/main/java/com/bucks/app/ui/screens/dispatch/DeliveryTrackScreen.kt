@@ -54,7 +54,7 @@ fun DeliveryTrackScreen(vm: BucksViewModel, taskId: String, onBack: () -> Unit) 
         when {
             t == null && failed -> ContentColumn(Modifier.weight(1f)) { Column(Modifier.padding(Gutter)) { Text("Couldn't load this delivery", style = MaterialTheme.typography.titleMedium); Muted("Check your connection and pull down, or go back to the order.", Modifier.padding(top = 6.dp))
                 PrimaryButton("Try again", Modifier.padding(top = 16.dp)) { scope.launch { refresh() } } } }
-            t == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            t == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { BucksLoader() }
             else -> DeliveryBody(vm, t, rider, phone, Modifier.weight(1f), onCall = { phone?.let { dial(ctx, it) } ?: vm.toast("The rider's number will show once they've picked up the job.") },
                 onMessage = { phone?.let { sms(ctx, it) } ?: vm.toast("The rider's number will show once they've picked up the job.") }, onDone = onBack)
         }

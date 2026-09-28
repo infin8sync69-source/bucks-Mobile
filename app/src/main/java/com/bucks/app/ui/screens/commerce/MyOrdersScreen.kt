@@ -26,7 +26,7 @@ fun MyOrdersScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> U
     ContentColumn(Modifier.fillMaxHeight()) {
         BucksTopBar("My orders", onBack = onBack, actions = { IconButton({ commerce.refreshMyOrders() }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
         when {
-            !commerce.myOrdersLoaded -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            !commerce.myOrdersLoaded -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { BucksLoader() }
             commerce.myOrders.isEmpty() -> Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(icon = Icons.Rounded.ShoppingBag, size = 72)
                 Text("No orders yet", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))

@@ -136,7 +136,7 @@ object Push {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return
         val channel = when { quiet -> CH_QUIET; type == "messages" -> CH_MESSAGES; type == "orders" -> CH_ORDERS; type == "tasks" -> CH_TASKS; else -> CH_SOCIAL }
-        val icon = when (type) { "messages" -> android.R.drawable.ic_dialog_email; "orders" -> android.R.drawable.ic_menu_agenda; "tasks" -> android.R.drawable.ic_menu_mylocation; else -> android.R.drawable.ic_dialog_info }
+        val icon = com.bucks.app.R.drawable.ic_stat_bucks   // the "b" of the wordmark; the channel already says what kind it is
         val id = (type + ":" + (route ?: "")).hashCode()
         val open = Intent(ctx, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
@@ -145,7 +145,7 @@ object Push {
         }
         val tap = PendingIntent.getActivity(ctx, id, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = NotificationCompat.Builder(ctx, channel)
-            .setSmallIcon(icon).setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setSmallIcon(icon).setColor(0xFF811FF0.toInt()).setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(tap).setAutoCancel(true).setShowWhen(true).setGroup(type)
             .setPriority(when { quiet -> NotificationCompat.PRIORITY_LOW; type == "tasks" -> NotificationCompat.PRIORITY_MAX; else -> NotificationCompat.PRIORITY_HIGH })
             .setCategory(when (type) { "messages" -> NotificationCompat.CATEGORY_MESSAGE; "tasks" -> NotificationCompat.CATEGORY_STATUS; else -> NotificationCompat.CATEGORY_SOCIAL })

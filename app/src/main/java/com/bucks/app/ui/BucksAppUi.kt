@@ -68,6 +68,10 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()
         val width = windowWidth()
+        // Cold start for someone already signed in: the purple system splash hands over to the wordmark intro, which fades up
+        // into Home. Skipped when a notification tap opened the app (get them to the screen straight away) and after a rotation.
+        // Permission prompts wait until it has finished.
+        var showIntro by rememberSaveable { mutableStateOf(vm.isLoggedIn && startRoute == null) }
         val toast: (String) -> Unit = { msg -> scope.launch { snack.currentSnackbarData?.dismiss(); snack.showSnackbar(msg, duration = SnackbarDuration.Short) } }
         LaunchedEffect(Unit) { vm.toasts.collect { toast(it) } }
         // Real position for the customer side: one fix on start and whenever the app returns to the foreground.
@@ -78,7 +82,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         fun hasLocation() = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         // Play policy: explain what location is used for before the system prompt appears.
         var locDisclosure by rememberSaveable { mutableStateOf(false) }
-        LaunchedEffect(s.user != null) { if (s.user != null) { if (hasLocation()) fetchLocation() else locDisclosure = true } }
+        LaunchedEffect(s.user != null, showIntro) { if (s.user != null && !showIntro) { if (hasLocation()) fetchLocation() else locDisclosure = true } }
         if (locDisclosure) AlertDialog(onDismissRequest = { locDisclosure = false; vm.onLocationDenied() },
             title = { Text("Use your location") },
             text = { Text("Bucks uses your location to find riders, shops and services near you and to set your pick-up point. If you go online as a driver, Bucks keeps sharing your location while you're online, even when the app is closed, so nearby customers can ring you. It stops when you go offline.") },
@@ -88,7 +92,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         LaunchedEffect(s.vehicleOnline) { when { !s.vehicleOnline -> com.bucks.app.data.DriverLocationService.stop(ctx); hasLocation() -> com.bucks.app.data.DriverLocationService.start(ctx); else -> { vm.setOnline(false); toast("Allow location to go online, so customers can find you."); locDisclosure = true } } }
         val livePos by com.bucks.app.data.DriverLocationService.position.collectAsState(); val liveMock by com.bucks.app.data.DriverLocationService.mocked.collectAsState()
         LaunchedEffect(livePos, liveMock) { livePos?.let { vm.onLocation(it, liveMock) } }
-        LaunchedEffect(s.user != null) { if (s.user != null && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        LaunchedEffect(s.user != null, showIntro) { if (!showIntro && s.user != null && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
         LaunchedEffect(Unit) { vm.nav.collect { route -> when {
             route == Routes.HOME || route == Routes.FEED || route == Routes.ACTIVITY -> nav.navigate(route) { popUpTo(Routes.HOME) { inclusive = route == Routes.HOME } }
             route in RIDE_STAGES -> nav.navigate(route) { popUpTo(Routes.HOME); launchSingleTop = true }
@@ -114,6 +118,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val ride: () -> Unit = { vm.startRide(); nav.navigate(Routes.DESTINATION) }
         val logout: () -> Unit = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }
 
+        Box(Modifier.fillMaxSize()) {
         ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = loggedIn, drawerContent = {
             ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface, drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp), modifier = Modifier.width(300.dp)) { s.user?.let { u ->
                 // Demo builds keep the local vehicle; cloud builds use my checked vehicle on the server (never in s.pro).
@@ -262,6 +267,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     }
                 }
             }
+        }
+        if (showIntro) com.bucks.app.ui.components.BrandIntro { showIntro = false }
         }
     }
 }

@@ -153,7 +153,7 @@ private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Uni
                     SmallButton("Try again", Modifier.padding(top = 14.dp), tonal = true) { d.open(id) }
                     TextButton(onBack) { Text("Back") }
                 }
-                else -> { CircularProgressIndicator(); Muted("Loading…", Modifier.padding(top = 12.dp)) }
+                else -> { BucksLoader(); Muted("Loading…", Modifier.padding(top = 12.dp)) }
             }
         }
     }

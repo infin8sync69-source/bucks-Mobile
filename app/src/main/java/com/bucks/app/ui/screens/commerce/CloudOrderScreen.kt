@@ -78,7 +78,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
             o == null && loadFailed -> Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Couldn't load this order", style = MaterialTheme.typography.titleLarge); Muted("Check your connection. We'll keep trying every few seconds.", Modifier.padding(top = 6.dp), TextAlign.Center)
                 SmallButton("Try again", Modifier.padding(top = 18.dp)) { loadFailed = false; attempt++ } }
-            o == null -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            o == null -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { BucksLoader() }
             else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
                 val title = commerce.titleOf(o.listingId)
                 // Anyone but the buyer who can read the order runs the shop (owner, admin); they get the shop's view.

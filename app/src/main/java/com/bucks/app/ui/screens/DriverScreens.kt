@@ -91,7 +91,7 @@ fun OnlineFab(modifier: Modifier = Modifier, onClick: () -> Unit) = PulseRings(m
 /** Round "bucks" button; the rings around it say "you're live and receiving". */
 @Composable
 private fun OnlineFabCore(onClick: () -> Unit) = Box(Modifier.size(72.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-    Text("bucks", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)) }
+    BucksWordmark(height = 15.dp, color = MaterialTheme.colorScheme.onPrimary, contentDescription = "Go online") }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

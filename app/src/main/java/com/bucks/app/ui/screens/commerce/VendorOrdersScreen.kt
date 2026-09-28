@@ -61,7 +61,7 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
             SmallButton("Add payment QR", Modifier.padding(top = 8.dp)) { vm.open(Routes.PAYMENT_QR) }
         }
         when {
-            !commerce.vendorLoaded -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            !commerce.vendorLoaded -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { BucksLoader() }
             shown.isEmpty() -> Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(icon = if (filter == "New") Icons.Rounded.NotificationsNone else Icons.Rounded.Inventory2, size = 72)
                 Text(when (filter) { "New" -> "No new orders"; "Active" -> "Nothing in progress"; else -> "No finished orders yet" }, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))

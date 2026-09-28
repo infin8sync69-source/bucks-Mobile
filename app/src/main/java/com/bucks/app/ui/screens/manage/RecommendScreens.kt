@@ -47,7 +47,7 @@ fun RecommendShowScreen(vm: BucksViewModel, listingId: String, onBack: () -> Uni
             } else {
                 Muted("Ask a neighbour to open Bucks and scan this", Modifier.padding(top = 4.dp, bottom = 16.dp), TextAlign.Center)
                 Box(Modifier.size(260.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(10.dp), contentAlignment = Alignment.Center) {
-                    if (qr != null) Image(qr.asImageBitmap(), "Recommendation QR code", Modifier.fillMaxSize()) else CircularProgressIndicator()
+                    if (qr != null) Image(qr.asImageBitmap(), "Recommendation QR code", Modifier.fillMaxSize()) else BucksLoader(Modifier.align(Alignment.Center))
                 }
                 Text("$n of $NEEDED", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 16.dp))
                 Muted(if (n == 0) "No recommendations yet" else "neighbours have recommended you")
