@@ -352,7 +352,7 @@ end $$;
 create policy settings_read on public.settings for select to authenticated using (true);
 
 create policy profiles_read on public.profiles for select to authenticated using (true);
-create policy profiles_insert on public.profiles for insert to authenticated with check (auth_uid = (select auth.jwt()->>'sub'));
+create policy profiles_insert on public.profiles for insert to authenticated with check (auth_uid = ((select auth.jwt()) ->> 'sub'));
 create policy profiles_update on public.profiles for update to authenticated using (id = public.me()) with check (id = public.me());
 -- Trust, status and identity fields only change through Bucks' own functions.
 create or replace function public.guard_profile() returns trigger language plpgsql set search_path = public, extensions as $$
@@ -1198,6 +1198,7 @@ create index if not exists vehicle_members_profile_idx on public.vehicle_members
 create index if not exists invites_invitee_idx on public.invites (invitee_id) where status = 'PENDING';
 create index if not exists invites_listing_idx on public.invites (listing_id);
 create index if not exists invites_vehicle_idx on public.invites (vehicle_id);
+create index if not exists invites_inviter_idx on public.invites (inviter_id);
 create index if not exists recommendations_recommender_idx on public.recommendations (recommender_id);
 create index if not exists recommend_tokens_listing_idx on public.recommend_tokens (listing_id);
 create index if not exists driver_presence_vehicle_idx on public.driver_presence (vehicle_id);

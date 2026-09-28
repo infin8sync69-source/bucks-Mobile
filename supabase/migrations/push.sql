@@ -68,7 +68,8 @@ revoke execute on function public.notify_url() from public, anon, authenticated;
 
 do $$ begin
   if exists (select 1 from pg_available_extensions where name = 'pg_net') then
-    create extension if not exists pg_net;   -- not relocatable: always lands in schema "net"
+    -- The extension is registered in "extensions" (not public, per the Supabase linter); its functions live in schema "net".
+    create extension if not exists pg_net with schema extensions;
   end if;
 end $$;
 
