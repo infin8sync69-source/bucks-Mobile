@@ -5,7 +5,10 @@ import android.content.Context
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
+import android.util.Log
+import com.bucks.app.BuildConfig
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
@@ -28,11 +31,22 @@ object Cloud {
     private var verificationId: String? = null
     private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
 
-    /** Sends an SMS code to [phone] (10 digits, India). Some devices verify instantly, which calls [onSignedIn] without a code. */
-    fun sendCode(activity: Activity, phone: String, resend: Boolean, onSent: () -> Unit, onSignedIn: () -> Unit, onError: (String) -> Unit) {
+    /**
+     * Sends an SMS code to [phone] (10 digits, India). Some devices verify instantly, which calls [onSignedIn] without a code.
+     * Firebase first checks the app is genuine (Play Integrity, else a reCAPTCHA page). A sideloaded test APK can fail that
+     * check, so a test build retries once with the check off: Firebase allows that only for the console's "Phone numbers for
+     * testing", so a real number still fails with the original error.
+     */
+    fun sendCode(activity: Activity, phone: String, resend: Boolean, onSent: () -> Unit, onSignedIn: () -> Unit, onError: (String) -> Unit, skipCheck: Boolean = false) {
+        auth.firebaseAuthSettings.setAppVerificationDisabledForTesting(skipCheck)
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) = signIn(credential, onSignedIn, onError)
-            override fun onVerificationFailed(e: FirebaseException) = onError(errorText(e))
+            override fun onVerificationFailed(e: FirebaseException) {
+                Log.w("BucksAuth", "verifyPhoneNumber failed (skipCheck=$skipCheck)", e)
+                if (!skipCheck && BuildConfig.SELF_UPDATE && e !is FirebaseTooManyRequestsException)
+                    sendCode(activity, phone, resend, onSent, onSignedIn, { onError(errorText(e)) }, skipCheck = true)
+                else onError(errorText(e))
+            }
             override fun onCodeSent(id: String, token: PhoneAuthProvider.ForceResendingToken) { verificationId = id; resendToken = token; onSent() }
         }
         val options = PhoneAuthOptions.newBuilder(auth).setPhoneNumber("+91$phone").setTimeout(60L, TimeUnit.SECONDS).setActivity(activity).setCallbacks(callbacks)
@@ -46,10 +60,16 @@ object Cloud {
     private fun signIn(credential: PhoneAuthCredential, onSignedIn: () -> Unit, onError: (String) -> Unit) {
         auth.signInWithCredential(credential).addOnSuccessListener { onSignedIn() }.addOnFailureListener { onError(errorText(it)) }
     }
-    private fun errorText(e: Exception) = when (e) {
-        is FirebaseAuthInvalidCredentialsException -> "That code or number isn't valid. Check it and try again."
-        is FirebaseTooManyRequestsException -> "Too many attempts from this phone. Try again later."
-        else -> "Couldn't verify right now. Check your connection and try again."
+    // The Firebase error code goes on the end so a tester can report it (e.g. ERROR_APP_NOT_AUTHORIZED means a missing SHA fingerprint).
+    private fun errorText(e: Exception): String {
+        Log.w("BucksAuth", "phone sign-in failed", e)
+        val code = (e as? FirebaseAuthException)?.errorCode ?: e.message?.take(80)
+        val text = when (e) {
+            is FirebaseAuthInvalidCredentialsException -> "That code or number isn't valid. Check it and try again."
+            is FirebaseTooManyRequestsException -> "Too many attempts from this phone. Try again later."
+            else -> "Couldn't verify right now."
+        }
+        return if (code.isNullOrBlank()) text else "$text ($code)"
     }
     fun signOut() { if (enabled) auth.signOut() }
 
