@@ -134,11 +134,22 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Firebase texts a real 6-digit code. Some phones verify on their own, which calls [onSignedIn] with no code typed. */
     fun sendOtp(activity: Activity, resend: Boolean = false, onSignedIn: () -> Unit) {
         if (!cloud) return
-        Cloud.sendCode(activity, s.tempPhone, resend, onSent = { toast("Code sent to +91 ${s.tempPhone}") }, onSignedIn = { onPhoneVerified(); onSignedIn() }, onError = { toast(it) })
+        otpStatus.value = "Asking Firebase to send the code…"
+        Cloud.sendCode(activity, s.tempPhone, resend, onSent = { otpStatus.value = "Code sent. Enter it below."; toast("Code sent to +91 ${s.tempPhone}") },
+            onSignedIn = { otpStatus.value = "Signed in"; onPhoneVerified(); onSignedIn() },
+            onError = { otpStatus.value = "Couldn't send the code: $it"; toast(it) },
+            onRetry = { otpStatus.value = "App check failed; trying again as a test number…" })
+        // Firebase sometimes never answers (a reCAPTCHA page that didn't open or return): say so instead of waiting silently.
+        val asked = otpStatus.value
+        viewModelScope.launch { kotlinx.coroutines.delay(30_000); if (otpStatus.value == asked || otpStatus.value.startsWith("App check failed"))
+            otpStatus.value = "No reply from Firebase after 30 seconds. Tap Resend code, and send a screenshot of this screen." }
     }
+    /** What the phone sign-in is doing right now, shown under the code box so a tester can report it. */
+    val otpStatus = kotlinx.coroutines.flow.MutableStateFlow("")
     /** Without Firebase (demo build) the code is 1234, and only in debug builds. */
     fun verifyOtp(code: String, onResult: (Boolean) -> Unit) {
-        if (cloud) { Cloud.verifyCode(code, { onPhoneVerified(); onResult(true) }, { toast(it); onResult(false) }); return }
+        if (cloud) { otpStatus.value = "Checking the code…"
+            Cloud.verifyCode(code, { otpStatus.value = "Signed in"; onPhoneVerified(); onResult(true) }, { otpStatus.value = "Code not accepted: $it"; toast(it); onResult(false) }); return }
         if (!BuildConfig.DEBUG) { toast("Sign-in isn't set up in this build."); onResult(false); return }
         if (code != "1234") { toast("Wrong code. Try 1234."); onResult(false); return }
         onPhoneVerified(); onResult(true)

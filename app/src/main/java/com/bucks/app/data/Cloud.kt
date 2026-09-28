@@ -26,6 +26,8 @@ object Cloud {
 
     private val auth get() = FirebaseAuth.getInstance()
     val uid: String? get() = if (enabled) auth.currentUser?.uid else null
+    /** Firebase project this build talks to (shown on the code screen of test builds). */
+    val project: String? get() = if (enabled) runCatching { FirebaseApp.getInstance().options.projectId }.getOrNull() else null
 
     // ---------- phone sign-in ----------
     private var verificationId: String? = null
@@ -37,14 +39,15 @@ object Cloud {
      * check, so a test build retries once with the check off: Firebase allows that only for the console's "Phone numbers for
      * testing", so a real number still fails with the original error.
      */
-    fun sendCode(activity: Activity, phone: String, resend: Boolean, onSent: () -> Unit, onSignedIn: () -> Unit, onError: (String) -> Unit, skipCheck: Boolean = false) {
+    fun sendCode(activity: Activity, phone: String, resend: Boolean, onSent: () -> Unit, onSignedIn: () -> Unit, onError: (String) -> Unit, skipCheck: Boolean = false, onRetry: () -> Unit = {}) {
         auth.firebaseAuthSettings.setAppVerificationDisabledForTesting(skipCheck)
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) = signIn(credential, onSignedIn, onError)
             override fun onVerificationFailed(e: FirebaseException) {
                 Log.w("BucksAuth", "verifyPhoneNumber failed (skipCheck=$skipCheck)", e)
-                if (!skipCheck && BuildConfig.SELF_UPDATE && e !is FirebaseTooManyRequestsException)
-                    sendCode(activity, phone, resend, onSent, onSignedIn, { onError(errorText(e)) }, skipCheck = true)
+                if (!skipCheck && BuildConfig.SELF_UPDATE && e !is FirebaseTooManyRequestsException) {
+                    onRetry(); sendCode(activity, phone, resend, onSent, onSignedIn, { onError(errorText(e) + " / retry: " + it) }, skipCheck = true)
+                }
                 else onError(errorText(e))
             }
             override fun onCodeSent(id: String, token: PhoneAuthProvider.ForceResendingToken) { verificationId = id; resendToken = token; onSent() }

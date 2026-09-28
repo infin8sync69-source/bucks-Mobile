@@ -1,5 +1,6 @@
 package com.bucks.app.ui.screens
 
+import com.bucks.app.data.Cloud
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -130,6 +131,12 @@ fun OtpScreen(vm: BucksViewModel, phone: String, onBack: () -> Unit, onVerified:
             OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(length) }, modifier = Modifier.fillMaxWidth().shakeOn(wrong), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
             PrimaryButton(if (busy) "Checking…" else "Verify", Modifier.padding(top = 20.dp), enabled = !busy && code.length == length) { busy = true; vm.verifyOtp(code) { ok -> busy = false; if (ok) onVerified() else wrong++ } }
             TextButton(onClick = { if (vm.cloud) activity?.let { vm.sendOtp(it, resend = true, onSignedIn = onVerified) } else showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
+            if (vm.cloud) {
+                val status by vm.otpStatus.collectAsState()
+                if (activity == null) Muted("Couldn't start sign-in on this screen (no activity). Send a screenshot.", Modifier.padding(top = 12.dp))
+                if (status.isNotBlank()) Muted(status, Modifier.padding(top = 12.dp).fillMaxWidth(), TextAlign.Center)
+                if (com.bucks.app.BuildConfig.SELF_UPDATE) Muted("Build ${com.bucks.app.BuildConfig.BUILD_NUMBER} · ${Cloud.project ?: "no Firebase"}", Modifier.padding(top = 6.dp).fillMaxWidth(), TextAlign.Center)
+            }
         }
     }
 }
