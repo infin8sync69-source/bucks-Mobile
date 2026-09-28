@@ -81,7 +81,7 @@ fun onlineText(kind: String, online: Boolean): String = when (kind) {
     else -> if (online) "Online now" else "Offline"
 }
 
-fun kindIcon(kind: String): ImageVector = when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "SKILL" -> Icons.Rounded.Handyman; "ASSET" -> Icons.Rounded.Sell; else -> Icons.Rounded.LocalTaxi }
+fun kindIcon(kind: String): ImageVector = when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "SKILL" -> Icons.Rounded.Handyman; "ASSET" -> Icons.Rounded.Apartment; else -> Icons.Rounded.LocalTaxi }
 
 /** Shop / Pro / Driver pill with its icon. */
 @Composable

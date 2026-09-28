@@ -334,15 +334,15 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
                 det.list("languages").takeIf { it.isNotEmpty() }?.let { AboutRow(Icons.Rounded.Language, "Languages", it.joinToString(", ")) }
             }
             "ASSET" -> {
-                AboutRow(Icons.Rounded.Sell, "Listing", assetPrice(det))
-                det.str("deposit")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { AboutRow(Icons.Rounded.Savings, "Deposit", inr(it.toLong())) }
-                det.str("area_sqft")?.let { AboutRow(Icons.Rounded.SquareFoot, "Size", "$it sq ft") }
-                det.str("bedrooms")?.let { AboutRow(Icons.Rounded.Bed, "Bedrooms", it) }
+                AboutRow(Icons.Rounded.Apartment, "Listing", assetPrice(det))
+                det.str("deposit")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { AboutRow(Icons.Rounded.Payments, "Deposit", inr(it.toLong())) }
+                det.str("area_sqft")?.let { AboutRow(Icons.Rounded.Category, "Size", "$it sq ft") }
+                det.str("bedrooms")?.let { AboutRow(Icons.Rounded.Home, "Bedrooms", it) }
                 det.str("furnishing")?.let { AboutRow(Icons.Rounded.Chair, "Furnishing", it) }
-                det.str("available_from")?.let { AboutRow(Icons.Rounded.Event, "Available from", it) }
+                det.str("available_from")?.let { AboutRow(Icons.Rounded.CalendarMonth, "Available from", it) }
                 det.str("year")?.let { AboutRow(Icons.Rounded.CalendarMonth, "Year", it) }
-                det.str("km_driven")?.let { AboutRow(Icons.Rounded.Speed, "Driven", "$it km") }
-                if (det.str("negotiable") == "true") AboutRow(Icons.Rounded.Handshake, "Price", "Negotiable")
+                det.str("km_driven")?.let { AboutRow(Icons.Rounded.DirectionsCar, "Driven", "$it km") }
+                if (det.str("negotiable") == "true") AboutRow(Icons.Rounded.Payments, "Price", "Negotiable")
             }
             "DRIVER" -> {
                 AboutRow(vk?.icon ?: Icons.Rounded.DirectionsCar, "Vehicle", listOfNotNull(vk?.label, det.str("model")).joinToString(" · ").ifBlank { "Not shared" })
@@ -441,7 +441,7 @@ private fun GalleryTab(l: ListingRow) {
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     AsyncImage(ph.url, ph.caption.ifBlank { null }, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                    if (i > 0) IconButton(onClick = { open = i - 1 }, modifier = Modifier.align(Alignment.CenterStart)) { Icon(Icons.Rounded.ChevronLeft, "Previous", tint = androidx.compose.ui.graphics.Color.White) }
+                    if (i > 0) IconButton(onClick = { open = i - 1 }, modifier = Modifier.align(Alignment.CenterStart)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Previous", tint = androidx.compose.ui.graphics.Color.White) }
                     if (i < g.lastIndex) IconButton(onClick = { open = i + 1 }, modifier = Modifier.align(Alignment.CenterEnd)) { Icon(Icons.Rounded.ChevronRight, "Next", tint = androidx.compose.ui.graphics.Color.White) }
                 }
                 if (ph.caption.isNotBlank()) Text(ph.caption, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Gutter))

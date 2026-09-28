@@ -36,7 +36,7 @@ internal data class CreateOption(val kind: String, val title: String, val detail
 internal val CREATE_OPTIONS = listOf(
     CreateOption("BUSINESS", "Business", "Shop, restaurant, store. Products with prices, orders, delivery.", Icons.Rounded.Storefront),
     CreateOption("SKILL", "Skill profile", "Plumber, tutor, designer. Your services, prices and portfolio.", Icons.Rounded.Handyman),
-    CreateOption("ASSET", "Asset to sell, rent or lease", "House, flat, plot, shop, office, vehicle, equipment.", Icons.Rounded.Sell),
+    CreateOption("ASSET", "Asset to sell, rent or lease", "House, flat, plot, shop, office, vehicle, equipment.", Icons.Rounded.Apartment),
     CreateOption("VEHICLE", "Vehicle", "Bike, auto or cab for rides and deliveries, with its documents.", Icons.Rounded.TwoWheeler),
     CreateOption("DRIVER", "Driver profile", "Take rides and deliveries with a checked vehicle.", Icons.Rounded.LocalTaxi),
 )
@@ -101,7 +101,7 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
                     if (m.loaded) full {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             BucksCard(Modifier.weight(1f), onClick = onBucksId) {
-                                Icon(Icons.Rounded.Badge, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.primary)
                                 Text("Bucks ID card", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Show it so people sync with you.")
                             }
                             BucksCard(Modifier.weight(1f), onClick = onScan) {

@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -188,7 +187,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 ManageTile(Icons.Rounded.Edit, "Edit details") { goTo("EDIT") }
                 if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Description, "Documents") { goTo("DOCS") }
                 if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Groups, "Team") { goTo("MEMBERS") }
-                if (l.kind == "BUSINESS") { ManageTile(Icons.Rounded.ReceiptLong, "Orders") { goTo("ORDERS") }; ManageTile(Icons.Rounded.Work, "Jobs") { goTo("JOBS") } }
+                if (l.kind == "BUSINESS") { ManageTile(Icons.Rounded.Assignment, "Orders") { goTo("ORDERS") }; ManageTile(Icons.Rounded.Work, "Jobs") { goTo("JOBS") } }
                 if (l.kind == "BUSINESS" && owner) ManageTile(Icons.Rounded.QrCode2, "Payment QR") { goTo("PAYMENT") }
                 if (l.kind == "DRIVER") ManageTile(Icons.Rounded.TwoWheeler, "Vehicles") { goTo("VEHICLES") }
                 ManageTile(Icons.Rounded.ThumbUp, if (l.status == "PENDING") "Get recommended" else "Recommend code") { goTo("RECOMMEND") }
@@ -319,7 +318,7 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
         }
         if (g.size < 20) item {
             Box(Modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium).clickable(enabled = !m.busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.AddPhotoAlternate, null, tint = MaterialTheme.colorScheme.primary); Text("Add photos", style = MaterialTheme.typography.labelMedium) } }
+                contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary); Text("Add photos", style = MaterialTheme.typography.labelMedium) } }
         }
         items(g, key = { it.url }) { p ->
             Box(Modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium).clickable { open = p }) {
@@ -341,7 +340,7 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SmallButton("Make cover", Modifier.weight(1f), tonal = true, enabled = p.url != l.photoUrl) { m.setCover(l.id, p.url); open = null }
                     IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, -1); open = null }, enabled = i > 0) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Move earlier") }
-                    IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, 1); open = null }, enabled = i in 0 until g.lastIndex) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Move later") }
+                    IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, 1); open = null }, enabled = i in 0 until g.lastIndex) { Icon(Icons.Rounded.ChevronRight, "Move later") }
                 }
                 BadButton("Remove photo", Modifier.padding(top = 4.dp)) { confirm = true }
             }
@@ -429,7 +428,7 @@ private fun ReviewsManageTab(vm: BucksViewModel, l: ListingRow) {
                         Text(vm.social.nameOf(r.authorId), style = MaterialTheme.typography.titleSmall); Muted(ago(r.createdAt))
                         Text(r.comment, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
                     }
-                    Icon(if (up) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbDown, if (up) "Recommends" else "Doesn't recommend", tint = if (up) st.good else st.bad)
+                    Icon(if (up) Icons.Rounded.ThumbUp else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", tint = if (up) st.good else st.bad)
                 }
             }
         }

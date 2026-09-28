@@ -140,7 +140,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         Row(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
                             .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF811FF0), androidx.compose.ui.graphics.Color(0xFF4A0AA6))))
                             .clickable { closeMenu(); nav.navigate(Routes.BUCKS_ID) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Badge, null, tint = androidx.compose.ui.graphics.Color.White)
+                            Icon(Icons.Rounded.QrCode2, null, tint = androidx.compose.ui.graphics.Color.White)
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 Text("Bucks ID  ${pretty(me.shortCode)}", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleSmall)
                                 Text(when { info == null -> "Tap to show your card"; info.expired -> "Expired · tap to renew"; info.renewable -> "Renew soon · valid till ${info.validTill}"; else -> "Valid till ${info.validTill}" },
@@ -150,7 +150,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         }
                     }
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.Dashboard, if (studio) "Studio home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
+                        DrawerItem(Icons.Rounded.GridView, if (studio) "Studio home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
                         // Quick access: every listing I run, one tap to its dashboard, and the switch right here when it's live.
                         if (studio) m.listings.sortedWith(compareBy({ it.status != "LIVE" }, { it.title.lowercase() })).forEach { l ->
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { closeMenu(); nav.navigate(Routes.studioListing(l.id)) }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -165,7 +165,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         // Quick switch for the active vehicle, so a driver can go online from anywhere.
                         if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, online = s.online, onToggle = { on -> vm.setVehicleOnline(v.id, on); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate) }
                         if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), online = s.vehicleOnline, onToggle = { on -> vm.setOnline(on, cv.plate); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate(Routes.vehicleEdit(cv.id)) }) { Muted(cv.plate) }
-                        if (studio) DrawerItem(Icons.Rounded.AddCircleOutline, "Create a listing", false) { closeMenu(); nav.navigate(Routes.MY_LISTINGS) }
+                        if (studio) DrawerItem(Icons.Rounded.Add, "Create a listing", false) { closeMenu(); nav.navigate(Routes.MY_LISTINGS) }
                     }
                     if (studio) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)

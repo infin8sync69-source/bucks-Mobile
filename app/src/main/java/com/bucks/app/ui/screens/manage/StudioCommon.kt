@@ -37,15 +37,15 @@ internal val FURNISHING = listOf("Unfurnished", "Semi-furnished", "Furnished")
 
 internal fun assetModeLabel(m: String) = ASSET_MODES.firstOrNull { it.first == m }?.second ?: m.lowercase().replaceFirstChar { it.uppercase() }
 internal fun assetIcon(type: String): ImageVector = when (type) {
-    "House", "Villa" -> Icons.Rounded.House
+    "House", "Villa" -> Icons.Rounded.Home
     "Flat", "PG / Room" -> Icons.Rounded.Apartment
-    "Plot / Land" -> Icons.Rounded.Landscape
+    "Plot / Land" -> Icons.Rounded.Place
     "Shop", "Commercial space" -> Icons.Rounded.Storefront
-    "Office" -> Icons.Rounded.BusinessCenter
-    "Warehouse" -> Icons.Rounded.Warehouse
+    "Office" -> Icons.Rounded.Work
+    "Warehouse" -> Icons.Rounded.Inventory2
     "Vehicle" -> Icons.Rounded.DirectionsCar
-    "Equipment" -> Icons.Rounded.Construction
-    else -> Icons.Rounded.Sell
+    "Equipment" -> Icons.Rounded.Handyman
+    else -> Icons.Rounded.Apartment
 }
 
 /** 150000 -> "1,50,000" (Indian grouping). */

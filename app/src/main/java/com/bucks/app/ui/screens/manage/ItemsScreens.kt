@@ -151,7 +151,7 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, service: Boolean, ex
                     added.forEachIndexed { i, (_, u) -> PhotoThumb(u, main = keep.isEmpty() && i == 0, onMain = null) { added.removeAt(i) } }
                     if (keep.size + added.size < 8) Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
                         .clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.AddPhotoAlternate, null, tint = MaterialTheme.colorScheme.primary); Text("Add", style = MaterialTheme.typography.labelSmall) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary); Text("Add", style = MaterialTheme.typography.labelSmall) }
                     }
                 }
                 BucksField(name, { name = it.take(80) }, if (service) "Service" else "Product name", if (service) "Tap repair" else "Sona masoori rice")
