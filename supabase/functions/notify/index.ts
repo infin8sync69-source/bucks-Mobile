@@ -6,7 +6,7 @@
 // The app (data/Push.kt) draws the notification from the data keys: type, title, body, route, quiet.
 //
 // Deploy:  supabase functions deploy notify --no-verify-jwt        (the shared secret is the authentication)
-// Secrets: BUCKS_WEBHOOK_SECRET, FCM_SERVICE_ACCOUNT (see docs/PUSH_SETUP.md). SUPABASE_URL and
+// Secrets: FCM_SERVICE_ACCOUNT; the webhook secret comes from push_config (or BUCKS_WEBHOOK_SECRET) (see docs/PUSH_SETUP.md). SUPABASE_URL and
 //          SUPABASE_SERVICE_ROLE_KEY are injected by Supabase.
 // No dependencies: PostgREST over fetch, RS256 through WebCrypto.
 
@@ -32,7 +32,10 @@ interface ServiceAccount { project_id: string; client_email: string; private_key
 
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const SECRET = Deno.env.get("BUCKS_WEBHOOK_SECRET") ?? "";
+// The shared secret the database trigger sends. BUCKS_WEBHOOK_SECRET when set; otherwise read from push_config (the same row
+// the trigger reads, so there is nothing to copy by hand). Re-read every 5 minutes so a rotated secret takes effect.
+const ENV_SECRET = Deno.env.get("BUCKS_WEBHOOK_SECRET") ?? "";
+let dbSecret: { value: string; until: number } | null = null;
 const FCM_SERVICE_ACCOUNT = Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "";
 const MOMENT_FANOUT_CAP = 500;
 const BATCH = 20;
@@ -328,7 +331,15 @@ async function deliver(notes: Note[]): Promise<Row> {
 function json(body: Row, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
-function sameSecret(given: string | null): boolean {
+async function webhookSecret(): Promise<string> {
+  if (ENV_SECRET) return ENV_SECRET;
+  if (dbSecret && dbSecret.until > Date.now()) return dbSecret.value;
+  const row = await one<{ value: string }>("push_config", "key=eq.webhook_secret&select=value").catch(() => null);
+  dbSecret = { value: row?.value ?? "", until: Date.now() + 300_000 };
+  return dbSecret.value;
+}
+async function sameSecret(given: string | null): Promise<boolean> {
+  const SECRET = await webhookSecret();
   if (!SECRET || !given || given.length !== SECRET.length) return false;
   let diff = 0;
   for (let i = 0; i < SECRET.length; i++) diff |= SECRET.charCodeAt(i) ^ given.charCodeAt(i);
@@ -337,7 +348,7 @@ function sameSecret(given: string | null): boolean {
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "POST {table, type, record, old_record} with the x-bucks-secret header" }, 405);
-  if (!sameSecret(req.headers.get("x-bucks-secret"))) return json({ error: "forbidden" }, 403);
+  if (!(await sameSecret(req.headers.get("x-bucks-secret")))) return json({ error: "forbidden" }, 403);
   if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing" }, 500);
   if (!FCM_SERVICE_ACCOUNT) return json({ error: "FCM_SERVICE_ACCOUNT secret is not set (see docs/PUSH_SETUP.md)" }, 500);
   let ev: DbEvent;
