@@ -19,7 +19,7 @@ echo "Creating the pilot signing key…"
 if gh secret list -R "$REPO" | grep -q '^PILOT_KEYSTORE_B64'; then
   echo "PILOT_KEYSTORE_B64 already exists on $REPO. Replacing it would break updates for everyone who installed a pilot build."; exit 1
 fi
-PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)"
+PASS="$(openssl rand -hex 16)"   # 32 hex characters; openssl ships with macOS and Linux
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 keytool -genkeypair -keystore "$TMP/pilot.jks" -storetype PKCS12 -alias pilot -keyalg RSA -keysize 4096 -validity 10000 \
   -storepass "$PASS" -keypass "$PASS" -dname "CN=Bucks pilot, O=Bucks, C=IN" >/dev/null
