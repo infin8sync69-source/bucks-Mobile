@@ -46,14 +46,17 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     }
 
     fun signedIn(name: String, phone: String) = go {
-        val p = Backend.ensureProfile(name, phone); me = p; names[p.id] = p.name
+        // Right after the first sign-in the Supabase role claim may still be on its way: try again before giving up.
+        var tries = 0
+        val p = run { while (true) { try { return@run Backend.ensureProfile(name, phone) } catch (e: Exception) { if (++tries >= 3) throw e; kotlinx.coroutines.delay(2_000L * tries) } }; error("unreachable") }
+        me = p; names[p.id] = p.name
         settings = Backend.mySettings(p.id)
         Push.registerIfSignedIn()
         repo.clearDemoSocial()
         refreshInbox(); refreshSyncs()
     }
     fun signedOut() { me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
-    fun profileSaved(name: String, area: String, bio: String) = go { val p = me ?: return@go; Backend.updateProfile(p.id, name, bio, area, here); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
+    fun profileSaved(name: String, area: String, bio: String) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, here); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
 
     suspend fun namesFor(ids: Collection<String>) { val missing = ids.filter { it !in names }.distinct(); if (missing.isNotEmpty()) Backend.profiles(missing).forEach { names[it.id] = it.name } }
     fun nameOf(id: String) = names[id] ?: "…"

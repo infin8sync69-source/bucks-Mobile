@@ -49,7 +49,10 @@ object Backend {
                 val cached = user?.getIdToken(false)?.await()
                 if (user != null && cached != null && cached.claims["role"] == null) {
                     if (claimAskedFor != user.uid) { claimAskedFor = user.uid; runCatching { requestRoleClaim(cached.token.orEmpty()) } }
-                    user.getIdToken(true).await()?.token
+                    // The new claim can take a moment to reach a refreshed token; without it Supabase answers 401.
+                    var fresh = user.getIdToken(true).await()
+                    repeat(3) { if (fresh?.claims?.get("role") == null) { kotlinx.coroutines.delay(1_500); fresh = user.getIdToken(true).await() } }
+                    fresh?.token
                 } else cached?.token
             }
             install(Postgrest)
