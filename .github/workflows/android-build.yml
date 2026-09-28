@@ -29,7 +29,7 @@ jobs:
       - name: Firebase config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          FIREBASE_ON: ${{ vars.FIREBASE_ON || 'false' }}
+          FIREBASE_ON: ${{ vars.FIREBASE_ON || 'true' }}   # live mode on for the device tests; set the variable to false for a demo build
         run: |
           if [ "$FIREBASE_ON" != "true" ]; then echo "Firebase: off (demo mode)"; exit 0; fi
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then echo "$GOOGLE_SERVICES_JSON" > app/google-services.json; else cp firebase/google-services.json app/google-services.json; fi

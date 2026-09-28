@@ -41,13 +41,16 @@ object Backend {
 
     val client: SupabaseClient by lazy {
         createSupabaseClient(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY) {
-            // Supabase only accepts a Firebase token that carries role=authenticated, which the setSupabaseRole function
-            // (firebase/functions) adds just after sign-up. The token cached at sign-in predates it, so fetch a fresh one
-            // until the claim is there; after that the cached token is used as normal.
+            // Supabase only accepts a Firebase token that carries role=authenticated. The claim is set by the claim-role Supabase
+            // function (asked once per account here) or by firebase/functions setSupabaseRole on the Blaze plan. The token
+            // cached at sign-in predates it, so fetch a fresh one until the claim is there; after that the cache is used as normal.
             accessToken = {
                 val user = FirebaseAuth.getInstance().currentUser
                 val cached = user?.getIdToken(false)?.await()
-                if (user != null && cached != null && cached.claims["role"] == null) user.getIdToken(true).await()?.token else cached?.token
+                if (user != null && cached != null && cached.claims["role"] == null) {
+                    if (claimAskedFor != user.uid) { claimAskedFor = user.uid; runCatching { requestRoleClaim(cached.token.orEmpty()) } }
+                    user.getIdToken(true).await()?.token
+                } else cached?.token
             }
             install(Postgrest)
             install(Realtime)
@@ -55,6 +58,24 @@ object Backend {
         }
     }
     private val db get() = client.postgrest
+
+    /** The account whose role claim was already requested in this run (asked once, not on every call). */
+    @Volatile private var claimAskedFor: String? = null
+    /**
+     * Asks the claim-role Supabase function to mark this Firebase user as authenticated. Plain HTTP on purpose: going through
+     * [client] would ask [accessToken] for a token again and loop.
+     */
+    private suspend fun requestRoleClaim(firebaseToken: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val c = java.net.URL("${BuildConfig.SUPABASE_URL.trimEnd('/')}/functions/v1/claim-role").openConnection() as java.net.HttpURLConnection
+        try {
+            c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 10_000; c.readTimeout = 15_000
+            c.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            c.setRequestProperty("x-firebase-token", firebaseToken)
+            c.setRequestProperty("Content-Type", "application/json")
+            c.outputStream.use { it.write("{}".toByteArray()) }
+            c.responseCode
+        } finally { c.disconnect() }
+    }
 
     /** Postgres geography input: PostGIS reads this text form directly. */
     fun point(p: LatLng) = "SRID=4326;POINT(${p.lng} ${p.lat})"
