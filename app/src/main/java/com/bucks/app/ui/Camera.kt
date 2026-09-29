@@ -19,9 +19,10 @@ import java.util.UUID
 class CameraCapture(val takePhoto: () -> Unit, val recordVideo: () -> Unit)
 
 private class RecordVideo(private val maxBytes: Long) : ActivityResultContract<Uri, Boolean>() {
-    override fun createIntent(context: Context, input: Uri): Intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-        .putExtra(MediaStore.EXTRA_OUTPUT, input).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 30).putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxBytes).putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0)
-        .setClipData(ClipData.newRawUri("", input)).addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    override fun createIntent(context: Context, input: Uri): Intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
+        putExtra(MediaStore.EXTRA_OUTPUT, input); putExtra(MediaStore.EXTRA_DURATION_LIMIT, 30); putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxBytes); putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0)
+        clipData = ClipData.newRawUri("", input); addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
     override fun parseResult(resultCode: Int, intent: Intent?) = resultCode == Activity.RESULT_OK
 }
 
