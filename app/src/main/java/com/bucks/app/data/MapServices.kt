@@ -25,7 +25,8 @@ import java.net.URLEncoder
  */
 object MapServices {
     data class PlaceHit(val name: String, val detail: String, val at: LatLng)
-    data class RoadRoute(val km: Double, val minutes: Int, val points: List<LatLng>)
+    data class Step(val text: String, val metres: Double, val at: LatLng, val type: String, val modifier: String)
+    data class RoadRoute(val km: Double, val minutes: Int, val points: List<LatLng>, val steps: List<Step> = emptyList())
 
     private val json = Json { ignoreUnknownKeys = true }
     private const val UA = "Bucks-Android/1.0 (com.bucks.app)"
@@ -99,24 +100,48 @@ object MapServices {
         return listOfNotNull(h.name, area?.takeIf { it != h.name }).joinToString(", ")
     }
 
-    /** Driving route by road; null when offline or no route (the caller draws a straight line instead). */
-    suspend fun route(from: LatLng, to: LatLng): RoadRoute? {
+    /** Road route for [profile] (driving, driving-traffic, cycling, walking) with its turn-by-turn steps; null when offline or no route (the caller draws a straight line instead). */
+    suspend fun route(from: LatLng, to: LatLng, profile: String = "driving"): RoadRoute? {
+        val xy = "${from.lng},${from.lat};${to.lng},${to.lat}"
         if (token.isNotBlank()) {
-            val m = get("https://api.mapbox.com/directions/v5/mapbox/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&access_token=$token") as? JsonObject
-            parseRoute(m, "routes", from, to)?.let { return it }
+            val m = get("https://api.mapbox.com/directions/v5/mapbox/$profile/$xy?overview=full&geometries=geojson&steps=true&language=en&access_token=$token") as? JsonObject
+            parseRoute(m, from, to)?.let { return it }
         }
-        return parseRoute(get("https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson") as? JsonObject, "routes", from, to)
+        val host = when { profile.startsWith("cycling") -> "https://routing.openstreetmap.de/routed-bike"; profile.startsWith("walking") -> "https://routing.openstreetmap.de/routed-foot"; else -> "https://router.project-osrm.org" }
+        return parseRoute(get("$host/route/v1/driving/$xy?overview=full&geometries=geojson&steps=true") as? JsonObject, from, to)
     }
 
-    /** Mapbox and OSRM answer alike: routes[0] with distance (m), duration (s) and a GeoJSON line. */
-    private fun parseRoute(o: JsonObject?, key: String, from: LatLng, to: LatLng): RoadRoute? {
-        val r = (o?.get(key) as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
+    private fun words(type: String, mod: String, name: String): String {
+        val onto = if (name.isNotBlank()) " onto $name" else ""
+        return when (type) {
+            "depart" -> if (name.isNotBlank()) "Head out on $name" else "Start"
+            "arrive" -> "You have arrived"
+            "roundabout", "rotary", "roundabout turn" -> "Take the roundabout$onto"
+            "merge" -> "Merge$onto"
+            "fork" -> "Keep ${mod.ifBlank { "straight" }} at the fork$onto"
+            "end of road" -> "At the end of the road, turn ${mod.ifBlank { "ahead" }}$onto"
+            "on ramp", "off ramp" -> "Take the ramp$onto"
+            "new name", "continue" -> if (mod == "uturn") "Make a U-turn" else "Continue$onto"
+            else -> if (mod == "uturn") "Make a U-turn" else if (mod.isBlank() || mod == "straight") "Continue straight$onto" else "Turn $mod$onto"
+        }
+    }
+
+    /** Mapbox and OSRM answer alike: routes[0] with distance (m), duration (s), a GeoJSON line and legs[].steps[] (maneuver with type, modifier, location, and Mapbox's own instruction text). */
+    private fun parseRoute(o: JsonObject?, from: LatLng, to: LatLng): RoadRoute? {
+        val r = (o?.get("routes") as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
         val metres = r["distance"]?.jsonPrimitive?.doubleOrNull ?: return null; val seconds = r["duration"]?.jsonPrimitive?.doubleOrNull ?: return null
         val pts = r["geometry"]?.jsonObject?.get("coordinates")?.jsonArray?.mapNotNull { p ->
             val a = p as? JsonArray ?: return@mapNotNull null
             val lng = a.getOrNull(0)?.jsonPrimitive?.doubleOrNull; val lat = a.getOrNull(1)?.jsonPrimitive?.doubleOrNull
             if (lat != null && lng != null) LatLng(lat, lng) else null
         }.orEmpty()
-        return RoadRoute(Math.round(metres / 100.0) / 10.0, maxOf(1, Math.round(seconds / 60.0).toInt()), pts.ifEmpty { listOf(from, to) })
+        val steps = (r["legs"] as? JsonArray).orEmpty().flatMap { leg -> ((leg as? JsonObject)?.get("steps") as? JsonArray).orEmpty() }.mapNotNull { st ->
+            val so = st as? JsonObject ?: return@mapNotNull null; val mv = so["maneuver"] as? JsonObject ?: return@mapNotNull null
+            val loc = mv["location"]?.jsonArray ?: return@mapNotNull null
+            val lng = loc.getOrNull(0)?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null; val lat = loc.getOrNull(1)?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
+            val type = mv.s("type").orEmpty(); val mod = mv.s("modifier").orEmpty()
+            Step(mv.s("instruction") ?: words(type, mod, so.s("name").orEmpty()), so["distance"]?.jsonPrimitive?.doubleOrNull ?: 0.0, LatLng(lat, lng), type, mod)
+        }
+        return RoadRoute(Math.round(metres / 100.0) / 10.0, maxOf(1, Math.round(seconds / 60.0).toInt()), pts.ifEmpty { listOf(from, to) }, steps)
     }
 }

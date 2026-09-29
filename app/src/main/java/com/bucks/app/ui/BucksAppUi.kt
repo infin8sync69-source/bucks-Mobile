@@ -179,7 +179,6 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.Place, "Maps & directions", current == Routes.MAPS) { closeMenu(); nav.navigate(Routes.MAPS) }
                         DrawerItem(Icons.Rounded.Settings, "Account settings", false) { closeMenu(); nav.navigate("account?tab=settings") }
                         DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
                     }
@@ -256,7 +255,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { nav.navigate(if (it == "bucks-id") Routes.BUCKS_ID else if (it.startsWith("studio/")) Routes.studioListing(it.removePrefix("studio/")) else it) } }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
                             composable(Routes.GROUP_NEW) { if (vm.social.enabled) NewGroupScreen(vm, onBack = { nav.popBackStack() }, onCreated = { id -> nav.navigate(Routes.chat(id)) { popUpTo(Routes.MESSAGES) } }) else LaunchedEffect(Unit) { nav.popBackStack() } }
                             composable(Routes.CHAT, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!; if (vm.social.enabled) CloudChatScreen(vm, id, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) else ChatScreen(vm, id, onBack = { nav.popBackStack() }, onCall = call) }
-                            composable(Routes.SYNC) { SyncScreen(vm, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
+                            composable(Routes.SYNC) { SyncScreen(vm, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onMap = { nav.navigate(Routes.MAPS) }) }
                             composable(Routes.MOMENTS, arguments = listOf(navArgument("author") { type = NavType.StringType })) { e -> MomentViewerScreen(vm, e.arguments!!.getString("author")!!, onClose = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) { popUpTo(Routes.FEED) } }) }
                             composable(Routes.MOMENT_NEW) { NewMomentScreen(vm, onClose = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_PRIVACY) { PrivacyScreen(vm, onBack = { nav.popBackStack() }) }
@@ -269,7 +268,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.PAYMENT_QR) { PaymentQrScreen(vm, onBack = { nav.popBackStack() }) }
                             // Discover (cloud-only): the universal listing profile for a business, skill or driver.
                             composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
-                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
+                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onMap = { nav.navigate(Routes.MAPS) }) }
                             // Commerce (cloud-only): cart + checkout, order page, my orders and the vendor order inbox.
                             composable(Routes.CLOUD_CART) { CloudCartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { id -> nav.navigate(Routes.cloudOrder(id)) { popUpTo(Routes.CLOUD_CART) { inclusive = true } } }) }
                             composable(Routes.CLOUD_ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> CloudOrderScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onTrack = { nav.navigate(Routes.deliveryTrack(it)) }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
@@ -298,7 +297,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onVehicles = { nav.navigate(Routes.MY_VEHICLES) }) }
                             composable(Routes.POST, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> PostDetailScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
                             composable(Routes.MAPS) { MapsScreen(vm, onBack = { nav.popBackStack() }) }
-                            composable(Routes.CONTACTS) { ContactsScreen(vm, onBack = { nav.popBackStack() }, onSync = { nav.navigate(Routes.SYNC) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
+                            composable(Routes.CONTACTS) { ContactsScreen(vm, onBack = { nav.popBackStack() }, onSync = { nav.navigate(Routes.SYNC) }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onMap = { nav.navigate(Routes.MAPS) }) }
                             composable(Routes.BUCKS_ID) { BucksIdScreen(vm, onBack = { nav.popBackStack() }, onSync = { nav.navigate(Routes.SYNC) }) }
                             composable(Routes.MY_VEHICLES) { VehiclesScreen(vm, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.vehicleEdit(it)) }, onStats = { nav.navigate(Routes.VEHICLE_STATS) }, onMembers = { nav.navigate(Routes.members("v:$it")) }) }
                             composable(Routes.VEHICLE_STATS) { VehicleStatsScreen(vm, onBack = { nav.popBackStack() }) }

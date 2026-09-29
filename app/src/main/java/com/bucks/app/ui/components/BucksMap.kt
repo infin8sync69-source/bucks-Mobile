@@ -42,16 +42,29 @@ private fun mutedTiles(dark: Boolean): ColorMatrixColorFilter {
     m.postConcat(ColorMatrix(tone)); return ColorMatrixColorFilter(m)
 }
 
+/** Lets a screen move and zoom the map it shows (my-location button, zoom buttons, following a moving position). */
+class MapCommands {
+    internal var view: MapView? = null
+    fun zoomIn() { view?.controller?.zoomIn() }
+    fun zoomOut() { view?.controller?.zoomOut() }
+    fun moveTo(at: LatLng, zoom: Double? = null) { view?.let { v -> zoom?.let { v.controller.setZoom(it) }; v.controller.animateTo(GeoPoint(at.lat, at.lng)) } }
+}
+
 /** Real street map. Pins keep the app's 0–100 percent coordinates and are projected through [Geo.fromPercent]. */
 @Composable
-fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 13.0, route: List<LatLng> = emptyList(), circle: Pair<LatLng, Double>? = null, onCenter: ((LatLng) -> Unit)? = null) {
+fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 13.0, route: List<LatLng> = emptyList(), circle: Pair<LatLng, Double>? = null, onCenter: ((LatLng) -> Unit)? = null,
+    commands: MapCommands? = null, satellite: Boolean = false, onLongPress: ((LatLng) -> Unit)? = null, onUserMove: (() -> Unit)? = null) {
     val brand = Brand.toArgb()
     val ctx = LocalContext.current; val density = LocalDensity.current.density
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val map = remember {
         Configuration.getInstance().apply { userAgentValue = ctx.packageName; osmdroidBasePath = File(ctx.cacheDir, "osmdroid"); osmdroidTileCache = File(osmdroidBasePath, "tiles") }
-        MapView(ctx).apply { setTileSource(mapTiles()); setMultiTouchControls(true); isTilesScaledToDpi = true; zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER); minZoomLevel = 10.0; maxZoomLevel = 18.0; controller.setZoom(zoom) }
+        MapView(ctx).apply { setTileSource(mapTiles(false)); setMultiTouchControls(true); isTilesScaledToDpi = true; zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER); minZoomLevel = 4.0; maxZoomLevel = 19.0; controller.setZoom(zoom) }
     }
+    SideEffect { commands?.view = map }
+    LaunchedEffect(satellite) { map.setTileSource(mapTiles(satellite)) }
+    val moved = rememberUpdatedState(onUserMove)
+    DisposableEffect(map) { map.setOnTouchListener { _, e -> if (e.action == android.view.MotionEvent.ACTION_MOVE) moved.value?.invoke(); false }; onDispose { map.setOnTouchListener(null) } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, e -> when (e) { Lifecycle.Event.ON_RESUME -> map.onResume(); Lifecycle.Event.ON_PAUSE -> map.onPause(); else -> {} } }
@@ -68,8 +81,12 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
         l?.let { map.addMapListener(it); map.mapCenter.let { c -> onCenter(LatLng(c.latitude, c.longitude)) } }
         onDispose { l?.let { map.removeMapListener(it) } } }
     AndroidView(factory = { map }, modifier = modifier.clipToBounds(), update = { mv ->
-        mv.overlayManager.tilesOverlay.setColorFilter(mutedTiles(dark))
+        mv.overlayManager.tilesOverlay.setColorFilter(if (satellite) null else mutedTiles(dark))
         mv.overlays.clear()
+        onLongPress?.let { cb -> mv.overlays.add(org.osmdroid.views.overlay.MapEventsOverlay(object : org.osmdroid.events.MapEventsReceiver {
+            override fun singleTapConfirmedHelper(p: GeoPoint?) = false
+            override fun longPressHelper(p: GeoPoint?): Boolean { p?.let { cb(LatLng(it.latitude, it.longitude)) }; return true }
+        })) }
         circle?.let { (c, m) -> mv.overlays.add(Polygon(mv).apply { points = Polygon.pointsAsCircle(GeoPoint(c.lat, c.lng), m); fillPaint.color = (brand and 0x00FFFFFF) or 0x33000000; outlinePaint.color = (brand and 0x00FFFFFF) or 0x66000000; outlinePaint.strokeWidth = 2 * density; setOnClickListener { _, _, _ -> false } }) }
         if (route.size >= 2) mv.overlays.add(Polyline(mv).apply { setPoints(route.map { GeoPoint(it.lat, it.lng) }); outlinePaint.color = brand; outlinePaint.strokeWidth = 5 * density; outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND; setOnClickListener { _, _, _ -> false } })
         pins.sortedBy { it.big }.forEach { p ->
@@ -99,11 +116,12 @@ fun rememberRoadRoute(from: LatLng?, to: LatLng?): com.bucks.app.data.MapService
     return route
 }
 
-/** Mapbox Streets tiles when a token is built in (sharper, with Indian place names), else OpenStreetMap's own. */
-private fun mapTiles(): org.osmdroid.tileprovider.tilesource.ITileSource {
+/** Mapbox Streets (or satellite with streets) tiles when a token is built in: sharper, with Indian place names. Else OpenStreetMap's own. */
+private fun mapTiles(satellite: Boolean): org.osmdroid.tileprovider.tilesource.ITileSource {
     val token = com.bucks.app.BuildConfig.MAPBOX_TOKEN
     if (token.isBlank()) return TileSourceFactory.MAPNIK
-    return object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase("MapboxStreets", 0, 22, 256, ".png", arrayOf("https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/")) {
+    val style = if (satellite) "satellite-streets-v12" else "streets-v12"
+    return object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase("Mapbox-$style", 0, 22, 256, ".png", arrayOf("https://api.mapbox.com/styles/v1/mapbox/$style/tiles/256/")) {
         override fun getTileURLString(t: Long): String =
             baseUrl + org.osmdroid.util.MapTileIndex.getZoom(t) + "/" + org.osmdroid.util.MapTileIndex.getX(t) + "/" + org.osmdroid.util.MapTileIndex.getY(t) + "@2x?access_token=" + token
     }

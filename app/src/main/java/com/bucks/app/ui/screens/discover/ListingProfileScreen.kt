@@ -55,7 +55,7 @@ private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km"
  * BUSINESS: Products, Jobs, About, Reviews. SKILL: Services, Feed, About, Reviews. DRIVER: About, Reviews, plus Book.
  */
 @Composable
-fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit, onCart: () -> Unit, onJobs: (String) -> Unit, onBook: (VehicleKind) -> Unit, onOpenListing: (String) -> Unit) {
+fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit, onCart: () -> Unit, onJobs: (String) -> Unit, onBook: (VehicleKind) -> Unit, onOpenListing: (String) -> Unit, onMap: () -> Unit = {}) {
     val d = vm.discover; val social = vm.social; val ctx = LocalContext.current
     LaunchedEffect(id) { d.open(id) }
     val p = d.profiles[id]
@@ -104,7 +104,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                         Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
                     SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
                     HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
-                    p.at?.let { at -> HeaderIcon(Icons.Rounded.Place, "Directions") { com.bucks.app.ui.screens.openDirections(ctx, at, l.title) } }
+                    p.at?.let { at -> HeaderIcon(Icons.Rounded.Place, "Directions") { com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
                     if (l.kind == "BUSINESS" && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
                 }
                 if (l.kind == "ASSET" && !p.mine) PrimaryButton(if (l.details.str("mode") == "SELL") "Enquire about buying" else "Enquire about renting", Modifier.padding(top = 12.dp)) {

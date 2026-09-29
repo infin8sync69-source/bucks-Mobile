@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  * The address book is read here on the phone and never uploaded.
  */
 @Composable
-fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, onOpenChat: (String) -> Unit = {}) {
+fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, onOpenChat: (String) -> Unit = {}, onMap: () -> Unit = {}) {
     val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
     var denied by remember { mutableStateOf(false) }
@@ -80,7 +80,7 @@ fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, o
         else if (shown.isEmpty()) Muted("Nobody matches \"${q.trim()}\".", Modifier.padding(Gutter))
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(shown, key = { it.id }) { c -> ContactRow(c, expanded = open == c.id, onToggle = { open = if (open == c.id) null else c.id }, scope = scope,
-                person = c.phones.firstNotNullOfOrNull { byPhone[tail10(it)] }, onMessage = { p -> social.openDirect(p.id, onOpenChat) }, onAttach = { attachFor = c }); Divider() }
+                person = c.phones.firstNotNullOfOrNull { byPhone[tail10(it)] }, onMessage = { p -> social.openDirect(p.id, onOpenChat) }, onAttach = { attachFor = c }, onMap = onMap); Divider() }
         }
     }
 }
@@ -89,7 +89,7 @@ fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, o
 private fun CenteredBox(content: @Composable () -> Unit) = Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { content() }
 
 @Composable
-private fun ContactRow(c: PhoneContact, expanded: Boolean, onToggle: () -> Unit, scope: kotlinx.coroutines.CoroutineScope, person: com.bucks.app.data.ProfileRow?, onMessage: (com.bucks.app.data.ProfileRow) -> Unit, onAttach: () -> Unit) {
+private fun ContactRow(c: PhoneContact, expanded: Boolean, onToggle: () -> Unit, scope: kotlinx.coroutines.CoroutineScope, person: com.bucks.app.data.ProfileRow?, onMessage: (com.bucks.app.data.ProfileRow) -> Unit, onAttach: () -> Unit, onMap: () -> Unit) {
     val ctx = LocalContext.current
     var inviteMenu by remember { mutableStateOf(false) }
     fun start(i: Intent) { runCatching { ctx.startActivity(i) }.onFailure { android.widget.Toast.makeText(ctx, "No app on this phone can do that.", android.widget.Toast.LENGTH_SHORT).show() } }
@@ -126,7 +126,7 @@ private fun ContactRow(c: PhoneContact, expanded: Boolean, onToggle: () -> Unit,
                 IconButton({ start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${PhoneContacts.dialable(p)}"))) }) { Icon(Icons.Rounded.Sms, "Message $p", tint = MaterialTheme.colorScheme.primary) } }) }
             c.emails.forEach { e -> DetailRow(Icons.Rounded.MailOutline, e, actions = { IconButton({ start(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$e"))) }) { Icon(Icons.Rounded.Send, "Email $e", tint = MaterialTheme.colorScheme.primary) } }) }
             if (c.org.isNotBlank()) DetailRow(Icons.Rounded.Work, listOfNotNull(c.org, c.title.ifBlank { null }).joinToString(" · "))
-            if (c.address.isNotBlank()) DetailRow(Icons.Rounded.LocationOn, c.address, actions = { IconButton({ start(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(c.address)}"))) }) { Icon(Icons.Rounded.Place, "Show on map", tint = MaterialTheme.colorScheme.primary) } })
+            if (c.address.isNotBlank()) DetailRow(Icons.Rounded.LocationOn, c.address, actions = { IconButton({ com.bucks.app.ui.screens.MapsPick.query = c.address; onMap() }) { Icon(Icons.Rounded.Place, "Show on map", tint = MaterialTheme.colorScheme.primary) } })
         }
     }
 }
