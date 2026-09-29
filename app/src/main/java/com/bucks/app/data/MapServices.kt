@@ -61,9 +61,24 @@ object MapServices {
         return PlaceHit(name, full.substringAfter(",", "").trim().split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3).joinToString(", "), LatLng(lat, lon))
     }
 
+    private val token get() = com.bucks.app.BuildConfig.MAPBOX_TOKEN
+
+    private fun mapboxHit(f: JsonObject): PlaceHit? {
+        val c = f["geometry"]?.jsonObject?.get("coordinates")?.jsonArray ?: return null
+        val lng = c.getOrNull(0)?.jsonPrimitive?.doubleOrNull ?: return null; val lat = c.getOrNull(1)?.jsonPrimitive?.doubleOrNull ?: return null
+        val p = f["properties"]?.jsonObject ?: return null
+        val name = p.s("name") ?: return null
+        return PlaceHit(name, p.s("place_formatted").orEmpty(), LatLng(lat, lng))
+    }
+
     /** Places matching [query], nearest to [near] first. Null when no search server could be reached (so "offline" isn't shown as "no places"). */
     suspend fun searchOrNull(query: String, near: LatLng): List<PlaceHit>? {
         val q = query.trim(); if (q.length < 3) return emptyList()
+        if (token.isNotBlank()) {
+            val m = get("https://api.mapbox.com/search/geocode/v6/forward?q=${enc(q)}&proximity=${near.lng},${near.lat}&limit=8&language=en&access_token=$token") as? JsonObject
+            val hits = m?.let { o -> (o["features"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::mapboxHit) } }
+            if (!hits.isNullOrEmpty()) return hits.distinctBy { it.name + it.detail }
+        }
         val photon = get("https://photon.komoot.io/api/?q=${enc(q)}&lat=${near.lat}&lon=${near.lng}&limit=8&lang=en") as? JsonObject
         val a = photon?.let { o -> (o["features"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::hitOf) } }
         if (!a.isNullOrEmpty()) return a.distinctBy { it.name + it.detail }.sortedBy { Geo.distanceKm(near, it.at) }
@@ -86,8 +101,16 @@ object MapServices {
 
     /** Driving route by road; null when offline or no route (the caller draws a straight line instead). */
     suspend fun route(from: LatLng, to: LatLng): RoadRoute? {
-        val o = get("https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson") as? JsonObject ?: return null
-        val r = (o["routes"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
+        if (token.isNotBlank()) {
+            val m = get("https://api.mapbox.com/directions/v5/mapbox/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&access_token=$token") as? JsonObject
+            parseRoute(m, "routes", from, to)?.let { return it }
+        }
+        return parseRoute(get("https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson") as? JsonObject, "routes", from, to)
+    }
+
+    /** Mapbox and OSRM answer alike: routes[0] with distance (m), duration (s) and a GeoJSON line. */
+    private fun parseRoute(o: JsonObject?, key: String, from: LatLng, to: LatLng): RoadRoute? {
+        val r = (o?.get(key) as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
         val metres = r["distance"]?.jsonPrimitive?.doubleOrNull ?: return null; val seconds = r["duration"]?.jsonPrimitive?.doubleOrNull ?: return null
         val pts = r["geometry"]?.jsonObject?.get("coordinates")?.jsonArray?.mapNotNull { p ->
             val a = p as? JsonArray ?: return@mapNotNull null

@@ -33,6 +33,8 @@ android {
         fun cfg(k: String) = props.getProperty(k) ?: System.getenv(k) ?: ""
         buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("SUPABASE_ANON_KEY")}\"")
+        // Mapbox public token (pk.*, made to ship inside apps): map tiles, place search and routes. Override with MAPBOX_TOKEN in local.properties or CI; empty falls back to OpenStreetMap servers.
+        buildConfigField("String", "MAPBOX_TOKEN", "\"${props.getProperty("MAPBOX_TOKEN") ?: System.getenv("MAPBOX_TOKEN") ?: ""}\"")
     }
     // The pilot key (a CI secret, see scripts/setup-pilot-signing.sh). Every test build must carry the same signature, or Android
     // refuses to install it over the previous one. Without the secret, builds fall back to a throwaway debug key.

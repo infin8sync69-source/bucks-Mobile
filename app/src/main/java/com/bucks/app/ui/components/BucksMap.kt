@@ -50,7 +50,7 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val map = remember {
         Configuration.getInstance().apply { userAgentValue = ctx.packageName; osmdroidBasePath = File(ctx.cacheDir, "osmdroid"); osmdroidTileCache = File(osmdroidBasePath, "tiles") }
-        MapView(ctx).apply { setTileSource(TileSourceFactory.MAPNIK); setMultiTouchControls(true); isTilesScaledToDpi = true; zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER); minZoomLevel = 10.0; maxZoomLevel = 18.0; controller.setZoom(zoom) }
+        MapView(ctx).apply { setTileSource(mapTiles()); setMultiTouchControls(true); isTilesScaledToDpi = true; zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER); minZoomLevel = 10.0; maxZoomLevel = 18.0; controller.setZoom(zoom) }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
@@ -85,7 +85,7 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
 
 /** Tile attribution required by OpenStreetMap. */
 @Composable
-fun MapAttribution(modifier: Modifier = Modifier) = Text("© OpenStreetMap contributors", modifier, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun MapAttribution(modifier: Modifier = Modifier) = Text(if (com.bucks.app.BuildConfig.MAPBOX_TOKEN.isNotBlank()) "© Mapbox © OpenStreetMap" else "© OpenStreetMap contributors", modifier, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 /**
  * Road route between two points (MapServices.route), refetched only when either end moves ~200 m, so a moving car does
@@ -97,4 +97,14 @@ fun rememberRoadRoute(from: LatLng?, to: LatLng?): com.bucks.app.data.MapService
     var route by remember { mutableStateOf<com.bucks.app.data.MapServices.RoadRoute?>(null) }
     LaunchedEffect(key) { route = if (from == null || to == null) null else com.bucks.app.data.MapServices.route(from, to) ?: route }
     return route
+}
+
+/** Mapbox Streets tiles when a token is built in (sharper, with Indian place names), else OpenStreetMap's own. */
+private fun mapTiles(): org.osmdroid.tileprovider.tilesource.ITileSource {
+    val token = com.bucks.app.BuildConfig.MAPBOX_TOKEN
+    if (token.isBlank()) return TileSourceFactory.MAPNIK
+    return object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase("MapboxStreets", 0, 22, 256, ".png", arrayOf("https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/")) {
+        override fun getTileURLString(t: Long): String =
+            baseUrl + org.osmdroid.util.MapTileIndex.getZoom(t) + "/" + org.osmdroid.util.MapTileIndex.getX(t) + "/" + org.osmdroid.util.MapTileIndex.getY(t) + "@2x?access_token=" + token
+    }
 }
