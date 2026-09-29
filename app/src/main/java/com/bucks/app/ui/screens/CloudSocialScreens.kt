@@ -373,6 +373,7 @@ private fun MediaChoice(icon: androidx.compose.ui.graphics.vector.ImageVector, t
 
 /* ---------- MESSAGES and CHAT ---------- */
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit, onSync: () -> Unit, onNewGroup: () -> Unit, onRoute: (String) -> Unit = {}) {
     val social = vm.social; var menuFor by remember { mutableStateOf<InboxRow?>(null) }; var leaveFor by remember { mutableStateOf<InboxRow?>(null) }

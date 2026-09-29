@@ -40,7 +40,8 @@ object Upload {
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
             var sample = 1; while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxPx) sample *= 2
             val decoded = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) } ?: return@runCatching null
-            val degrees = runCatching { cr.openInputStream(uri)?.use { ExifInterface(it).rotationDegrees } }.getOrNull() ?: 0
+            val degrees = runCatching { cr.openInputStream(uri)?.use { s -> when (ExifInterface(s).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90; ExifInterface.ORIENTATION_ROTATE_180 -> 180; ExifInterface.ORIENTATION_ROTATE_270 -> 270; else -> 0 } } }.getOrNull() ?: 0
             val scale = minOf(1f, maxPx.toFloat() / maxOf(decoded.width, decoded.height))
             val bmp = if (scale < 1f || degrees != 0) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, Matrix().apply { postScale(scale, scale); postRotate(degrees.toFloat()) }, true) else decoded
             val bytes = ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()

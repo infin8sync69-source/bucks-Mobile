@@ -59,6 +59,7 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
 }
 
 /** My own profile in cloud builds: name, Bucks ID, synced people and chats from the server, and my posts from the feed. Posting goes through social.post like the Feed tab. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onOpen: (String) -> Unit) {
     val social = vm.social; val s by vm.state.collectAsState(); val u = s.user ?: return; val ctx = LocalContext.current
