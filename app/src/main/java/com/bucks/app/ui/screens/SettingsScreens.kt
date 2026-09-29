@@ -104,6 +104,7 @@ fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     var from by remember(saved) { mutableStateOf(quiet?.get("from")?.jsonPrimitive?.content ?: "22:00") }; var to by remember(saved) { mutableStateOf(quiet?.get("to")?.jsonPrimitive?.content ?: "07:00") }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Notifications", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
+            PhoneNotificationStatus()
             NOTIFY_KEYS.forEach { (k, l) -> ToggleRow(l, null, on(k)) { set(k, it) } }
             ToggleRow("Quiet hours", "No sounds or banners between these times. Ride requests still ring while you're online.", qOn) { qOn = it }
             if (qOn) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { BucksField(from, { from = it.take(5) }, "From", "22:00", Modifier.weight(1f)); BucksField(to, { to = it.take(5) }, "To", "07:00", Modifier.weight(1f)) }
@@ -148,6 +149,30 @@ fun CloseFriendsScreen(vm: BucksViewModel, onBack: () -> Unit) {
             Muted("Moments shared with 'Close friends' are seen only by the people ticked here. They aren't told they're on the list.", Modifier.padding(bottom = 8.dp))
             if (social.synced.isEmpty()) Muted("Sync with people first.")
             social.synced.forEach { p -> val on = p.id in social.closeFriends; PersonRow(p, trailing = { Checkbox(on, { social.setClose(p.id, it) }) }) }
+        }
+    }
+}
+
+/**
+ * Whether this phone lets Bucks show notifications, with the fix and a test. The server can send a notification perfectly and the phone
+ * still show nothing when Android has notifications switched off for the app (or, on Android 13+, permission was never granted).
+ */
+@Composable
+private fun PhoneNotificationStatus() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var enabled by remember { mutableStateOf(androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled()) }
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { enabled = androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled() }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) { val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) enabled = androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled() }; lifecycle.addObserver(o); onDispose { lifecycle.removeObserver(o) } }
+    BucksCard(Modifier.padding(bottom = 16.dp), tint = !enabled) {
+        Text(if (enabled) "This phone shows Bucks notifications" else "Notifications are off for Bucks on this phone", style = MaterialTheme.typography.titleSmall)
+        Muted(if (enabled) "If a comment, like or message still doesn't appear, tap Send a test. Also check that the phone isn't in Do Not Disturb or battery saver." else "Comments, likes, messages and orders reach this phone but Android hides them. Turn notifications on for Bucks.", Modifier.padding(top = 4.dp))
+        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!enabled) SmallButton("Turn on") {
+                if (android.os.Build.VERSION.SDK_INT >= 33) ask.launch(android.Manifest.permission.POST_NOTIFICATIONS) else ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName))
+            }
+            SmallButton("Open phone settings", tonal = true) { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)) }
+            if (enabled) SmallButton("Send a test", tonal = true) { com.bucks.app.data.Push.show(ctx, "social", "Test from Bucks", "If you can read this, notifications work on this phone.", null, false) }
         }
     }
 }

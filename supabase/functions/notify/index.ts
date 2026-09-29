@@ -75,6 +75,8 @@ async function plan(ev: DbEvent): Promise<Note[]> {
     case "syncs": return ev.type === "INSERT" ? await forSyncRequest(r) : ev.type === "UPDATE" ? await forSyncAccepted(r, ev.old_record ?? null) : [];
     case "moments": return ev.type === "INSERT" ? await forMoment(r) : [];
     case "post_comments": return ev.type === "INSERT" ? await forComment(r) : [];
+    case "post_votes": return ev.type === "INSERT" || ev.type === "UPDATE" ? await forLike(r, ev.old_record ?? null) : [];
+    case "moment_views": return ev.type === "INSERT" || ev.type === "UPDATE" ? await forReaction(r, ev.old_record ?? null) : [];
     default: return [];
   }
 }
@@ -217,7 +219,26 @@ async function forComment(c: Row): Promise<Note[]> {
   const post = await one<{ author_id: string; deleted_at: string | null }>("posts", `id=eq.${c.post_id}&select=author_id,deleted_at`);
   if (!post || post.deleted_at || post.author_id === c.author_id) return [];
   const who = nameOf(await names([c.author_id]), c.author_id);
-  return [{ to: post.author_id, key: "comments", type: "social", title: `${who} commented on your post`, body: String(c.body ?? ""), route: "feed", tag: `post-${c.post_id}` }];
+  return [{ to: post.author_id, key: "comments", type: "social", title: `${who} commented on your post`, body: String(c.body ?? ""), route: `post/${c.post_id}`, tag: `post-${c.post_id}` }];
+}
+
+// An up-vote on my post. The database trigger also writes the in-app row and skips repeats within a day.
+async function forLike(v: Row, old: Row | null): Promise<Note[]> {
+  if (v.vote !== 1 || old?.vote === 1) return [];
+  const post = await one<{ author_id: string; body: string; deleted_at: string | null }>("posts", `id=eq.${v.post_id}&select=author_id,body,deleted_at`);
+  if (!post || post.deleted_at || post.author_id === v.profile_id) return [];
+  const who = nameOf(await names([v.profile_id]), v.profile_id);
+  return [{ to: post.author_id, key: "comments", type: "social", title: `${who} recommended your post`, body: String(post.body ?? "").slice(0, 120), route: `post/${v.post_id}`, tag: `like-${v.post_id}-${v.profile_id}` }];
+}
+
+// A reaction to my moment (a plain view has no reaction and says nothing).
+async function forReaction(v: Row, old: Row | null): Promise<Note[]> {
+  const reaction = String(v.reaction ?? "");
+  if (!reaction || old?.reaction === reaction) return [];
+  const m = await one<{ author_id: string }>("moments", `id=eq.${v.moment_id}&select=author_id`);
+  if (!m || m.author_id === v.viewer_id) return [];
+  const who = nameOf(await names([v.viewer_id]), v.viewer_id);
+  return [{ to: m.author_id, key: "moments", type: "social", title: `${who} reacted ${reaction} to your moment`, body: "Your moment is up for 24 hours.", route: "feed", tag: `reaction-${v.moment_id}-${v.viewer_id}` }];
 }
 
 // ---------- settings: on/off per kind, quiet hours in Asia/Kolkata ----------

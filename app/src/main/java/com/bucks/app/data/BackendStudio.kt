@@ -96,3 +96,6 @@ suspend fun Backend.updateContactLink(l: ContactLinkRow) {
     sdb.from("contact_links").update({ set("phones", strings(l.phones)); set("emails", strings(l.emails)); set("org", l.org); set("title", l.title); set("address", l.address); set("note", l.note) }) { filter { eq("profile_id", l.profileId) } }
 }
 suspend fun Backend.deleteContactLink(profileId: String) { sdb.from("contact_links").delete { filter { eq("profile_id", profileId) } } }
+
+/** One post by id (row-level security decides whether I may see it); null when it is gone or hidden from me. */
+suspend fun Backend.postById(id: String): PostRow? = sdb.from("posts").select { filter { eq("id", id); filter("deleted_at", FilterOperator.IS, "null") } }.decodeSingleOrNull()

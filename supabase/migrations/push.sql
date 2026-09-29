@@ -84,9 +84,9 @@ begin
   if to_regproc('net.http_post') is null then return null; end if;
   select value into secret from push_config where key = 'webhook_secret';
   if secret is null or secret = '' then return null; end if;
-  -- Only tables with a status column have UPDATE triggers; the nested if keeps new.status out of the INSERT path.
-  if tg_op = 'UPDATE' then
-    if new.status is not distinct from old.status then return null; end if;
+  -- On UPDATE, tables with a status column only report a change of status; tables without one (a reaction on a moment) report every update.
+  if tg_op = 'UPDATE' and (to_jsonb(new) ? 'status') then
+    if (to_jsonb(new) -> 'status') is not distinct from (to_jsonb(old) -> 'status') then return null; end if;
   end if;
   payload := jsonb_build_object('table', tg_table_name, 'type', tg_op, 'record', to_jsonb(new),
                                 'old_record', case when tg_op = 'UPDATE' then to_jsonb(old) else null end);

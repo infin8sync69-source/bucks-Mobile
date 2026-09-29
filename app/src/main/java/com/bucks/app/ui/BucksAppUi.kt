@@ -179,6 +179,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
+                        DrawerItem(Icons.Rounded.Place, "Maps & directions", current == Routes.MAPS) { closeMenu(); nav.navigate(Routes.MAPS) }
                         DrawerItem(Icons.Rounded.Settings, "Account settings", false) { closeMenu(); nav.navigate("account?tab=settings") }
                         DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
                     }
@@ -295,6 +296,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onOpenProfile = { nav.navigate(Routes.listing(it)) },
                                 onPaymentQr = { nav.navigate(Routes.PAYMENT_QR) },
                                 onVehicles = { nav.navigate(Routes.MY_VEHICLES) }) }
+                            composable(Routes.POST, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> PostDetailScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
+                            composable(Routes.MAPS) { MapsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.CONTACTS) { ContactsScreen(vm, onBack = { nav.popBackStack() }, onSync = { nav.navigate(Routes.SYNC) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
                             composable(Routes.BUCKS_ID) { BucksIdScreen(vm, onBack = { nav.popBackStack() }, onSync = { nav.navigate(Routes.SYNC) }) }
                             composable(Routes.MY_VEHICLES) { VehiclesScreen(vm, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.vehicleEdit(it)) }, onStats = { nav.navigate(Routes.VEHICLE_STATS) }, onMembers = { nav.navigate(Routes.members("v:$it")) }) }

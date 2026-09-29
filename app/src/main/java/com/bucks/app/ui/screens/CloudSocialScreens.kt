@@ -251,11 +251,18 @@ fun NewPostSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
         }
         if (skipped > 0) vm.toast("One video per post.")
     }
+    fun addCaptured(u: Uri, video: Boolean) {
+        if (photos.size >= 4) { vm.toast("Up to 4 attachments per post."); return }
+        if (video && photos.any { it.isVideo }) { vm.toast("One video per post."); return }
+        if (video && (contentSize(ctx, u) ?: 0L) > Social.MAX_POST_VIDEO_BYTES) { vm.toast("That video is over 15 MB. Record a shorter one, or share it as a Moment (up to 30 MB)."); return }
+        Upload.read(ctx, u)?.let { photos = photos + it } ?: vm.toast("Couldn't open what the camera saved. Try again.")
+    }
+    val camera = com.bucks.app.ui.rememberCamera(maxVideoBytes = Social.MAX_POST_VIDEO_BYTES.toLong(), onError = { vm.toast(it) }, onPhoto = { addCaptured(it, false) }, onVideo = { addCaptured(it, true) })
     ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) {
         Text("New post", style = MaterialTheme.typography.titleLarge)
         BucksField(text, { text = it }, placeholder = "Ask for a recommendation, share a deal, thank a provider", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 4)
         Label("Who can see it"); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LOCAL" to "Nearby", "SYNCED" to "Synced only", "PUBLIC" to "Everyone").forEach { (k, l) -> Chip(l, selected = visibility == k) { visibility = k } } }
-        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) { SmallButton(if (photos.isEmpty()) "Add photos or video" else "${photos.size} attachment${if (photos.size > 1) "s" else ""}", tonal = true) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }; if (photos.isNotEmpty()) TextButton({ photos = emptyList() }) { Text("Remove") } }
+        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) { SmallButton("Camera", tonal = true) { camera.takePhoto() }; Spacer(Modifier.width(6.dp)); SmallButton("Record", tonal = true) { camera.recordVideo() }; Spacer(Modifier.width(6.dp)); SmallButton(if (photos.isEmpty()) "Gallery" else "${photos.size} attached", tonal = true) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }; if (photos.isNotEmpty()) TextButton({ photos = emptyList() }) { Text("Remove") } }
         PrimaryButton(if (social.busy) "Posting…" else "Post", Modifier.padding(top = 14.dp), enabled = !social.busy && (text.isNotBlank() || photos.isNotEmpty())) { social.post(text.trim(), photos, visibility, s.user?.area?.substringBefore(',') ?: ""); onDismiss() }
     } }
 }
@@ -319,12 +326,13 @@ fun NewMomentScreen(vm: BucksViewModel, onClose: () -> Unit) {
     val social = vm.social; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     var picked by remember { mutableStateOf<Picked?>(null) }; var preview by remember { mutableStateOf<Uri?>(null) }; var caption by remember { mutableStateOf("") }
     var audience by remember { mutableStateOf(social.settings?.momentsAudience ?: "SYNCED") }; var reading by remember { mutableStateOf(false) }; var wantVideo by remember { mutableStateOf(false) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri ?: return@rememberLauncherForActivityResult
+    // One path for a gallery pick and a camera capture: check the type and size, read it, show it.
+    fun handle(uri: Uri) {
         // Some galleries don't report a type; the chooser the user tapped is the next best guess.
         val mime = ctx.contentResolver.getType(uri) ?: if (wantVideo) "video/mp4" else ""
         if (mime.startsWith("video/")) {
-            if (mime != "video/mp4") { vm.toast("Only MP4 videos can be shared. Phone camera videos are MP4."); return@rememberLauncherForActivityResult }
-            val size = contentSize(ctx, uri); if (size != null && size > Social.MAX_VIDEO_BYTES) { vm.toast("That video is ${humanSize(size)}. Videos up to 30 MB, about 30 seconds."); return@rememberLauncherForActivityResult }
+            if (mime != "video/mp4") { vm.toast("Only MP4 videos can be shared. Phone camera videos are MP4."); return }
+            val size = contentSize(ctx, uri); if (size != null && size > Social.MAX_VIDEO_BYTES) { vm.toast("That video is ${humanSize(size)}. Videos up to 30 MB, about 30 seconds."); return }
         }
         reading = true
         scope.launch {
@@ -336,6 +344,8 @@ fun NewMomentScreen(vm: BucksViewModel, onClose: () -> Unit) {
                    else -> { preview = uri; picked = p } }
         }
     }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) handle(uri) }
+    val camera = com.bucks.app.ui.rememberCamera(maxVideoBytes = Social.MAX_VIDEO_BYTES.toLong(), onError = { vm.toast(it) }, onPhoto = { wantVideo = false; handle(it) }, onVideo = { wantVideo = true; handle(it) })
     fun choose(video: Boolean) { wantVideo = video; pick.launch(PickVisualMediaRequest(if (video) ActivityResultContracts.PickVisualMedia.VideoOnly else ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     Column(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding().navigationBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClose) { Icon(Icons.Rounded.Close, "Close", tint = Color.White) }; Text("New moment", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -350,8 +360,12 @@ fun NewMomentScreen(vm: BucksViewModel, onClose: () -> Unit) {
                     Text("What do you want to share?", color = Color.White, style = MaterialTheme.typography.titleLarge)
                     Text("It stays up for 24 hours, then disappears.", color = Color.White.copy(alpha = .7f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 24.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        MediaChoice(Icons.Rounded.Image, "Photo", "JPG or PNG", Modifier.weight(1f)) { choose(false) }
-                        MediaChoice(Icons.Rounded.Videocam, "Video", "MP4, up to 30 MB", Modifier.weight(1f)) { choose(true) }
+                        MediaChoice(Icons.Rounded.PhotoCamera, "Take photo", "Use the camera", Modifier.weight(1f)) { camera.takePhoto() }
+                        MediaChoice(Icons.Rounded.Videocam, "Record video", "Up to 30 seconds", Modifier.weight(1f)) { camera.recordVideo() }
+                    }
+                    Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        MediaChoice(Icons.Rounded.Image, "Photo", "From gallery", Modifier.weight(1f)) { choose(false) }
+                        MediaChoice(Icons.Rounded.Videocam, "Video", "From gallery, up to 30 MB", Modifier.weight(1f)) { choose(true) }
                     }
                 }
             }
@@ -499,6 +513,8 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
     // Photos and videos from the gallery; a file that can't be read (or is over 25 MB) says so instead of doing nothing.
     fun sendPicked(u: Uri) { val f = Upload.read(ctx, u); when { f == null -> vm.toast("Couldn't open that file. Files up to 25 MB."); f.bytes.size > 25 * 1024 * 1024 -> vm.toast("Files up to 25 MB."); else -> social.sendFile(id, f) } }
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { sendPicked(it) } }
+    val camera = com.bucks.app.ui.rememberCamera(onError = { vm.toast(it) }, onPhoto = { sendPicked(it) }, onVideo = { sendPicked(it) })
+    var cameraMenu by remember { mutableStateOf(false) }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { sendPicked(it) } }
     val listingId = conv?.listingId
     Column(Modifier.fillMaxSize().imePadding()) {
@@ -537,6 +553,8 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
         editing?.let { e -> Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Muted("Editing", Modifier.weight(1f)); IconButton({ editing = null; text = "" }) { Icon(Icons.Rounded.Close, "Cancel edit") } } }
         Surface(tonalElevation = 1.dp) { Row(Modifier.fillMaxWidth().padding(12.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton({ pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, enabled = !social.busy) { Icon(Icons.Rounded.Image, "Photo or video", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Box { IconButton({ cameraMenu = true }, enabled = !social.busy) { Icon(Icons.Rounded.PhotoCamera, "Camera", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                DropdownMenu(cameraMenu, { cameraMenu = false }) { DropdownMenuItem({ Text("Take photo") }, { cameraMenu = false; camera.takePhoto() }); DropdownMenuItem({ Text("Record video") }, { cameraMenu = false; camera.recordVideo() }) } }
             IconButton({ pickFile.launch(arrayOf("*/*")) }, enabled = !social.busy) { Icon(Icons.Rounded.AttachFile, "File", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             OutlinedTextField(text, { text = it }, placeholder = { Text("Message") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, maxLines = 4)
             Spacer(Modifier.width(8.dp))
