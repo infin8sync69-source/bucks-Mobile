@@ -80,3 +80,19 @@ suspend fun Backend.reviewsIWrote(me: String): List<Pair<ReviewRow, ListingRow?>
     val rows = sdb.from("reviews").select { filter { eq("author_id", me) }; order("created_at", Order.DESCENDING); limit(40) }.decodeList<ReviewRow>()
     val by = listingsById(rows.map { it.listingId }); return rows.map { it to by[it.listingId] }
 }
+
+// ---------- contact details I attach to people I'm synced with (private to me; contact_links.sql) ----------
+@Serializable data class ContactLinkRow(@SerialName("profile_id") val profileId: String, val phones: List<String> = emptyList(), val emails: List<String> = emptyList(),
+    val org: String = "", val title: String = "", val address: String = "", val note: String = "") {
+    val isEmpty get() = phones.isEmpty() && emails.isEmpty() && org.isBlank() && title.isBlank() && address.isBlank() && note.isBlank()
+}
+private fun strings(l: List<String>) = buildJsonArray { l.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+suspend fun Backend.contactLinks(): List<ContactLinkRow> = sdb.from("contact_links").select().decodeList()
+suspend fun Backend.insertContactLink(me: String, l: ContactLinkRow) {
+    sdb.from("contact_links").insert(buildJsonObject { put("owner_id", me); put("profile_id", l.profileId); put("phones", strings(l.phones)); put("emails", strings(l.emails)); put("org", l.org); put("title", l.title); put("address", l.address); put("note", l.note) })
+}
+/** Edits an existing link column by column (who it is about can't change, so an upsert of every column would be refused). */
+suspend fun Backend.updateContactLink(l: ContactLinkRow) {
+    sdb.from("contact_links").update({ set("phones", strings(l.phones)); set("emails", strings(l.emails)); set("org", l.org); set("title", l.title); set("address", l.address); set("note", l.note) }) { filter { eq("profile_id", l.profileId) } }
+}
+suspend fun Backend.deleteContactLink(profileId: String) { sdb.from("contact_links").delete { filter { eq("profile_id", profileId) } } }

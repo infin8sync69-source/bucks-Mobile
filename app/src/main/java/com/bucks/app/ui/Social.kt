@@ -26,6 +26,14 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     /** The badge on the messages icon: unread chats plus unread notifications. */
     val unread get() = inbox.sumOf { it.unread } + notesUnread
     private var poller: kotlinx.coroutines.Job? = null
+    /** Contact details I attached to people I'm synced with, by their profile id. Private to me. */
+    var links by mutableStateOf<Map<String, ContactLinkRow>>(emptyMap()); private set
+    fun refreshLinks() = go { links = Backend.contactLinks().associateBy { it.profileId } }
+    fun saveLink(l: ContactLinkRow, then: () -> Unit = {}) = go { val p = me ?: return@go
+        if (l.isEmpty) { if (links.containsKey(l.profileId)) Backend.deleteContactLink(l.profileId); links = links - l.profileId; then(); return@go }
+        if (links.containsKey(l.profileId)) Backend.updateContactLink(l) else Backend.insertContactLink(p.id, l)
+        links = links + (l.profileId to l); toast("Saved. Only you can see this."); then() }
+    fun removeLink(profileId: String) = go { Backend.deleteContactLink(profileId); links = links - profileId; toast("Contact details removed.") }
     var feed by mutableStateOf<List<FeedRow>>(emptyList()); private set
     var feedEnd by mutableStateOf(false); private set
     var tray by mutableStateOf<List<TrayRow>>(emptyList()); private set
@@ -58,13 +66,13 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         settings = Backend.mySettings(p.id)
         Push.registerIfSignedIn()
         repo.clearDemoSocial()
-        refreshInbox(); refreshSyncs()
+        refreshInbox(); refreshSyncs(); refreshLinks()
         // The badge on the messages icon stays fresh while the app is open: one small check a minute.
         poller?.cancel(); poller = scope.launch { while (true) { kotlinx.coroutines.delay(60_000); runCatching { inbox = Backend.inbox(); notes = Backend.notifications() } } }
     }
     /** Starts a new year on my Bucks ID card (allowed in its last 30 days or after it lapsed). */
     fun renewBucksId() = go { val t = Backend.renewBucksId(); me = me?.copy(idIssuedAt = t); toast("Your Bucks ID is renewed for a year.") }
-    fun signedOut() { poller?.cancel(); poller = null; notes = emptyList(); me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
+    fun signedOut() { poller?.cancel(); poller = null; notes = emptyList(); links = emptyMap(); me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
     /** [home] null leaves the saved home point alone; it is never guessed from the map's default centre. */
     fun profileSaved(name: String, area: String, bio: String, home: LatLng? = null) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, home); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
 

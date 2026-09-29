@@ -60,8 +60,8 @@ private fun copy(ctx: Context, text: String) { (ctx.getSystemService(Context.CLI
 fun SyncScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenChat: (String) -> Unit) {
     val social = vm.social; val ctx = LocalContext.current
     var code by remember { mutableStateOf("") }
-    var menuFor by remember { mutableStateOf<ProfileRow?>(null) }
-    LaunchedEffect(Unit) { social.refreshSyncs(); social.refreshSuggestions() }
+    var menuFor by remember { mutableStateOf<ProfileRow?>(null) }; var linkFor by remember { mutableStateOf<ProfileRow?>(null) }
+    LaunchedEffect(Unit) { social.refreshSyncs(); social.refreshSuggestions(); social.refreshLinks() }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Sync", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             Label("Bucks ID")
@@ -88,18 +88,23 @@ fun SyncScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenChat: (String) -> U
             }
             SectionTitle("Synced with you", Modifier.padding(top = 24.dp, bottom = 6.dp))
             if (social.synced.isEmpty()) Muted("Nobody yet. Share your Bucks ID or scan a friend's.")
-            social.synced.forEach { p -> PersonRow(p, sub = if (p.id in social.closeFriends) "Close friend" else p.area, trailing = {
-                Row { FilledTonalIconButton(onClick = { social.openDirect(p.id, onOpenChat) }, modifier = Modifier.size(38.dp)) { Icon(Icons.Rounded.ChatBubbleOutline, "Message", Modifier.size(18.dp)) }
+            else Muted("Tap the three dots, then Contact details, to attach a number, email or company you already have for someone. Only you see it.", Modifier.padding(bottom = 4.dp))
+            social.synced.forEach { p -> val link = social.links[p.id]
+                PersonRow(p, sub = link?.let { l -> listOfNotNull(l.org.ifBlank { null }, l.phones.firstOrNull(), l.emails.firstOrNull()).joinToString(" · ").ifBlank { null } } ?: if (p.id in social.closeFriends) "Close friend" else p.area, trailing = {
+                Row { link?.phones?.firstOrNull()?.let { num -> IconButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:" + com.bucks.app.data.PhoneContacts.dialable(num)))) } }, modifier = Modifier.size(38.dp)) { Icon(Icons.Rounded.Call, "Call ${p.name}", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) } }
+                      FilledTonalIconButton(onClick = { social.openDirect(p.id, onOpenChat) }, modifier = Modifier.size(38.dp)) { Icon(Icons.Rounded.ChatBubbleOutline, "Message", Modifier.size(18.dp)) }
                       IconButton(onClick = { menuFor = p }) { Icon(Icons.Rounded.MoreVert, "More") } } }) }
             Spacer(Modifier.height(24.dp))
         }
     }
     menuFor?.let { p -> AlertDialog(onDismissRequest = { menuFor = null }, title = { Text(p.name) }, text = { Column {
             val close = p.id in social.closeFriends
+            TextButton({ linkFor = p; menuFor = null }) { Text(if (social.links.containsKey(p.id)) "Edit contact details" else "Contact details") }
             TextButton({ social.setClose(p.id, !close); menuFor = null }) { Text(if (close) "Remove from close friends" else "Add to close friends") }
             TextButton({ social.unsync(p.id); menuFor = null }) { Text("Unsync") }
             TextButton({ social.block(p.id); menuFor = null }) { Text("Block", color = MaterialTheme.colorScheme.error) }
         } }, confirmButton = { TextButton({ menuFor = null }) { Text("Close") } }) }
+    linkFor?.let { p -> ContactLinkSheet(vm, p) { linkFor = null } }
 }
 
 @Composable
