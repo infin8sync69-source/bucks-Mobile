@@ -57,6 +57,39 @@ fun SearchBar(hint: String, modifier: Modifier = Modifier, onClick: () -> Unit) 
     }
 }
 
+/**
+ * The home search, typed into right here: after 3 letters the nearest matching places (streets, landmarks, towns) list under the field;
+ * tapping one opens it on the map with directions, and the search key (or the last row) searches shops, pros and drivers instead.
+ */
+@Composable
+fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, onPlace: () -> Unit) {
+    var q by remember { mutableStateOf("") }; var places by remember { mutableStateOf<List<com.bucks.app.data.MapServices.PlaceHit>>(emptyList()) }
+    val near = vm.state.collectAsState().value.me ?: vm.mePos
+    LaunchedEffect(q) {
+        places = emptyList(); val t = q.trim(); if (t.length < 3) return@LaunchedEffect
+        kotlinx.coroutines.delay(500); places = com.bucks.app.data.MapServices.search(t, near).take(3)
+    }
+    Column(Modifier.imePadding()) {
+        if (q.trim().length >= 3) {
+            places.forEach { h ->
+                ListRow(h.name, h.detail, leading = { Icon(Icons.Rounded.Place, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { Muted("Directions") }, onClick = { com.bucks.app.ui.screens.MapsPick.place = h; q = ""; onPlace() })
+            }
+            ListRow("Search shops, pros and drivers for “${q.trim()}”", null, leading = { Icon(Icons.Rounded.Search, null) }, onClick = { onSearchAll(q.trim()); q = "" })
+        }
+        Surface(Modifier.fillMaxWidth().height(56.dp), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+            Row(Modifier.padding(start = 20.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)); Spacer(Modifier.width(16.dp))
+                androidx.compose.foundation.text.BasicTextField(q, { q = it }, Modifier.weight(1f), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { if (q.isNotBlank()) { onSearchAll(q.trim()); q = "" } }),
+                    decorationBox = { inner -> Box { if (q.isEmpty()) Text(hint, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
+                if (q.isNotEmpty()) IconButton({ q = "" }) { Icon(Icons.Rounded.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+    }
+}
+
 /** Explains the pin colours on the maps: providers are drawn in the theme primary (only where the map shows them), online riders in status good (only where the map shows riders). */
 @Composable
 private fun MapLegend(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) = Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
@@ -72,7 +105,7 @@ private fun MapFooter(modifier: Modifier = Modifier, riders: Boolean = true, sho
 private val CLOUD_CATEGORIES = (com.bucks.app.ui.screens.manage.BUSINESS_CATEGORIES + com.bucks.app.ui.screens.manage.SKILL_CATEGORIES).filter { it != "Other" }.distinct()
 
 @Composable
-fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }) {
+fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }, onPlace: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
     // An accepted ride takes over Home until it's closed.
     if (s.driverRide != null && s.driverRide?.status != DriverRideStatus.RINGING) { DriverTripScreen(vm, onChatWith, onCall); return }
@@ -88,7 +121,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
         val pins = listOf(pinAt(vm.mePos, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }
         // Same content on phones (in the sheet) and wide screens (in the side panel): the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
-            SearchBar("Where to, or what do you need?", onClick = onSearch)
+            if (vm.social.enabled) HomeSearch(vm, "Where to, or what do you need?", onSearchAll = onQuery, onPlace = onPlace) else SearchBar("Where to, or what do you need?", onClick = onSearch)
         }
         if (wide) Column(Modifier.fillMaxSize()) {
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
