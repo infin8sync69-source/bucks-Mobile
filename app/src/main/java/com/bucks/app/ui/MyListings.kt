@@ -231,7 +231,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     /** Posts as the listing: shown on its profile and, to people nearby and those synced with it, in the feed. */
     fun postAs(listingId: String, body: String, photo: Picked?, onDone: () -> Unit) = go { val p = me ?: return@go; val l = listing(listingId) ?: return@go; busy = true
         try {
-            val media = photo?.let { f -> listOf("${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) }) }.orEmpty()
+            val media = photo?.let { f -> listOf("${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime) }.orEmpty()
             val at = runCatching { Backend.listingPoint(listingId) }.getOrNull() ?: social.here
             Backend.post(p.id, body.trim(), media, "LOCAL", at, l.area, listingId)
             toast("Posted as ${l.title}."); onDone(); posts[listingId] = Backend.listingPosts(listingId)

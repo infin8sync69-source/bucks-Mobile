@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,7 +74,7 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
             if (area.isNotBlank()) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" $area") }
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Row(Modifier.clickable { onOpen(Routes.SYNC) }, verticalAlignment = Alignment.Bottom) { Text("${social.synced.size}", style = MaterialTheme.typography.titleMedium); Muted(" synced") }
-                Row(Modifier.clickable { onOpen(Routes.MESSAGES) }, verticalAlignment = Alignment.Bottom) { Text("${social.inbox.size}", style = MaterialTheme.typography.titleMedium); Muted(" chats") } }
+                Row(Modifier.clickable { onOpen(Routes.CONTACTS) }, verticalAlignment = Alignment.Bottom) { Icon(Icons.Rounded.Group, null, Modifier.size(18.dp).padding(bottom = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" Contacts") } }
             if (bio.isNotBlank()) Text(bio, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
             Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SoftButton("Edit profile", Icons.Rounded.EditNote, onClick = onEditProfile)
@@ -82,12 +83,22 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(initials(name), size = 40)
-            Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { compose = true }.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted("Share with your neighbours") }
+            Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { compose = true }.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted("Share with people nearby") }
             IconButton(onClick = { compose = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, "Create a post", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        if (me != null && mine.isEmpty()) Muted("Your recent posts show here. Share a recommendation, a deal or a question above; neighbours see it in their Feed.", Modifier.padding(Gutter))
-        mine.forEach { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it) }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
+        var ptab by rememberSaveable { mutableIntStateOf(0) }
+        PrimaryTabRow(selectedTabIndex = ptab, containerColor = MaterialTheme.colorScheme.surface, divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }) {
+            listOf("Feed", "Media", "Files", "Recommended").forEachIndexed { i, l -> Tab(selected = ptab == i, onClick = { ptab = i }, text = { Text(l, style = MaterialTheme.typography.labelLarge, maxLines = 1) }) }
+        }
+        when (ptab) {
+            0 -> {
+                if (me != null && mine.isEmpty()) Muted("Your recent posts show here. Share a recommendation, a deal or a question above; people nearby see it in their Feed.", Modifier.padding(Gutter))
+                mine.forEach { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it) }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
+            }
+            1 -> MyMediaTab(vm)
+            2 -> MyFilesTab(vm)
+            else -> MyRecommendationsTab(vm, onOpen)
+        }
         Spacer(Modifier.height(24.dp))
     }
     if (compose) NewPostSheet(vm) { compose = false }

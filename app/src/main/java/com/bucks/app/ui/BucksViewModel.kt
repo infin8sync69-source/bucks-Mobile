@@ -160,10 +160,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         _s.update { it.copy(user = it.user?.copy(phone = it.tempPhone.ifBlank { it.user.phone }, verified = it.user.verified + VerificationLevel.PHONE)) }; persist()
         if (dispatch.enabled) dispatch.startDriversFeed()
         if (Backend.enabled) { social.signedIn(s.user?.name ?: "", s.tempPhone.ifBlank { s.user?.phone ?: "" }); dispatch.resume() } }
-    fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList()) {
+    /** [home]: the place chosen as where I'm based (null keeps the saved one). */
+    fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList(), home: LatLng? = null) {
         val base = s.user ?: User(name, area, bio, s.tempPhone, email = s.tempEmail, id = safeId(), verified = if (s.tempPhone.isNotBlank()) setOf(VerificationLevel.PHONE) else emptySet())
         val dev = deviceLooksGenuine()
-        _s.update { it.copy(user = base.copy(name = name, area = area, bio = bio, gender = gender, interests = interests, verified = if (dev) base.verified + VerificationLevel.DEVICE else base.verified)) }; persist(); toast("Welcome to Bucks, ${name.substringBefore(' ')}"); social.profileSaved(name, area, bio)
+        _s.update { it.copy(user = base.copy(name = name, area = area, bio = bio, gender = gender, interests = interests, verified = if (dev) base.verified + VerificationLevel.DEVICE else base.verified)) }; persist(); toast("Welcome to Bucks, ${name.substringBefore(' ')}"); social.profileSaved(name, area, bio, home)
     }
     /** Basic genuineness heuristic until Play Integrity is wired (needs a Play Console project). */
     private fun deviceLooksGenuine() = !(Build.TAGS?.contains("test-keys") == true || Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("Emulator"))

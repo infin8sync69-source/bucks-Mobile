@@ -1,6 +1,7 @@
 package com.bucks.app.ui.screens
 
 import com.bucks.app.data.Cloud
+import com.bucks.app.data.LatLng
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -149,29 +150,31 @@ fun CreateProfileScreen(vm: BucksViewModel, onDone: () -> Unit, showToast: (Stri
     val s by vm.state.collectAsState(); val u = s.user
     var step by remember { mutableIntStateOf(1) }
     var name by remember { mutableStateOf(u?.name ?: "") }; var bio by remember { mutableStateOf(u?.bio ?: "") }
-    val areas = listOf("Jayanagar", "Koramangala", "Indiranagar", "Whitefield", "JP Nagar", "HSR Layout"); var area by remember { mutableStateOf(u?.area?.substringBefore(',') ?: areas[0]) }
+    // Where you are based: chosen anywhere (current location or a searched place). The point chosen becomes your home, which decides who can recommend you.
+    var area by remember { mutableStateOf(u?.area.orEmpty()) }; var homeAt by remember { mutableStateOf<LatLng?>(null) }
+    LaunchedEffect(s.hereLabel, s.me) { if (u == null && area.isBlank() && homeAt == null) { val here = s.me; val a = areaOf(s.hereLabel); if (here != null && a != null) { area = a; homeAt = here } } }
     var gender by remember { mutableStateOf(u?.gender ?: "") }; val interests = remember { mutableStateListOf<String>().apply { addAll(u?.interests ?: emptyList()) } }
     ContentColumn { BucksTopBar(onBack = if (step > 1) ({ step -= 1 }) else null)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
             Row(Modifier.fillMaxWidth().padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { (1..3).forEach { i -> Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)) } }
             when (step) {
                 1 -> {
-                    Headline(if (u == null) "What should we call you?" else "Edit your profile"); Muted("This is what neighbours and providers see.", Modifier.padding(top = 8.dp, bottom = 24.dp))
+                    Headline(if (u == null) "What should we call you?" else "Edit your profile"); Muted("This is what people and providers nearby see.", Modifier.padding(top = 8.dp, bottom = 24.dp))
                     Box(Modifier.fillMaxWidth().padding(bottom = 20.dp), contentAlignment = Alignment.Center) { Avatar(if (name.isBlank()) "?" else initials(name), size = 84) }
                     BucksField(name, { name = it }, "Full name", "e.g. Deepa Nair")
                     PrimaryButton("Continue") { if (name.isBlank()) showToast("Add your name") else step = 2 }
                 }
                 2 -> {
-                    Headline("Where are you based?"); Muted("Used for distance, ride pick-ups and local rankings. Only your area is shown, never your address.", Modifier.padding(top = 8.dp, bottom = 24.dp))
-                    Label("Your area"); FlowChips(areas, setOf(area)) { area = it }
+                    Headline("Where are you based?"); Muted("Used for distance, ride pick-ups and who can recommend you. Only your area is shown, never your address.", Modifier.padding(top = 8.dp, bottom = 24.dp))
+                    LocationPicker(area, s.me, s.hereLabel) { label, at -> area = label; homeAt = at }
                     Spacer(Modifier.height(20.dp)); Label("Gender (optional)"); ChipRow(listOf("Woman", "Man", "Non-binary", "Prefer not to say"), gender.ifBlank { null }) { gender = it }
-                    PrimaryButton("Continue", Modifier.padding(top = 24.dp)) { step = 3 }
+                    PrimaryButton("Continue", Modifier.padding(top = 24.dp)) { if (area.isBlank()) showToast("Choose where you're based") else step = 3 }
                 }
                 else -> {
                     Headline("A little about you"); Muted("Your reputation starts at zero and grows with reviews. Interests only shape what you see in Discover.", Modifier.padding(top = 8.dp, bottom = 24.dp))
                     BucksField(bio, { bio = it }, "One line about you (optional)", "Product designer, biriyani enthusiast")
                     Label("Interests"); FlowChips(INTERESTS, interests.toSet()) { if (it in interests) interests.remove(it) else interests.add(it) }
-                    PrimaryButton(if (u == null) "Finish" else "Save changes", Modifier.padding(top = 24.dp)) { vm.createProfile(name.trim(), "$area, Bengaluru", bio.trim(), gender, interests.toList()); onDone() }
+                    PrimaryButton(if (u == null) "Finish" else "Save changes", Modifier.padding(top = 24.dp)) { vm.createProfile(name.trim(), area, bio.trim(), gender, interests.toList(), homeAt ?: if (u == null) s.me else null); onDone() }
                 }
             }
         }

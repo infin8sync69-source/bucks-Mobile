@@ -120,3 +120,14 @@ reset role; update profiles set id_issued_at = now() - interval '340 days' where
 select pg_temp.as_user('owner');
 select pg_temp.check(renew_bucks_id() > now() - interval '1 minute', 'a card in its last month can renew');
 reset role; set role anon; select 'signed out renews -> ' || pg_temp.expect_fail('select public.renew_bucks_id()', 'permission denied'); reset role;
+
+\echo == 6. Saving returns the new row: insert ... returning works for listings and vehicles (the owner link is added by a trigger)
+set role authenticated;
+select pg_temp.as_user('owner');
+with r as (insert into listings (kind, owner_id, title, category, area, location, details)
+  values ('BUSINESS', me(), 'Returned Shop', 'Restaurant', 'JP Nagar', geo(12.9, 77.6), '{}') returning id) select pg_temp.check((select count(*) from r) = 1, 'listing insert returning gives the new row');
+with v as (insert into vehicles (owner_id, kind, model, plate) values (me(), 'AUTO', 'RE', 'KA01ZZ9999') returning id) select pg_temp.check((select count(*) from v) = 1, 'vehicle insert returning gives the new row');
+select pg_temp.check(exists (select 1 from listings where title = 'Returned Shop'), 'the owner reads their pending listing');
+select pg_temp.as_user('stranger');
+select pg_temp.check(not exists (select 1 from listings where title = 'Returned Shop'), 'a stranger still can''t see a pending listing');
+select pg_temp.check(not exists (select 1 from vehicles where plate = 'KA01ZZ9999'), 'a stranger still can''t see someone''s vehicle');

@@ -20,7 +20,12 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     var me by mutableStateOf<ProfileRow?>(null); private set
     var settings by mutableStateOf<SettingsRow?>(null); private set
     var inbox by mutableStateOf<List<InboxRow>>(emptyList()); private set
-    val unread get() = inbox.sumOf { it.unread }
+    /** Notifications (Messages screen, second tab): what needs my attention besides chat. */
+    var notes by mutableStateOf<List<NotificationRow>>(emptyList()); private set
+    val notesUnread get() = notes.count { it.readAt == null }
+    /** The badge on the messages icon: unread chats plus unread notifications. */
+    val unread get() = inbox.sumOf { it.unread } + notesUnread
+    private var poller: kotlinx.coroutines.Job? = null
     var feed by mutableStateOf<List<FeedRow>>(emptyList()); private set
     var feedEnd by mutableStateOf(false); private set
     var tray by mutableStateOf<List<TrayRow>>(emptyList()); private set
@@ -54,11 +59,14 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         Push.registerIfSignedIn()
         repo.clearDemoSocial()
         refreshInbox(); refreshSyncs()
+        // The badge on the messages icon stays fresh while the app is open: one small check a minute.
+        poller?.cancel(); poller = scope.launch { while (true) { kotlinx.coroutines.delay(60_000); runCatching { inbox = Backend.inbox(); notes = Backend.notifications() } } }
     }
     /** Starts a new year on my Bucks ID card (allowed in its last 30 days or after it lapsed). */
     fun renewBucksId() = go { val t = Backend.renewBucksId(); me = me?.copy(idIssuedAt = t); toast("Your Bucks ID is renewed for a year.") }
-    fun signedOut() { me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
-    fun profileSaved(name: String, area: String, bio: String) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, here); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
+    fun signedOut() { poller?.cancel(); poller = null; notes = emptyList(); me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
+    /** [home] null leaves the saved home point alone; it is never guessed from the map's default centre. */
+    fun profileSaved(name: String, area: String, bio: String, home: LatLng? = null) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, home); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
 
     suspend fun namesFor(ids: Collection<String>) { val missing = ids.filter { it !in names }.distinct(); if (missing.isNotEmpty()) Backend.profiles(missing).forEach { names[it.id] = it.name } }
     fun nameOf(id: String) = names[id] ?: "…"
@@ -89,7 +97,10 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun saveSettings(row: SettingsRow) = go { Backend.saveSettings(row); settings = row; toast("Saved.") }
 
     // ---------- inbox and chat ----------
-    fun refreshInbox() = go { inbox = Backend.inbox() }
+    fun refreshInbox() = go { inbox = Backend.inbox(); notes = runCatching { Backend.notifications() }.getOrDefault(notes) }
+    fun markNoteRead(id: String) { notes = notes.map { if (it.id == id && it.readAt == null) it.copy(readAt = "now") else it }; scope.launch { runCatching { Backend.markNotificationsRead(listOf(id)) } } }
+    fun markAllNotesRead() = go { notes = notes.map { if (it.readAt == null) it.copy(readAt = "now") else it }; Backend.markNotificationsRead() }
+    fun deleteNote(id: String) = go { notes = notes.filterNot { it.id == id }; Backend.deleteNotification(id) }
     fun openDirect(other: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startDirect(other)) }
     suspend fun messages(conv: String): List<MessageRow> { val rows = Backend.messages(conv); namesFor(rows.map { it.senderId }); return rows }
     fun send(conv: String, body: String) = go { val p = me ?: return@go; Backend.send(conv, p.id, body) }
@@ -122,7 +133,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun refreshFeed() = go { feed = Backend.feed(here); feedEnd = feed.size < 30; refreshTray() }
     fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feed(here, last.createdAt); feed = feed + more; feedEnd = more.size < 30 }
     fun post(body: String, media: List<Picked>, visibility: String, area: String) = go { val p = me ?: return@go; busy = true
-        try { val paths = media.map { f -> "${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } }
+        try { val paths = media.map { f -> "${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime }
               Backend.post(p.id, body, paths, visibility, here, area); toast("Posted."); refreshFeed() } finally { busy = false } }
     fun deletePost(id: String) = go { Backend.deletePost(id); feed = feed.filterNot { it.id == id } }
     fun vote(postId: String, v: Int) = go { val p = me ?: return@go
@@ -150,6 +161,6 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun unmuteMoments(author: String) = muteMoments(author, false)
     fun refreshMutedMoments() = go { val rows = Backend.momentMutes(); val people = Backend.profiles(rows.map { it.mutedId }); people.forEach { names[it.id] = it.name }; mutedMoments = people }
 
-    companion object { const val MAX_VIDEO_BYTES = 30 * 1024 * 1024 }
+    companion object { const val MAX_VIDEO_BYTES = 30 * 1024 * 1024; /** The posts bucket's limit. */ const val MAX_POST_VIDEO_BYTES = 15 * 1024 * 1024 }
 }
 private fun Boolean.toInt() = if (this) 1 else 0

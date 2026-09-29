@@ -2,6 +2,9 @@ package com.bucks.app.data
 
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.postgrest.query.filter.FilterOperator
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonArray
@@ -41,3 +44,39 @@ suspend fun Backend.minRecommendations(): Int? =
 
 /** Starts a new year on my Bucks ID card; the server allows it in the card's last 30 days or after it lapsed. Returns the new issue time. */
 suspend fun Backend.renewBucksId(): String = sdb.rpc("renew_bucks_id").decodeAs()
+
+// ---------- notifications ----------
+/** My latest notifications, newest first. */
+suspend fun Backend.notifications(limit: Int = 60): List<NotificationRow> =
+    sdb.from("notifications").select { order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING); limit(limit.toLong()) }.decodeList()
+/** Marks the given notifications (or every one when [ids] is null) read. */
+suspend fun Backend.markNotificationsRead(ids: List<String>? = null) {
+    sdb.rpc("mark_notifications_read", buildJsonObject { if (ids != null) put("p_ids", buildJsonArray { ids.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }) })
+}
+suspend fun Backend.deleteNotification(id: String) { sdb.from("notifications").delete { filter { eq("id", id) } } }
+
+// ---------- my profile: posts, files, recommendations ----------
+/** My own posts (photos, videos, text), newest first, for the profile's Feed and Media tabs. */
+suspend fun Backend.myPosts(me: String, limit: Int = 60): List<PostRow> =
+    sdb.from("posts").select { filter { eq("author_id", me); filter("deleted_at", FilterOperator.IS, "null") }; order("created_at", Order.DESCENDING); limit(limit.toLong()) }.decodeList()
+
+/** Files and photos shared in my chats, sent or received, newest first (chat bucket paths are in attachment.path). */
+suspend fun Backend.chatFiles(limit: Int = 60): List<MessageRow> =
+    sdb.from("messages").select { filter { filterNot("attachment", FilterOperator.IS, "null"); filter("deleted_at", FilterOperator.IS, "null") }; order("created_at", Order.DESCENDING); limit(limit.toLong()) }.decodeList()
+
+@Serializable data class RecGiven(@SerialName("listing_id") val listingId: String, @SerialName("created_at") val createdAt: String = "")
+
+private suspend fun listingsById(ids: Collection<String>): Map<String, ListingRow> =
+    if (ids.isEmpty()) emptyMap() else sdb.from("listings").select { filter { isIn("id", ids.toList()) } }.decodeList<ListingRow>().associateBy { it.id }
+
+/** Listings I recommended in person (a recommender sees their own rows), with the listing when it is still visible to me. */
+suspend fun Backend.recommendationsIGave(me: String): List<Pair<RecGiven, ListingRow?>> {
+    val rows = sdb.from("recommendations").select { filter { eq("recommender_id", me) }; order("created_at", Order.DESCENDING) }.decodeList<RecGiven>()
+    val by = listingsById(rows.map { it.listingId }); return rows.map { it to by[it.listingId] }
+}
+
+/** Reviews I wrote after orders and trips, with the listing they were for. */
+suspend fun Backend.reviewsIWrote(me: String): List<Pair<ReviewRow, ListingRow?>> {
+    val rows = sdb.from("reviews").select { filter { eq("author_id", me) }; order("created_at", Order.DESCENDING); limit(40) }.decodeList<ReviewRow>()
+    val by = listingsById(rows.map { it.listingId }); return rows.map { it to by[it.listingId] }
+}

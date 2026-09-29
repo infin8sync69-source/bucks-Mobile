@@ -11,6 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -200,7 +203,7 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
                 Muted(listOfNotNull(ago(p.createdAt), p.area.ifBlank { null }, when (p.visibility) { "SYNCED" -> "Synced only"; "PUBLIC" -> "Public"; else -> null }).joinToString(" · ")) }
             if (mine) Box { IconButton({ menu = true }) { Icon(Icons.Rounded.MoreHoriz, "More") }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Delete post") }, { menu = false; onDelete() }) } } }
         if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
-        p.media.firstOrNull()?.jsonObject?.s("path")?.takeIf { it.isNotBlank() }?.let { path -> SignedImage(vm, "posts", path, Modifier.padding(top = 10.dp).fillMaxWidth().height(260.dp).clip(MaterialTheme.shapes.medium)) }
+        PostMedia(vm, p.media)
         val my = p.myVote ?: 0
         val upColor = if (my == 1) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant; val downColor = if (my == -1) MaterialTheme.status.bad else MaterialTheme.colorScheme.onSurfaceVariant
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -231,12 +234,28 @@ fun CloudCommentsSheet(vm: BucksViewModel, postId: String, onDismiss: () -> Unit
 fun NewPostSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
     val social = vm.social; val ctx = LocalContext.current; val s by vm.state.collectAsState()
     var text by remember { mutableStateOf("") }; var visibility by remember { mutableStateOf("LOCAL") }; var photos by remember { mutableStateOf<List<Picked>>(emptyList()) }
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(4)) { uris -> photos = uris.mapNotNull { Upload.read(ctx, it) } }
+    // Photos and MP4 videos (one video at most, up to 15 MB: the posts bucket's limit).
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(4)) { uris ->
+        var videos = 0; var skipped = 0
+        photos = uris.mapNotNull { u ->
+            val mime = ctx.contentResolver.getType(u).orEmpty()
+            when {
+                mime.startsWith("video/") -> when {
+                    mime != "video/mp4" -> { vm.toast("Only MP4 videos can be posted. Phone camera videos are MP4."); null }
+                    ++videos > 1 -> { skipped++; null }
+                    (contentSize(ctx, u) ?: 0L) > Social.MAX_POST_VIDEO_BYTES -> { vm.toast("That video is over 15 MB. Pick a shorter one, or share it as a Moment (up to 30 MB)."); null }
+                    else -> Upload.read(ctx, u) ?: run { vm.toast("Couldn't open that video."); null }
+                }
+                else -> Upload.read(ctx, u) ?: run { vm.toast("Couldn't read that photo. Try a JPG or PNG."); null }
+            }
+        }
+        if (skipped > 0) vm.toast("One video per post.")
+    }
     ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) {
         Text("New post", style = MaterialTheme.typography.titleLarge)
         BucksField(text, { text = it }, placeholder = "Ask for a recommendation, share a deal, thank a provider", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 4)
         Label("Who can see it"); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LOCAL" to "Nearby", "SYNCED" to "Synced only", "PUBLIC" to "Everyone").forEach { (k, l) -> Chip(l, selected = visibility == k) { visibility = k } } }
-        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) { SmallButton(if (photos.isEmpty()) "Add photos" else "${photos.size} photo${if (photos.size > 1) "s" else ""}", tonal = true) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }; if (photos.isNotEmpty()) TextButton({ photos = emptyList() }) { Text("Remove") } }
+        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) { SmallButton(if (photos.isEmpty()) "Add photos or video" else "${photos.size} attachment${if (photos.size > 1) "s" else ""}", tonal = true) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }; if (photos.isNotEmpty()) TextButton({ photos = emptyList() }) { Text("Remove") } }
         PrimaryButton(if (social.busy) "Posting…" else "Post", Modifier.padding(top = 14.dp), enabled = !social.busy && (text.isNotBlank() || photos.isNotEmpty())) { social.post(text.trim(), photos, visibility, s.user?.area?.substringBefore(',') ?: ""); onDismiss() }
     } }
 }
@@ -355,10 +374,20 @@ private fun MediaChoice(icon: androidx.compose.ui.graphics.vector.ImageVector, t
 /* ---------- MESSAGES and CHAT ---------- */
 
 @Composable
-fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit, onSync: () -> Unit, onNewGroup: () -> Unit) {
+fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit, onSync: () -> Unit, onNewGroup: () -> Unit, onRoute: (String) -> Unit = {}) {
     val social = vm.social; var menuFor by remember { mutableStateOf<InboxRow?>(null) }; var leaveFor by remember { mutableStateOf<InboxRow?>(null) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { while (true) { social.refreshInbox(); delay(20_000) } }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Messages", onBack = onBack, actions = { IconButton(onNewGroup) { Icon(Icons.Rounded.GroupAdd, "New group") }; IconButton(onSync) { Icon(Icons.Rounded.PersonAddAlt, "Sync with someone") } })
+    val chatUnread = social.inbox.sumOf { it.unread }
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(if (tab == 0) "Messages" else "Notifications", onBack = onBack, actions = {
+            if (tab == 0) { IconButton(onNewGroup) { Icon(Icons.Rounded.GroupAdd, "New group") }; IconButton(onSync) { Icon(Icons.Rounded.PersonAddAlt, "Sync with someone") } }
+            else if (social.notesUnread > 0) IconButton({ social.markAllNotesRead() }) { Icon(Icons.Rounded.Done, "Mark all as read") } })
+        // Two tabs in one place: conversations, and everything else that needs me (sync requests, invites, orders, recommendations, documents).
+        PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Row(verticalAlignment = Alignment.CenterVertically) { Text("Messages", style = MaterialTheme.typography.labelLarge); if (chatUnread > 0) { Spacer(Modifier.width(6.dp)); PillPurple("$chatUnread") } } })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Row(verticalAlignment = Alignment.CenterVertically) { Text("Notifications", style = MaterialTheme.typography.labelLarge); if (social.notesUnread > 0) { Spacer(Modifier.width(6.dp)); PillPurple("${social.notesUnread}") } } })
+        }
+        if (tab == 1) NotificationsList(vm, onRoute) else {
         if (social.inbox.isEmpty()) Column(Modifier.padding(Gutter)) { Muted("No conversations yet. Sync with someone, then message them from their profile, or start a group with people you've synced with.")
             SmallButton("New group", Modifier.padding(top = 12.dp), tonal = true, onClick = onNewGroup) }
         LazyColumn { items(social.inbox.filter { !it.archived }, key = { it.conversationId }) { c ->
@@ -370,6 +399,7 @@ fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String)
                 trailing = { Row(verticalAlignment = Alignment.CenterVertically) { if (c.muted) Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); if (c.unread > 0) PillPurple("${c.unread}"); IconButton({ menuFor = c }) { Icon(Icons.Rounded.MoreVert, "More") } } },
                 onClick = { onOpen(c.conversationId) })
             Divider() } }
+        }
     }
     menuFor?.let { c -> AlertDialog(onDismissRequest = { menuFor = null }, title = { Text(c.otherName ?: c.title ?: "Chat") }, text = { Column {
         TextButton({ social.mute(c.conversationId, !c.muted); menuFor = null }) { Text(if (c.muted) "Unmute" else "Mute notifications") }
@@ -464,8 +494,10 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
         onDispose { job.cancel(); scope.launch { Backend.closeChannel(channel) } }
     }
     LaunchedEffect(msgs.size) { if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1) }
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { u -> Upload.read(ctx, u)?.let { social.sendFile(id, it) } } }
-    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { u -> Upload.read(ctx, u)?.let { f -> if (f.bytes.size > 25 * 1024 * 1024) vm.toast("Files up to 25 MB.") else social.sendFile(id, f) } } }
+    // Photos and videos from the gallery; a file that can't be read (or is over 25 MB) says so instead of doing nothing.
+    fun sendPicked(u: Uri) { val f = Upload.read(ctx, u); when { f == null -> vm.toast("Couldn't open that file. Files up to 25 MB."); f.bytes.size > 25 * 1024 * 1024 -> vm.toast("Files up to 25 MB."); else -> social.sendFile(id, f) } }
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { sendPicked(it) } }
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { sendPicked(it) } }
     val listingId = conv?.listingId
     Column(Modifier.fillMaxSize().imePadding()) {
         when (kind) {
@@ -499,7 +531,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
         if (social.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         editing?.let { e -> Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Muted("Editing", Modifier.weight(1f)); IconButton({ editing = null; text = "" }) { Icon(Icons.Rounded.Close, "Cancel edit") } } }
         Surface(tonalElevation = 1.dp) { Row(Modifier.fillMaxWidth().padding(12.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton({ pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !social.busy) { Icon(Icons.Rounded.Image, "Photo", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton({ pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, enabled = !social.busy) { Icon(Icons.Rounded.Image, "Photo or video", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             IconButton({ pickFile.launch(arrayOf("*/*")) }, enabled = !social.busy) { Icon(Icons.Rounded.AttachFile, "File", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             OutlinedTextField(text, { text = it }, placeholder = { Text("Message") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, maxLines = 4)
             Spacer(Modifier.width(8.dp))
@@ -561,3 +593,69 @@ private fun AddPeopleSheet(vm: BucksViewModel, conv: String, already: Set<String
     } }
 }
 private fun humanSize(b: Long) = when { b >= 1_048_576 -> "%.1f MB".format(b / 1_048_576.0); b >= 1024 -> "${b / 1024} KB"; b > 0 -> "$b B"; else -> "" }
+
+
+/** A post's photos and video: one fills the width, several scroll sideways. A video shows a play button and streams when tapped. */
+@Composable
+fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, modifier: Modifier = Modifier) {
+    val items = media.mapNotNull { (it as? JsonObject)?.let { o -> o.s("path").takeIf { p -> p.isNotBlank() }?.let { p -> p to o.s("mime") } } }
+    if (items.isEmpty()) return
+    val width = if (items.size == 1) Modifier.fillMaxWidth() else Modifier.width(280.dp)
+    val scroll = rememberScrollState()
+    Row(modifier.padding(top = 10.dp).then(if (items.size > 1) Modifier.horizontalScroll(scroll) else Modifier), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEach { (path, mime) ->
+            val shape = Modifier.then(width).height(260.dp).clip(MaterialTheme.shapes.medium)
+            if (mime.startsWith("video/") || path.endsWith(".mp4", true)) PostVideo(vm, path, shape) else SignedImage(vm, "posts", path, shape)
+        }
+    }
+}
+
+@Composable
+private fun PostVideo(vm: BucksViewModel, path: String, modifier: Modifier) {
+    var playing by remember { mutableStateOf(false) }
+    val url by produceState<String?>(null, playing) { if (playing) value = runCatching { vm.social.fileUrl("posts", path) }.getOrNull() }
+    Box(modifier.background(Color.Black).clickable { playing = !playing }, contentAlignment = Alignment.Center) {
+        val u = url
+        if (playing && u != null) MomentVideo(u, paused = false, modifier = Modifier.fillMaxSize(), loop = true)
+        else if (playing) BucksLoader(color = Color.White, label = "Loading")
+        else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(64.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.PlayArrow, "Play video", Modifier.size(40.dp), tint = Color.White) }
+            Text("Video", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+
+private fun noteIcon(kind: String) = when (kind) {
+    "SYNC_REQUEST", "SYNC_ACCEPTED" -> Icons.Rounded.PersonAddAlt
+    "INVITE" -> Icons.Rounded.MailOutline
+    "ORDER_NEW", "ORDER_UPDATE" -> Icons.Rounded.ShoppingBag
+    "RECOMMENDED" -> Icons.Rounded.ThumbUp
+    "LISTING_LIVE" -> Icons.Rounded.Verified
+    "LISTING_PAUSED" -> Icons.Rounded.Block
+    "DOCUMENT_VERIFIED", "DOCUMENT_REJECTED" -> Icons.Rounded.Description
+    "REVIEW" -> Icons.Rounded.Star
+    else -> Icons.Rounded.Notifications
+}
+
+/** The Notifications tab: newest first, unread in bold with a dot, tap opens the thing it is about, long-press or the x removes it. */
+@Composable
+private fun NotificationsList(vm: BucksViewModel, onRoute: (String) -> Unit) {
+    val social = vm.social; val notes = social.notes
+    if (notes.isEmpty()) { Column(Modifier.padding(Gutter)) { Text("Nothing new", style = MaterialTheme.typography.titleMedium); Muted("Sync requests, invites, orders, recommendations, reviews and document checks show up here.", Modifier.padding(top = 4.dp)) }; return }
+    LazyColumn { items(notes, key = { it.id }) { n ->
+        val unread = n.readAt == null
+        Row(Modifier.fillMaxWidth().clickable { social.markNoteRead(n.id); n.route?.let(onRoute) }.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(if (unread) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                Icon(noteIcon(n.kind), null, Modifier.size(20.dp), tint = if (unread) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(n.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal))
+                if (n.body.isNotBlank()) Muted(n.body, maxLines = 2)
+                Muted(ago(n.createdAt), Modifier.padding(top = 2.dp))
+            }
+            if (unread) Box(Modifier.padding(top = 6.dp).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+            IconButton({ social.deleteNote(n.id) }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Close, "Remove", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        Divider()
+    } }
+}

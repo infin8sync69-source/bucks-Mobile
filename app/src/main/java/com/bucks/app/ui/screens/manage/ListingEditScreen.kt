@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.Geo
+import com.bucks.app.ui.screens.areaOf
 import com.bucks.app.data.ListingRow
 import com.bucks.app.data.Picked
 import com.bucks.app.ui.BucksViewModel
@@ -61,7 +62,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var service by remember { mutableStateOf(existing?.service?.takeIf { it in BUSINESS_SERVICES } ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: existing?.category?.let { serviceForCategory(it) } ?: "FOOD") }
     val serviceLocked = existing != null && existing.status != "PENDING"
     var description by remember { mutableStateOf(existing?.description ?: "") }
-    var area by remember { mutableStateOf(existing?.area?.ifBlank { null } ?: social.me?.area?.substringBefore(',')?.ifBlank { null } ?: fix?.let { Geo.nearestArea(it) } ?: "") }
+    var area by remember { mutableStateOf(existing?.area?.ifBlank { null } ?: social.me?.area?.substringBefore(',')?.ifBlank { null } ?: areaOf(st.hereLabel) ?: "") }
     var hours by remember { mutableStateOf(d.str("hours")) }
     var freeDelivery by remember { mutableStateOf(d.bool("free_delivery")) }
     var radius by remember { mutableStateOf(d.int("delivery_radius_km")?.toString() ?: "3") }
@@ -206,10 +207,10 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                 PhotoField(when (kind) { "BUSINESS" -> "Cover photo"; "ASSET" -> "Cover photo"; else -> "Profile photo" }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
                 Label("Location")
                 when {
-                    existing == null && fix != null -> Muted("Saved as where you are now: near ${Geo.nearestArea(fix)}. Neighbours within 3 km of this spot can recommend you, so create it " + (if (kind == "ASSET") "at the property or where the asset is kept." else "at your shop or where you usually work."))
+                    existing == null && fix != null -> Muted("Saved as where you are now: near ${areaOf(st.hereLabel) ?: "your current location"}. People within 3 km of this spot can recommend you, so create it " + (if (kind == "ASSET") "at the property or where the asset is kept." else "at your shop or where you usually work."))
                     existing == null -> Notice(if (st.locationGranted) "Waiting for your location… Bucks saves the listing where you are, so create it at your shop or where you usually work."
                                                else "Turn on location so Bucks can save where your shop is. Neighbours within 3 km of that spot can recommend you, so create it at your shop or where you usually work.")
-                    fix != null -> SwitchRow("Move to where I am now", "Near ${Geo.nearestArea(fix)}. Leave off if you're not at the shop.", moveHere) { moveHere = it }
+                    fix != null -> SwitchRow("Move to where I am now", "Near ${areaOf(st.hereLabel) ?: "your current location"}. Leave off if you're not at the shop.", moveHere) { moveHere = it }
                     else -> Muted(if (st.locationGranted) "Stays where it is. Waiting for your location before it can move to where you are now." else "Stays where it is. Turn on location to move it to where you are now.")
                 }
             }

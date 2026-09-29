@@ -262,11 +262,12 @@ object Backend {
     // ---------- feed ----------
     suspend fun feed(at: LatLng, beforeIso: String? = null): List<FeedRow> =
         db.rpc("feed", buildJsonObject { put("lat", at.lat); put("lng", at.lng); beforeIso?.let { put("before", it) } }).decodeList()
-    suspend fun post(me: String, body: String, media: List<String>, visibility: String, at: LatLng?, area: String, listingId: String? = null) {
+    /** [media]: storage path in the posts bucket to its mime type (image/jpeg, video/mp4), so the feed knows what to show. */
+    suspend fun post(me: String, body: String, media: List<Pair<String, String>>, visibility: String, at: LatLng?, area: String, listingId: String? = null) {
         db.from("posts").insert(buildJsonObject {
             put("author_id", me); put("body", body); put("visibility", visibility); put("area", area); listingId?.let { put("listing_id", it) }
             at?.let { put("location", point(it)) }
-            put("media", buildJsonArray { media.forEach { add(buildJsonObject { put("path", it) }) } })
+            put("media", buildJsonArray { media.forEach { (path, mime) -> add(buildJsonObject { put("path", path); put("mime", mime) }) } })
         })
     }
     suspend fun deletePost(id: String) { db.from("posts").delete { filter { eq("id", id) } } }
@@ -319,6 +320,9 @@ object Backend {
 @Serializable data class SearchHit(val id: String, val kind: String, val title: String, val category: String = "", val description: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", val online: Boolean = false, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0, val details: JsonObject = JsonObject(emptyMap()),
     @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null)
+/** One line of the Notifications tab (studio: notifications.sql). [route] is where a tap goes, checked by Push.safeRoute. */
+@Serializable data class NotificationRow(val id: String, val kind: String, val title: String, val body: String = "", val route: String? = null,
+    @SerialName("created_at") val createdAt: String = "", @SerialName("read_at") val readAt: String? = null)
 @Serializable data class MemberRow(@SerialName("listing_id") val listingId: String, @SerialName("profile_id") val profileId: String, val role: String)
 @Serializable data class ItemRow(val id: String? = null, @SerialName("listing_id") val listingId: String, val kind: String = "PRODUCT", val name: String, val price: Int, val mrp: Int? = null,
     val unit: String = "", @SerialName("group_name") val group: String = "", @SerialName("photo_url") val photoUrl: String? = null, @SerialName("in_stock") val inStock: Boolean = true, val sort: Int = 0,

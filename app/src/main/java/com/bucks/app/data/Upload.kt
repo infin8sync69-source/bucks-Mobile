@@ -3,6 +3,8 @@ package com.bucks.app.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.provider.OpenableColumns
 import java.io.ByteArrayOutputStream
@@ -17,22 +19,34 @@ class Picked(val bytes: ByteArray, val name: String, val mime: String) {
 }
 
 object Upload {
-    /** Reads a picked file. Photos are re-encoded as JPEG no larger than [maxPx] on the long side, which keeps chat and moment uploads small on mobile data. */
-    fun read(ctx: Context, uri: Uri, maxPx: Int = 1600, quality: Int = 82): Picked? {
+    /** Largest file read into memory (chat allows 25 MB, moments 30 MB); bigger files are refused before they can exhaust memory. */
+    const val MAX_READ_BYTES = 32L * 1024 * 1024
+
+    /**
+     * Reads a picked file. Photos are turned upright (camera rotation), re-encoded as JPEG no larger than [maxPx] on the long
+     * side, which keeps uploads small on mobile data. Returns null when the file can't be opened, isn't a readable image, or is
+     * too big to hold in memory.
+     */
+    fun read(ctx: Context, uri: Uri, maxPx: Int = 1600, quality: Int = 82): Picked? = runCatching {
         val cr = ctx.contentResolver
         val mime = cr.getType(uri) ?: "application/octet-stream"
         val name = runCatching { cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: "file"
+        val size = runCatching { cr.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+        if (size > MAX_READ_BYTES) return@runCatching null
         if (mime.startsWith("image/") && mime != "image/gif") {
+            // Measuring: with inJustDecodeBounds the decoder fills in the size and returns null on purpose, so only the size counts.
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+            cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: run { if (bounds.outWidth <= 0) return@runCatching null }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
             var sample = 1; while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxPx) sample *= 2
-            val bmp = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) } ?: return null
-            val scale = maxPx.toFloat() / maxOf(bmp.width, bmp.height)
-            val out = if (scale < 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp
-            val bytes = ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
-            return Picked(bytes, name.substringBeforeLast('.') + ".jpg", "image/jpeg")
+            val decoded = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) } ?: return@runCatching null
+            val degrees = runCatching { cr.openInputStream(uri)?.use { ExifInterface(it).rotationDegrees } }.getOrNull() ?: 0
+            val scale = minOf(1f, maxPx.toFloat() / maxOf(decoded.width, decoded.height))
+            val bmp = if (scale < 1f || degrees != 0) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, Matrix().apply { postScale(scale, scale); postRotate(degrees.toFloat()) }, true) else decoded
+            val bytes = ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
+            return@runCatching Picked(bytes, name.substringBeforeLast('.') + ".jpg", "image/jpeg")
         }
-        val bytes = cr.openInputStream(uri)?.use { it.readBytes() } ?: return null
-        return Picked(bytes, name, mime)
-    }
+        val bytes = cr.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
+        Picked(bytes, name, mime)
+    }.getOrNull()
 }
