@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -100,7 +102,21 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     var q by remember { mutableStateOf("") }; var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var searching by remember { mutableStateOf(false) }
     var dest by remember { mutableStateOf<MapServices.PlaceHit?>(null) }; var mode by remember { mutableStateOf(TravelMode.DRIVE) }
     var offline by remember { mutableStateOf(false) }; var retry by remember { mutableStateOf(0) }
+    // The location button: asks for permission if it's missing, takes a fresh high-accuracy fix, updates the app's position and centres the map on it.
+    var locating by remember { mutableStateOf(false) }
+    fun locate(quiet: Boolean = false) {
+        val ok = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!ok) { if (!quiet) vm.toast("Allow location in the prompt to see where you are."); return }
+        locating = true
+        runCatching {
+            LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { l -> locating = false; if (l != null) { val p = LatLng(l.latitude, l.longitude); vm.onLocation(p, false); cmds.moveTo(p, 16.0) } else { vm.toast("Couldn't get a fix. Check that location is on."); } }
+                .addOnFailureListener { locating = false; vm.toast("Couldn't get your location. Check that location is on.") }
+        }.onFailure { locating = false }
+    }
+    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { g -> if (g.values.any { it }) locate() else vm.toast("Location is off for Bucks. Turn it on in Settings.") }
     var satellite by remember { mutableStateOf(false) }; var showSteps by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { if (s.me == null) locate(quiet = true) }
     LaunchedEffect(Unit) { MapsPick.place?.let { dest = it; q = it.name; MapsPick.place = null }; MapsPick.query?.let { q = it; MapsPick.query = null } }
     LaunchedEffect(q, retry) {
         if (q.trim().length < 3 || dest != null) { hits = emptyList(); searching = false; offline = false; return@LaunchedEffect }
@@ -205,7 +221,10 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
             }
             // Map buttons: where am I, zoom, satellite.
             Column(Modifier.align(Alignment.TopEnd).padding(top = 150.dp, end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
-                MapButton(Icons.Rounded.MyLocation, "My location") { if (here != null) cmds.moveTo(here, 16.0) else vm.toast("Turn on location to see where you are.") }
+                MapButton(Icons.Rounded.MyLocation, "My location", busy = locating) {
+                    val ok = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (ok) locate() else askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
                 MapButton(Icons.Rounded.Add, "Zoom in") { cmds.zoomIn() }
                 MapButton(Icons.Rounded.Remove, "Zoom out") { cmds.zoomOut() }
                 if (com.bucks.app.BuildConfig.MAPBOX_TOKEN.isNotBlank()) Surface(shape = RoundedCornerShape(20.dp), shadowElevation = 4.dp, color = if (satellite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, modifier = Modifier.clickable { satellite = !satellite }) {
@@ -225,7 +244,7 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            if (!follow) Box(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp)) { MapButton(Icons.Rounded.MyLocation, "Recentre") { follow = true; here?.let { cmds.moveTo(it, 17.0) } } }
+            if (!follow) Box(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp)) { MapButton(Icons.Rounded.MyLocation, "Recentre") { follow = true; here?.let { cmds.moveTo(it, 17.0) }; locate() } }
             Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), shadowElevation = 12.dp, color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -273,5 +292,7 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun MapButton(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) =
-    Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable(onClick = onClick)) { Box(contentAlignment = Alignment.Center) { Icon(icon, desc) } }
+private fun MapButton(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, busy: Boolean = false, onClick: () -> Unit) =
+    Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable(enabled = !busy, onClick = onClick)) {
+        Box(contentAlignment = Alignment.Center) { if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(icon, desc) }
+    }
