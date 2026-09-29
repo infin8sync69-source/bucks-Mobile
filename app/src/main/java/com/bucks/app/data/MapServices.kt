@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -29,13 +30,13 @@ object MapServices {
     private val json = Json { ignoreUnknownKeys = true }
     private const val UA = "Bucks-Android/1.0 (com.bucks.app)"
 
-    private suspend fun get(url: String): JsonObject? = withContext(Dispatchers.IO) {
+    private suspend fun get(url: String): JsonElement? = withContext(Dispatchers.IO) {
         runCatching {
             val c = URL(url).openConnection() as HttpURLConnection
             try {
                 c.connectTimeout = 8_000; c.readTimeout = 10_000
                 c.setRequestProperty("User-Agent", UA); c.setRequestProperty("Accept", "application/json")
-                if (c.responseCode != 200) null else json.parseToJsonElement(c.inputStream.bufferedReader().use { it.readText() }) as? JsonObject
+                if (c.responseCode != 200) null else json.parseToJsonElement(c.inputStream.bufferedReader().use { it.readText() })
             } finally { c.disconnect() }
         }.getOrNull()
     }
@@ -52,17 +53,32 @@ object MapServices {
         return PlaceHit(name, detail, LatLng(lat, lng))
     }
 
-    /** Places matching [query], nearest to [near] first; empty when offline. */
-    suspend fun search(query: String, near: LatLng): List<PlaceHit> {
-        if (query.trim().length < 3) return emptyList()
-        val o = get("https://photon.komoot.io/api/?q=${enc(query.trim())}&lat=${near.lat}&lon=${near.lng}&limit=8&lang=en") ?: return emptyList()
-        return (o["features"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::hitOf) }
-            .distinctBy { it.name + it.detail }.sortedBy { Geo.distanceKm(near, it.at) }
+    /** Nominatim (OpenStreetMap's own search) result row, used when Photon can't be reached. */
+    private fun nominatimHit(o: JsonObject): PlaceHit? {
+        val lat = o.s("lat")?.toDoubleOrNull() ?: return null; val lon = o.s("lon")?.toDoubleOrNull() ?: return null
+        val full = o.s("display_name") ?: return null
+        val name = o.s("name") ?: full.substringBefore(",").trim()
+        return PlaceHit(name, full.substringAfter(",", "").trim().split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3).joinToString(", "), LatLng(lat, lon))
     }
+
+    /** Places matching [query], nearest to [near] first. Null when no search server could be reached (so "offline" isn't shown as "no places"). */
+    suspend fun searchOrNull(query: String, near: LatLng): List<PlaceHit>? {
+        val q = query.trim(); if (q.length < 3) return emptyList()
+        val photon = get("https://photon.komoot.io/api/?q=${enc(q)}&lat=${near.lat}&lon=${near.lng}&limit=8&lang=en") as? JsonObject
+        val a = photon?.let { o -> (o["features"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::hitOf) } }
+        if (!a.isNullOrEmpty()) return a.distinctBy { it.name + it.detail }.sortedBy { Geo.distanceKm(near, it.at) }
+        val nom = get("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&q=${enc(q)}") as? JsonArray
+        val b = nom?.mapNotNull { (it as? JsonObject)?.let(::nominatimHit) }
+        if (b != null) return b.distinctBy { it.name + it.detail }.sortedBy { Geo.distanceKm(near, it.at) }
+        return if (a != null) emptyList() else null
+    }
+
+    /** Places matching [query], nearest first; empty when offline. */
+    suspend fun search(query: String, near: LatLng): List<PlaceHit> = searchOrNull(query, near).orEmpty()
 
     /** A short name for the point: "12th Main, Indiranagar" or a landmark; null when offline. */
     suspend fun label(at: LatLng): String? {
-        val o = get("https://photon.komoot.io/reverse?lat=${at.lat}&lon=${at.lng}&limit=1&lang=en") ?: return null
+        val o = get("https://photon.komoot.io/reverse?lat=${at.lat}&lon=${at.lng}&limit=1&lang=en") as? JsonObject ?: return null
         val h = (o["features"] as? JsonArray)?.firstOrNull()?.let { it as? JsonObject }?.let(::hitOf) ?: return null
         val area = h.detail.split(", ").firstOrNull { it.isNotBlank() }
         return listOfNotNull(h.name, area?.takeIf { it != h.name }).joinToString(", ")
@@ -70,7 +86,7 @@ object MapServices {
 
     /** Driving route by road; null when offline or no route (the caller draws a straight line instead). */
     suspend fun route(from: LatLng, to: LatLng): RoadRoute? {
-        val o = get("https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson") ?: return null
+        val o = get("https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson") as? JsonObject ?: return null
         val r = (o["routes"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
         val metres = r["distance"]?.jsonPrimitive?.doubleOrNull ?: return null; val seconds = r["duration"]?.jsonPrimitive?.doubleOrNull ?: return null
         val pts = r["geometry"]?.jsonObject?.get("coordinates")?.jsonArray?.mapNotNull { p ->

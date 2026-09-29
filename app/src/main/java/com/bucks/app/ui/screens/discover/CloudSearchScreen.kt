@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,7 +39,7 @@ private val RIDE_WORDS = Regex("\\b(auto|cab|taxi|ride|rickshaw)\\b", RegexOptio
  * everything nearby. Kind chips (All / Shops / Pros / Drivers) and radius chips (3 / 10 / 25 km) search at once.
  */
 @Composable
-fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (String) -> Unit, onRide: (VehicleKind) -> Unit) {
+fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (String) -> Unit, onRide: (VehicleKind) -> Unit, onPlace: () -> Unit = {}) {
     val d = vm.discover; val s by vm.state.collectAsState()
     val focus = remember { FocusRequester() }
     // A query typed on Home or Services arrives through the view model; take it once, then it's ours.
@@ -48,6 +49,12 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
         d.refreshSyncs()
     }
     LaunchedEffect(d.query) { if (d.query.isNotBlank()) delay(300); d.search() }
+    // Places (streets, landmarks, towns) from the map search sit under the same bar; tapping one opens it on the map with directions.
+    var places by remember { mutableStateOf<List<com.bucks.app.data.MapServices.PlaceHit>>(emptyList()) }
+    LaunchedEffect(d.query) {
+        places = emptyList(); val q = d.query.trim(); if (q.length < 3) return@LaunchedEffect
+        delay(600); places = com.bucks.app.data.MapServices.search(q, s.me ?: vm.mePos).take(4)
+    }
     val wantsRide = d.kind == KindFilter.DRIVERS || RIDE_WORDS.containsMatchIn(d.query)
 
     ContentColumn(Modifier.fillMaxHeight()) {
@@ -75,6 +82,13 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (!s.locationGranted) item { Notice("Turn on location to see what's near you. Until then, results are around Jayanagar.", Modifier.padding(horizontal = Gutter, vertical = 4.dp)) }
             if (wantsRide) item { RideBanner(onRide) }
+            if (places.isNotEmpty()) {
+                item { Text("Places", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp)) }
+                items(places, key = { "p" + it.name + it.at.lat + it.at.lng }) { h ->
+                    ListRow(h.name, h.detail, leading = { Avatar(icon = Icons.Rounded.Place, size = 40) }, trailing = { Muted("Directions") }, onClick = { com.bucks.app.ui.screens.MapsPick.place = h; onPlace() })
+                    Divider()
+                }
+            }
             item {
                 Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (d.query.isBlank()) "Everything nearby" else "Results for “${d.query.trim()}”", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

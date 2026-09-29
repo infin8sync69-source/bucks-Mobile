@@ -38,6 +38,9 @@ fun openDirections(ctx: android.content.Context, to: LatLng, label: String = "",
         .onFailure { android.widget.Toast.makeText(ctx, "No maps app found. Install Google Maps for turn-by-turn directions.", android.widget.Toast.LENGTH_SHORT).show() }
 }
 
+/** A place chosen elsewhere (the app's search bar) for the Maps screen to open on; taken once. */
+object MapsPick { var place: MapServices.PlaceHit? = null }
+
 /**
  * Maps: search anywhere, see the road route from where you are with its distance and time on the map, then Navigate to hand it to
  * turn-by-turn in a maps app. The preview route is by road (OpenStreetMap data); turn-by-turn and live traffic come from the maps app.
@@ -48,9 +51,12 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val here = s.me; val start = here ?: vm.mePos
     var q by remember { mutableStateOf("") }; var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var searching by remember { mutableStateOf(false) }
     var dest by remember { mutableStateOf<MapServices.PlaceHit?>(null) }; var mode by remember { mutableStateOf('d') }
-    LaunchedEffect(q) {
-        if (q.trim().length < 3) { hits = emptyList(); searching = false; return@LaunchedEffect }
-        searching = true; delay(450); hits = MapServices.search(q, start); searching = false
+    var offline by remember { mutableStateOf(false) }; var retry by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { MapsPick.place?.let { dest = it; q = it.name; MapsPick.place = null } }
+    LaunchedEffect(q, retry) {
+        if (q.trim().length < 3 || dest != null) { hits = emptyList(); searching = false; offline = false; return@LaunchedEffect }
+        searching = true; offline = false; delay(450)
+        val r = MapServices.searchOrNull(q, start); hits = r.orEmpty(); offline = r == null; searching = false
     }
     val road = rememberRoadRoute(here, dest?.at)
     val line = road?.points ?: dest?.let { d -> here?.let { listOf(it, d.at) } }.orEmpty()
@@ -64,7 +70,8 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
             Surface(shape = RoundedCornerShape(28.dp), shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                    OutlinedTextField(q, { q = it; if (it.isBlank()) dest = null }, placeholder = { Text("Search any place") }, singleLine = true, modifier = Modifier.weight(1f),
+                    OutlinedTextField(q, { q = it; dest = null }, placeholder = { Text("Search any place") }, singleLine = true, modifier = Modifier.weight(1f),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search), keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { retry++ }),
                         colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent, focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent))
                     if (q.isNotEmpty()) IconButton({ q = ""; dest = null; hits = emptyList() }) { Icon(Icons.Rounded.Close, "Clear") }
                 }
@@ -79,7 +86,13 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
                     }
                     Divider()
                 } }
-            } else if (q.trim().length >= 3 && !searching && hits.isEmpty() && dest == null) Muted("No places found. Try a landmark or the town's name.", Modifier.padding(top = 8.dp, start = 16.dp))
+            } else if (q.trim().length >= 3 && !searching && hits.isEmpty() && dest == null) Surface(Modifier.padding(top = 6.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(if (offline) "Couldn't reach the map search" else "No places found", style = MaterialTheme.typography.titleSmall)
+                    Muted(if (offline) "Check your internet connection and try again." else "Try a landmark, an area or the town's name.", Modifier.padding(top = 2.dp))
+                    if (offline) SmallButton("Try again", Modifier.padding(top = 8.dp)) { retry++ }
+                }
+            }
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { MapAttribution() }
