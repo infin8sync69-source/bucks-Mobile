@@ -476,6 +476,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
     val social = vm.social; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     var msgs by remember { mutableStateOf<List<MessageRow>>(emptyList()) }; var text by remember { mutableStateOf("") }; var seen by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<MessageRow?>(null) }; var menuFor by remember { mutableStateOf<MessageRow?>(null) }
+    var viewing by remember { mutableStateOf<Triple<String, String, String>?>(null) }   // attachment open in the viewer: path, mime, name
     var conv by remember { mutableStateOf<ConversationRow?>(null) }; var members by remember { mutableStateOf<List<ConversationMemberRow>>(emptyList()) }; var showMembers by remember { mutableStateOf(false) }
     val listState = rememberLazyListState(); val meId = social.me?.id
     val inboxRow = social.inbox.firstOrNull { it.conversationId == id }
@@ -517,9 +518,12 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
                         // Groups and listing inboxes have several people on the other side, so every bubble that isn't mine carries its sender.
                         if (!mine && kind != "DIRECT") Text(social.nameOf(m.senderId), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 10.dp, top = 6.dp))
                         m.attachment?.let { a -> val path = a.s("path"); val mime = a.s("mime")
-                            if (mime.startsWith("image/")) SignedImage(vm, "chat", path, Modifier.size(220.dp).clip(MaterialTheme.shapes.medium).clickable { scope.launch { runCatching { social.fileUrl("chat", path) }.getOrNull()?.let { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } } })
-                            else Row(Modifier.clip(MaterialTheme.shapes.medium).background(fg.copy(alpha = .12f)).clickable { scope.launch { runCatching { social.fileUrl("chat", path) }.getOrNull()?.let { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } } }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Description, null, tint = fg); Column(Modifier.padding(start = 10.dp)) { Text(a.s("name"), style = MaterialTheme.typography.titleSmall, color = fg, maxLines = 1); Text(humanSize(a.s("size").toLongOrNull() ?: 0), style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = .8f)) } } }
+                            // Photos and videos open inside Bucks; documents open with the phone's own viewer. Nothing goes to a browser.
+                            if (mime.startsWith("image/")) SignedImage(vm, "chat", path, Modifier.size(220.dp).clip(MaterialTheme.shapes.medium).clickable { viewing = Triple(path, mime, a.s("name")) })
+                            else Row(Modifier.clip(MaterialTheme.shapes.medium).background(fg.copy(alpha = .12f)).clickable {
+                                if (mime.startsWith("video/")) viewing = Triple(path, mime, a.s("name"))
+                                else scope.launch { vm.toast("Opening…"); if (!com.bucks.app.ui.FileOpener.open(ctx, social, "chat", path, a.s("name"), mime)) vm.toast("No app on this phone can open that file, or the download failed.") } }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(if (mime.startsWith("video/")) Icons.Rounded.Videocam else Icons.Rounded.Description, null, tint = fg); Column(Modifier.padding(start = 10.dp)) { Text(a.s("name"), style = MaterialTheme.typography.titleSmall, color = fg, maxLines = 1); Text(humanSize(a.s("size").toLongOrNull() ?: 0), style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = .8f)) } } }
                         if (m.deletedAt != null) Text("Message deleted", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal), color = fg.copy(alpha = .7f), modifier = Modifier.padding(10.dp, 8.dp))
                         else if (m.body.isNotBlank()) Text(m.body, style = MaterialTheme.typography.bodyMedium, color = fg, modifier = Modifier.padding(10.dp, 8.dp))
                         Text(listOfNotNull(ago(m.createdAt), if (m.editedAt != null) "edited" else null).joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = .7f), modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 6.dp).align(Alignment.End))
@@ -540,6 +544,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
                 editing?.let { e -> social.editMessage(e.id, t); msgs = msgs.map { if (it.id == e.id) it.copy(body = t, editedAt = "now") else it }; editing = null } ?: social.send(id, t); text = "" }, enabled = text.isNotBlank()) { Icon(Icons.AutoMirrored.Rounded.Send, "Send") }
         } }
     }
+    viewing?.let { (path, mime, _) -> com.bucks.app.ui.AttachmentViewer(vm, "chat", path, mime) { viewing = null } }
     menuFor?.let { m -> AlertDialog(onDismissRequest = { menuFor = null }, title = { Text("Your message") }, text = { Column {
         if (m.body.isNotBlank()) TextButton({ editing = m; text = m.body; menuFor = null }) { Text("Edit") }
         TextButton({ social.deleteMessage(m.id); msgs = msgs.map { if (it.id == m.id) it.copy(body = "", attachment = null, deletedAt = "now") else it }; menuFor = null }) { Text("Delete for everyone", color = MaterialTheme.colorScheme.error) }

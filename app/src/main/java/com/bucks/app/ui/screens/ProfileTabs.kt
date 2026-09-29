@@ -64,23 +64,15 @@ fun MyMediaTab(vm: BucksViewModel) {
             }
         }
     }
-    open?.let { (path, mime) ->
-        Dialog(onDismissRequest = { open = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Box(Modifier.fillMaxSize().background(Color.Black).clickable { open = null }, contentAlignment = Alignment.Center) {
-                if (mime.startsWith("video/")) {
-                    val url by produceState<String?>(null, path) { value = runCatching { vm.social.fileUrl("posts", path) }.getOrNull() }
-                    url?.let { MomentVideo(it, paused = false, modifier = Modifier.fillMaxSize(), loop = true) } ?: BucksLoader(color = Color.White, label = "Loading")
-                } else SignedImage(vm, "posts", path, Modifier.fillMaxSize(), ContentScale.Fit)
-                IconButton({ open = null }, Modifier.align(Alignment.TopEnd).statusBarsPadding()) { Icon(Icons.Rounded.Close, "Close", tint = Color.White) }
-            }
-        }
-    }
+    open?.let { (path, mime) -> com.bucks.app.ui.AttachmentViewer(vm, "posts", path, mime) { open = null } }
 }
 
 /** Files and photos shared in my chats, sent or received; tap opens it. */
 @Composable
 fun MyFilesTab(vm: BucksViewModel) {
     val ctx = LocalContext.current; val social = vm.social; val scope = rememberCoroutineScope()
+    var viewing by remember { mutableStateOf<Triple<String, String, String>?>(null) }
+    viewing?.let { (path, mime, _) -> com.bucks.app.ui.AttachmentViewer(vm, "chat", path, mime) { viewing = null } }
     var files by remember { mutableStateOf<List<MessageRow>?>(null) }; var failed by remember { mutableStateOf(false) }
     LaunchedEffect(social.me?.id) { val rows = runCatching { Backend.chatFiles() }.onFailure { failed = true }.getOrNull(); rows?.let { social.namesFor(it.map { m -> m.senderId }) }; files = rows }
     when {
@@ -93,7 +85,8 @@ fun MyFilesTab(vm: BucksViewModel) {
                 val mine = m.senderId == social.me?.id
                 ListRow(name, listOfNotNull(if (size > 0) humanBytes(size) else null, if (mine) "Sent by you" else "From ${social.nameOf(m.senderId)}", ago(m.createdAt)).joinToString(" · "),
                     leading = { Avatar(icon = when { mime.startsWith("image/") -> Icons.Rounded.Image; mime.startsWith("video/") -> Icons.Rounded.Videocam; mime == "application/pdf" -> Icons.Rounded.PictureAsPdf; else -> Icons.Rounded.InsertDriveFile }, size = 40) },
-                    onClick = { scope.launch { runCatching { social.fileUrl("chat", path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast("No app on this phone can open that file.") } }.onFailure { vm.toast("Couldn't open that file. Check your connection.") } } })
+                    onClick = { if (mime.startsWith("image/") || mime.startsWith("video/")) viewing = Triple(path, mime, name)
+                                else scope.launch { vm.toast("Opening…"); if (!com.bucks.app.ui.FileOpener.open(ctx, social, "chat", path, name, mime)) vm.toast("No app on this phone can open that file, or the download failed.") } })
                 Divider()
             }
         }
