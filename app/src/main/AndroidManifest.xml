@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Contacts screen: your phonebook is read on this phone and shown to you only; nothing from it is uploaded. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Saving a photo or video to the gallery on Android 9 and older; newer Android needs no permission for this. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <queries>
         <intent><action android:name="android.speech.RecognitionService" /></intent>
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
