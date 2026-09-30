@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +43,9 @@ import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.ListingProfile
 import com.bucks.app.ui.components.*
+import com.bucks.app.ui.screens.ago
 import com.bucks.app.ui.str
+import kotlinx.coroutines.launch
 import com.bucks.app.ui.theme.status
 
 /*
@@ -58,7 +61,7 @@ import com.bucks.app.ui.theme.status
 
 private const val PAGE = 24
 
-private enum class Sort(val label: String) { FEATURED("Featured"), LOW("Price: low to high"), HIGH("Price: high to low"), NAME("Name: A to Z") }
+private enum class Sort(val label: String) { FEATURED("Featured"), REC("Most recommended"), LOW("Price: low to high"), HIGH("Price: high to low"), NAME("Name: A to Z") }
 private val BANDS = listOf("Any price" to (0..Int.MAX_VALUE), "Under ₹1,000" to (0..999), "₹1,000 to ₹3,000" to (1000..3000), "₹3,000 to ₹10,000" to (3001..10_000), "Above ₹10,000" to (10_001..Int.MAX_VALUE))
 
 private fun rs(n: Int) = "₹" + "%,d".format(n)
@@ -100,6 +103,7 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
         return
     }
     val canAdd = !p.mine && listing.online
+    val scopeRatings = rememberCoroutineScope()
     val all = remember(p.products) { productsOf(p.products) }
     val cats = remember(all) { all.groupBy { it.group }.map { (g, l) -> Triple(g, l.size, l.firstNotNullOfOrNull { it.photos.firstOrNull() }) } }
     var query by rememberSaveable { mutableStateOf("") }
@@ -109,13 +113,17 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
     var shown by rememberSaveable(cat, query, sort, inStockOnly, onSaleOnly, band) { mutableStateOf(PAGE) }
     var sortMenu by remember { mutableStateOf(false) }; var filterSheet by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<Product?>(null) }
+    // Recommend / not-recommend counts for every product in one call; the cards show the share that recommend.
+    var ratings by remember(listing.id) { mutableStateOf<Map<String, RatingSummary>>(emptyMap()) }
+    fun loadRatings() { scopeRatings.launch { ratings = runCatching { Backend.productRatings(listing.id) }.getOrDefault(emptyList()).associateBy { it.key } } }
+    LaunchedEffect(listing.id) { loadRatings() }
     val filtersOn = (if (inStockOnly) 1 else 0) + (if (onSaleOnly) 1 else 0) + (if (band != 0) 1 else 0)
 
-    val result = remember(all, cat, query, sort, inStockOnly, onSaleOnly, band) {
+    val result = remember(all, cat, query, sort, inStockOnly, onSaleOnly, band, ratings) {
         val range = BANDS[band].second
         all.filter { pr -> (query.isNotBlank() || cat == null || pr.group == cat) && (query.isBlank() || pr.matches(query)) &&
             (!inStockOnly || pr.anyInStock) && (!onSaleOnly || pr.off != null) && (band == 0 || pr.options.any { it.price in range }) }
-            .let { l -> when (Sort.entries[sort]) { Sort.FEATURED -> l; Sort.LOW -> l.sortedBy { it.from }; Sort.HIGH -> l.sortedByDescending { it.from }; Sort.NAME -> l.sortedBy { it.title.lowercase() } } }
+            .let { l -> when (Sort.entries[sort]) { Sort.FEATURED -> l; Sort.REC -> l.sortedWith(compareByDescending<Product> { ratings[it.key]?.percent ?: -1 }.thenByDescending { ratings[it.key]?.votes ?: 0 }); Sort.LOW -> l.sortedBy { it.from }; Sort.HIGH -> l.sortedByDescending { it.from }; Sort.NAME -> l.sortedBy { it.title.lowercase() } } }
     }
     val inCart = vm.commerce.count
 
@@ -160,7 +168,7 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
                 } else {
                     result.take(shown).chunked(2).forEach { row ->
                         Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { pr -> ProductCard(vm, p, pr, canAdd, Modifier.weight(1f)) { open = pr } }
+                            row.forEach { pr -> ProductCard(vm, p, pr, ratings[pr.key], canAdd, Modifier.weight(1f)) { open = pr } }
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
@@ -171,7 +179,7 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
     }
     Spacer(Modifier.height(if (inCart > 0) 88.dp else 8.dp))
 
-    open?.let { pr -> ProductSheet(vm, listing, pr, canAdd, onDismiss = { open = null }, onCart = { open = null; onCart() }) }
+    open?.let { pr -> ProductSheet(vm, listing, pr, ratings[pr.key], canAdd, p.mine, onRated = { loadRatings() }, onDismiss = { open = null }, onCart = { open = null; onCart() }) }
     if (filterSheet) ModalBottomSheet({ filterSheet = false }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Text("Filter", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
@@ -207,7 +215,7 @@ private fun CategoryTab(name: String, count: Int, photo: String?, selected: Bool
     Row(Modifier.fillMaxWidth().heightIn(min = 88.dp).selectable(selected, role = Role.Tab, onClick = onClick).semantics { contentDescription = "$name, $count products" }) {
         Column(Modifier.weight(1f).padding(vertical = 8.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer).border(if (selected) 2.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
-                sized(photo, 150)?.let { AsyncImage(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) } ?: Icon(Icons.Rounded.Storefront, null, tint = c)
+                sized(photo, 150)?.let { ShimmerImage(it, null, Modifier.fillMaxSize()) } ?: Icon(Icons.Rounded.Storefront, null, tint = c)
             }
             Text(name, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 13.sp), color = c, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
         }
@@ -217,15 +225,15 @@ private fun CategoryTab(name: String, count: Int, photo: String?, selected: Bool
 
 /** A product card: photo, name, price (with the marked-down price struck through), then Add / a stepper / Choose / Sold out. */
 @Composable
-private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, canAdd: Boolean, modifier: Modifier, onOpen: () -> Unit) {
+private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, rating: RatingSummary?, canAdd: Boolean, modifier: Modifier, onOpen: () -> Unit) {
     val one = pr.options.first(); val qty = pr.options.sumOf { vm.commerce.qty(it.id ?: "") }
     val dim = if (pr.anyInStock) 1f else 0.5f
     val price = if (pr.multi && pr.from != pr.to) "From ${rs(pr.from)}" else rs(pr.from)
-    val say = listOfNotNull(pr.title, price, if (pr.multi) "${pr.options.size} options" else null, pr.off?.let { "$it percent off" }, if (!pr.anyInStock) "sold out" else null, if (qty > 0) "$qty in your cart" else null).joinToString(", ")
+    val say = listOfNotNull(pr.title, price, if (pr.multi) "${pr.options.size} options" else null, pr.off?.let { "$it percent off" }, if (!pr.anyInStock) "sold out" else null, rating?.percent?.let { "$it percent recommend, ${rating.votes} ${if (rating.votes == 1) "vote" else "votes"}" }, if (qty > 0) "$qty in your cart" else null).joinToString(", ")
     Column(modifier.clip(RoundedCornerShape(12.dp)).border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), RoundedCornerShape(12.dp)).clickable(onClickLabel = "Open ${pr.title}", onClick = onOpen).semantics(mergeDescendants = true) { contentDescription = say }) {
         Box {
             val url = sized(pr.photos.firstOrNull(), 400)
-            if (url != null) AsyncImage(url, null, Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.surfaceContainer).alpha(dim), contentScale = ContentScale.Crop)
+            if (url != null) ShimmerImage(url, null, Modifier.fillMaxWidth().aspectRatio(1f).alpha(dim))
             else Box(Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             pr.off?.let { Surface(Modifier.padding(6.dp).align(Alignment.TopStart), shape = RoundedCornerShape(6.dp), color = MaterialTheme.status.good) { Text("$it% off", Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = Color.White) } }
             if (qty > 0) Surface(Modifier.padding(6.dp).align(Alignment.TopEnd), shape = CircleShape, color = MaterialTheme.colorScheme.primary) { Text("$qty", Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary) }
@@ -235,6 +243,13 @@ private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, canA
             Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(price, style = MaterialTheme.typography.titleSmall, modifier = Modifier.alpha(dim))
                 if (!pr.multi) one.mrp?.takeIf { it > one.price }?.let { Text(rs(it), style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            rating?.percent?.let { pct ->
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val tone = if (pct >= 50) MaterialTheme.status.good else MaterialTheme.status.bad
+                    Icon(if (pct >= 50) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(14.dp), tint = tone)
+                    Text(" $pct%", style = MaterialTheme.typography.labelMedium, color = tone); Muted(" (${rating.votes})", maxLines = 1)
+                }
             }
             if (pr.multi) Muted("${pr.options.size} options", Modifier.padding(top = 2.dp), maxLines = 1)
             Box(Modifier.padding(top = 8.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
@@ -249,18 +264,23 @@ private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, canA
     }
 }
 
-/** The product page in a sheet: photos, price, the option chips (each with its price; sold-out ones say so), description, and the stepper for the chosen option. */
+/** The product page in a sheet: photos, price, the option chips, description, add to cart, then what people say with recommend / not recommend. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, canAdd: Boolean, onDismiss: () -> Unit, onCart: () -> Unit) {
+private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, rating: RatingSummary?, canAdd: Boolean, isOwner: Boolean, onRated: () -> Unit, onDismiss: () -> Unit, onCart: () -> Unit) {
     var pick by remember(pr.key) { mutableStateOf(pr.options.firstOrNull { it.inStock }?.id ?: pr.options.first().id) }
     val item = pr.options.firstOrNull { it.id == pick } ?: pr.options.first()
-    val optionPhotos = photosOf(item)
-    val photos = (optionPhotos + pr.photos).distinct().take(8)
+    // The catalogue carries one photo and no description; the full row (all photos, description) is fetched for the option being looked at.
+    var full by remember(pick) { mutableStateOf<ItemRow?>(null) }; var fullFailed by remember(pick) { mutableStateOf(false) }
+    LaunchedEffect(pick) { full = pick?.let { runCatching { Backend.itemById(it) }.getOrNull() }; fullFailed = full == null }
+    val loaded = full
+    val photos = ((loaded?.let { photosOf(it) } ?: photosOf(item)) + pr.photos).distinct().take(8)
+    val about = (loaded?.description ?: "").trim().removePrefix(pr.title).trim().replace(Regex("\n{3,}"), "\n\n")
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             if (photos.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                photos.forEachIndexed { i, u -> AsyncImage(sized(u, 900), "${pr.title}, photo ${i + 1} of ${photos.size}", Modifier.size(if (photos.size == 1) 300.dp else 240.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer), contentScale = ContentScale.Crop) }
+                photos.forEachIndexed { i, u -> ShimmerImage(sized(u, 900), "${pr.title}, photo ${i + 1} of ${photos.size}", Modifier.size(if (photos.size == 1) 300.dp else 240.dp).clip(MaterialTheme.shapes.medium)) }
+                if (loaded == null && !fullFailed) repeat(2) { SkeletonBox(Modifier.size(240.dp), MaterialTheme.shapes.medium) }
             }
             Text(pr.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             Muted(listOfNotNull(pr.group.takeIf { it != "Products" }, item.details.str("vendor")).joinToString(" · "))
@@ -268,23 +288,91 @@ private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, c
                 Text(rs(item.price), style = MaterialTheme.typography.headlineSmall)
                 item.mrp?.takeIf { it > item.price }?.let { Text(rs(it), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${((it - item.price) * 100.0 / it).toInt()}% off", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.status.good) }
             }
+            rating?.percent?.let { pct -> Muted("$pct% recommend · ${rating.votes} ${if (rating.votes == 1) "vote" else "votes"}", Modifier.padding(top = 2.dp)) }
             if (pr.multi) {
                 Label("Choose an option")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     pr.options.forEach { o -> Chip(optionLabel(o) + " · " + rs(o.price) + if (!o.inStock) " · sold out" else "", selected = o.id == pick) { pick = o.id } }
                 }
             }
-            when { !item.inStock -> Padding8 { PillGrey("Sold out") }; item.stock != null && item.stock!! <= 5 -> Text("Only ${item.stock} left", color = MaterialTheme.status.warn, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp)) }
-            if (pr.about.isNotBlank()) Text(pr.about, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-            item.details.str("url")?.let { _ -> Muted("Sold by ${listing.title}.", Modifier.padding(top = 10.dp)) }
+            when { !item.inStock -> Box(Modifier.padding(top = 8.dp)) { PillGrey("Sold out") }; item.stock != null && item.stock!! <= 5 -> Text("Only ${item.stock} left", color = MaterialTheme.status.warn, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp)) }
+            when {
+                about.isNotBlank() -> Text(about, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+                loaded == null && !fullFailed -> SkeletonLines(4, Modifier.padding(top = 14.dp))
+            }
             if (canAdd && item.inStock) Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 val qty = vm.commerce.qty(item.id ?: "")
                 Text(if (qty > 0) "In your cart" else "Add to cart", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                 AddStepper(qty) { d -> vm.commerce.add(listing, item, d) }
             }
             if (vm.commerce.count > 0) DarkButton("View cart · ${vm.commerce.count} item${if (vm.commerce.count == 1) "" else "s"}", Modifier.padding(top = 14.dp), onClick = onCart)
+            ProductFeedback(vm, listing, pr, rating, isOwner, onRated)
         }
     }
 }
 
-@Composable private fun Padding8(content: @Composable () -> Unit) = Box(Modifier.padding(top = 8.dp)) { content() }
+/** Recommend or not recommend a product, with an optional comment, and what others wrote. One rating per person, changeable and removable. */
+@Composable
+private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product, rating: RatingSummary?, isOwner: Boolean, onRated: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var draft by remember(pr.key) { mutableStateOf(0) }; var text by remember(pr.key) { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }
+    var comments by remember(pr.key) { mutableStateOf<List<ProductComment>?>(null) }; var more by remember(pr.key) { mutableStateOf(false) }
+    fun load(before: String? = null) { scope.launch {
+        val page = runCatching { Backend.productComments(listing.id, pr.key, before) }.getOrDefault(emptyList())
+        comments = if (before == null) page else comments.orEmpty() + page; more = page.size >= 20 } }
+    LaunchedEffect(pr.key) { load() }
+    fun friendly(e: Throwable) = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(e.message ?: "")?.groupValues?.get(1) ?: "Couldn't send that. Check your connection and try again."
+    val mine = rating?.mine
+    HorizontalDivider(Modifier.padding(top = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+    Text("What people say", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
+    Muted(rating?.percent?.let { "$it% recommend this · ${rating.up} recommend, ${rating.down} don't" } ?: "No ratings yet. Be the first.", Modifier.padding(top = 2.dp))
+    rating?.percent?.let { pct -> Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.status.bad.copy(alpha = 0.35f))) { Box(Modifier.fillMaxWidth(pct / 100f).fillMaxHeight().background(MaterialTheme.status.good)) } }
+    if (isOwner) Muted("This is your product. Customers' feedback and comments show here, and you get a notification for each comment.", Modifier.padding(top = 10.dp))
+    else {
+        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(1 to ("Recommend" to Icons.Rounded.ArrowUpward), -1 to ("Not recommend" to Icons.Rounded.ArrowDownward)).forEach { (v, lab) ->
+                val on = (draft == v) || (draft == 0 && mine == v)
+                val tone = if (v == 1) MaterialTheme.status.good else MaterialTheme.status.bad
+                OutlinedButton({ draft = if (draft == v) 0 else v }, Modifier.weight(1f).heightIn(min = 48.dp).semantics { selected = on }, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (on) tone.copy(alpha = 0.15f) else Color.Transparent, contentColor = if (on) tone else MaterialTheme.colorScheme.onSurface),
+                    border = BorderStroke(if (on) 2.dp else 1.dp, if (on) tone else MaterialTheme.colorScheme.outline), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Icon(lab.second, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(lab.first, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                }
+            }
+        }
+        if (draft != 0 || mine != null) {
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 10.dp).fillMaxWidth(), placeholder = { Text("Add a comment (optional)") }, minLines = 2, maxLines = 5, supportingText = { Text("${text.length}/500") })
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button({
+                    val vote = if (draft != 0) draft else (mine ?: 1)
+                    scope.launch { busy = true
+                        runCatching { Backend.rateProduct(listing.id, pr.key, vote, text.trim()) }.onSuccess { vm.toast("Thanks, your feedback is posted."); draft = 0; text = ""; onRated(); load() }.onFailure { vm.toast(friendly(it)) }
+                        busy = false }
+                }, Modifier.heightIn(min = 48.dp), enabled = !busy && (draft != 0 || text.isNotBlank())) { Text(if (busy) "Sending…" else if (mine != null) "Update my feedback" else "Post feedback") }
+                if (mine != null) TextButton({ scope.launch { busy = true; runCatching { Backend.clearProductRating(listing.id, pr.key) }.onSuccess { vm.toast("Your rating was removed."); draft = 0; text = ""; onRated(); load() }; busy = false } }, Modifier.heightIn(min = 48.dp)) { Text("Remove mine") }
+            }
+        }
+    }
+    val list = comments
+    when {
+        list == null -> Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { repeat(2) { Row { SkeletonBox(Modifier.size(36.dp), CircleShape); SkeletonLines(2, Modifier.padding(start = 10.dp).weight(1f)) } } }
+        list.isEmpty() -> Muted("No comments yet.", Modifier.padding(top = 12.dp))
+        else -> {
+            Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                list.forEach { c ->
+                    Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "${c.name.ifBlank { "Someone" }}, ${if (c.vote == 1) "recommends" else "does not recommend"}, ${ago(c.updatedAt)}. ${c.comment}" }) {
+                        Avatar(c.name.split(' ').mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("").ifBlank { "?" }, size = 36)
+                        Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(c.name.ifBlank { "Someone" }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                Icon(if (c.vote == 1) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.padding(start = 6.dp).size(14.dp), tint = if (c.vote == 1) MaterialTheme.status.good else MaterialTheme.status.bad)
+                                Muted(" · " + ago(c.updatedAt), maxLines = 1)
+                            }
+                            Text(c.comment, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+                        }
+                    }
+                }
+            }
+            if (more) OutlinedButton({ load(list.last().updatedAt) }, Modifier.padding(top = 12.dp).fillMaxWidth().heightIn(min = 48.dp)) { Text("Show more comments") }
+        }
+    }
+}

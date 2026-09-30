@@ -74,6 +74,7 @@ async function plan(ev: DbEvent): Promise<Note[]> {
     case "tasks": return ev.type === "UPDATE" ? await forTaskStatus(r, ev.old_record ?? null) : ev.type === "INSERT" ? await ringDrivers(r, []) : [];
     case "syncs": return ev.type === "INSERT" ? await forSyncRequest(r) : ev.type === "UPDATE" ? await forSyncAccepted(r, ev.old_record ?? null) : [];
     case "moments": return ev.type === "INSERT" ? await forMoment(r) : [];
+    case "posts": return ev.type === "INSERT" ? await forListingPost(r) : [];
     case "post_comments": return ev.type === "INSERT" ? await forComment(r) : [];
     case "post_votes": return ev.type === "INSERT" || ev.type === "UPDATE" ? await forLike(r, ev.old_record ?? null) : [];
     case "moment_views": return ev.type === "INSERT" || ev.type === "UPDATE" ? await forReaction(r, ev.old_record ?? null) : [];
@@ -227,6 +228,21 @@ async function forMoment(m: Row): Promise<Note[]> {
   const body = String(m.caption ?? "").trim() || (m.media_type === "VIDEO" ? "A new video. It disappears in 24 hours." : "A new photo. It disappears in 24 hours.");
   return people.filter((p) => !muted.has(p)).slice(0, MOMENT_FANOUT_CAP)
     .map((p) => ({ to: p, key: "moments", type: "social", title: `${author} posted a moment`, body, route: `moments/${a}`, tag: `moment-${a}` }));
+}
+
+// A store or pro posts as itself: everyone who synced with the listing hears about it (the post also lands in their Feed).
+async function forListingPost(p: Row): Promise<Note[]> {
+  if (!p.listing_id || p.deleted_at) return [];
+  const l = await one<{ title: string; status: string }>("listings", `id=eq.${p.listing_id}&select=title,status`);
+  if (!l || l.status !== "LIVE") return [];
+  const followers = await select<{ profile_id: string }>("listing_syncs", `listing_id=eq.${p.listing_id}&select=profile_id&limit=${MOMENT_FANOUT_CAP}`);
+  const people = followers.map((f) => f.profile_id).filter((id) => id !== p.author_id);
+  if (people.length === 0) return [];
+  const blocks = await select<{ blocker_id: string }>("blocks", `blocked_id=eq.${p.author_id}&blocker_id=${inList(people)}&select=blocker_id`);
+  const blocked = new Set(blocks.map((b) => b.blocker_id));
+  const media = Array.isArray(p.media) ? (p.media as Row[]) : [];
+  const body = String(p.body ?? "").trim().slice(0, 140) || (media.some((m) => String(m.mime ?? "").startsWith("video/")) ? "Posted a video" : media.length > 0 ? "Posted a photo" : "New post");
+  return people.filter((id) => !blocked.has(id)).map((to) => ({ to, key: "moments", type: "social", title: `${l.title} posted`, body, route: `post/${p.id}`, tag: `lpost-${p.id}` } as Note));
 }
 
 async function forComment(c: Row): Promise<Note[]> {

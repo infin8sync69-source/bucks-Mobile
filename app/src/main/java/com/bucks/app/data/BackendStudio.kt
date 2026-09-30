@@ -99,3 +99,26 @@ suspend fun Backend.deleteContactLink(profileId: String) { sdb.from("contact_lin
 
 /** One post by id (row-level security decides whether I may see it); null when it is gone or hidden from me. */
 suspend fun Backend.postById(id: String): PostRow? = sdb.from("posts").select { filter { eq("id", id); filter("deleted_at", FilterOperator.IS, "null") } }.decodeSingleOrNull()
+
+// ---------- store catalogue and product feedback (migration product_feedback.sql) ----------
+/** A store's items without descriptions or extra photos, a fraction of the size, for the Products tab. */
+suspend fun Backend.catalogItems(listingId: String): List<ItemRow> = sdb.rpc("catalog_items", buildJsonObject { put("p_listing", listingId) }).decodeList()
+/** One full item (all photos, description), fetched when a product is opened. */
+suspend fun Backend.itemById(id: String): ItemRow? = sdb.from("items").select { filter { eq("id", id) } }.decodeSingleOrNull()
+
+/** How one product is rated: recommends and not-recommends, comments, and my own vote (1, -1 or null). Options of a product share one rating. */
+@Serializable data class RatingSummary(@SerialName("product_key") val key: String, val up: Int = 0, val down: Int = 0, val comments: Int = 0, val mine: Int? = null) {
+    val votes get() = up + down
+    /** Share of people who recommend it, in percent; null while nobody has voted. */
+    val percent: Int? get() = if (votes == 0) null else Math.round(up * 100.0 / votes).toInt()
+}
+@Serializable data class ProductComment(@SerialName("profile_id") val profileId: String, val name: String = "", val vote: Int = 1, val comment: String = "", @SerialName("updated_at") val updatedAt: String = "")
+
+suspend fun Backend.productRatings(listingId: String): List<RatingSummary> = sdb.rpc("product_ratings_summary", buildJsonObject { put("p_listing", listingId) }).decodeList()
+/** Recommend (1) or not recommend (-1) a product with an optional comment; a second call replaces the first. */
+suspend fun Backend.rateProduct(listingId: String, key: String, vote: Int, comment: String) {
+    sdb.rpc("rate_product", buildJsonObject { put("p_listing", listingId); put("p_key", key); put("p_vote", vote); put("p_comment", comment) })
+}
+suspend fun Backend.clearProductRating(listingId: String, key: String) { sdb.rpc("clear_product_rating", buildJsonObject { put("p_listing", listingId); put("p_key", key) }) }
+suspend fun Backend.productComments(listingId: String, key: String, before: String? = null): List<ProductComment> =
+    sdb.rpc("product_ratings_list", buildJsonObject { put("p_listing", listingId); put("p_key", key); before?.let { put("p_before", it) } }).decodeList()

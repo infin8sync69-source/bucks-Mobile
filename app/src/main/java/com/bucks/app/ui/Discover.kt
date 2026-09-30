@@ -121,9 +121,10 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
             val l = Backend.listing(id) ?: run { missing = missing + id; profiles.remove(id); return@go }
             missing = missing - id
             val me = social.me?.id
-            val items = runCatching { Backend.items(id) }.getOrDefault(emptyList())
+            // A store's Products tab needs names, prices and one photo each, not every description: the slim catalogue is about a quarter of the size.
+            val items = (if (l.kind == "BUSINESS") runCatching { Backend.catalogItems(id) }.getOrNull() else null) ?: runCatching { Backend.items(id) }.getOrDefault(emptyList())
             val reviews = runCatching { Backend.reviews(id) }.getOrDefault(emptyList())
-            val posts = if (l.kind == "SKILL") runCatching { Backend.listingPosts(id) }.getOrDefault(emptyList()) else emptyList()
+            val posts = if (l.kind == "SKILL" || l.kind == "BUSINESS") runCatching { Backend.listingPosts(id) }.getOrDefault(emptyList()) else emptyList()
             val members = runCatching { Backend.members(id) }.getOrDefault(emptyList())
             val myRole = members.firstOrNull { it.profileId == me }?.role
             // One call once the discover migration is applied; the plain tables otherwise.

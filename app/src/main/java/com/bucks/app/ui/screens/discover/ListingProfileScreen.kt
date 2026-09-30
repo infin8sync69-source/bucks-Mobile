@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -99,7 +101,8 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 }
                 if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
-                Muted(listOfNotNull("${p.recommendations} in-person recommendations", "${p.syncs} synced", if (p.members > 1) "team of ${p.members}" else null).joinToString(" · "), Modifier.padding(top = 6.dp))
+                StatsRow(listOfNotNull(p.syncs to "Synced", (p.products.size to "Products").takeIf { l.kind == "BUSINESS" && p.products.isNotEmpty() }, p.recommendations to "Recommended in person", (p.members to "Team").takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
+                if (!p.mine && l.kind == "BUSINESS") Muted(if (synced) "You're synced: ${l.title}'s posts show in your Feed and you'll get a notification when they post." else "Sync to see ${l.title}'s posts in your Feed and get notified.", Modifier.padding(top = 6.dp))
                 if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Bucks Pro.", Modifier.padding(top = 12.dp))
                 else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Button({ message() }, Modifier.weight(1f).height(44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
@@ -147,6 +150,7 @@ private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Uni
     val d = vm.discover
     ContentColumn(Modifier.fillMaxHeight()) {
         BucksTopBar("Listing", onBack = onBack)
+        if (id !in d.missing && id !in d.failed) { ProfileSkeleton(); return@ContentColumn }
         Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             when {
                 id in d.missing -> {
@@ -163,7 +167,7 @@ private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Uni
                     SmallButton("Try again", Modifier.padding(top = 14.dp), tonal = true) { d.open(id) }
                     TextButton(onBack) { Text("Back") }
                 }
-                else -> { BucksLoader(); Muted("Loading…", Modifier.padding(top = 12.dp)) }
+                else -> {}
             }
         }
     }
@@ -196,6 +200,12 @@ private fun SyncButton(synced: Boolean, busy: Boolean, modifier: Modifier = Modi
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = c) else Icon(if (synced) Icons.Rounded.Check else Icons.Rounded.Sync, null, Modifier.size(18.dp), tint = c)
         Text(if (synced) "Synced" else "Sync", style = MaterialTheme.typography.labelLarge, color = c, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
     }
+
+/** Numbers under the name: how many people synced, how many products, in-person recommendations, team size. */
+@Composable
+private fun StatsRow(stats: List<Pair<Int, String>>, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    stats.forEach { (n, label) -> Column(Modifier.semantics(mergeDescendants = true) { contentDescription = "$n $label" }) { Text("%,d".format(n), style = MaterialTheme.typography.titleMedium); Muted(label, maxLines = 1) } }
+}
 
 /** 44dp tonal icon button (48dp touch) for the header's secondary actions; [on] tints it. */
 @Composable
