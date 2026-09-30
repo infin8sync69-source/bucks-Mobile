@@ -9,6 +9,13 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.R
 
@@ -19,10 +26,17 @@ import com.bucks.app.R
  */
 @Composable
 fun RideRingEffect(ringing: Boolean) {
-    val ctx = LocalContext.current
-    DisposableEffect(ringing) {
+    val ctx = LocalContext.current; val owner = LocalLifecycleOwner.current
+    // Only while the app is on screen: with the app closed or in the background the push notification rings instead (same tune), so the two never overlap.
+    var visible by remember { mutableStateOf(owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
+    DisposableEffect(owner) {
+        val o = LifecycleEventObserver { _, _ -> visible = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+        owner.lifecycle.addObserver(o); onDispose { owner.lifecycle.removeObserver(o) }
+    }
+    val active = ringing && visible
+    DisposableEffect(active) {
         var player: MediaPlayer? = null; var buzz: Vibrator? = null
-        if (ringing) {
+        if (active) {
             player = runCatching {
                 MediaPlayer().apply {
                     setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())

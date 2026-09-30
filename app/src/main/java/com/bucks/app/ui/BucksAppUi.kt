@@ -86,6 +86,20 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         // Play policy: explain what location is used for before the system prompt appears.
         var locDisclosure by rememberSaveable { mutableStateOf(false) }
         LaunchedEffect(s.user != null, showIntro) { if (s.user != null && !showIntro) { if (hasLocation()) fetchLocation() else locDisclosure = true } }
+        // Going online as a driver: make sure requests can reach a phone that is locked or in another app (notifications allowed, no battery restriction).
+        var reachSheet by remember { mutableStateOf(false) }
+        fun notifOk() = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        fun batteryOk() = (ctx.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(ctx.packageName)
+        LaunchedEffect(s.vehicleOnline) { if (s.vehicleOnline && (!notifOk() || !batteryOk())) reachSheet = true }
+        if (reachSheet) AlertDialog(onDismissRequest = { reachSheet = false },
+            title = { Text("Stay reachable while online") },
+            text = { Text("To ring you when a customer needs a ride, Bucks must be allowed to run in the background and send notifications.\n\n" +
+                (if (notifOk()) "\u2713 Notifications are on.\n" else "\u2717 Notifications are off.\n") + (if (batteryOk()) "\u2713 Battery: unrestricted." else "\u2717 Battery: the phone may put Bucks to sleep. Choose \"Allow\" or \"Unrestricted\".")) },
+            confirmButton = { TextButton({ reachSheet = false
+                if (!notifOk()) { if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)) }
+                else if (!batteryOk()) runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${ctx.packageName}"))) }
+                    .onFailure { runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } } }) { Text("Fix now") } },
+            dismissButton = { TextButton({ reachSheet = false }) { Text("Later") } })
         if (locDisclosure) AlertDialog(onDismissRequest = { locDisclosure = false; vm.onLocationDenied() },
             title = { Text("Use your location") },
             text = { Text("Bucks uses your location to find riders, shops and services near you and to set your pick-up point. If you go online as a driver, Bucks keeps sharing your location while you're online, even when the app is closed, so nearby customers can ring you. It stops when you go offline.") },

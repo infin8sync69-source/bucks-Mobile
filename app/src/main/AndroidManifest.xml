@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Drivers: asked once when going online, so ride requests still ring when the phone would otherwise put the app to sleep. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Contacts screen: your phonebook is read on this phone and shown to you only; nothing from it is uploaded. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Saving a photo or video to the gallery on Android 9 and older; newer Android needs no permission for this. -->
