@@ -73,6 +73,10 @@ enum class Width { COMPACT, MEDIUM, EXPANDED }
 @Composable fun ContentColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) = Box(modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) { Column(Modifier.widthIn(max = 720.dp).fillMaxWidth(), content = content) }
 
 /* ---------- top bar ---------- */
+/** The cart shortcut shown next to Messages in every top bar that has it: the piece count for the badge and what a tap does. Null hides it. */
+class CartAction(val count: Int, val open: () -> Unit)
+val LocalCartAction = androidx.compose.runtime.compositionLocalOf<CartAction?> { null }
+
 @Composable
 fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (() -> Unit)? = null, unread: Int = 0, onChat: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -84,6 +88,9 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
         if (title == null) Box(Modifier.weight(1f).padding(start = 8.dp)) { BucksWordmark(height = 26.dp) }
         else Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
+        if (onChat != null) LocalCartAction.current?.let { c ->
+            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) "Cart, ${c.count} item${if (c.count == 1) "" else "s"}" else "Cart", Modifier.size(26.dp)) } }
+        }
         if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, "Messages", Modifier.size(28.dp)) } }
     }
 }

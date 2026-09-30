@@ -74,7 +74,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val trust = Trust(l.trustUp, l.trustDown)
     val vk = if (l.kind == "DRIVER") driverKind(l.details, l.category) else null
     val cartCount = vm.commerce.count
-    val cartHere = cartCount > 0 && vm.commerce.shop?.id == id
+    val cartHere = cartCount > 0
     val distance = p.at?.let { formatDistance(Geo.distanceKm(social.here, it) * 1000) }
     val synced = d.isSynced(id)
     fun share() = shareText(ctx, "${l.title} on Bucks" + listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) "" else " · $it" } + ". Open Bucks and search \"${l.title}\".")
@@ -125,7 +125,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     Text(label, style = MaterialTheme.typography.titleSmall.copy(fontWeight = if (tab == k) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)) } }
             }
             when (tab) {
-                "products" -> { ProductsTab(vm, p, onMessage = { message() }); Spacer(Modifier.height(if (cartCount > 0) 96.dp else 24.dp)) }
+                "products" -> StoreProducts(vm, p, onMessage = { message() }, onCart = onCart)
                 "jobs" -> JobsTab(p) { onJobs(id) }
                 "services" -> ServicesTab(vm, p, onOpenChat)
                 "feed" -> FeedTab(vm, p)
@@ -204,53 +204,6 @@ private fun HeaderIcon(icon: ImageVector, label: String, on: Boolean = false, on
         Icon(icon, label, Modifier.size(20.dp), tint = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface) }
 
 /* ---------- BUSINESS: Products and Jobs ---------- */
-
-@Composable
-private fun ProductsTab(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit) {
-    val items = p.products
-    if (items.isEmpty()) {
-        Column(Modifier.padding(Gutter)) {
-            Muted(if (p.mine) "No products yet. Add them from Menu > Bucks Pro." else "${p.listing.title} hasn't listed products yet. Message them to ask what's in stock.")
-            if (!p.mine) SmallButton("Message", Modifier.padding(top = 12.dp), tonal = true, onClick = onMessage)
-        }
-        return
-    }
-    val groups = items.groupBy { it.group.ifBlank { "Products" } }
-    var open by remember { mutableStateOf<ItemRow?>(null) }
-    // A closed shop (switched off by its owner) takes no orders: the server refuses them, so nothing can be added.
-    val shopOpen = p.listing.online
-    Column(Modifier.padding(horizontal = Gutter, vertical = 4.dp)) {
-        if (!shopOpen && !p.mine) Notice("${p.listing.title} is closed now. You can order once they open again.", Modifier.padding(top = 12.dp))
-        groups.forEach { (group, list) ->
-            SectionTitle(group, Modifier.padding(top = 14.dp, bottom = 2.dp))
-            list.forEachIndexed { i, item ->
-                if (i > 0) Divider()
-                ProductRow(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine && shopOpen, onOpen = { open = item }) { delta -> vm.commerce.add(p.listing, item, delta) }
-            }
-        }
-    }
-    open?.let { item -> ItemSheet(item, qty = vm.commerce.qty(item.id ?: ""), canAdd = !p.mine && shopOpen && item.inStock, onDismiss = { open = null }) { delta -> vm.commerce.add(p.listing, item, delta) } }
-}
-
-/** One product: photo when it has one, name, unit, price with the MRP struck through when higher; out of stock is greyed and can't be added. */
-@Composable
-private fun ProductRow(item: ItemRow, qty: Int, canAdd: Boolean, onOpen: () -> Unit, onAdd: (Int) -> Unit) {
-    val dim = if (item.inStock) 1f else 0.45f
-    Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Backend.listingPhoto(item.photos.firstOrNull()?.url ?: item.photoUrl)?.let { url -> AsyncImage(url, item.name, Modifier.padding(end = 12.dp).size(52.dp).clip(MaterialTheme.shapes.small).alpha(dim), contentScale = ContentScale.Crop) }
-        Column(Modifier.weight(1f).padding(end = 12.dp).alpha(dim)) {
-            Text(item.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (item.unit.isNotBlank()) Muted(item.unit, maxLines = 1)
-            if (item.description.isNotBlank()) Muted(item.description, maxLines = 1)
-            item.stock?.takeIf { it in 1..5 && item.inStock }?.let { Text("Only $it left", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.status.warn) }
-            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("₹${"%,d".format(item.price)}", style = MaterialTheme.typography.titleMedium)
-                item.mrp?.takeIf { it > item.price }?.let { Text("₹${"%,d".format(it)}", style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-        }
-        when { !item.inStock -> PillGrey("Out of stock"); canAdd -> AddStepper(qty, onAdd); else -> {} }
-    }
-}
 
 @Composable
 private fun JobsTab(p: ListingProfile, onJobs: () -> Unit) = Column(Modifier.padding(Gutter)) {
@@ -450,26 +403,5 @@ private fun GalleryTab(l: ListingRow) {
                 if (ph.caption.isNotBlank()) Text(ph.caption, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Gutter))
             }
         }
-    }
-}
-
-/** A product's own page as a sheet: its photos, description, price, stock and the add button. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ItemSheet(item: ItemRow, qty: Int, canAdd: Boolean, onDismiss: () -> Unit, onAdd: (Int) -> Unit) = ModalBottomSheet(onDismissRequest = onDismiss) {
-    val photos = item.photos.map { it.url }.ifEmpty { listOfNotNull(item.photoUrl?.takeIf { it.isNotBlank() }) }
-    Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
-        if (photos.isNotEmpty()) Row(Modifier.horizontalScrollIfNeeded().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            photos.forEach { u -> AsyncImage(u, item.name, Modifier.size(if (photos.size == 1) 280.dp else 220.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer), contentScale = ContentScale.Crop) }
-        }
-        Text(item.name, style = MaterialTheme.typography.titleLarge)
-        Muted(listOfNotNull(item.unit.ifBlank { null }, item.details.str("brand"), item.group.ifBlank { null }).joinToString(" · "))
-        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(inr(item.price.toLong()), style = MaterialTheme.typography.headlineSmall)
-            item.mrp?.takeIf { it > item.price }?.let { Text(inr(it.toLong()), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); PillGood("${(it - item.price) * 100 / it}% off") }
-        }
-        when { !item.inStock -> PillGrey("Out of stock"); item.stock != null && item.stock <= 5 -> Text("Only ${item.stock} left", color = MaterialTheme.status.warn, style = MaterialTheme.typography.labelLarge); else -> {} }
-        if (item.description.isNotBlank()) Text(item.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-        if (canAdd) Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) { AddStepper(qty, onAdd) }
     }
 }

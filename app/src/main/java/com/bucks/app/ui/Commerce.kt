@@ -13,68 +13,86 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
- * Cloud commerce state: a single-shop cart over cloud items, checkout through `place_order`, the buyer's orders,
+ * Cloud commerce state: a cart over cloud items with one part per store, checkout through `place_order`, the buyer's orders,
  * and the vendor's live order inbox. Same shape as [Social]: plain Compose state, actions wrapped in [go] so a
  * failure becomes a toast. Reached as `vm.commerce`.
  */
 class Commerce(private val scope: CoroutineScope, private val social: Social, private val toast: (String) -> Unit) {
     /** One cart line: a cloud item and how many of it. */
     data class Line(val item: ItemRow, val qty: Int) { val amount: Int get() = item.price * qty }
-    /** An add() for a different shop than the cart holds; the UI asks before replacing the cart. */
-    data class PendingSwitch(val listing: ListingRow, val item: ItemRow, val delta: Int)
+    /** One store's part of the cart. Each store becomes its own order with its own delivery, fee and payment. */
+    data class StoreCart(val listing: ListingRow, val lines: List<Line>) { val amount: Int get() = lines.sumOf { it.amount }; val count: Int get() = lines.sumOf { it.qty } }
+    /** How one store's order is delivered and paid; chosen per store in the cart. */
+    data class Choice(val mode: String, val payment: String, val dropLabel: String)
 
     // ---------- cart ----------
-    /** The shop the cart belongs to; null while the cart is empty. */
-    var shop by mutableStateOf<ListingRow?>(null); private set
-    var lines by mutableStateOf<List<Line>>(emptyList()); private set
-    var pendingSwitch by mutableStateOf<PendingSwitch?>(null); private set
-    /** Total number of pieces in the cart, for the cart badge. */
-    val count: Int get() = lines.sumOf { it.qty }
-    val subtotal: Int get() = lines.sumOf { it.amount }
-    /** True while an order is being placed. */
+    /** The cart, by store, in the order the first item from each was added. Empty while nothing is in it. */
+    var stores by mutableStateOf<List<StoreCart>>(emptyList()); private set
+    /** Total number of pieces in the cart across every store, for the cart badge. */
+    val count: Int get() = stores.sumOf { it.count }
+    val subtotal: Int get() = stores.sumOf { it.amount }
+    /** True while orders are being placed. */
     var placing by mutableStateOf(false); private set
 
-    fun qty(itemId: String): Int = lines.firstOrNull { it.item.id == itemId }?.qty ?: 0
+    fun qty(itemId: String): Int = stores.firstNotNullOfOrNull { st -> st.lines.firstOrNull { it.item.id == itemId }?.qty } ?: 0
 
-    /** Adds [delta] pieces (negative removes). One shop at a time: adding from another shop sets [pendingSwitch] instead of changing anything. */
+    /** Adds [delta] pieces of [item] from [listing] (negative removes). Stores mix freely: each keeps its own part of the cart. */
     fun add(listing: ListingRow, item: ItemRow, delta: Int) {
         val id = item.id ?: return
-        val cur = shop
-        if (cur != null && cur.id != listing.id && lines.isNotEmpty()) { if (delta > 0) pendingSwitch = PendingSwitch(listing, item, delta); return }
-        val next = (qty(id) + delta).coerceAtLeast(0)
-        lines = when {
-            next == 0 -> lines.filterNot { it.item.id == id }
-            lines.any { it.item.id == id } -> lines.map { if (it.item.id == id) it.copy(qty = next) else it }
-            else -> lines + Line(item, next)
+        val cur = stores.firstOrNull { it.listing.id == listing.id }
+        val was = cur?.lines?.firstOrNull { it.item.id == id }?.qty ?: 0
+        val next = (was + delta).coerceIn(0, item.stock?.coerceAtLeast(0) ?: 99)
+        if (next == was) { if (delta > 0 && item.stock != null && was >= item.stock) toast("Only ${item.stock} of ${item.name} in stock."); return }
+        val old = cur?.lines ?: emptyList()
+        val lines = when {
+            next == 0 -> old.filterNot { it.item.id == id }
+            old.any { it.item.id == id } -> old.map { if (it.item.id == id) it.copy(qty = next) else it }
+            else -> old + Line(item, next)
         }
-        shop = if (lines.isEmpty()) null else listing
+        stores = when {
+            lines.isEmpty() -> stores.filterNot { it.listing.id == listing.id }
+            cur == null -> stores + StoreCart(listing, lines)
+            else -> stores.map { if (it.listing.id == listing.id) it.copy(lines = lines) else it }
+        }
     }
-    fun remove(itemId: String) { lines = lines.filterNot { it.item.id == itemId }; if (lines.isEmpty()) shop = null }
-    /** The user agreed to drop the old shop's cart and start with the item they just tapped. */
-    fun confirmSwitch() { val p = pendingSwitch ?: return; pendingSwitch = null; clear(); add(p.listing, p.item, p.delta) }
-    fun dismissSwitch() { pendingSwitch = null }
-    fun clear() { lines = emptyList(); shop = null; pendingSwitch = null }
+    fun remove(itemId: String) { stores = stores.mapNotNull { st -> val ls = st.lines.filterNot { it.item.id == itemId }; if (ls.isEmpty()) null else st.copy(lines = ls) } }
+    fun clearStore(listingId: String) { stores = stores.filterNot { it.listing.id == listingId } }
+    fun clear() { stores = emptyList() }
+    /** Kept so older call sites compile; the cart no longer asks to switch stores. */
+    fun confirmSwitch() {}
+    fun dismissSwitch() {}
 
     /** True when the shop has its own delivery riders (listing_members with role STORE_RIDER is readable by everyone). */
     suspend fun hasStoreRiders(listingId: String): Boolean = Backend.members(listingId).any { it.role == "STORE_RIDER" }
 
     /**
-     * Places the order with the drop at [drop], the phone's real location (null until a fix arrives). Delivery needs it:
-     * the rider's map and the fee are worked out from it, so without one only pick-up can be placed. The server prices the
-     * lines and adds the delivery fee.
+     * Places one order per store in the cart, each with its own delivery mode and payment, one after another. The drop is the phone's
+     * real location (null until a fix arrives; only pick-up can be placed without it). A store whose order fails stays in the cart with
+     * its reason in a toast; the ones that went through are removed. [onDone] gets the ids of the orders placed, in order.
      */
-    fun checkout(mode: String, payment: String, dropLabel: String, drop: LatLng?, onPlaced: (String) -> Unit) = go {
-        val s = shop ?: run { toast("Your cart is empty."); return@go }
-        val ls = lines.mapNotNull { l -> l.item.id?.let { it to l.qty } }.filter { it.second > 0 }
-        if (ls.isEmpty()) { toast("Your cart is empty."); return@go }
-        val at = drop ?: if (mode == "PICKUP") social.here else { toast("Turn on location to get it delivered, or choose pick-up."); return@go }
+    fun checkoutAll(choices: Map<String, Choice>, drop: LatLng?, onDone: (List<String>) -> Unit) = go {
         if (placing) return@go
+        val todo = stores.toList()
+        if (todo.isEmpty()) { toast("Your cart is empty."); return@go }
         placing = true
+        val placed = mutableListOf<String>(); var failed = 0
         try {
-            val id = Backend.placeOrder(s.id, ls, at, dropLabel.trim(), payment, mode)
-            clear(); toast("Order placed. ${s.title} has 5 minutes to accept.")
-            refreshMyOrders(); onPlaced(id)
+            for (st in todo) {
+                val c = choices[st.listing.id] ?: continue
+                val at = drop ?: if (c.mode == "PICKUP") social.here else null
+                if (at == null) { failed++; toast("Turn on location to get ${st.listing.title}'s order delivered, or choose pick-up."); continue }
+                val ls = st.lines.mapNotNull { l -> l.item.id?.let { it to l.qty } }.filter { it.second > 0 }
+                if (ls.isEmpty()) continue
+                try {
+                    val id = Backend.placeOrder(st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
+                    placed += id; clearStore(st.listing.id)
+                } catch (e: Exception) { failed++; toast("${st.listing.title}: ${friendly(e)}") }
+            }
         } finally { placing = false }
+        if (placed.isNotEmpty()) {
+            toast(if (placed.size == 1) "Order placed. The shop has 5 minutes to accept." else "${placed.size} orders placed, each delivered separately. Each shop has 5 minutes to accept.")
+            refreshMyOrders(); onDone(placed)
+        } else if (failed == 0) toast("Nothing to place.")
     }
 
     // ---------- my orders (buyer) ----------
