@@ -63,12 +63,14 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val l = p.listing
     val photos = l.gallery.isNotEmpty()
     val tabs = when (l.kind) {
-        "BUSINESS" -> listOfNotNull("products" to "Products", ("photos" to "Photos").takeIf { photos }, "feed" to "Feed", "jobs" to "Jobs", "about" to "About", "reviews" to "Reviews")
+        // A business reads like a page: what it posts, who it is (photos live in About), what it sells, who it hires, what people say.
+        "BUSINESS" -> listOf("feed" to "Feed", "about" to "About", "products" to "Products", "jobs" to "Jobs", "reviews" to "Reviews")
         "SKILL" -> listOfNotNull("services" to "Services", ("photos" to "Portfolio").takeIf { photos }, "feed" to "Feed", "about" to "About", "reviews" to "Reviews")
         "ASSET" -> listOfNotNull("about" to "Details", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
         else -> listOfNotNull("about" to "About", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
     }
-    var tab by rememberSaveable(id) { mutableStateOf(tabs.first().first) }
+    // A shop with products opens on them; the Feed is often still empty.
+    var tab by rememberSaveable(id) { mutableStateOf(if (l.kind == "BUSINESS" && p.products.isNotEmpty()) "products" else tabs.first().first) }
     val trust = Trust(l.trustUp, l.trustDown)
     val vk = if (l.kind == "DRIVER") driverKind(l.details, l.category) else null
     val cartCount = vm.commerce.count
@@ -128,7 +130,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 "services" -> ServicesTab(vm, p, onOpenChat)
                 "feed" -> FeedTab(vm, p)
                 "photos" -> GalleryTab(l)
-                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()) }
+                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); if (l.kind == "BUSINESS" && photos) { SectionTitle("Photos", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); GalleryTab(l) } }
                 "reviews" -> ReviewsTab(vm, p)
             }
             Spacer(Modifier.height(24.dp))

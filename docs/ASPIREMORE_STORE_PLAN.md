@@ -58,12 +58,8 @@ Sizes are for one developer, working days. Each phase ships on its own.
 - Home and Services: a "Brands that ship to you" row.
 - *Done when:* a Bengaluru test account finds Aspire More from search and Services.
 
-### Phase 5: Stay in sync with Shopify (8 days)
-- A Shopify custom app (Admin API token, read products and inventory, write orders) stored as an edge-function secret.
-- **Pull:** products, prices, photos, availability and stock quantities, on a schedule and on Shopify webhooks (`products/update`, `inventory_levels/update`), with a mapping table (`shopify_map`: Bucks item ↔ Shopify variant). Shopify stays the source of truth for the catalogue.
-- **Push:** every paid Bucks order becomes a Shopify order (so fulfilment, GST and courier stay in one place); Shopify shipment updates flow back as `SHIPPED` and `DELIVERED`.
-- Optional: import archived products as "not available" so old links do not break.
-- *Done when:* changing a price or stock in Shopify shows in Bucks within minutes, and a Bucks order appears in Shopify.
+### Phase 5: Shopify sync: dropped
+Decision (1 Oct): orders are handled only in Bucks, and there is no Shopify token, so there is no sync. The catalogue was imported once and is now managed in Bucks. Prices and stock changed in Shopify will not follow; edit them in Bucks (Menu → Bucks Pro → Aspire More). Re-import of new products is a one-off script if ever wanted.
 
 ### Phase 6: Seller tools (5 days)
 - Stock quantities with low-stock alerts, bulk price and stock edit, CSV import and export.
@@ -73,25 +69,42 @@ Sizes are for one developer, working days. Each phase ships on its own.
 - Store policy pages, GST number and legal name on the profile, product and store reviews after delivery (reviews already exist for shops), image alt text, report and takedown.
 - Legal review of the marketplace terms (sellers ship across state lines; consumer-protection e-commerce rules apply).
 
-**Total about 38 working days (7 to 8 weeks).** Smallest useful cut: **Phases 1, 2 and 4 with the UPI shortcut from Phase 3 (about 3 weeks)**: a proper store page, courier orders, and discoverability.
+**Total about 30 working days (6 weeks) without the Shopify sync.** Smallest useful cut: **Phases 1, 2 and 4 with the UPI shortcut from Phase 3 (about 3 weeks)**: a proper store page, courier orders, and discoverability.
 
 ## 4. Data changes (sketch)
 
 - `items`: `product_key text`, `variant_label text`, `stock` used for real quantities, `compare_at` already `mrp`.
 - `listings`: `banner_url`, `logo_url`, `reach text default 'LOCAL'`, `policies jsonb`, `social jsonb`.
 - `orders`: `delivery_mode` adds `SHIP`; `ship_address jsonb`, `ship_pincode`, `carrier`, `tracking_no`, `shipping_fee`, `payment_status`, `gateway_ref`.
-- New: `addresses` (per buyer), `shopify_map`, `shopify_events`.
+- New: `addresses` (per buyer).
 - All new tables keep row-level security; payment and tracking fields are written only by server functions.
 
-## 5. Decisions needed from you
+## 5. Decisions (1 Oct)
 
-1. **Fulfilment.** Should orders placed in Bucks be pushed into Shopify (recommended, one place to ship from), or handled inside Bucks only?
-2. **Payments.** Razorpay, Cashfree, or the UPI shortcut for now? A gateway needs the business's KYC and takes days to approve.
-3. **Archived products** (114): leave out, or bring in as "not available"?
-4. **Stock.** Can you create a Shopify custom app token (Settings → Apps → Develop apps, read products and inventory, write orders) so quantities come through?
-5. **Location.** The store is in **Pune**, so Bengaluru testers will not see it in "near me" until Phase 4. Meanwhile it opens from its link and from Bucks Pro.
-6. **Logo.** Send a dark PNG or JPG of the logo (the site's dark logo is an SVG); until then the brand banner is the listing photo.
-7. **Scope.** Is Aspire More the pilot model for all national brands, or a one-off? It changes how much of Phase 4 becomes a general "brands" feature.
+1. **Fulfilment: handled only in Bucks.** No Shopify order push, no sync (Phase 5 dropped).
+2. **Payments: brainstorm below.**
+3. **Archived products (114): left out.**
+4. **Shopify token: ignored**, so stock stays in stock / out of stock, edited in Bucks.
+5. **Aspire More as a model: recommended below.**
+6. **Profile tabs: Feed, About, Products, Jobs, Reviews** (done in build 71; photos moved into About; a store with products opens on Products).
+
+### Payments: options
+
+| Option | How it works | Good | Watch out |
+|---|---|---|---|
+| **A. UPI to the seller** (today) | buyer pays the seller's UPI ID or QR, seller confirms | no fees, no KYC, works now | nothing confirms it automatically, "I paid" disputes, no refund tools, weak trust for a buyer in another city |
+| **B. Cash on delivery** | pay the courier | buyers expect it in India | returns to origin cost the seller; needs a limit (for example under ₹3,000) and a small COD fee |
+| **C. Seller's own gateway** (Razorpay, Cashfree or PhonePe PG) | the seller connects their own gateway account; Bucks creates the payment through it and a webhook marks the order paid | prepaid orders, automatic status, refunds; **money goes straight to the seller, Bucks never holds it**, so far less regulation | each seller needs their own gateway KYC (days); keys must be stored as server secrets |
+| **D. Bucks collects and pays out** (marketplace split) | Bucks is the merchant, splits to sellers | one checkout for everyone, can take a commission | payment-aggregator and escrow rules, GST on commission, refunds and chargebacks become Bucks' job; needs legal and CA advice first |
+
+**Recommendation:** ship in three steps.
+1. **Now (pilot):** A + B. Each order gets a reference; the buyer taps "I have paid" and the seller confirms; COD only where the store enables it, with a cap. Nothing ships until the seller marks the payment received.
+2. **Next (about 6 days):** C for Aspire More. Their Shopify shop already takes online payments, so a Razorpay or Cashfree account is likely quick to get. Prepaid orders cannot be shipped until the webhook confirms them; refunds from the order screen.
+3. **Later, only if many sellers join:** D, after legal and tax advice.
+
+### Aspire More as the model for national brands: recommendation
+
+Make it the **template, but keep the pilot small.** Add the general flag (`listings.reach = INDIA`, Phase 4) instead of anything Aspire-specific, since it costs the same. Only Bucks staff can set it, so no seller can turn it on for themselves. Do not open self-serve national selling until courier orders, payment and the returns policy have been tested with Aspire More for a few weeks. It keeps the pilot honest: local services stay local, and one national store proves the courier and payment path.
 
 ## 6. Risks
 
