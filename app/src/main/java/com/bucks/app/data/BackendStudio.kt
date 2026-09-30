@@ -122,3 +122,13 @@ suspend fun Backend.rateProduct(listingId: String, key: String, vote: Int, comme
 suspend fun Backend.clearProductRating(listingId: String, key: String) { sdb.rpc("clear_product_rating", buildJsonObject { put("p_listing", listingId); put("p_key", key) }) }
 suspend fun Backend.productComments(listingId: String, key: String, before: String? = null): List<ProductComment> =
     sdb.rpc("product_ratings_list", buildJsonObject { put("p_listing", listingId); put("p_key", key); before?.let { put("p_before", it) } }).decodeList()
+
+// ---------- direct recommendations on any profile (migration ecommerce.sql: rate_listing) ----------
+/** Recommend (1) or not recommend (-1) a shop, pro, asset or driver with an optional comment; it shows in Reviews. A second call replaces the first. */
+suspend fun Backend.rateListing(listingId: String, vote: Int, comment: String) {
+    sdb.rpc("rate_listing", buildJsonObject { put("p_listing", listingId); put("p_vote", vote); put("p_comment", comment) })
+}
+suspend fun Backend.clearListingRating(listingId: String) { sdb.rpc("clear_listing_rating", buildJsonObject { put("p_listing", listingId) }) }
+/** My own direct recommendation of a listing (not an order or trip review), if I gave one. */
+suspend fun Backend.myDirectReview(listingId: String, me: String): ReviewRow? =
+    sdb.from("reviews").select { filter { eq("listing_id", listingId); eq("author_id", me); filter("task_id", FilterOperator.IS, "null"); filter("order_id", FilterOperator.IS, "null") } }.decodeSingleOrNull()

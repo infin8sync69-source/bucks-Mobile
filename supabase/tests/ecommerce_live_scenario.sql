@@ -1,0 +1,9 @@
+-- Outline of the rolled-back live scenario. Pattern: run as a DO block, impersonate a user, always end with a raise so nothing persists.
+-- do $$ begin
+--   perform set_config('request.jwt.claims', '{"sub":"<firebase uid>"}', true);
+--   execute 'set local role authenticated';
+--   -- ... call place_order_ship / respond_order / ship_order / mark_delivered / rate_listing ...
+--   execute 'reset role';
+--   raise exception 'RESULT %', 'ok';   -- rolls everything back
+-- end $$;
+-- Note: now() is constant inside a transaction, so pass "before" = now() + interval '1 minute' when listing.

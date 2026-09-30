@@ -44,6 +44,7 @@ import com.bucks.app.ui.screens.commerce.CartSwitchDialog
 import com.bucks.app.ui.shareText
 import com.bucks.app.ui.str
 import com.bucks.app.ui.theme.status
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -74,6 +75,10 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     // A shop with products opens on them; the Feed is often still empty.
     var tab by rememberSaveable(id) { mutableStateOf(if (l.kind == "BUSINESS" && p.products.isNotEmpty()) "products" else tabs.first().first) }
     val trust = Trust(l.trustUp, l.trustDown)
+    val meId = vm.social.me?.id
+    val myDirect = p.reviews.firstOrNull { it.authorId == meId && !it.verified }
+    var rateVote by remember { mutableStateOf<Int?>(null) }
+    rateVote?.let { v -> RecommendSheet(vm, l, myDirect, v, onDone = { rateVote = null; tab = "reviews"; d.open(id) }, onDismiss = { rateVote = null }) }
     val vk = if (l.kind == "DRIVER") driverKind(l.details, l.category) else null
     val cartCount = vm.commerce.count
     val cartHere = cartCount > 0
@@ -101,7 +106,11 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 }
                 if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
-                StatsRow(listOfNotNull(p.syncs to "Synced", (p.products.size to "Products").takeIf { l.kind == "BUSINESS" && p.products.isNotEmpty() }, p.recommendations to "Recommended in person", (p.members to "Team").takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
+                StatsRow(listOfNotNull(Triple(p.syncs, "Synced", null), (Triple(p.products.size, "Products", { tab = "products" })).takeIf { l.kind == "BUSINESS" && p.products.isNotEmpty() }, Triple(l.trustUp, "Recommendations") { tab = "reviews" }, (Triple(p.members, "Team", null)).takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
+                if (!p.mine) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RateButton(true, myDirect?.vote == 1, Modifier.weight(1f)) { rateVote = 1 }
+                    RateButton(false, myDirect?.vote == -1, Modifier.weight(1f)) { rateVote = -1 }
+                }
                 if (!p.mine && l.kind == "BUSINESS") Muted(if (synced) "You're synced: ${l.title}'s posts show in your Feed and you'll get a notification when they post." else "Sync to see ${l.title}'s posts in your Feed and get notified.", Modifier.padding(top = 6.dp))
                 if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Bucks Pro.", Modifier.padding(top = 12.dp))
                 else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -134,7 +143,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 "feed" -> FeedTab(vm, p)
                 "photos" -> GalleryTab(l)
                 "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); if (l.kind == "BUSINESS" && photos) { SectionTitle("Photos", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); GalleryTab(l) } }
-                "reviews" -> ReviewsTab(vm, p)
+                "reviews" -> ReviewsTab(vm, p, myDirect) { rateVote = it }
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -201,10 +210,55 @@ private fun SyncButton(synced: Boolean, busy: Boolean, modifier: Modifier = Modi
         Text(if (synced) "Synced" else "Sync", style = MaterialTheme.typography.labelLarge, color = c, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
     }
 
-/** Numbers under the name: how many people synced, how many products, in-person recommendations, team size. */
+/** Numbers under the name: synced, products, recommendations (opens Reviews) and team size. A stat with an action is tappable. */
 @Composable
-private fun StatsRow(stats: List<Pair<Int, String>>, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-    stats.forEach { (n, label) -> Column(Modifier.semantics(mergeDescendants = true) { contentDescription = "$n $label" }) { Text("%,d".format(n), style = MaterialTheme.typography.titleMedium); Muted(label, maxLines = 1) } }
+private fun StatsRow(stats: List<Triple<Int, String, (() -> Unit)?>>, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    stats.forEach { (n, label, go) ->
+        Column(Modifier.then(if (go != null) Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "See $label", onClick = go) else Modifier).semantics(mergeDescendants = true) { contentDescription = "$n $label" }) {
+            Text("%,d".format(n), style = MaterialTheme.typography.titleMedium); Muted(label, maxLines = 1) }
+    }
+}
+
+private fun friendly(e: Throwable) = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(e.message ?: "")?.groupValues?.get(1) ?: "Couldn't send that. Check your connection and try again."
+
+/** Recommend / not recommend button; filled when it is my current vote. */
+@Composable
+private fun RateButton(up: Boolean, mine: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val st = MaterialTheme.status; val c = if (up) st.good else st.bad
+    OutlinedButton(onClick, modifier.heightIn(min = 44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 10.dp),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (mine) c.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent, contentColor = c)) {
+        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
+        Text(if (up) "Recommend" else "Not recommend", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
+    }
+}
+
+/** Comment box that opens on a recommend / not recommend tap; the vote and comment land in the Reviews tab. Works for shops, pros, assets and drivers. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, initial: Int, onDone: () -> Unit, onDismiss: () -> Unit) {
+    var vote by remember { mutableStateOf(initial) }
+    var text by remember { mutableStateOf(mine?.comment.orEmpty()) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope(); val st = MaterialTheme.status
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(Gutter).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
+            Text(if (mine != null) "Your recommendation for ${l.title}" else "Recommend ${l.title}?", style = MaterialTheme.typography.titleLarge)
+            Muted("Your vote and comment are shown in Reviews for everyone.", Modifier.padding(top = 4.dp))
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                RateButton(true, vote == 1, Modifier.weight(1f)) { vote = 1 }
+                RateButton(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
+            }
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(), placeholder = { Text(if (vote > 0) "What did you like? (optional)" else "What went wrong? (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button({ scope.launch { busy = true
+                    runCatching { Backend.rateListing(l.id, vote, text.trim()) }.onSuccess { vm.toast("Thanks, your review is posted."); onDone() }.onFailure { vm.toast(friendly(it)) }
+                    busy = false } }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(if (busy) "Sending…" else if (mine != null) "Update" else "Submit") }
+                if (mine != null) TextButton({ scope.launch { busy = true
+                    runCatching { Backend.clearListingRating(l.id) }.onSuccess { vm.toast("Your review was removed."); onDone() }.onFailure { vm.toast(friendly(it)) }
+                    busy = false } }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text("Remove mine", color = st.bad) }
+            }
+        }
+    }
 }
 
 /** 44dp tonal icon button (48dp touch) for the header's secondary actions; [on] tints it. */
@@ -349,18 +403,25 @@ private fun AboutRow(icon: ImageVector, label: String, value: String) = Row(Modi
 }
 
 @Composable
-private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile) = Column(Modifier.padding(Gutter)) {
-    val st = MaterialTheme.status
-    Row { TrustBadge(Trust(p.listing.trustUp, p.listing.trustDown)) }
-    Notice(if (p.mine) "Reviews come only from customers after a completed order or trip. Nobody can add or remove them by hand." else "Reviews come only from completed orders and trips. After yours, leave one from that order or trip page.", Modifier.padding(top = 12.dp))
-    if (p.reviews.isEmpty()) Muted(if (p.mine) "No reviews yet. They arrive as customers complete orders or trips." else "No reviews yet. Order or book here first; then you can leave the first one.", Modifier.padding(vertical = 16.dp))
+private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile, mine: ReviewRow?, onWrite: (Int) -> Unit) = Column(Modifier.padding(Gutter)) {
+    val st = MaterialTheme.status; val l = p.listing
+    val total = l.trustUp + l.trustDown
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TrustBadge(Trust(l.trustUp, l.trustDown))
+        if (total > 0) Muted("  ${l.trustUp * 100 / total}% recommend · $total ${if (total == 1) "vote" else "votes"}")
+    }
+    if (p.mine) Muted("Reviews come from customers. You can't rate or remove them.", Modifier.padding(top = 8.dp))
+    else PrimaryButton(if (mine != null) "Edit my review" else "Write a review", Modifier.padding(top = 12.dp)) { onWrite(mine?.vote ?: 1) }
+    if (p.reviews.isEmpty()) Muted(if (p.mine) "No reviews yet." else "No reviews yet. Be the first to recommend ${l.title}.", Modifier.padding(vertical = 16.dp))
     p.reviews.forEach { r ->
         val up = r.vote > 0
         Row(Modifier.padding(vertical = 14.dp), verticalAlignment = Alignment.Top) {
             Avatar(initials(vm.social.nameOf(r.authorId)).ifBlank { "?" }, size = 40)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) { Text(vm.social.nameOf(r.authorId), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)); Muted("  ${ago(r.createdAt)}") }
-                Text(r.comment, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                if (r.comment.isNotBlank()) Text(r.comment, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                else Muted(if (up) "Recommended, no comment." else "Not recommended, no comment.", Modifier.padding(top = 2.dp))
+                if (r.verified) Text("Verified ${if (r.orderId != null) "order" else "trip"}", style = MaterialTheme.typography.labelSmall, color = st.good, modifier = Modifier.padding(top = 4.dp))
             }
             Column(horizontalAlignment = Alignment.End) {
                 Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", Modifier.size(20.dp), tint = if (up) st.good else st.bad)

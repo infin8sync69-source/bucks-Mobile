@@ -347,7 +347,11 @@ object Backend {
 @Serializable data class OrderRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("buyer_id") val buyerId: String, val subtotal: Int, @SerialName("delivery_fee") val deliveryFee: Int = 0,
     @SerialName("fee_paid_by") val feePaidBy: String = "BUYER", @SerialName("delivery_mode") val deliveryMode: String = "MARKETPLACE", val payment: String = "UPI",
     @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String)
-@Serializable data class ReviewRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("author_id") val authorId: String, val vote: Int, val comment: String, @SerialName("created_at") val createdAt: String)
+@Serializable data class ReviewRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("author_id") val authorId: String, val vote: Int, val comment: String, @SerialName("created_at") val createdAt: String,
+    /** Set when the review came from a completed order or trip (verified); null for a direct recommendation. */
+    @SerialName("order_id") val orderId: String? = null, @SerialName("task_id") val taskId: String? = null) {
+    val verified get() = orderId != null || taskId != null
+}
 @Serializable data class JobRow(val id: String, @SerialName("listing_id") val listingId: String, val title: String, val description: String = "", val pay: String = "", @SerialName("job_type") val jobType: String = "FULL_TIME", val open: Boolean = true)
 @Serializable data class ApplicationRow(val id: String, @SerialName("job_id") val jobId: String, @SerialName("applicant_id") val applicantId: String,
     @SerialName("skill_listing_ids") val skillListingIds: List<String> = emptyList(), val note: String = "", val status: String)
