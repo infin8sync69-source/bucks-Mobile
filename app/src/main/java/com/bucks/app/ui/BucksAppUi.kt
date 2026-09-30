@@ -111,6 +111,10 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val showBottomBar = !onTrip && width == Width.COMPACT && (current in listOf(Routes.HOME, Routes.FEED, Routes.SERVICES, Routes.RECOMMENDED, Routes.SEARCH) || current.startsWith("provider/") || current.startsWith("account"))
         val showRail = width != Width.COMPACT && loggedIn
         fun tab(t: BottomTab) { nav.navigate(TAB_ROUTES[t]!!) { popUpTo(Routes.HOME) { inclusive = t == BottomTab.HOME }; launchSingleTop = true } }
+        // A request ringing for me (I'm online as a driver): play the driver tune and bring Home, where the accept card is, to the front.
+        val ringing = s.driverRide?.status == com.bucks.app.data.DriverRideStatus.RINGING
+        RideRingEffect(ringing)
+        LaunchedEffect(ringing) { if (ringing && current != Routes.HOME) tab(BottomTab.HOME) }
         val openMenu: () -> Unit = { scope.launch { drawer.open() } }
         val closeMenu: () -> Unit = { scope.launch { drawer.close() } }
         val messages: () -> Unit = { nav.navigate(Routes.MESSAGES) }

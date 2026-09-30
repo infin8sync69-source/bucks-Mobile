@@ -15,6 +15,9 @@ import com.bucks.app.ui.BucksAppUi
 import com.bucks.app.ui.BucksViewModel
 
 class MainActivity : FragmentActivity() {
+    override fun onResume() { super.onResume(); com.bucks.app.data.Push.appVisible = true }
+    override fun onPause() { com.bucks.app.data.Push.appVisible = false; super.onPause() }
+
     private val vm: BucksViewModel by viewModels { BucksViewModel.Factory((application as BucksApp).repository) }
     /** Screen a tapped notification asked for ("chat/<id>", "cloud-order/<id>", ...). BucksAppUi opens it once the person is signed in, then clears it. */
     private var startRoute by mutableStateOf<String?>(null)

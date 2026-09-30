@@ -58,10 +58,18 @@ object Push {
     const val EXTRA_ROUTE = "route"
     const val CH_MESSAGES = "bucks_messages"
     const val CH_ORDERS = "bucks_orders"
-    const val CH_TASKS = "bucks_tasks"
+    /** The old channel for rides and deliveries: it carried the phone ringtone, which rang for the customer instead of the driver. Deleted on start. */
+    private const val CH_TASKS_OLD = "bucks_tasks"
+    /** Updates on my own trips and orders (rider found, rider here): the normal notification sound. */
+    const val CH_TRIPS = "bucks_trips"
+    /** A new request for the driver: the Bucks ride-request tune, looped by the vibration, on the ringer volume. */
+    const val CH_RIDE = "bucks_ride_request"
     const val CH_SOCIAL = "bucks_social"
     /** Quiet hours: the server marks a message quiet=true and it lands here, with no sound and no heads-up banner. */
     const val CH_QUIET = "bucks_quiet"
+
+    /** True while the app is on screen: a ride request then rings inside the app, so the notification (same tune) is skipped. */
+    @Volatile var appVisible = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var registered: String? = null
@@ -73,18 +81,23 @@ object Push {
     /** Creates the channels (a no-op once they exist). Android keeps a channel's importance as first created. */
     fun ensureChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
-        val ring = NotificationChannel(CH_TASKS, "Rides and deliveries", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Your rider is on the way, has arrived, or your order is out for delivery"
-            // A ringtone rather than the short notification sound: this is the one you must not miss.
-            setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-            enableVibration(true); vibrationPattern = longArrayOf(0, 400, 200, 400, 200, 600)
+        nm.deleteNotificationChannel(CH_TASKS_OLD)
+        val ring = NotificationChannel(CH_RIDE, "Ride and delivery requests", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "A customer near you needs a ride or a delivery. Plays the Bucks ride-request tune."
+            setSound(android.net.Uri.parse("android.resource://${ctx.packageName}/${com.bucks.app.R.raw.ride_request}"),
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+            enableVibration(true); vibrationPattern = longArrayOf(0, 700, 300, 700, 300, 700, 300, 900)
             enableLights(true); lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+        }
+        val trips = NotificationChannel(CH_TRIPS, "My rides and deliveries", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Your rider is on the way, has arrived, or your order is out for delivery"
+            enableVibration(true); enableLights(true); lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
         val orders = NotificationChannel(CH_ORDERS, "Orders", NotificationManager.IMPORTANCE_HIGH).apply { description = "New orders for your shop and updates on orders you placed"; enableVibration(true) }
         val messages = NotificationChannel(CH_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH).apply { description = "Chats with people, shops and pros"; enableVibration(true) }
         val social = NotificationChannel(CH_SOCIAL, "Sync, Moments and comments", NotificationManager.IMPORTANCE_DEFAULT).apply { description = "Sync requests, new Moments from synced people, comments on your posts" }
         val quiet = NotificationChannel(CH_QUIET, "Quiet hours", NotificationManager.IMPORTANCE_LOW).apply { description = "Notifications that arrive during your quiet hours: shown silently"; setSound(null, null); enableVibration(false) }
-        nm.createNotificationChannels(listOf(ring, orders, messages, social, quiet))
+        nm.createNotificationChannels(listOf(ring, trips, orders, messages, social, quiet))
     }
 
     /** After sign-in: fetch this phone's FCM token and store it against my profile. Does nothing in the demo build or when signed out. */
@@ -132,10 +145,11 @@ object Push {
     /** Draws one notification. Same type and route replace each other (a chat shows only its latest message). */
     @SuppressLint("MissingPermission")
     fun show(ctx: Context, type: String, title: String, body: String, route: String?, quiet: Boolean) {
+        if (type == "ride" && appVisible) return
         ensureChannels(ctx)
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return
-        val channel = when { quiet -> CH_QUIET; type == "messages" -> CH_MESSAGES; type == "orders" -> CH_ORDERS; type == "tasks" -> CH_TASKS; else -> CH_SOCIAL }
+        val channel = when { quiet -> CH_QUIET; type == "messages" -> CH_MESSAGES; type == "orders" -> CH_ORDERS; type == "ride" -> CH_RIDE; type == "tasks" -> CH_TRIPS; else -> CH_SOCIAL }
         val icon = com.bucks.app.R.drawable.ic_stat_bucks   // the "b" of the wordmark; the channel already says what kind it is
         val id = (type + ":" + (route ?: "")).hashCode()
         val open = Intent(ctx, MainActivity::class.java).apply {
@@ -147,10 +161,10 @@ object Push {
         val n = NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(icon).setColor(0xFF811FF0.toInt()).setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(tap).setAutoCancel(true).setShowWhen(true).setGroup(type)
-            .setPriority(when { quiet -> NotificationCompat.PRIORITY_LOW; type == "tasks" -> NotificationCompat.PRIORITY_MAX; else -> NotificationCompat.PRIORITY_HIGH })
-            .setCategory(when (type) { "messages" -> NotificationCompat.CATEGORY_MESSAGE; "tasks" -> NotificationCompat.CATEGORY_STATUS; else -> NotificationCompat.CATEGORY_SOCIAL })
+            .setPriority(when { quiet -> NotificationCompat.PRIORITY_LOW; type == "tasks" || type == "ride" -> NotificationCompat.PRIORITY_MAX; else -> NotificationCompat.PRIORITY_HIGH })
+            .setCategory(when (type) { "ride" -> NotificationCompat.CATEGORY_CALL; "messages" -> NotificationCompat.CATEGORY_MESSAGE; "tasks" -> NotificationCompat.CATEGORY_STATUS; else -> NotificationCompat.CATEGORY_SOCIAL })
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .apply { if (!quiet) setDefaults(if (type == "tasks") NotificationCompat.DEFAULT_LIGHTS else NotificationCompat.DEFAULT_ALL) }
+            .apply { if (!quiet) setDefaults(if (type == "tasks" || type == "ride") NotificationCompat.DEFAULT_LIGHTS else NotificationCompat.DEFAULT_ALL); if (type == "ride") setTimeoutAfter(120_000L) }
             .build()
         NotificationManagerCompat.from(ctx).notify(id, n)
     }

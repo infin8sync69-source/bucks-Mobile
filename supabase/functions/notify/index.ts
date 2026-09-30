@@ -12,7 +12,7 @@
 
 type Row = Record<string, any>;
 type Op = "INSERT" | "UPDATE" | "DELETE";
-type Kind = "messages" | "orders" | "tasks" | "social";
+type Kind = "messages" | "orders" | "tasks" | "ride" | "social";
 // orders / tasks: my businesses' new orders and the trips I drive; my_orders / my_trips: orders I place and rides or
 // deliveries I book. Same keys and labels as NOTIFY_KEYS in the app (ui/screens/SettingsScreens.kt).
 type NotifyKey = "messages" | "sync_requests" | "moments" | "comments" | "orders" | "tasks" | "my_orders" | "my_trips" | "offers";
@@ -71,7 +71,7 @@ async function plan(ev: DbEvent): Promise<Note[]> {
   switch (ev.table) {
     case "messages": return ev.type === "INSERT" ? await forMessage(r) : [];
     case "orders": return ev.type === "INSERT" ? await forNewOrder(r) : ev.type === "UPDATE" ? await forOrderStatus(r) : [];
-    case "tasks": return ev.type === "UPDATE" ? await forTaskStatus(r, ev.old_record ?? null) : [];   // INSERT: drivers poll open_tasks_near
+    case "tasks": return ev.type === "UPDATE" ? await forTaskStatus(r, ev.old_record ?? null) : ev.type === "INSERT" ? await ringDrivers(r, []) : [];
     case "syncs": return ev.type === "INSERT" ? await forSyncRequest(r) : ev.type === "UPDATE" ? await forSyncAccepted(r, ev.old_record ?? null) : [];
     case "moments": return ev.type === "INSERT" ? await forMoment(r) : [];
     case "post_comments": return ev.type === "INSERT" ? await forComment(r) : [];
@@ -149,6 +149,20 @@ async function forOrderStatus(o: Row): Promise<Note[]> {
   return [{ to: o.buyer_id, key: "my_orders", type: "orders", title: t[0], body: t[1], route: `cloud-order/${o.id}`, tag: `order-${o.id}` }];
 }
 
+/** A request that starts searching (new, or handed back by a driver): ring every online driver in range with the ride-request tune. */
+async function ringDrivers(t: Row, exclude: string[]): Promise<Note[]> {
+  if (String(t.status) !== "SEARCHING") return [];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/drivers_to_ring`, { method: "POST", headers: { ...restHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ p_task: t.id }) });
+  if (!r.ok) { console.error(`drivers_to_ring: ${r.status} ${await r.text()}`); return []; }
+  const ids = ((await r.json()) as string[]).filter((d) => !exclude.includes(d));
+  const ride = t.type === "RIDE";
+  const from = t.pickup_label || (ride ? "a pick-up point" : "a shop");
+  const to = t.drop_label ? ` to ${t.drop_label}` : "";
+  const money = t.fare ? ` · ₹${t.fare}` : "";
+  const km = t.km ? ` · ${t.km} km` : "";
+  return ids.map((to_) => ({ to: to_, key: "tasks", type: "ride", urgent: true, title: ride ? "New ride request" : "New delivery request", body: `${from}${to}${km}${money}. Open Bucks to accept.`, route: "home", tag: `ring-${t.id}` } as Note));
+}
+
 async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
   const ride = t.type === "RIDE";
   const nm = await names([t.driver_id, old?.driver_id].filter(Boolean) as string[]);
@@ -174,9 +188,9 @@ async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
     case "SEARCHING":
       if (old && ["MATCHED", "ARRIVED"].includes(String(old.status))) {
         const dropped = nameOf(nm, old.driver_id);
-        return [note("Looking for another rider", `${dropped} could not take it. Ringing other riders nearby.`)];
+        return [note("Looking for another rider", `${dropped} could not take it. Ringing other riders nearby.`), ...(await ringDrivers(t, [old.driver_id]))];
       }
-      return [];
+      return old && String(old.status) === "SEARCHING" ? [] : ringDrivers(t, []);
     case "CANCELLED":
       // The customer cancelled: tell the driver who was on the way.
       return old?.driver_id ? [toDriver(old.driver_id, ride ? "Trip cancelled" : "Delivery cancelled", "The customer cancelled. Stay online for the next one.")] : [];
@@ -308,7 +322,7 @@ type SendResult = "sent" | "gone" | "failed";
 async function sendOne(sa: ServiceAccount, bearer: string, token: string, n: Note, quiet: boolean): Promise<SendResult> {
   const message = {
     token,
-    android: { priority: quiet ? "normal" : "high", ttl: n.type === "tasks" ? "900s" : "86400s", ...(n.tag ? { collapse_key: n.tag } : {}) },
+    android: { priority: quiet ? "normal" : "high", ttl: n.type === "ride" ? "120s" : n.type === "tasks" ? "900s" : "86400s", ...(n.tag ? { collapse_key: n.tag } : {}) },
     data: { type: n.type, title: n.title, body: n.body, route: n.route, quiet: quiet ? "true" : "false" },
   };
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
