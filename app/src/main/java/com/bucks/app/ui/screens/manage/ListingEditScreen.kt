@@ -67,6 +67,11 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var freeDelivery by remember { mutableStateOf(d.bool("free_delivery")) }
     var radius by remember { mutableStateOf(d.int("delivery_radius_km")?.toString() ?: "3") }
     var cod by remember { mutableStateOf(d.bool("cod")) }
+    // E-commerce: ship anywhere in India by courier (customers far away can only order this way).
+    var ships by remember { mutableStateOf(d.bool("ships_india")) }
+    var shipFee by remember { mutableStateOf(d.int("ship_fee")?.toString() ?: "") }
+    var freeAbove by remember { mutableStateOf(d.int("free_ship_above")?.toString() ?: "") }
+    var dispatch by remember { mutableStateOf(d.str("dispatch_days")) }
     var level by remember { mutableStateOf(d.str("level").ifBlank { "Intermediate" }) }
     var rate by remember { mutableStateOf(d.str("rate")) }
     var languages by remember { mutableStateOf(d.strings("languages").toSet()) }
@@ -102,7 +107,10 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         val details = buildJsonObject {
             d.forEach { (k, v) -> put(k, v) }   // keep anything other features stored
             when (kind) {
-                "BUSINESS" -> { put("hours", hours.trim()); put("free_delivery", freeDelivery); put("delivery_radius_km", radius.toInt()); put("cod", cod) }
+                "BUSINESS" -> { put("hours", hours.trim()); put("free_delivery", freeDelivery); put("delivery_radius_km", radius.toInt()); put("cod", cod)
+                    put("ships_india", ships)
+                    if (ships) { put("ship_fee", shipFee.toIntOrNull() ?: 0); put("free_ship_above", freeAbove.toIntOrNull() ?: 0); put("dispatch_days", dispatch.trim()) }
+                }
                 "SKILL" -> { put("level", level); put("rate", rate.trim()); put("languages", buildJsonArray { languages.forEach { add(JsonPrimitive(it)) } }) }
                 "ASSET" -> {
                     put("mode", mode); put("price", price.toLongOrNull() ?: 0L); put("price_unit", priceUnit); put("negotiable", negotiable)
@@ -147,7 +155,15 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         SectionTitle("Delivery and payment", Modifier.padding(top = 6.dp, bottom = 4.dp))
                         SwitchRow("Free delivery", "You pay the rider's fee instead of the customer.", freeDelivery) { freeDelivery = it }
                         BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, "Delivery radius (km)", "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                        SwitchRow("Cash on delivery", "Only with your own store riders, who collect the cash. Add riders under Members.", cod) { cod = it }
+                        SwitchRow("Cash on delivery", "With your own store riders, or with the courier on shipped orders. You collect the cash.", cod) { cod = it }
+                        SectionTitle("Ship across India", Modifier.padding(top = 14.dp, bottom = 4.dp))
+                        SwitchRow("Ship by courier", "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", ships) { ships = it }
+                        if (ships) {
+                            BucksField(shipFee, { shipFee = it.filter { c -> c.isDigit() }.take(5) }, "Shipping fee (₹)", "99, or 0 for free shipping", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(freeAbove, { freeAbove = it.filter { c -> c.isDigit() }.take(6) }, "Free shipping above (₹)", "1999, or leave empty for none", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(dispatch, { dispatch = it.take(30) }, "Ships in (days)", "2 to 4")
+                            Muted("Buyers pay the items and the shipping to you (UPI, or cash on delivery if you turned it on). You have 24 hours to accept each order.", Modifier.padding(bottom = 8.dp))
+                        }
                     }
                     "SKILL" -> {
                         BucksField(title, { title = it.take(80) }, "Skill", "Plumber, Maths tutor, Wedding photographer")

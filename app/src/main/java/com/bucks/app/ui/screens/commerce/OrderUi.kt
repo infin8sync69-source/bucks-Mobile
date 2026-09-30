@@ -33,7 +33,7 @@ fun rupees(n: Int): String = "₹" + "%,d".format(n)
 /** Short order id for receipts and UPI notes: the last 6 characters, upper case. */
 fun shortOrderId(id: String) = id.replace("-", "").takeLast(6).uppercase()
 
-fun deliveryModeLabel(mode: String) = when (mode) { "STORE_RIDER" -> "Store's own rider"; "PICKUP" -> "Pick up from the shop"; else -> "Delivery by a Bucks rider" }
+fun deliveryModeLabel(mode: String) = when (mode) { "STORE_RIDER" -> "Store's own rider"; "PICKUP" -> "Pick up from the shop"; "SHIP" -> "Shipped to an address"; else -> "Delivery by a Bucks rider" }
 fun paymentLabel(payment: String) = if (payment == "COD") "Cash on delivery" else "UPI"
 
 /** Buyer-facing status, in plain words. */
@@ -42,13 +42,14 @@ fun orderStatusLabel(status: String, mode: String = "MARKETPLACE") = when (statu
     "ACCEPTED" -> "Accepted"
     "READY" -> if (mode == "PICKUP") "Ready to collect" else "Packed"
     "PICKED_UP" -> "On the way"
+    "SHIPPED" -> "Shipped"
     "DELIVERED" -> if (mode == "PICKUP") "Collected" else "Delivered"
     "REJECTED" -> "Not accepted"
     "CANCELLED" -> "Cancelled"
     else -> status.lowercase().replaceFirstChar { it.uppercase() }
 }
 fun orderDone(status: String) = status in setOf("DELIVERED", "REJECTED", "CANCELLED")
-fun orderLive(status: String) = status in setOf("PLACED", "ACCEPTED", "READY", "PICKED_UP")
+fun orderLive(status: String) = status in setOf("PLACED", "ACCEPTED", "READY", "PICKED_UP", "SHIPPED")
 
 @Composable
 fun OrderStatusPill(status: String, mode: String = "MARKETPLACE") = when (status) {
@@ -75,7 +76,8 @@ fun OrderLineRow(line: OrderLine) = Row(Modifier.fillMaxWidth().padding(vertical
 @Composable
 fun OrderTotals(o: CloudOrderRow, forShop: Boolean = false) {
     Row(Modifier.padding(top = 6.dp)) { Muted("Items", Modifier.weight(1f)); Muted(rupees(o.subtotal)) }
-    if (o.deliveryMode != "PICKUP") Row(Modifier.padding(top = 4.dp)) {
+    if (o.deliveryMode == "SHIP") Row(Modifier.padding(top = 4.dp)) { Muted("Shipping", Modifier.weight(1f)); Muted(if (o.deliveryFee == 0) "Free" else rupees(o.deliveryFee)) }
+    else if (o.deliveryMode != "PICKUP") Row(Modifier.padding(top = 4.dp)) {
         Muted(if (o.feeAtDoor > 0) "Delivery fee · to the rider" else "Delivery fee", Modifier.weight(1f))
         Muted(if (o.feePaidBy == "VENDOR") "${rupees(o.deliveryFee)} · ${if (forShop) "paid by you" else "paid by the shop"}" else rupees(o.deliveryFee))
     }

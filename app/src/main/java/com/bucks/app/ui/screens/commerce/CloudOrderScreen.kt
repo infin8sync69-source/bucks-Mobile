@@ -44,6 +44,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
     var contact by remember { mutableStateOf<OrderContactRow?>(null) }
     var confirmCancel by remember { mutableStateOf(false) }
     var confirmReject by remember { mutableStateOf(false) }
+    var showShip by remember { mutableStateOf(false) }
     // First load, then a 10-second poll: status, the delivery task once accepted, and contact details while live.
     LaunchedEffect(orderId, attempt) {
         while (true) {
@@ -56,7 +57,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
             val cur = row ?: commerce.orders[orderId]
             if (cur != null) {
                 val mine = cur.buyerId == social.me?.id
-                if (mine && cur.deliveryMode != "PICKUP" && cur.status in setOf("ACCEPTED", "READY", "PICKED_UP", "DELIVERED") && task?.status != "COMPLETED") task = runCatching { commerce.taskForOrder(orderId) }.getOrNull() ?: task
+                if (mine && cur.deliveryMode !in setOf("PICKUP", "SHIP") && cur.status in setOf("ACCEPTED", "READY", "PICKED_UP", "DELIVERED") && task?.status != "COMPLETED") task = runCatching { commerce.taskForOrder(orderId) }.getOrNull() ?: task
                 if (hasContact(cur)) contact = runCatching { commerce.contactFor(orderId) }.getOrNull() ?: contact
                 if (orderDone(cur.status) && (!hasContact(cur) || contact != null)) break
             }
@@ -97,15 +98,17 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 BucksCard(Modifier.padding(top = 14.dp)) {
                     o.lines.forEach { OrderLineRow(it) }
                     OrderTotals(o, forShop = vendor)
-                    if (o.deliveryMode != "PICKUP" && o.dropLabel.isNotBlank()) Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Place, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" ${o.dropLabel}") }
+                    if (o.deliveryMode !in setOf("PICKUP", "SHIP") && o.dropLabel.isNotBlank()) Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Place, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" ${o.dropLabel}") }
                 }
 
+                ShipToCard(o, Modifier.padding(top = 12.dp))
+                ShipmentCard(o, Modifier.padding(top = 12.dp))
                 SectionTitle("Progress", Modifier.padding(top = 22.dp, bottom = 10.dp))
-                OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy)
+                OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy, carrier = o.carrier)
 
                 if (!vendor) {
                     // The shop is paid for what it sells (and its own rider's fee); a Bucks rider's fee goes to the rider at the door.
-                    val payable = o.payment == "UPI" && o.status in setOf("ACCEPTED", "READY", "PICKED_UP", "DELIVERED")
+                    val payable = o.payment == "UPI" && o.status in setOf("ACCEPTED", "READY", "PICKED_UP", "SHIPPED", "DELIVERED")
                     val riderNote = if (o.feeAtDoor > 0) " The rider's ${rupees(o.feeAtDoor)} fee is paid to the rider at the door, not here." else ""
                     if (payable) {
                         val upi = contact?.upiUri
@@ -117,6 +120,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                     } else if (o.payment == "UPI" && o.status == "PLACED") Muted("You can pay by UPI once ${title} accepts.$riderNote", Modifier.padding(top = 18.dp).fillMaxWidth(), TextAlign.Center)
                     else if (o.payment == "COD" && orderLive(o.status)) Notice("Keep ${rupees(o.total)} in cash ready for the store's rider.", Modifier.padding(top = 18.dp))
 
+                    if (o.shipped && o.status == "SHIPPED") PrimaryButton("I received it", Modifier.padding(top = 10.dp)) { commerce.markDelivered(o.id) }
                     val t = task
                     if (t != null && t.status != "COMPLETED" && t.status != "PAID" && t.status != "CANCELLED") TintButton("Track delivery", Modifier.padding(top = 10.dp)) { onTrack(t.id) }
                 } else when (o.status) {
@@ -124,7 +128,9 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                         SmallButton("Accept", Modifier.weight(1f)) { commerce.respondOrder(o.id, true) }
                         SmallButton("Reject", Modifier.weight(1f), tonal = true) { confirmReject = true }
                     }
-                    "ACCEPTED" -> PrimaryButton(if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.padding(top = 18.dp)) { commerce.updateOrderStatus(o.id, "READY") }
+                    "ACCEPTED" -> if (o.shipped) PrimaryButton("Mark shipped", Modifier.padding(top = 18.dp)) { showShip = true }
+                                  else PrimaryButton(if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.padding(top = 18.dp)) { commerce.updateOrderStatus(o.id, "READY") }
+                    "SHIPPED" -> if (o.shipped) PrimaryButton("Mark delivered", Modifier.padding(top = 18.dp)) { commerce.markDelivered(o.id) }
                     "READY" -> if (o.deliveryMode == "PICKUP") PrimaryButton("Collected", Modifier.padding(top = 18.dp)) { commerce.updateOrderStatus(o.id, "DELIVERED") }
                     else -> {}
                 }
@@ -145,10 +151,12 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
     if (confirmCancel) AlertDialog(onDismissRequest = { confirmCancel = false }, title = { Text("Cancel this order?") },
         text = { Text(when {
             shopOrder == null -> "The shop hasn't accepted it yet, so nothing is charged. Once they accept, it can't be cancelled."
+            shopOrder.shipped -> "Use this when you can't fulfil the order. The customer is told it was cancelled and the stock goes back." + (if (shopOrder.payment == "UPI") " If they already paid you by UPI, refund them." else "")
             shopOrder.deliveryMode == "PICKUP" -> "Use this when the customer isn't coming to collect it. They'll be told it was cancelled." + (if (shopOrder.payment == "UPI") " If they already paid you by UPI, refund them." else "")
             else -> "Use this when no rider has taken the delivery; once a rider has it, it can't be cancelled." + (if (shopOrder.payment == "UPI") " If the customer already paid you by UPI, refund them." else "")
         }) },
         confirmButton = { TextButton({ confirmCancel = false; if (shopSide) commerce.updateOrderStatus(orderId, "CANCELLED") else commerce.cancelOrder(orderId) }) { Text("Cancel order", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmCancel = false }) { Text("Keep it") } })
+    if (showShip) ShipSheet({ showShip = false }) { c, t, u -> showShip = false; commerce.shipOrder(orderId, c, t, u) }
     if (confirmReject) AlertDialog(onDismissRequest = { confirmReject = false }, title = { Text("Reject this order?") }, text = { Text("The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.") },
         confirmButton = { TextButton({ confirmReject = false; commerce.respondOrder(orderId, false) }) { Text("Reject", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmReject = false }) { Text("Keep it") } })
 }
@@ -162,7 +170,7 @@ private fun hasContact(o: CloudOrderRow) = orderLive(o.status) || o.status == "D
  * the rider calls for it (advance_task checks it at pick-up, not at the door).
  */
 @Composable
-fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean = false, cancelledBy: String? = null) {
+fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean = false, cancelledBy: String? = null, carrier: String = "") {
     if (status == "REJECTED" || status == "CANCELLED") {
         val byShop = cancelledBy == "SHOP"
         val head = when {
@@ -171,7 +179,7 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
             else -> if (forShop) "The customer cancelled this order" else "You cancelled this order"
         }
         val detail = when {
-            status == "REJECTED" -> if (forShop) "It was rejected or not accepted within 5 minutes. The customer wasn't charged." else "Either they were too busy or they didn't respond within 5 minutes. Nothing has been charged. Try another shop nearby."
+            status == "REJECTED" -> if (forShop) "It was rejected or not accepted in time. The customer wasn't charged." else "Either they were too busy or they didn't respond in time. Nothing has been charged. Try another shop."
             byShop -> if (forShop) "If the customer already paid you by UPI, refund them." else "If you already paid by UPI, the shop owes you a refund. Call them if it hasn't reached you."
             else -> if (forShop) "They cancelled before you accepted, so nothing was charged." else "Nothing has been charged."
         }
@@ -181,10 +189,11 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
         }
         return
     }
-    val pickup = mode == "PICKUP"
-    val steps = if (pickup) listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "READY" to "Ready to collect", "DELIVERED" to "Collected")
+    val pickup = mode == "PICKUP"; val ship = mode == "SHIP"
+    val steps = if (ship) listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "SHIPPED" to "Shipped", "DELIVERED" to "Delivered")
+                else if (pickup) listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "READY" to "Ready to collect", "DELIVERED" to "Collected")
                 else listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "PICKED_UP" to "Rider picked it up", "DELIVERED" to "Delivered")
-    val order = listOf("PLACED", "ACCEPTED", "READY", "PICKED_UP", "DELIVERED")
+    val order = listOf("PLACED", "ACCEPTED", "READY", "PICKED_UP", "SHIPPED", "DELIVERED")
     val at = order.indexOf(status).coerceAtLeast(0)
     val cur = if (!pickup && status == "READY") "ACCEPTED" else status
     // The rider asks for the PIN at the shop (ARRIVED -> IN_PROGRESS), so it is shown until then and not after.
@@ -193,8 +202,10 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
         steps.forEachIndexed { i, (key, label) ->
             val idx = order.indexOf(key)
             val detail = when (key) {
-                "PLACED" -> if (forShop) "Accept or reject within 5 minutes." else "The shop has 5 minutes to accept."
+                "PLACED" -> if (ship) (if (forShop) "Accept or reject within 24 hours." else "The shop has 24 hours to accept.") else if (forShop) "Accept or reject within 5 minutes." else "The shop has 5 minutes to accept."
+                "SHIPPED" -> if (forShop) "With ${carrier.ifBlank { "the carrier" }}. Mark it delivered when it arrives, or the customer will confirm." else "On its way with ${carrier.ifBlank { "the carrier" }}. Tap I received it when it arrives."
                 "ACCEPTED" -> when {
+                    ship -> if (forShop) "Pack it and tap Mark shipped with the carrier and tracking number." else "They're packing it. You'll get the tracking number when it ships."
                     pickup -> if (forShop) "Get it ready, then mark it ready to collect." else "They're getting it ready."
                     forShop -> if (status == "READY") "Packed. Hand it to the rider; they enter the customer's PIN when collecting." else "A rider is being rung. Mark it packed when it's ready to hand over."
                     else -> {

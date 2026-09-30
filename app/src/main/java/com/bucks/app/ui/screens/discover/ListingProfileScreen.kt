@@ -50,7 +50,7 @@ import kotlinx.serialization.json.JsonPrimitive
 private fun plural(n: Int, one: String, many: String = one + "s") = "$n ${if (n == 1) one else many}"
 /** Details keys the About tab renders with a proper label; everything else gets a generic row. */
 private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
-    "cod", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable")
+    "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable")
 
 /**
  * The universal public profile of a listing: the same header for a shop, a pro and a driver, then tabs by kind.
@@ -293,6 +293,11 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
                 det.str("hours")?.let { AboutRow(Icons.Rounded.Schedule, "Hours", it) }
                 det.str("free_delivery")?.let { AboutRow(Icons.Rounded.DeliveryDining, "Delivery", if (it == "true") "Free delivery" else "Delivery charged") }
                 (det.str("delivery_radius_km")?.let { "$it km" } ?: det.str("delivery_radius_m")?.toDoubleOrNull()?.let { formatDistance(it) })?.let { AboutRow(Icons.Rounded.MyLocation, "Delivers within", it) }
+                if (det.str("ships_india") == "true") {
+                    val fee = det.str("ship_fee")?.toIntOrNull() ?: 0; val above = det.str("free_ship_above")?.toIntOrNull() ?: 0
+                    AboutRow(Icons.Rounded.LocalShipping, "Ships across India", listOfNotNull(if (fee == 0) "Free shipping" else "Shipping ${inr(fee.toLong())}", if (fee > 0 && above > 0) "free above ${inr(above.toLong())}" else null,
+                        det.str("dispatch_days")?.let { "ships in $it days" }, if (det.str("cod") == "true") "cash on delivery available" else null).joinToString(" · "))
+                }
             }
             "SKILL" -> {
                 AboutRow(Icons.Rounded.Payments, "Rate", proRate(det, p.services.minOfOrNull { it.price }))

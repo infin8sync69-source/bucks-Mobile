@@ -23,7 +23,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** One store's part of the cart. Each store becomes its own order with its own delivery, fee and payment. */
     data class StoreCart(val listing: ListingRow, val lines: List<Line>) { val amount: Int get() = lines.sumOf { it.amount }; val count: Int get() = lines.sumOf { it.qty } }
     /** How one store's order is delivered and paid; chosen per store in the cart. */
-    data class Choice(val mode: String, val payment: String, val dropLabel: String)
+    data class Choice(val mode: String, val payment: String, val dropLabel: String, val address: AddressRow? = null)
 
     // ---------- cart ----------
     /** The cart, by store, in the order the first item from each was added. Empty while nothing is in it. */
@@ -75,25 +75,54 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         val todo = stores.toList()
         if (todo.isEmpty()) { toast("Your cart is empty."); return@go }
         placing = true
-        val placed = mutableListOf<String>(); var failed = 0
+        val placed = mutableListOf<String>(); var failed = 0; var shipped = 0
         try {
             for (st in todo) {
                 val c = choices[st.listing.id] ?: continue
-                val at = drop ?: if (c.mode == "PICKUP") social.here else null
-                if (at == null) { failed++; toast("Turn on location to get ${st.listing.title}'s order delivered, or choose pick-up."); continue }
                 val ls = st.lines.mapNotNull { l -> l.item.id?.let { it to l.qty } }.filter { it.second > 0 }
                 if (ls.isEmpty()) continue
                 try {
-                    val id = Backend.placeOrder(st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
+                    val id = if (c.mode == "SHIP") {
+                        val a = c.address
+                        if (a == null) { failed++; toast("Add a delivery address for ${st.listing.title}'s order."); continue }
+                        Backend.placeShipOrder(st.listing.id, ls, a.json(), c.payment).also { shipped++ }
+                    } else {
+                        val at = drop ?: if (c.mode == "PICKUP") social.here else null
+                        if (at == null) { failed++; toast("Turn on location to get ${st.listing.title}'s order delivered, or choose pick-up."); continue }
+                        Backend.placeOrder(st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
+                    }
                     placed += id; clearStore(st.listing.id)
                 } catch (e: Exception) { failed++; toast("${st.listing.title}: ${friendly(e)}") }
             }
         } finally { placing = false }
         if (placed.isNotEmpty()) {
-            toast(if (placed.size == 1) "Order placed. The shop has 5 minutes to accept." else "${placed.size} orders placed, each delivered separately. Each shop has 5 minutes to accept.")
+            toast(when {
+                placed.size == 1 && shipped == 1 -> "Order placed. The shop has 24 hours to accept and ship it."
+                placed.size == 1 -> "Order placed. The shop has 5 minutes to accept."
+                else -> "${placed.size} orders placed, each delivered separately. Shops that ship have 24 hours to accept; local shops 5 minutes."
+            })
             refreshMyOrders(); onDone(placed)
         } else if (failed == 0) toast("Nothing to place.")
     }
+
+    // ---------- address book (delivery addresses for shipped orders) ----------
+    var addresses by mutableStateOf<List<AddressRow>>(emptyList()); private set
+    var addressesLoaded by mutableStateOf(false); private set
+    fun loadAddresses() = go { addresses = Backend.addresses(); addressesLoaded = true }
+    /** Saves a new address or edits one (id set); [onSaved] gets the saved row so checkout can pick it. */
+    fun saveAddress(a: AddressRow, onSaved: (AddressRow) -> Unit = {}) = go {
+        val me = social.me?.id ?: return@go
+        val saved = Backend.saveAddress(me, a); addresses = Backend.addresses(); addressesLoaded = true; toast("Address saved."); onSaved(saved)
+    }
+    fun deleteAddress(id: String) = go { Backend.deleteAddress(id); addresses = addresses.filterNot { it.id == id }; toast("Address deleted.") }
+
+    // ---------- shipping (shop side and buyer side) ----------
+    /** The shop hands an accepted shipped order to a carrier; the customer is told and sees the tracking. */
+    fun shipOrder(id: String, carrier: String, tracking: String, url: String, then: () -> Unit = {}) = go {
+        Backend.shipOrder(id, carrier, tracking, url); toast("Marked shipped. The customer has been told."); refreshVendorOrder(id); then()
+    }
+    /** The buyer received it, or the shop delivered it itself: closes the shipped order. */
+    fun markDelivered(id: String) = go { Backend.markDelivered(id); toast("Marked delivered."); order(id); refreshMyOrders(); runCatching { refreshVendorOrder(id) } }
 
     // ---------- my orders (buyer) ----------
     var myOrders by mutableStateOf<List<OrderRow>>(emptyList()); private set
@@ -149,7 +178,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Sign-out and account deletion: nothing of this person's cart, orders or shop inbox stays for the next account on the phone. */
     fun signedOut() {
         stopOrders(); clear(); placing = false
-        myOrders = emptyList(); myOrdersLoaded = false; listingTitles.clear(); orders.clear()
+        myOrders = emptyList(); myOrdersLoaded = false; listingTitles.clear(); orders.clear(); addresses = emptyList(); addressesLoaded = false
         vendorOrders = emptyList(); vendorLoaded = false
     }
     fun stopOrders() {

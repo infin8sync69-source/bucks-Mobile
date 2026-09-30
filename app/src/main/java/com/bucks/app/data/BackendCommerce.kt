@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onStart
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -31,7 +33,16 @@ import kotlinx.serialization.json.put
     @SerialName("fee_paid_by") val feePaidBy: String = "BUYER", @SerialName("delivery_mode") val deliveryMode: String = "MARKETPLACE", val payment: String = "UPI",
     @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String,
     /** BUYER or SHOP once the order is CANCELLED (see commerce.sql); null otherwise and on older rows. */
-    @SerialName("cancelled_by") val cancelledBy: String? = null) {
+    @SerialName("cancelled_by") val cancelledBy: String? = null,
+    /** Shipped orders (delivery_mode SHIP, ecommerce.sql): who it goes to, the carrier and tracking the shop entered, and when. */
+    @SerialName("ship_to") val shipTo: JsonObject? = null, val carrier: String = "", @SerialName("tracking_no") val trackingNo: String = "", @SerialName("tracking_url") val trackingUrl: String = "",
+    @SerialName("shipped_at") val shippedAt: String? = null, @SerialName("delivered_at") val deliveredAt: String? = null) {
+    val shipped get() = deliveryMode == "SHIP"
+    /** The address as the shop reads it on a label: name, phone, lines, city, state, pincode. */
+    val shipToText: String get() = shipTo?.let { a ->
+        fun f(k: String) = (a[k] as? kotlinx.serialization.json.JsonPrimitive)?.content?.trim().orEmpty()
+        listOf(f("name"), f("phone"), f("line1"), f("line2"), listOf(f("city"), f("state")).filter { it.isNotBlank() }.joinToString(", ") + " " + f("pincode")).filter { it.isNotBlank() }.joinToString("\n")
+    }.orEmpty()
     /** Everything the buyer pays for this order: items plus the rider's fee unless the shop offers free delivery. */
     val total: Int get() = buyerTotal(subtotal, deliveryFee, feePaidBy)
     /**
@@ -92,3 +103,31 @@ fun Backend.liveOrder(orderId: String): Pair<RealtimeChannel, Flow<CloudOrderRow
         .onStart { channel.subscribe() }
     return channel to flow
 }
+
+// ---------- shipping: orders to an address anywhere, the address book (migration ecommerce.sql) ----------
+/** A saved delivery address; the server checks the mobile number (10 digits) and the pincode (6 digits) again at checkout. */
+@Serializable data class AddressRow(val id: String? = null, val label: String = "", val name: String, val phone: String, val line1: String, val line2: String = "",
+    val city: String, val state: String, val pincode: String, @SerialName("is_default") val isDefault: Boolean = false) {
+    val oneLine: String get() = listOf(line1, line2, "$city, $state $pincode").filter { it.isNotBlank() }.joinToString(", ")
+    fun json(): JsonObject = buildJsonObject { put("name", name); put("phone", phone); put("line1", line1); put("line2", line2); put("city", city); put("state", state); put("pincode", pincode) }
+}
+
+suspend fun Backend.addresses(): List<AddressRow> = client.postgrest.from("addresses").select { order("created_at", Order.DESCENDING) }.decodeList()
+suspend fun Backend.saveAddress(me: String, a: AddressRow): AddressRow =
+    if (a.id == null) client.postgrest.from("addresses").insert(buildJsonObject { put("profile_id", me); put("label", a.label); put("name", a.name); put("phone", a.phone); put("line1", a.line1); put("line2", a.line2); put("city", a.city); put("state", a.state); put("pincode", a.pincode); put("is_default", a.isDefault) }) { select() }.decodeSingle()
+    else client.postgrest.from("addresses").update({ set("label", a.label); set("name", a.name); set("phone", a.phone); set("line1", a.line1); set("line2", a.line2); set("city", a.city); set("state", a.state); set("pincode", a.pincode); set("is_default", a.isDefault) }) { select(); filter { eq("id", a.id) } }.decodeSingle()
+suspend fun Backend.deleteAddress(id: String) { client.postgrest.from("addresses").delete { filter { eq("id", id) } } }
+
+/** Orders from a shop that ships: the address is checked on the server, the shipping fee comes from the shop's own rule. */
+suspend fun Backend.placeShipOrder(listingId: String, lines: List<Pair<String, Int>>, address: JsonObject, payment: String): String =
+    client.postgrest.rpc("place_order_ship", buildJsonObject {
+        put("p_listing", listingId)
+        put("p_lines", buildJsonArray { lines.forEach { (item, qty) -> add(buildJsonObject { put("item_id", item); put("qty", qty) }) } })
+        put("p_address", address); put("p_payment", payment)
+    }).decodeAs()
+/** The shop hands an accepted shipped order to a carrier ("Self delivery" is fine) with an optional tracking number and link. */
+suspend fun Backend.shipOrder(orderId: String, carrier: String, tracking: String, url: String) {
+    client.postgrest.rpc("ship_order", buildJsonObject { put("p_order", orderId); put("p_carrier", carrier); put("p_tracking", tracking); put("p_url", url) })
+}
+/** The buyer received it, or the shop delivered it itself. */
+suspend fun Backend.markDelivered(orderId: String) { client.postgrest.rpc("mark_delivered", buildJsonObject { put("p_order", orderId) }) }

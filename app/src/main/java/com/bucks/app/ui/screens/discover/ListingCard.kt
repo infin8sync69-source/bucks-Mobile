@@ -47,7 +47,9 @@ fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
                     Text(hit.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     Spacer(Modifier.width(8.dp)); KindBadge(hit.kind)
                 }
-                Muted(listOfNotNull(hit.category.ifBlank { null }, formatDistance(hit.distanceM), hit.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
+                // A store that ships shows "Ships across India" instead of a distance that means nothing to a buyer far away.
+                val ships = hit.details["ships_india"]?.toString()?.trim('"') == "true"
+                Muted(listOfNotNull(hit.category.ifBlank { null }, if (ships && hit.distanceM > 25_000) "Ships across India" else formatDistance(hit.distanceM), hit.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) { OnlineDot(hit.online); Spacer(Modifier.width(6.dp)); Muted(onlineText(hit.kind, hit.online), maxLines = 1) }
             }
         }
