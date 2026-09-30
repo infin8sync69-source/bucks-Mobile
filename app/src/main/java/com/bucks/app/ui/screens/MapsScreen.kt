@@ -48,7 +48,7 @@ import com.bucks.app.ui.components.*
 import kotlinx.coroutines.delay
 
 /** A place or search picked elsewhere (the app's search bars, a shop's Directions button, an address in Contacts) for the Maps screen to open on; taken once. */
-object MapsPick { var place: MapServices.PlaceHit? = null; var query: String? = null }
+object MapsPick { var place: MapServices.PlaceHit? = null; var query: String? = null; var autoStart = false }
 
 /** Opens the same trip in another maps app; kept as a small fallback next to the in-app navigation. */
 fun openDirections(ctx: android.content.Context, to: LatLng, label: String = "", mode: Char = 'd') {
@@ -117,6 +117,7 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { g -> if (g.values.any { it }) locate() else vm.toast("Location is off for Bucks. Turn it on in Settings.") }
     var satellite by remember { mutableStateOf(false) }; var showSteps by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { if (s.me == null) locate(quiet = true) }
+    var pendingStart by remember { mutableStateOf(MapsPick.autoStart) }; LaunchedEffect(Unit) { MapsPick.autoStart = false }
     LaunchedEffect(Unit) { MapsPick.place?.let { dest = it; q = it.name; MapsPick.place = null }; MapsPick.query?.let { q = it; MapsPick.query = null } }
     LaunchedEffect(q, retry) {
         if (q.trim().length < 3 || dest != null) { hits = emptyList(); searching = false; offline = false; return@LaunchedEffect }
@@ -133,6 +134,8 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
         routing = true; routeFailed = false
         val r = MapServices.route(from, d.at, mode.profile); if (r != null || reroute == 0) route = r; routeFailed = r == null; routing = false
     }
+    // Opened from a driver's Navigate button: start guiding as soon as the route and my position are known.
+    LaunchedEffect(route, here != null) { if (pendingStart && route != null && here != null) { pendingStart = false; arrived = false; navigating = true } }
     val path = remember(route) { route?.takeIf { it.points.size >= 2 }?.let { RoutePath(it.points) } }
     val stepAt = remember(route, path) { path?.let { p -> route?.steps.orEmpty().map { st -> p.snap(st.at).along } }.orEmpty() }
 

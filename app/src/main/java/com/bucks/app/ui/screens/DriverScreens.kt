@@ -154,8 +154,8 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
             val road = rememberRoadRoute(car.takeIf { from != to && car != to }, to)
             BucksMap(Modifier.fillMaxSize(), listOf(pinAt(car, "You", MeColor, true), pinAt(to, "", MaterialTheme.colorScheme.primary)), route = if (from != to && car != to) road?.points ?: listOf(car, to) else emptyList())
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp))
-            // Turn-by-turn in the phone's own navigation app (Google Maps, or any app that handles a map link).
-            if (from != to) SmallButton(road?.let { "Navigate · ${it.minutes} min" } ?: "Navigate", Modifier.align(Alignment.TopEnd).padding(12.dp)) { openNavigation(ctx, to) }
+            // Turn-by-turn inside Bucks (the Maps screen starts guiding straight away).
+            if (from != to) SmallButton(road?.let { "Navigate · ${it.minutes} min" } ?: "Navigate", Modifier.align(Alignment.TopEnd).padding(12.dp)) { vm.openMapsTo(if (dr.status == DriverRideStatus.TO_PICKUP) dr.pickupAt else dr.dropAt, to, autoStart = true) }
         }
         Surface(Modifier.fillMaxWidth().then(if (dr.status == DriverRideStatus.DONE) Modifier.weight(1f) else Modifier), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
             Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -33,6 +33,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.dial
@@ -116,13 +119,13 @@ private val HHMM = java.text.SimpleDateFormat("h:mma", java.util.Locale.ENGLISH)
 @Composable
 fun ChooseRideScreen(vm: BucksViewModel, onBack: () -> Unit, onConfirm: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState()
-    val dest = s.rideDest ?: return; val me = vm.mePos
+    val dest = s.rideDest ?: return; val me = vm.pickupAt
     // The road route: its line on the map, and its distance for the fare (straight line until it arrives or when offline).
     val road = rememberRoadRoute(me, dest.latLng())
     LaunchedEffect(road) { road?.let { vm.setDestKm(it.km) } }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MeColor, true), pinAt(dest.latLng(), dest.name, MaterialTheme.colorScheme.primary)) + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }, route = road?.points ?: listOf(me, dest.latLng()))
+            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, if (s.ridePickup != null) "Pick-up" else "You", MeColor, true), pinAt(dest.latLng(), dest.name, MaterialTheme.colorScheme.primary)) + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }, route = road?.points ?: listOf(me, dest.latLng()))
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet {
             Box(Modifier.fillMaxWidth()) { IconButton(onBack, Modifier.align(Alignment.CenterStart).size(32.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }; Text("Choose vehicle", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Center)) }
@@ -141,15 +144,59 @@ fun ChooseRideScreen(vm: BucksViewModel, onBack: () -> Unit, onConfirm: () -> Un
     }
 }
 
+/**
+ * Confirm (and move) the pick-up: drag the map so the pin sits where the rider should come, or search a place; the address under the pin updates.
+ * "Use my location" snaps back to where I am. The fare is worked out again from the pin when it moved.
+ */
 @Composable
 fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit) {
-    val s by vm.state.collectAsState(); val me = vm.mePos
-    Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f).fillMaxWidth()) { BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "Pick-up", MaterialTheme.colorScheme.primary, true)), zoom = 15.0, circle = me to 500.0); MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
-        Sheet {
-            Row(verticalAlignment = Alignment.CenterVertically) { IconButton(onBack, Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }; Text("Confirm pick-up location", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp)) }
-            Muted("${s.user?.area ?: "Your location"} · riders within 5 km are rung; the first to accept comes here.", Modifier.padding(vertical = 12.dp))
-            DarkButton("Confirm pick-up") { vm.requestRide() }
+    val s by vm.state.collectAsState(); val cmds = remember { MapCommands() }; val scope = rememberCoroutineScope()
+    val start = vm.pickupAt; val dest = s.rideDest
+    var center by remember { mutableStateOf(start) }
+    var label by remember { mutableStateOf(s.ridePickup?.name ?: s.hereLabel ?: s.user?.area?.ifBlank { null } ?: "Your location") }
+    var q by remember { mutableStateOf("") }; var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(300); cmds.moveTo(start, 16.0) }
+    // The street name under the pin, a moment after the map stops moving.
+    LaunchedEffect(center) { delay(700); MapServices.label(center)?.let { label = it } }
+    LaunchedEffect(q) { if (q.trim().length < 3) { hits = emptyList(); return@LaunchedEffect }; delay(450); hits = MapServices.search(q, center).take(5) }
+    Box(Modifier.fillMaxSize()) {
+        BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.mePos, "You", MeColor, true)), zoom = 16.0, commands = cmds, onCenter = { center = it })
+        // The pin stays in the middle; the map moves under it.
+        Icon(Icons.Rounded.LocationOn, "Pick-up", Modifier.align(Alignment.Center).offset(y = (-20).dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Surface(shape = RoundedCornerShape(28.dp), shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                    OutlinedTextField(q, { q = it }, placeholder = { Text("Search a pick-up place") }, singleLine = true, modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent))
+                    if (q.isNotEmpty()) IconButton({ q = ""; hits = emptyList() }) { Icon(Icons.Rounded.Close, "Clear") }
+                }
+            }
+            if (hits.isNotEmpty()) Surface(Modifier.padding(top = 6.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
+                Column { hits.forEach { h -> HitRow(h, Geo.distanceKm(vm.mePos, h.at), false) { q = ""; hits = emptyList(); label = h.name; center = h.at; cmds.moveTo(h.at, 16.0) } } }
+            }
+        }
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            Row(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                Spacer(Modifier.weight(1f))
+                Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable { cmds.moveTo(vm.mePos, 16.0) }) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MyLocation, "Use my location") } }
+            }
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { MapAttribution() }
+            Sheet {
+                Text("Pick-up", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(label, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                val moved = Geo.distanceKm(center, vm.mePos) * 1000
+                Muted(if (moved > 50) "${com.bucks.app.ui.formatDistance(moved)} from where you are. The rider comes to the pin. Riders within 5 km of it are rung." else "Drag the map to move the pin. Riders within 5 km are rung; the first to accept comes here.", Modifier.padding(vertical = 8.dp))
+                DarkButton(if (busy) "Checking the route…" else "Confirm pick-up", enabled = !busy) {
+                    busy = true
+                    scope.launch {
+                        vm.setPickup(label, center)
+                        // The fare follows the road from the pin to the drop, so work the distance out again from here.
+                        if (dest != null) MapServices.route(center, dest.at ?: Geo.fromPercent(dest.x, dest.y))?.let { vm.setDestKm(it.km) }
+                        busy = false; vm.requestRide()
+                    }
+                }
+            }
         }
     }
 }
@@ -162,8 +209,8 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
         BucksTopBar()
         // The 5 km circle the request rings within, with the riders of this kind that are in it.
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.mePos, "You", MeColor, true), pinAt(r.dest.latLng(), r.dest.name, MaterialTheme.status.bad)) + drivers.filter { it.online && it.vehicle == r.kind }.map { pinAt(it.pos, "", MaterialTheme.colorScheme.primary) },
-                zoom = 13.0, circle = vm.mePos to 5000.0)
+            BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.pickupAt, "Pick-up", MeColor, true), pinAt(r.dest.latLng(), r.dest.name, MaterialTheme.status.bad)) + drivers.filter { it.online && it.vehicle == r.kind }.map { pinAt(it.pos, "", MaterialTheme.colorScheme.primary) },
+                zoom = 13.0, circle = vm.pickupAt to 5000.0)
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet {
             if (r.status == RideStatus.SEARCHING) {

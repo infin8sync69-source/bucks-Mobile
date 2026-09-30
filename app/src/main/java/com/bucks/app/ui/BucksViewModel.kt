@@ -38,7 +38,7 @@ data class UiState(
     val cart: Map<String, Int> = emptyMap(),
     val orders: List<Order> = emptyList(), val requests: List<ServiceRequest> = emptyList(), val rides: List<Ride> = emptyList(),
     val ride: Ride? = null, val driverRide: DriverRide? = null,
-    val rideKind: VehicleKind = VehicleKind.AUTO, val rideDest: Place? = null,
+    val rideKind: VehicleKind = VehicleKind.AUTO, val rideDest: Place? = null, val ridePickup: Place? = null,
     val query: String = "", val sort: SortMode = SortMode.TRUST, val scope: ScopeFilter = ScopeFilter.ALL, val askMode: AskMode = AskMode.RESULTS, val lens: Lens = Lens.ALL,
     val agent: List<AgentMessage> = listOf(AgentMessage(false, "Tell me what you need — a ride, food, a plumber, a comparison — by typing or speaking.")),
     val thinking: Boolean = false, val voiceLang: String = "en-IN",
@@ -315,7 +315,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Called by the UI after the user tapped Confirm and (when required) passed BiometricPrompt. */
     fun confirmPending(expected: PendingAction) { val p = s.pending ?: return; if (p !== expected) return; _s.update { it.copy(pending = null) }; p.run() }
     private fun firstTimeWith(counterparty: String) = s.orders.none { it.providerName == counterparty } && s.requests.none { it.providerName == counterparty }
-    private fun proposeRide(place: Place, k: VehicleKind) { val f = fare(k, place.km); propose(PendingAction("Book a ${k.label.lowercase()}", "${s.user?.area} → ${place.name} · ${place.km} km · about ₹$f, pay after the trip", f, "Nearest online rider", null, needsBiometric = false) { doRequestRide() }) }
+    private fun proposeRide(place: Place, k: VehicleKind) { val f = fare(k, place.km); propose(PendingAction("Book a ${k.label.lowercase()}", "${s.ridePickup?.name ?: s.user?.area} → ${place.name} · ${place.km} km · about ₹$f, pay after the trip", f, "Nearest online rider", null, needsBiometric = false) { doRequestRide() }) }
     fun requestRide() { val d = s.rideDest ?: return; proposeRide(d, s.rideKind) }
     fun placeOrder(): Boolean { val cl = cartLines(); val p = cl.first ?: return false; val total = cl.third
         propose(PendingAction("Place order with ${p.name}", cl.second.joinToString(", ") { "${it.first} × ${it.third}" } + " · ₹$total", total, p.name, p.trust, needsBiometric = total >= 500 || firstTimeWith(p.name)) { doPlaceOrder() }); return true }
@@ -357,17 +357,23 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
 
     // ---------- ride (customer) ----------
     private fun randomPlace(name: String): Place { val ll = Geo.PLACES[name]; return if (ll != null) { val (x, y) = Geo.toPercent(ll); Place(name, x, y, (Geo.distanceKm(mePos, ll) * 10).roundToInt() / 10.0, at = ll) } else Place(name, 20 + Random.nextFloat() * 60, 15 + Random.nextFloat() * 30, ((1.5 + Random.nextDouble() * 7) * 10).roundToInt() / 10.0) }
-    fun startRide() = _s.update { it.copy(rideDest = null, pending = null) }
+    fun startRide() = _s.update { it.copy(rideDest = null, ridePickup = null, pending = null) }
+    /** Where the rider will be picked up: the point the customer chose, else where they are. */
+    val pickupAt: LatLng get() = s.ridePickup?.at ?: mePos
+    fun setPickup(name: String, p: LatLng) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(ridePickup = Place(name, x, y, 0.0, at = p)) } }
+    fun resetPickup() = _s.update { it.copy(ridePickup = null) }
+    /** Opens the in-app map on a place; [autoStart] begins turn-by-turn as soon as the route is ready (the driver's Navigate button). */
+    fun openMapsTo(name: String, at: LatLng, autoStart: Boolean = false) { com.bucks.app.ui.screens.MapsPick.place = MapServices.PlaceHit(name, "", at); com.bucks.app.ui.screens.MapsPick.autoStart = autoStart; navTo(Routes.MAPS) }
     fun chooseDest(name: String) = _s.update { it.copy(rideDest = randomPlace(name)) }
     fun setRideKind(k: VehicleKind) { if (k.carriesPassengers) _s.update { it.copy(rideKind = k) } }
     fun fare(k: VehicleKind, km: Double) = (k.farePerKm * km + 20).roundToInt()
-    fun onlineCount(k: VehicleKind) = Geo.ring(mePos, repo.drivers.value, k).size
+    fun onlineCount(k: VehicleKind) = Geo.ring(pickupAt, repo.drivers.value, k).size
     private fun doRequestRide() {
         if (dispatch.enabled) { val dest = s.rideDest ?: return
-            val me = s.me ?: run { toast("Turn on location so your rider can find your pick-up point."); return }
+            val me = s.ridePickup?.at ?: s.me ?: run { toast("Turn on location so your rider can find your pick-up point."); return }
             // The real point the rider chose; x/y are clamped to the drawn map, so a pick beyond its edge would move the drop.
             val to = dest.at ?: Geo.PLACES[dest.name] ?: Geo.fromPercent(dest.x, dest.y)
-            dispatch.requestRide(s.rideKind, me, s.hereLabel ?: s.user?.area?.ifBlank { null } ?: Geo.nearestArea(me), dest, to, fare(s.rideKind, dest.km)); return }
+            dispatch.requestRide(s.rideKind, me, s.ridePickup?.name ?: s.hereLabel ?: s.user?.area?.ifBlank { null } ?: Geo.nearestArea(me), dest, to, fare(s.rideKind, dest.km)); return }
         val dest = s.rideDest ?: return; val k = s.rideKind; val id = "ride${System.currentTimeMillis()}"; val f = fare(k, dest.km)
         val ride = Ride(id, k, dest, f, RideStatus.SEARCHING, (1000 + Random.nextInt(9000)).toString(), signature = sign(Identity.txnPayload("ride", id, s.user?.id ?: "", "", f, System.currentTimeMillis())))
         _s.update { it.copy(ride = ride) }; navTo(Routes.SEARCHING)
