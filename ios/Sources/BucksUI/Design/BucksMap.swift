@@ -5,11 +5,11 @@ import BucksCore
 #if canImport(UIKit)
 import UIKit
 typealias PlatformColor = UIColor
-typealias MapViewRepresentable = UIViewRepresentable
+public typealias MapViewRepresentable = UIViewRepresentable
 #elseif canImport(AppKit)
 import AppKit
 typealias PlatformColor = NSColor
-typealias MapViewRepresentable = NSViewRepresentable
+public typealias MapViewRepresentable = NSViewRepresentable
 #endif
 
 public struct MapPin: Identifiable {
@@ -191,7 +191,11 @@ public struct MapAttribution: View {
         map.addOverlay(c, level: .aboveLabels); ring = c
     }
 
-    public func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+    // MapKit calls its delegate on the main thread; nonisolated + assumeIsolated works whether or not the SDK marks the protocol @MainActor.
+    nonisolated public func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        MainActor.assumeIsolated { MainBox(renderer(for: overlay)) }.value
+    }
+    private func renderer(for overlay: MKOverlay) -> MKOverlayRenderer {
         if let t = overlay as? MKTileOverlay { return MKTileOverlayRenderer(tileOverlay: t) }
         let brand = PlatformColor(BucksColor.purple)
         if let l = overlay as? MKPolyline {
@@ -203,7 +207,10 @@ public struct MapAttribution: View {
         return MKOverlayRenderer(overlay: overlay)
     }
 
-    public func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+    nonisolated public func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        MainActor.assumeIsolated { MainBox(annotationView(mapView, annotation)) }.value
+    }
+    private func annotationView(_ mapView: MKMapView, _ annotation: MKAnnotation) -> MKAnnotationView? {
         guard let a = annotation as? PinAnnotation else { return nil }
         let v = (mapView.dequeueReusableAnnotationView(withIdentifier: PinAnnotationView.reuse) as? PinAnnotationView) ?? PinAnnotationView(annotation: a, reuseIdentifier: PinAnnotationView.reuse)
         v.annotation = a; v.refresh()
@@ -312,15 +319,19 @@ public struct MapAttribution: View {
         return Date() > ownChangeUntil
     }
 
-    public func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
-        guard userIsTouching(mapView), let cb = parent?.onUserMove else { return }
-        DispatchQueue.main.async { cb() }
+    nonisolated public func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+        MainActor.assumeIsolated {
+            guard userIsTouching(mapView), let cb = parent?.onUserMove else { return }
+            DispatchQueue.main.async { cb() }
+        }
     }
 
-    public func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        guard let cb = parent?.onCenterChange else { return }
-        let c = mapView.region.center
-        DispatchQueue.main.async { cb(LatLng(c.latitude, c.longitude)) }
+    nonisolated public func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+        MainActor.assumeIsolated {
+            guard let cb = parent?.onCenterChange else { return }
+            let c = mapView.region.center
+            DispatchQueue.main.async { cb(LatLng(c.latitude, c.longitude)) }
+        }
     }
 
     #if canImport(UIKit)
@@ -336,6 +347,12 @@ public struct MapAttribution: View {
         cb(LatLng(c.latitude, c.longitude))
     }
     #endif
+}
+
+/// Carries a main-thread object out of MainActor.assumeIsolated (which wants a Sendable result); it never leaves the main thread.
+private struct MainBox<T>: @unchecked Sendable {
+    let value: T
+    init(_ value: T) { self.value = value }
 }
 
 // MARK: - Pins

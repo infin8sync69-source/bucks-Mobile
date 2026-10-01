@@ -135,4 +135,3 @@ public enum MapServices {
         return RoadRoute(km: (metres / 100).rounded() / 10, minutes: max(1, Int((seconds / 60).rounded())), points: pts.isEmpty ? [from, to] : pts, steps: steps)
     }
 }
-}

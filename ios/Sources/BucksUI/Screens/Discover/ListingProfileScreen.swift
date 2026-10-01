@@ -205,8 +205,7 @@ private struct ProfileHeader: View {
                 Text(assetPriceLine(l.details)).bucks(.titleLarge).fontWeight(.semibold).foregroundStyle(BucksColor.primary).padding(.top, 8)
             }
             HStack { TrustBadge(up: l.trustUp, down: l.trustDown); Spacer(minLength: 0) }.padding(.top, 10)
-            StatsRow(stats: [(p.syncs, "Synced", nil), l.kind == "BUSINESS" && !p.products.isEmpty ? (p.products.count, "Products", { onTab("products") }) : nil,
-                             (l.trustUp, "Recommendations", { onTab("reviews") }), p.members > 1 ? (p.members, "Team", nil) : nil].compactMap { $0 }).padding(.top, 10)
+            StatsRow(stats: stats(p)).padding(.top, 10)
             if !p.mine {
                 HStack(spacing: 8) {
                     RateButton(up: true, mine: myVote == 1) { onRate(1) }
@@ -252,6 +251,15 @@ private struct ProfileHeader: View {
             }
         }
         .padding(.horizontal, Gutter).padding(.vertical, 8)
+    }
+
+    private func stats(_ p: ListingProfile) -> [StatsRow.Stat] {
+        let l = p.listing
+        var out = [StatsRow.Stat(n: p.syncs, label: "Synced", go: nil)]
+        if l.kind == "BUSINESS" && !p.products.isEmpty { out.append(StatsRow.Stat(n: p.products.count, label: "Products", go: { onTab("products") })) }
+        out.append(StatsRow.Stat(n: l.trustUp, label: "Recommendations", go: { onTab("reviews") }))
+        if p.members > 1 { out.append(StatsRow.Stat(n: p.members, label: "Team", go: nil)) }
+        return out
     }
 }
 
@@ -309,19 +317,22 @@ private struct TabStrip: View {
 
 /// Numbers under the name: synced, products, recommendations (opens Reviews) and team size. A stat with an action is tappable.
 private struct StatsRow: View {
-    let stats: [(Int, String, (() -> Void)?)]
+    struct Stat { var n: Int; var label: String; var go: (() -> Void)? }
+    let stats: [Stat]
     var body: some View {
         HStack(spacing: 20) {
             ForEach(Array(stats.enumerated()), id: \.offset) { _, s in
-                let face = VStack(alignment: .leading, spacing: 0) {
-                    Text(s.0.formatted()).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
-                    Muted(s.1, maxLines: 1).fixedSize()
-                }
-                if let go = s.2 {
-                    Button(action: go) { face.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("\(s.0) \(s.1)").accessibilityHint("See \(s.1)")
-                } else { face.accessibilityElement(children: .ignore).accessibilityLabel("\(s.0) \(s.1)") }
+                if let go = s.go {
+                    Button(action: go) { face(s).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("\(s.n) \(s.label)").accessibilityHint("See \(s.label)")
+                } else { face(s).accessibilityElement(children: .ignore).accessibilityLabel("\(s.n) \(s.label)") }
             }
             Spacer(minLength: 0)
+        }
+    }
+    private func face(_ s: Stat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(s.n.formatted()).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            Muted(s.label, maxLines: 1).fixedSize()
         }
     }
 }

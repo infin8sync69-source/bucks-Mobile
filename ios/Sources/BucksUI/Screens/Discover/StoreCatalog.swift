@@ -291,9 +291,7 @@ private struct ProductCard: View {
         let qty = pr.options.reduce(0) { $0 + session.commerce.qty($1.id ?? "") }
         let dim = pr.anyInStock ? 1.0 : 0.5
         let price = pr.multi && pr.from != pr.to ? "From \(rs(pr.from))" : rs(pr.from)
-        let say = [pr.title, price, pr.multi ? "\(pr.options.count) options" : nil, pr.off.map { "\($0) percent off" }, pr.anyInStock ? nil : "sold out",
-                   rating?.percent.map { "\($0) percent recommend, \(rating!.votes) \(rating!.votes == 1 ? "vote" : "votes")" }, qty > 0 ? "\(qty) in your cart" : nil]
-            .compactMap { $0 }.joined(separator: ", ")
+        let say = spoken(pr, price: price, qty: qty)
         VStack(alignment: .leading, spacing: 0) {
             Button(action: onOpen) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -351,6 +349,19 @@ private struct ProductCard: View {
     }
 }
 
+extension ProductCard {
+    /// The card read as one sentence.
+    func spoken(_ pr: CatalogProduct, price: String, qty: Int) -> String {
+        var parts: [String] = [pr.title, price]
+        if pr.multi { parts.append("\(pr.options.count) options") }
+        if let off = pr.off { parts.append("\(off) percent off") }
+        if !pr.anyInStock { parts.append("sold out") }
+        if let r = rating, let pct = r.percent { parts.append("\(pct) percent recommend, \(r.votes) \(r.votes == 1 ? "vote" : "votes")") }
+        if qty > 0 { parts.append("\(qty) in your cart") }
+        return parts.joined(separator: ", ")
+    }
+}
+
 /// The product page in a sheet: photos, price, the option chips, description, add to cart, then what people say with recommend / not recommend.
 private struct ProductSheet: View {
     let product: CatalogProduct; let listing: ListingRow; let rating: RatingSummary?; let canAdd: Bool; let isOwner: Bool
@@ -365,8 +376,7 @@ private struct ProductSheet: View {
     var body: some View {
         let pr = product
         let item = pr.options.first { $0.id == (pick ?? defaultPick) } ?? pr.options[0]
-        var seen = Set<String>()
-        let photos = Array(((full.map(photosOf) ?? photosOf(item)) + pr.photos).filter { seen.insert($0).inserted }.prefix(8))
+        let photos = sheetPhotos(item)
         let about = cleanAbout(full?.description ?? "", title: pr.title)
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -430,6 +440,13 @@ private struct ProductSheet: View {
     }
 
     private var defaultPick: String? { product.options.first { $0.inStock }?.id ?? product.options.first?.id }
+
+    /// The loaded item's photos (or the catalogue's one) then the product's, without repeats, at most 8.
+    private func sheetPhotos(_ item: ItemRow) -> [String] {
+        var seen = Set<String>()
+        let all = (full.map(photosOf) ?? photosOf(item)) + product.photos
+        return Array(all.filter { seen.insert($0).inserted }.prefix(8))
+    }
 
     /// The description without the title the shop repeats at its start.
     private func cleanAbout(_ s: String, title: String) -> String {
