@@ -106,6 +106,47 @@ import Testing
         #expect(d.loading.isEmpty)
     }
 
+    @Test func aStoreOpensOnTheSlimCatalogueAndLoadsItsPosts() async throws {
+        let (s, _) = session()
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/listings": return (200, [self.listingJSON()])
+            case "/rest/v1/rpc/catalog_items":
+                return (200, [["id": "i1", "listing_id": "L1", "kind": "PRODUCT", "name": "Silk saree", "price": 2400, "sort": 1, "description": "", "details": ["product_id": "p1", "variant": "Red"]]])
+            case "/rest/v1/posts": return (200, [["id": "po1", "author_id": "o1", "listing_id": "L1", "body": "New stock", "created_at": "2026-09-30T10:00:00Z"]])
+            default: return (200, [Any]())
+            }
+        }
+        s.discover.open("L1")
+        #expect(await wait { s.discover.profiles["L1"] != nil })
+        let p = try #require(s.discover.profiles["L1"])
+        #expect(p.products.map(\.name) == ["Silk saree"]); #expect(p.posts.map(\.body) == ["New stock"])
+        #expect(call("/rest/v1/rpc/catalog_items").first?.body["p_listing"] as? String == "L1")
+        // The full item rows (descriptions, every photo) are only fetched when a product is opened.
+        #expect(call("/rest/v1/items").isEmpty)
+    }
+
+    @Test func productAndProfileRatingsPutTheirParametersOnTheWire() async throws {
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/rpc/product_ratings_summary": return (200, [["product_key": "p1", "up": 3, "down": 1, "comments": 2, "mine": 1]])
+            default: return (200, [Any]())
+            }
+        }
+        let b = Backend.shared
+        let rows = try await b.productRatings("L1")
+        let r = try #require(rows.first)
+        #expect(r.key == "p1"); #expect(r.votes == 4); #expect(r.percent == 75); #expect(r.mine == 1)
+        try await b.rateProduct(listingId: "L1", key: "p1", vote: -1, comment: "Too small")
+        #expect(call("/rest/v1/rpc/rate_product").first?.body as NSDictionary? == ["p_listing": "L1", "p_key": "p1", "p_vote": -1, "p_comment": "Too small"] as NSDictionary)
+        _ = try await b.productComments(listingId: "L1", key: "p1")
+        // The first page leaves p_before out: the server's default (now()) applies; a null would match nothing.
+        let page1 = try #require(call("/rest/v1/rpc/product_ratings_list").first)
+        #expect(page1.body["p_key"] as? String == "p1"); #expect(page1.body["p_before"] == nil)
+        try await b.rateListing("L1", vote: 1, comment: "Great")
+        #expect(call("/rest/v1/rpc/rate_listing").first?.body as NSDictionary? == ["p_listing": "L1", "p_vote": 1, "p_comment": "Great"] as NSDictionary)
+    }
+
     @Test func openFallsBackToPlainTablesWhenTheCountsFunctionIsMissing() async throws {
         let (s, _) = session()
         boot { path, _, _ in

@@ -1,131 +1,9 @@
 import SwiftUI
 import BucksCore
 
-// The tabs of ListingProfileScreen (ports of ProductsTab, JobsTab, ServicesTab, FeedTab, AboutTab, ReviewsTab and GalleryTab).
+// The tabs of ListingProfileScreen (ports of JobsTab, ServicesTab, FeedTab, AboutTab, ReviewsTab and GalleryTab; the Products tab is StoreCatalog.swift).
 
-// MARK: - BUSINESS: Products and Jobs
-
-struct ProductsTab: View {
-    let profile: ListingProfile
-    var onMessage: () -> Void
-    @Environment(AppSession.self) private var session
-    @State private var open: ItemRow?
-
-    var body: some View {
-        let p = profile, items = p.products
-        if items.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                Muted(p.mine ? "No products yet. Add them from Menu > Bucks Pro." : "\(p.listing.title) hasn't listed products yet. Message them to ask what's in stock.")
-                if !p.mine { SmallButton("Message", tonal: true, action: onMessage).fixedSize().padding(.top, 12) }
-            }.padding(Gutter).frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            // A closed shop (switched off by its owner) takes no orders: the server refuses them, so nothing can be added.
-            let shopOpen = p.listing.online
-            let groups = grouped(items)
-            VStack(alignment: .leading, spacing: 0) {
-                if !shopOpen && !p.mine { Notice("\(p.listing.title) is closed now. You can order once they open again.").padding(.top, 12) }
-                ForEach(groups, id: \.name) { g in
-                    SectionTitle(g.name).padding(.top, 14).padding(.bottom, 2)
-                    ForEach(Array(g.items.enumerated()), id: \.offset) { i, item in
-                        if i > 0 { BucksDivider() }
-                        ProductRow(item: item, qty: session.commerce.qty(item.id ?? ""), canAdd: !p.mine && shopOpen, onOpen: { open = item }) { delta in session.commerce.add(p.listing, item, delta) }
-                    }
-                }
-            }
-            .padding(.horizontal, Gutter).padding(.vertical, 4)
-            .sheet(item: $open) { item in
-                ItemSheet(item: item, qty: session.commerce.qty(item.id ?? ""), canAdd: !p.mine && shopOpen && item.inStock) { delta in session.commerce.add(p.listing, item, delta) }
-            }
-        }
-    }
-
-    /// Products by group name (a blank group is "Products"), in the order the groups first appear.
-    private func grouped(_ items: [ItemRow]) -> [(name: String, items: [ItemRow])] {
-        var order: [String] = [], map: [String: [ItemRow]] = [:]
-        for i in items {
-            let n = i.groupName.trimmingCharacters(in: .whitespaces).isEmpty ? "Products" : i.groupName
-            if map[n] == nil { order.append(n) }
-            map[n, default: []].append(i)
-        }
-        return order.map { ($0, map[$0] ?? []) }
-    }
-}
-
-/// One product: photo when it has one, name, unit, price with the MRP struck through when higher; out of stock is greyed and can't be added.
-private struct ProductRow: View {
-    let item: ItemRow
-    let qty: Int
-    let canAdd: Bool
-    var onOpen: () -> Void
-    var onAdd: (Int) -> Void
-
-    var body: some View {
-        let dim = item.inStock ? 1.0 : 0.45
-        HStack(spacing: 0) {
-            Button(action: onOpen) {
-                HStack(spacing: 12) {
-                    if let url = Backend.shared.listingPhoto(item.photos.first?.url ?? item.photoUrl) {
-                        RemotePhoto(url: url) { Color.clear }.frame(width: 52, height: 52).background(BucksColor.surfaceContainer)
-                            .clipShape(RoundedRectangle(cornerRadius: BucksRadius.small, style: .continuous)).opacity(dim)
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(item.name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(2)
-                        if !item.unit.isEmpty { Muted(item.unit, maxLines: 1) }
-                        if !item.description.isEmpty { Muted(item.description, maxLines: 1) }
-                        if let s = item.stock, (1...5).contains(s), item.inStock { Text("Only \(s) left").bucks(.labelSmall).foregroundStyle(BucksColor.warn) }
-                        HStack(spacing: 6) {
-                            Text(rupeesGrouped(item.price)).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
-                            if let mrp = item.mrp, mrp > item.price { Text(rupeesGrouped(mrp)).bucks(.labelSmall).strikethrough().foregroundStyle(BucksColor.onSurfaceVariant) }
-                        }.padding(.top, 2)
-                    }.opacity(dim).frame(maxWidth: .infinity, alignment: .leading)
-                }.contentShape(Rectangle())
-            }.buttonStyle(.plain)
-            if !item.inStock { PillGrey("Out of stock").padding(.leading, 12) } else if canAdd { AddStepper(qty: qty, onAdd: onAdd).padding(.leading, 12) }
-        }.padding(.vertical, 10)
-    }
-}
-
-/// A product's own page as a sheet: its photos, description, price, stock and the add button.
-private struct ItemSheet: View {
-    let item: ItemRow
-    let qty: Int
-    let canAdd: Bool
-    var onAdd: (Int) -> Void
-
-    var body: some View {
-        let urls = item.photos.compactMap { Backend.shared.listingPhoto($0.url) }
-        let photos = urls.isEmpty ? [Backend.shared.listingPhoto(item.photoUrl)].compactMap { $0 } : urls
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                if !photos.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(photos, id: \.self) { u in
-                                RemotePhoto(url: u) { Color.clear }.frame(width: photos.count == 1 ? 280 : 220, height: photos.count == 1 ? 280 : 220)
-                                    .background(BucksColor.surfaceContainer).clipShape(RoundedRectangle(cornerRadius: BucksRadius.medium, style: .continuous))
-                            }
-                        }
-                    }.padding(.bottom, 12)
-                }
-                Text(item.name).bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
-                Muted([item.unit.isEmpty ? nil : item.unit, item.details.str("brand"), item.groupName.isEmpty ? nil : item.groupName].compactMap { $0 }.joined(separator: " · "))
-                HStack(spacing: 8) {
-                    Text(inr(item.price)).bucks(.headlineSmall).foregroundStyle(BucksColor.onSurface)
-                    if let mrp = item.mrp, mrp > item.price {
-                        Text(inr(mrp)).bucks(.bodyMedium).strikethrough().foregroundStyle(BucksColor.onSurfaceVariant)
-                        PillGood("\((mrp - item.price) * 100 / mrp)% off")
-                    }
-                }.padding(.top, 8)
-                if !item.inStock { PillGrey("Out of stock") }
-                else if let s = item.stock, s <= 5 { Text("Only \(s) left").bucks(.labelLarge).foregroundStyle(BucksColor.warn) }
-                if !item.description.isEmpty { Text(item.description).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface).padding(.top, 12) }
-                if canAdd { HStack { Spacer(); AddStepper(qty: qty, onAdd: onAdd) }.padding(.top, 16) }
-            }.padding(.horizontal, Gutter).padding(.top, 24).padding(.bottom, 28).frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(BucksColor.surface.ignoresSafeArea())
-        .presentationDetents([.medium, .large])
-    }
-}
+// MARK: - BUSINESS: Jobs (Products is StoreProducts, StoreCatalog.swift)
 
 struct JobsTab: View {
     let profile: ListingProfile
@@ -250,7 +128,8 @@ private struct ListingPost: View {
 
 /// Details keys the About tab renders with a proper label; everything else gets a generic row.
 private let knownDetails: Set<String> = ["hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
-                                         "cod", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable"]
+                                         "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source",
+                                         "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable"]
 
 struct AboutTab: View {
     let profile: ListingProfile
@@ -317,6 +196,11 @@ struct AboutTab: View {
             if let v = det.str("hours") { AboutRow(icon: "clock", label: "Hours", value: v) }
             if let v = det.str("free_delivery") { AboutRow(icon: "shippingbox", label: "Delivery", value: v == "true" ? "Free delivery" : "Delivery charged") }
             if let v = det.str("delivery_radius_km").map({ "\($0) km" }) ?? det.str("delivery_radius_m").flatMap(Double.init).map(formatDistance) { AboutRow(icon: "location", label: "Delivers within", value: v) }
+            if det.str("ships_india") == "true" {
+                let fee = det.str("ship_fee").flatMap { Int($0) } ?? 0, above = det.str("free_ship_above").flatMap { Int($0) } ?? 0
+                AboutRow(icon: "truck.box", label: "Ships across India", value: [fee == 0 ? "Free shipping" : "Shipping \(inr(fee))", fee > 0 && above > 0 ? "free above \(inr(above))" : nil,
+                    det.str("dispatch_days").map { "ships in \($0) days" }, det.str("cod") == "true" ? "cash on delivery available" : nil].compactMap { $0 }.joined(separator: " · "))
+            }
         case "SKILL":
             AboutRow(icon: "indianrupeesign.circle", label: "Rate", value: proRate(det, minPrice: p.services.map(\.price).min()))
             if let v = det.str("level") { AboutRow(icon: "rosette", label: "Experience", value: v.lowercased().prefix(1).uppercased() + v.lowercased().dropFirst()) }
@@ -361,15 +245,23 @@ private struct AboutRow: View {
 
 struct ReviewsTab: View {
     let profile: ListingProfile
+    /// My own direct recommendation, if I gave one (it is edited, not added twice).
+    let mine: ReviewRow?
+    var onWrite: (Int) -> Void
     @Environment(AppSession.self) private var session
     var body: some View {
-        let p = profile
+        let p = profile, l = p.listing
+        let total = l.trustUp + l.trustDown
         VStack(alignment: .leading, spacing: 0) {
-            HStack { TrustBadge(up: p.listing.trustUp, down: p.listing.trustDown); Spacer(minLength: 0) }
-            Notice(p.mine ? "Reviews come only from customers after a completed order or trip. Nobody can add or remove them by hand."
-                   : "Reviews come only from completed orders and trips. After yours, leave one from that order or trip page.").padding(.top, 12)
+            HStack(spacing: 0) {
+                TrustBadge(up: l.trustUp, down: l.trustDown)
+                if total > 0 { Muted("  \(l.trustUp * 100 / total)% recommend · \(total) \(total == 1 ? "vote" : "votes")") }
+                Spacer(minLength: 0)
+            }
+            if p.mine { Muted("Reviews come from customers. You can't rate or remove them.").padding(.top, 8) }
+            else { PrimaryButton(mine != nil ? "Edit my review" : "Write a review") { onWrite(mine?.vote ?? 1) }.padding(.top, 12) }
             if p.reviews.isEmpty {
-                Muted(p.mine ? "No reviews yet. They arrive as customers complete orders or trips." : "No reviews yet. Order or book here first; then you can leave the first one.").padding(.vertical, 16)
+                Muted(p.mine ? "No reviews yet." : "No reviews yet. Be the first to recommend \(l.title).").padding(.vertical, 16)
             }
             ForEach(p.reviews) { r in
                 let up = r.vote > 0, name = session.social.nameOf(r.authorId)
@@ -380,7 +272,9 @@ struct ReviewsTab: View {
                             Text(name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1)
                             Muted("  \(discoverAgo(r.createdAt))")
                         }
-                        Text(r.comment).bucks(.bodySmall).foregroundStyle(BucksColor.onSurface).padding(.top, 2)
+                        if !r.comment.trimmingCharacters(in: .whitespaces).isEmpty { Text(r.comment).bucks(.bodySmall).foregroundStyle(BucksColor.onSurface).padding(.top, 2) }
+                        else { Muted(up ? "Recommended, no comment." : "Not recommended, no comment.").padding(.top, 2) }
+                        if r.verified { Text("Verified \(r.orderId != nil ? "order" : "trip")").bucks(.labelSmall).foregroundStyle(BucksColor.good).padding(.top, 4) }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .trailing, spacing: 4) {
                         Image(systemName: up ? "arrow.up" : "arrow.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(up ? BucksColor.good : BucksColor.bad)

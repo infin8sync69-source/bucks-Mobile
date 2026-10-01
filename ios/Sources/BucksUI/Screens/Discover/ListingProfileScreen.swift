@@ -2,12 +2,15 @@ import SwiftUI
 import BucksCore
 
 /// The universal public profile of a listing: the same header for a shop, a pro and a driver, then tabs by kind.
-/// BUSINESS: Products, Jobs, About, Reviews. SKILL: Services, Feed, About, Reviews. DRIVER: About, Reviews, plus Book.
+/// BUSINESS: Feed, About, Products, Jobs, Reviews (opens on Products when it has any). SKILL: Services, Portfolio, Feed, About, Reviews.
+/// DRIVER: About, Photos, Reviews, plus Book. Anyone but the owner can recommend or not recommend it with a comment.
 struct ListingProfileScreen: View {
     let id: String
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
     @State private var tab: String?
+    /// Recommend (1) / not recommend (-1) tapped: the comment sheet is open with that vote.
+    @State private var rateVote: Int?
 
     private var d: DiscoverStore { session.discover }
 
@@ -27,7 +30,8 @@ struct ListingProfileScreen: View {
     private func tabs(_ l: ListingRow) -> [(key: String, label: String)] {
         let photos = !l.gallery.isEmpty
         switch l.kind {
-        case "BUSINESS": return [("products", "Products")] + (photos ? [("photos", "Photos")] : []) + [("feed", "Feed"), ("jobs", "Jobs"), ("about", "About"), ("reviews", "Reviews")]
+        // A business reads like a page: what it posts, who it is (photos live in About), what it sells, who it hires, what people say.
+        case "BUSINESS": return [("feed", "Feed"), ("about", "About"), ("products", "Products"), ("jobs", "Jobs"), ("reviews", "Reviews")]
         case "SKILL": return [("services", "Services")] + (photos ? [("photos", "Portfolio")] : []) + [("feed", "Feed"), ("about", "About"), ("reviews", "Reviews")]
         case "ASSET": return [("about", "Details")] + (photos ? [("photos", "Photos")] : []) + [("reviews", "Reviews")]
         default: return [("about", "About")] + (photos ? [("photos", "Photos")] : []) + [("reviews", "Reviews")]
@@ -37,22 +41,31 @@ struct ListingProfileScreen: View {
     private func profile(_ p: ListingProfile) -> some View {
         let l = p.listing
         let tabs = tabs(l)
-        let current = tabs.contains { $0.key == tab } ? (tab ?? tabs[0].key) : tabs[0].key
+        // A shop with products opens on them; the Feed is often still empty.
+        let initial = l.kind == "BUSINESS" && !p.products.isEmpty ? "products" : tabs[0].key
+        let current = tabs.contains { $0.key == tab } ? (tab ?? initial) : initial
         let cartCount = session.commerce.count
+        let myDirect = p.reviews.first { $0.authorId == session.me?.id && !$0.verified }
         return GeometryReader { geo in ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(spacing: 0) {
                     ProfileCover(listing: l, top: geo.safeAreaInsets.top, onBack: { router.pop() }, shareText: shareText(l))
-                    ProfileHeader(profile: p, cartHere: cartCount > 0 && session.commerce.shop?.id == id, shareText: shareText(l), onMessage: message, onBook: { startRide(session, router, kind: $0) }, onCart: { router.push(.cart) })
+                    ProfileHeader(profile: p, cartHere: cartCount > 0, myVote: myDirect?.vote, shareText: shareText(l), onMessage: message, onBook: { startRide(session, router, kind: $0) },
+                                  onCart: { router.push(.cart) }, onTab: { tab = $0 }, onRate: { rateVote = $0 })
                     TabStrip(tabs: tabs, current: current) { tab = $0 }
                     switch current {
-                    case "products": ProductsTab(profile: p, onMessage: message); Spacer().frame(height: cartCount > 0 ? 96 : 24)
+                    case "products": StoreProducts(profile: p, onMessage: message, onCart: { router.push(.cart) }); Spacer().frame(height: cartCount > 0 ? 96 : 24)
                     case "jobs": JobsTab(profile: p) { router.push(.listingJobs(id)) }
                     case "services": ServicesTab(profile: p) { line in session.discover.startListingChat(id, firstLine: line) { router.push(.chat($0)) } }
                     case "feed": FeedTab(profile: p)
                     case "photos": GalleryTab(listing: l)
-                    case "about": AboutTab(profile: p, onOpenListing: { router.push(.listing($0)) }).task(id: l.id) { session.services.loadBadges(l.id) }
-                    case "reviews": ReviewsTab(profile: p)
+                    case "about":
+                        AboutTab(profile: p, onOpenListing: { router.push(.listing($0)) }).task(id: l.id) { session.services.loadBadges(l.id) }
+                        if l.kind == "BUSINESS" && !l.gallery.isEmpty {
+                            SectionTitle("Photos").padding(.horizontal, Gutter).padding(.top, 8)
+                            GalleryTab(listing: l)
+                        }
+                    case "reviews": ReviewsTab(profile: p, mine: myDirect) { rateVote = $0 }
                     default: EmptyView()
                     }
                     Spacer().frame(height: 24)
@@ -60,6 +73,9 @@ struct ListingProfileScreen: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .ignoresSafeArea(edges: .top)
+            .sheet(isPresented: Binding(get: { rateVote != nil }, set: { if !$0 { rateVote = nil } })) {
+                RecommendSheet(listing: l, mine: myDirect, initial: rateVote ?? 1) { rateVote = nil; tab = "reviews"; d.open(id) }
+            }
             if l.kind == "BUSINESS" && l.online && cartCount > 0 && current == "products" {
                 DarkButton("View cart · \(plural(cartCount, "item"))") { router.push(.cart) }.padding(Gutter)
             }
@@ -84,16 +100,13 @@ private struct ProfilePlaceholder: View {
         ContentColumn {
             VStack(spacing: 0) {
                 BucksTopBar(title: "Listing", onBack: { router.pop() })
-                VStack(spacing: 0) {
+                if !d.missing.contains(id) && !d.failed.contains(id) { ProfileSkeleton() } else { VStack(spacing: 0) {
                     if d.missing.contains(id) {
                         notice(icon: "magnifyingglass", title: "This listing isn't available", detail: "It may have been removed, or it isn't live yet. A listing goes live once 7 people nearby recommend it in person.")
                     } else if d.failed.contains(id) {
                         notice(icon: "icloud.slash", title: "Couldn't load this listing", detail: "Check your connection and try again.")
-                    } else {
-                        BucksLoader()
-                        Muted("Loading…").padding(.top, 12)
                     }
-                }.frame(maxWidth: .infinity).padding(Gutter).padding(.top, 48)
+                }.frame(maxWidth: .infinity).padding(Gutter).padding(.top, 48) }
             }.frame(maxHeight: .infinity, alignment: .top)
         }
     }
@@ -156,10 +169,14 @@ private struct ProfileCover: View {
 private struct ProfileHeader: View {
     let profile: ListingProfile
     let cartHere: Bool
+    /// My own direct recommendation of this listing (1 / -1), if I gave one.
+    let myVote: Int?
     let shareText: String
     var onMessage: () -> Void
     var onBook: (VehicleKind) -> Void
     var onCart: () -> Void
+    var onTab: (String) -> Void
+    var onRate: (Int) -> Void
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
 
@@ -188,7 +205,17 @@ private struct ProfileHeader: View {
                 Text(assetPriceLine(l.details)).bucks(.titleLarge).fontWeight(.semibold).foregroundStyle(BucksColor.primary).padding(.top, 8)
             }
             HStack { TrustBadge(up: l.trustUp, down: l.trustDown); Spacer(minLength: 0) }.padding(.top, 10)
-            Muted(["\(p.recommendations) in-person recommendations", "\(p.syncs) synced", p.members > 1 ? "team of \(p.members)" : nil].compactMap { $0 }.joined(separator: " · ")).padding(.top, 6)
+            StatsRow(stats: [(p.syncs, "Synced", nil), l.kind == "BUSINESS" && !p.products.isEmpty ? (p.products.count, "Products", { onTab("products") }) : nil,
+                             (l.trustUp, "Recommendations", { onTab("reviews") }), p.members > 1 ? (p.members, "Team", nil) : nil].compactMap { $0 }).padding(.top, 10)
+            if !p.mine {
+                HStack(spacing: 8) {
+                    RateButton(up: true, mine: myVote == 1) { onRate(1) }
+                    RateButton(up: false, mine: myVote == -1) { onRate(-1) }
+                }.padding(.top, 10)
+            }
+            if !p.mine && l.kind == "BUSINESS" {
+                Muted(synced ? "You're synced: \(l.title)'s posts show in your Feed and you'll get a notification when they post." : "Sync to see \(l.title)'s posts in your Feed and get notified.").padding(.top, 6)
+            }
             if p.mine {
                 Notice("This is your listing. Edit it, its products and its team from Menu > Bucks Pro.").padding(.top, 12)
             } else {
@@ -277,5 +304,94 @@ private struct TabStrip: View {
             }
         }
         .background(BucksColor.surface).overlay(alignment: .bottom) { Rectangle().fill(BucksColor.outline).frame(height: 1) }
+    }
+}
+
+/// Numbers under the name: synced, products, recommendations (opens Reviews) and team size. A stat with an action is tappable.
+private struct StatsRow: View {
+    let stats: [(Int, String, (() -> Void)?)]
+    var body: some View {
+        HStack(spacing: 20) {
+            ForEach(Array(stats.enumerated()), id: \.offset) { _, s in
+                let face = VStack(alignment: .leading, spacing: 0) {
+                    Text(s.0.formatted()).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+                    Muted(s.1, maxLines: 1).fixedSize()
+                }
+                if let go = s.2 {
+                    Button(action: go) { face.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel("\(s.0) \(s.1)").accessibilityHint("See \(s.1)")
+                } else { face.accessibilityElement(children: .ignore).accessibilityLabel("\(s.0) \(s.1)") }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// Recommend / not recommend button; filled when it is my current vote.
+struct RateButton: View {
+    let up: Bool; let mine: Bool; let action: () -> Void
+    var body: some View {
+        let c = up ? BucksColor.good : BucksColor.bad
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: up ? "arrow.up" : "arrow.down").font(.system(size: 15, weight: .semibold))
+                Text(up ? "Recommend" : "Not recommend").bucks(.labelLarge).lineLimit(1)
+            }
+            .foregroundStyle(c).padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: BucksRadius.small, style: .continuous).fill(mine ? c.opacity(0.14) : .clear))
+            .overlay(RoundedRectangle(cornerRadius: BucksRadius.small, style: .continuous).strokeBorder(BucksColor.outline, lineWidth: 1))
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityAddTraits(mine ? .isSelected : [])
+    }
+}
+
+/// Comment box that opens on a recommend / not recommend tap; the vote and comment land in the Reviews tab. Works for shops, pros, assets and drivers.
+private struct RecommendSheet: View {
+    let listing: ListingRow
+    let mine: ReviewRow?
+    let initial: Int
+    var onDone: () -> Void
+    @Environment(AppSession.self) private var session
+    @State private var vote = 1
+    @State private var text = ""
+    @State private var busy = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(mine != nil ? "Your recommendation for \(listing.title)" : "Recommend \(listing.title)?").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
+                Muted("Your vote and comment are shown in Reviews for everyone.").padding(.top, 4)
+                HStack(spacing: 8) {
+                    RateButton(up: true, mine: vote == 1) { vote = 1 }
+                    RateButton(up: false, mine: vote == -1) { vote = -1 }
+                }.padding(.top, 14)
+                BucksField(Binding(get: { text }, set: { text = String($0.prefix(500)) }), placeholder: vote > 0 ? "What did you like? (optional)" : "What went wrong? (optional)", singleLine: false, minLines: 3)
+                    .padding(.top, 12)
+                HStack { Spacer(); Muted("\(text.count)/500").fixedSize() }.padding(.top, -10)
+                HStack(spacing: 8) {
+                    SmallButton(busy ? "Sending…" : mine != nil ? "Update" : "Submit", enabled: !busy) { submit() }.fixedSize()
+                    if mine != nil {
+                        Button("Remove mine") { remove() }.buttonStyle(.plain).font(.bucks(.labelLarge)).foregroundStyle(BucksColor.bad).frame(minHeight: 48).disabled(busy)
+                    }
+                }.padding(.top, 8)
+            }.padding(Gutter).padding(.bottom, 24).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(BucksColor.surface.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .onAppear { vote = initial; text = mine?.comment ?? "" }
+    }
+
+    private func submit() {
+        Task {
+            busy = true; defer { busy = false }
+            do { try await Backend.shared.rateListing(listing.id, vote: vote, comment: text.trimmingCharacters(in: .whitespacesAndNewlines)); session.toast("Thanks, your review is posted."); onDone() }
+            catch { session.toast(friendlyError(error)) }
+        }
+    }
+    private func remove() {
+        Task {
+            busy = true; defer { busy = false }
+            do { try await Backend.shared.clearListingRating(listing.id); session.toast("Your review was removed."); onDone() }
+            catch { session.toast(friendlyError(error)) }
+        }
     }
 }

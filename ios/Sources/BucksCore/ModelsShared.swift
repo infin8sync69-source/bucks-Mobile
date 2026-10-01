@@ -189,7 +189,13 @@ public struct OrderRow: Codable, Hashable, Sendable, Identifiable {
     private enum K: String, CodingKey { case id, listingId, buyerId, subtotal, deliveryFee, feePaidBy, deliveryMode, payment, dropLabel, status, acceptBy, createdAt }
 }
 
-public struct ReviewRow: Codable, Hashable, Sendable, Identifiable { public var id: String; public var listingId: String; public var authorId: String; public var vote: Int; public var comment: String; public var createdAt: String }
+public struct ReviewRow: Codable, Hashable, Sendable, Identifiable {
+    public var id: String; public var listingId: String; public var authorId: String; public var vote: Int; public var comment: String; public var createdAt: String
+    /// Set when the review came from a completed order or trip (verified); nil for a direct recommendation (rate_listing).
+    public var orderId: String? = nil
+    public var taskId: String? = nil
+    public var verified: Bool { orderId != nil || taskId != nil }
+}
 
 public struct JobRow: Codable, Hashable, Sendable, Identifiable {
     public var id: String
