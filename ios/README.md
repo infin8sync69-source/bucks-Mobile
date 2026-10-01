@@ -59,7 +59,7 @@ Add `--quit` to exit when a scenario finishes. Screenshots are taken of the harn
 You need a Mac with **Xcode 16+** (the App Store app, not just the command-line tools) and an Apple Developer account for a real device.
 
 1. **Firebase.** In the Firebase console (the same project Android uses) add an **iOS app** with bundle ID `com.bucks.app` and download `GoogleService-Info.plist` into `ios/App/` (it is gitignored). Phone sign-in on iOS needs one of: an **APNs authentication key** uploaded under Project settings > Cloud Messaging (silent-push verification and, later, the pushes themselves), or the reCAPTCHA fallback, which works once the URL scheme below is set. For development add test numbers under Authentication > Sign-in method > Phone, as on Android.
-2. **Supabase values.** `./scripts/make_secrets.sh` writes `Config/Secrets.xcconfig` from the repo's `local.properties` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `GEMINI_API_KEY`) and, once the plist is in place, the `REVERSED_CLIENT_ID` that the reCAPTCHA fallback needs. Run it after step 1.
+2. **Supabase values.** `./scripts/make_secrets.sh` writes `Config/Secrets.xcconfig` from the repo's `local.properties` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `GEMINI_API_KEY` and `MAPBOX_TOKEN`) and, once the plist is in place, the `REVERSED_CLIENT_ID` that the reCAPTCHA fallback needs. Run it after step 1.
 3. **Generate the project and open it.**
    ```bash
    brew install xcodegen
@@ -83,7 +83,7 @@ Without `GoogleService-Info.plist` or the Supabase values the app still launches
 | `UIBackgroundModes: location, remote-notification` | driver on duty; silent push for phone-auth verification |
 | `LSApplicationQueriesSchemes` | `upi`, `tez`, `phonepe`, `paytmmp`, `gpay`, `tel`, `sms` |
 | `CFBundleURLTypes` (`REVERSED_CLIENT_ID`) | the reCAPTCHA fallback of phone sign-in |
-| `SupabaseURL`, `SupabaseAnonKey`, `GeminiAPIKey` | from `Config/Secrets.xcconfig` |
+| `SupabaseURL`, `SupabaseAnonKey`, `GeminiAPIKey`, `MapboxToken` | from `Config/Secrets.xcconfig` |
 
 ## How it matches Android
 
@@ -92,7 +92,7 @@ Without `GoogleService-Info.plist` or the Supabase values the app still launches
 - **Realtime.** `Realtime.swift` is a Phoenix-protocol (vsn 1.0.0) client for Supabase Realtime, one shared socket with a channel per consumer, answering the heartbeat, refreshing the token on open channels, reconnecting with backoff and rejoining. Like Android it is a nudge on top of the polling, which stays as the safety net; consumers cancel their task to leave the channel.
 - **Push.** The server's FCM sender reaches iPhones through Firebase Messaging (APNs token -> FCM token, stored with `register_device_token(p_platform: 'ios')`). The route allow-list is identical to `Push.safeRoute`. A tapped notification is kept in `PushInbox` and opened once signed in. iOS has no channels: each kind becomes a category, thread and interruption level (rides and deliveries are time-sensitive; quiet hours are passive).
 - **Shell.** Bottom bar, "Bucks Pro" side menu (also an edge swipe on tab roots), trip-in-progress bar, centred ring card, location disclosure and notification prompts after the intro, sign-out resets every store and the router.
-- **Maps.** Photon / Nominatim / OSRM like Android; tiles come from Apple Maps (MapKit), which needs no key.
+- **Maps.** The same providers as Android: Mapbox tiles (Streets / Satellite), place search and Directions when `MAPBOX_TOKEN` is set, OpenStreetMap (tiles, Photon, Nominatim, OSRM) otherwise. `BucksMap` is an `MKMapView` drawing those tiles through `MKTileOverlay` with Android's muted colour filter, dot markers and route styling; in-app turn-by-turn uses the same step wording, voice points and re-route rule as `MapsScreen.kt`.
 - **Driver on duty.** Android's foreground service becomes Core Location with background updates; the position goes to `update_location` at most every 5 seconds. A ringing request while the app is in the background posts a time-sensitive local notification.
 
 ## Server proposals (not applied)
@@ -101,10 +101,9 @@ Without `GoogleService-Info.plist` or the Supabase values the app still launches
 
 ## Remaining known gaps
 
-- **Not compiled here.** The `App/` files (Firebase Auth/Messaging, entry point) cannot be built without Xcode and the Firebase package; they were reviewed against the Firebase iOS SDK API only. Expect to fix an import or a signature on the first Xcode build.
+- **CI builds, devices test.** `.github/workflows/ios-ci.yml` builds the package, runs the unit tests and builds the whole app (with Firebase) for the Simulator on every pull request. Signing, a real device and TestFlight are still manual.
 - **Push on iPhone** needs the server proposal above and an APNs key in Firebase.
 - **In-app updates.** Android's APK updater has no iOS counterpart (TestFlight).
 - **Swipe-back** is off on screens that hide the system back button (booking and ride screens use their own back arrow, as Android does), and Android's tablet rail is not ported (iPhone only).
 - **Realtime after the app was suspended** reconnects when the next heartbeat or read fails (up to about 50 s); the 5-second polls cover that time.
-- **Orders** have no realtime nudge on iOS (Android has one on `orders`).
 - The macOS preview harness fakes Supabase; real-device behaviour of camera, speech, Face ID, background location and push is untested here.

@@ -105,8 +105,8 @@ public final class CommerceStore {
                         id = try await Backend.shared.placeShipOrder(listingId: st.listing.id, lines: ls, address: a.json, payment: c.payment)
                         shipped += 1
                     } else {
-                        let at: LatLng? = drop ?? (c.mode == "PICKUP" ? self.session.here : nil)
-                        guard let at else { failed += 1; self.toast("Turn on location to get \(st.listing.title)'s order delivered, or choose pick-up."); continue }
+                        let fix: LatLng? = drop ?? (c.mode == "PICKUP" ? self.session.here : nil)
+                        guard let at = fix else { failed += 1; self.toast("Turn on location to get \(st.listing.title)'s order delivered, or choose pick-up."); continue }
                         id = try await Backend.shared.placeOrder(listingId: st.listing.id, lines: ls, drop: at, dropLabel: c.dropLabel.trimmingCharacters(in: .whitespacesAndNewlines), payment: c.payment, mode: c.mode)
                     }
                     placed.append(id); self.clearStore(st.listing.id)
