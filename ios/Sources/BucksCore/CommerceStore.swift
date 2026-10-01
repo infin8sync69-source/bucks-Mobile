@@ -1,9 +1,9 @@
 import Foundation
 import Observation
 
-/// Cloud commerce state: a single-shop cart over cloud items, checkout through `place_order`, the buyer's orders,
-/// and the vendor's live order inbox (port of the Android `Commerce`). Reached as `session.commerce`.
-/// Actions are wrapped so a failure becomes a toast.
+/// Cloud commerce state: a cart over cloud items with one part per store, checkout through `place_order` / `place_order_ship` (one order
+/// per store), the address book, the buyer's orders, and the vendor's live order inbox (port of the Android `Commerce`). Reached as
+/// `session.commerce`. Actions are wrapped so a failure becomes a toast.
 @MainActor @Observable
 public final class CommerceStore {
     @ObservationIgnored public unowned let session: AppSession
@@ -16,74 +16,144 @@ public final class CommerceStore {
         public var id: String { item.id ?? item.name }
         public var amount: Int { item.price * qty }
     }
-    /// An add() for a different shop than the cart holds; the UI asks before replacing the cart.
-    public struct PendingSwitch: Hashable, Sendable {
+    /// One store's part of the cart. Each store becomes its own order with its own delivery, fee and payment.
+    public struct StoreCart: Hashable, Sendable, Identifiable {
         public var listing: ListingRow
-        public var item: ItemRow
-        public var delta: Int
+        public var lines: [Line]
+        public var id: String { listing.id }
+        public var amount: Int { lines.reduce(0) { $0 + $1.amount } }
+        public var count: Int { lines.reduce(0) { $0 + $1.qty } }
+    }
+    /// How one store's order is delivered and paid; chosen per store in the cart.
+    public struct Choice: Sendable {
+        public var mode: String
+        public var payment: String
+        public var dropLabel: String
+        public var address: AddressRow?
+        public init(mode: String, payment: String, dropLabel: String, address: AddressRow? = nil) { self.mode = mode; self.payment = payment; self.dropLabel = dropLabel; self.address = address }
     }
 
     // MARK: cart
 
-    /// The shop the cart belongs to; nil while the cart is empty.
-    public private(set) var shop: ListingRow?
-    public private(set) var lines: [Line] = []
-    public private(set) var pendingSwitch: PendingSwitch?
-    /// True while an order is being placed.
+    /// The cart, by store, in the order the first item from each was added. Empty while nothing is in it.
+    public private(set) var stores: [StoreCart] = []
+    /// True while orders are being placed.
     public private(set) var placing = false
-    /// Total number of pieces in the cart, for the cart badge.
-    public var count: Int { lines.reduce(0) { $0 + $1.qty } }
-    public var subtotal: Int { lines.reduce(0) { $0 + $1.amount } }
+    /// Total number of pieces in the cart across every store, for the cart badge.
+    public var count: Int { stores.reduce(0) { $0 + $1.count } }
+    public var subtotal: Int { stores.reduce(0) { $0 + $1.amount } }
 
-    public func qty(_ itemId: String) -> Int { lines.first { $0.item.id == itemId }?.qty ?? 0 }
+    public func qty(_ itemId: String) -> Int {
+        for st in stores { if let l = st.lines.first(where: { $0.item.id == itemId }) { return l.qty } }
+        return 0
+    }
 
-    /// Adds `delta` pieces (negative removes). One shop at a time: adding from another shop sets `pendingSwitch` instead of changing anything.
+    /// Adds `delta` pieces of `item` from `listing` (negative removes). Stores mix freely: each keeps its own part of the cart.
     public func add(_ listing: ListingRow, _ item: ItemRow, _ delta: Int) {
         guard let id = item.id else { return }
-        if let cur = shop, cur.id != listing.id, !lines.isEmpty {
-            if delta > 0 { pendingSwitch = PendingSwitch(listing: listing, item: item, delta: delta) }
+        let si = stores.firstIndex { $0.listing.id == listing.id }
+        let was = si.flatMap { stores[$0].lines.first { $0.item.id == id }?.qty } ?? 0
+        let cap = item.stock.map { max($0, 0) } ?? 99
+        let next = min(max(was + delta, 0), cap)
+        if next == was {
+            if delta > 0, let stock = item.stock, was >= stock { toast("Only \(stock) of \(item.name) in stock.") }
             return
         }
-        let next = max(qty(id) + delta, 0)
+        var lines = si.map { stores[$0].lines } ?? []
         if next == 0 { lines.removeAll { $0.item.id == id } }
-        else if let i = lines.firstIndex(where: { $0.item.id == id }) { lines[i].qty = next }
+        else if let li = lines.firstIndex(where: { $0.item.id == id }) { lines[li].qty = next }
         else { lines.append(Line(item: item, qty: next)) }
-        shop = lines.isEmpty ? nil : listing
+        if let si {
+            if lines.isEmpty { stores.remove(at: si) } else { stores[si].lines = lines }
+        } else if !lines.isEmpty {
+            stores.append(StoreCart(listing: listing, lines: lines))
+        }
     }
     public func remove(_ itemId: String) {
-        lines.removeAll { $0.item.id == itemId }
-        if lines.isEmpty { shop = nil }
+        stores = stores.compactMap { st in
+            var st = st; st.lines.removeAll { $0.item.id == itemId }
+            return st.lines.isEmpty ? nil : st
+        }
     }
-    /// The user agreed to drop the old shop's cart and start with the item they just tapped.
-    public func confirmSwitch() {
-        guard let p = pendingSwitch else { return }
-        pendingSwitch = nil; clear(); add(p.listing, p.item, p.delta)
-    }
-    public func dismissSwitch() { pendingSwitch = nil }
-    public func clear() { lines = []; shop = nil; pendingSwitch = nil }
+    public func clearStore(_ listingId: String) { stores.removeAll { $0.listing.id == listingId } }
+    public func clear() { stores = [] }
 
     /// True when the shop has its own delivery riders (listing_members with role STORE_RIDER is readable by everyone).
     public func hasStoreRiders(_ listingId: String) async throws -> Bool {
         try await Backend.shared.shopMembers(listingId).contains { $0.role == "STORE_RIDER" }
     }
 
-    /// Places the order with the drop at `drop`, the phone's real position (nil until a fix arrives). Delivery needs it:
-    /// the rider's map and the fee are worked out from it, so without one only pick-up can be placed. The server prices the lines and adds the delivery fee.
-    public func checkout(mode: String, payment: String, dropLabel: String, drop: LatLng?, onPlaced: @escaping (String) -> Void) {
+    /// Places one order per store in the cart, each with its own delivery mode and payment, one after another. The drop is the phone's
+    /// real location (nil until a fix arrives; only pick-up can be placed without it). A store whose order fails stays in the cart with
+    /// its reason in a toast; the ones that went through are removed. `onDone` gets the ids of the orders placed, in order.
+    public func checkoutAll(choices: [String: Choice], drop: LatLng?, onDone: @escaping ([String]) -> Void) {
         go {
-            guard let s = self.shop else { self.toast("Your cart is empty."); return }
-            let ls = self.lines.compactMap { l in l.item.id.map { (itemId: $0, qty: l.qty) } }.filter { $0.qty > 0 }
-            if ls.isEmpty { self.toast("Your cart is empty."); return }
-            let at: LatLng
-            if let drop { at = drop }
-            else if mode == "PICKUP" { at = self.session.here }
-            else { self.toast("Turn on location to get it delivered, or choose pick-up."); return }
             if self.placing { return }
+            let todo = self.stores
+            if todo.isEmpty { self.toast("Your cart is empty."); return }
             self.placing = true
             defer { self.placing = false }
-            let id = try await Backend.shared.placeOrder(listingId: s.id, lines: ls, drop: at, dropLabel: dropLabel.trimmingCharacters(in: .whitespacesAndNewlines), payment: payment, mode: mode)
-            self.clear(); self.toast("Order placed. \(s.title) has 5 minutes to accept.")
-            self.refreshMyOrders(); onPlaced(id)
+            var placed: [String] = [], failed = 0, shipped = 0
+            for st in todo {
+                guard let c = choices[st.listing.id] else { continue }
+                let ls = st.lines.compactMap { l in l.item.id.map { (itemId: $0, qty: l.qty) } }.filter { $0.qty > 0 }
+                if ls.isEmpty { continue }
+                do {
+                    let id: String
+                    if c.mode == "SHIP" {
+                        guard let a = c.address else { failed += 1; self.toast("Add a delivery address for \(st.listing.title)'s order."); continue }
+                        id = try await Backend.shared.placeShipOrder(listingId: st.listing.id, lines: ls, address: a.json, payment: c.payment)
+                        shipped += 1
+                    } else {
+                        let at: LatLng? = drop ?? (c.mode == "PICKUP" ? self.session.here : nil)
+                        guard let at else { failed += 1; self.toast("Turn on location to get \(st.listing.title)'s order delivered, or choose pick-up."); continue }
+                        id = try await Backend.shared.placeOrder(listingId: st.listing.id, lines: ls, drop: at, dropLabel: c.dropLabel.trimmingCharacters(in: .whitespacesAndNewlines), payment: c.payment, mode: c.mode)
+                    }
+                    placed.append(id); self.clearStore(st.listing.id)
+                } catch is CancellationError { throw CancellationError() }
+                catch { failed += 1; self.toast("\(st.listing.title): \(friendlyError(error))") }
+            }
+            if !placed.isEmpty {
+                self.toast(placed.count == 1 && shipped == 1 ? "Order placed. The shop has 24 hours to accept and ship it."
+                           : placed.count == 1 ? "Order placed. The shop has 5 minutes to accept."
+                           : "\(placed.count) orders placed, each delivered separately. Shops that ship have 24 hours to accept; local shops 5 minutes.")
+                self.refreshMyOrders(); onDone(placed)
+            } else if failed == 0 { self.toast("Nothing to place.") }
+        }
+    }
+
+    // MARK: address book (delivery addresses for shipped orders)
+
+    public private(set) var addresses: [AddressRow] = []
+    public private(set) var addressesLoaded = false
+    public func loadAddresses() { go { self.addresses = try await Backend.shared.addresses(); self.addressesLoaded = true } }
+    /// Saves a new address or edits one (id set); `onSaved` gets the saved row so checkout can pick it.
+    public func saveAddress(_ a: AddressRow, onSaved: @escaping (AddressRow) -> Void = { _ in }) {
+        go {
+            guard let me = self.session.me?.id else { return }
+            let saved = try await Backend.shared.saveAddress(me: me, a)
+            self.addresses = try await Backend.shared.addresses(); self.addressesLoaded = true
+            self.toast("Address saved."); onSaved(saved)
+        }
+    }
+    public func deleteAddress(_ id: String) {
+        go { try await Backend.shared.deleteAddress(id); self.addresses.removeAll { $0.id == id }; self.toast("Address deleted.") }
+    }
+
+    // MARK: shipping (shop side and buyer side)
+
+    /// The shop hands an accepted shipped order to a carrier; the customer is told and sees the tracking.
+    public func shipOrder(_ id: String, carrier: String, tracking: String, url: String, then: @escaping () -> Void = {}) {
+        act(id) {
+            try await Backend.shared.shipOrder(id, carrier: carrier, tracking: tracking, url: url)
+            self.toast("Marked shipped. The customer has been told."); await self.refreshVendorOrder(id); then()
+        }
+    }
+    /// The buyer received it, or the shop delivered it itself: closes the shipped order.
+    public func markDelivered(_ id: String) {
+        act(id) {
+            try await Backend.shared.markDelivered(id); self.toast("Marked delivered.")
+            _ = try await self.order(id); self.refreshMyOrders(); await self.refreshVendorOrder(id)
         }
     }
 
@@ -178,6 +248,7 @@ public final class CommerceStore {
     /// Sign-out and account deletion: nothing of this person's cart, orders or shop inbox stays for the next account on the phone.
     public func signedOut() {
         stopOrders(); clear(); placing = false
+        addresses = []; addressesLoaded = false
         myOrders = []; myOrdersLoaded = false; listingTitles = [:]; orders = [:]
         vendorOrders = []; vendorLoaded = false; actingOn = []
     }

@@ -487,9 +487,22 @@ public struct VoteButton: View {
 
 // MARK: - Top bar
 
+/// The cart shortcut shown next to Messages in every top bar that has Messages: the piece count for the badge and what a tap does.
+/// Provided once by the signed-in shell (`.environment(\.bucksCartAction, …)`); nil hides it (Android's LocalCartAction).
+public struct CartAction {
+    public var count: Int
+    public var open: () -> Void
+    public init(count: Int, open: @escaping () -> Void) { self.count = count; self.open = open }
+}
+private struct CartActionKey: EnvironmentKey { static let defaultValue: CartAction? = nil }
+public extension EnvironmentValues {
+    var bucksCartAction: CartAction? { get { self[CartActionKey.self] } set { self[CartActionKey.self] = newValue } }
+}
+
 public struct BucksTopBar<Actions: View>: View {
     var title: String?; var onBack: (() -> Void)?; var onMenu: (() -> Void)?; var unread: Int; var onChat: (() -> Void)?
     let actions: Actions
+    @Environment(\.bucksCartAction) private var cart
     public init(title: String? = nil, onBack: (() -> Void)? = nil, onMenu: (() -> Void)? = nil, unread: Int = 0, onChat: (() -> Void)? = nil, @ViewBuilder actions: () -> Actions) {
         self.title = title; self.onBack = onBack; self.onMenu = onMenu; self.unread = unread; self.onChat = onChat; self.actions = actions()
     }
@@ -503,6 +516,14 @@ public struct BucksTopBar<Actions: View>: View {
                 else { BucksWordmark(height: 26) }
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4)
             actions
+            if onChat != nil, let cart {
+                Button(action: cart.open) {
+                    Image(systemName: "cart.fill").font(.system(size: 20)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)
+                        .overlay(alignment: .topTrailing) {
+                            if cart.count > 0 { Text(cart.count > 99 ? "99+" : "\(cart.count)").font(.bucks(.labelSmall)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.purple)).offset(x: -2, y: 4) }
+                        }
+                }.buttonStyle(.plain).accessibilityLabel(cart.count > 0 ? "Cart, \(cart.count) item\(cart.count == 1 ? "" : "s")" : "Cart")
+            }
             if let onChat {
                 Button(action: onChat) {
                     Image(systemName: "message.fill").font(.system(size: 21)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)

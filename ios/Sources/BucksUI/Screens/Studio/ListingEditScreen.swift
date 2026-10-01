@@ -57,6 +57,11 @@ private struct ListingForm: View {
     @State private var freeDelivery: Bool
     @State private var radius: String
     @State private var cod: Bool
+    // E-commerce: ship anywhere in India by courier (customers far away can only order this way).
+    @State private var ships: Bool
+    @State private var shipFee: String
+    @State private var freeAbove: String
+    @State private var dispatchDays: String
     @State private var level: String
     @State private var rate: String
     @State private var languages: Set<String>
@@ -92,6 +97,10 @@ private struct ListingForm: View {
         _freeDelivery = State(initialValue: d.sBool("free_delivery"))
         _radius = State(initialValue: d.sInt("delivery_radius_km").map(String.init) ?? "3")
         _cod = State(initialValue: d.sBool("cod"))
+        _ships = State(initialValue: d.sBool("ships_india"))
+        _shipFee = State(initialValue: d.sInt("ship_fee").map(String.init) ?? "")
+        _freeAbove = State(initialValue: d.sInt("free_ship_above").map(String.init) ?? "")
+        _dispatchDays = State(initialValue: d.sStr("dispatch_days"))
         _level = State(initialValue: d.sStr("level").isEmpty ? "Intermediate" : d.sStr("level"))
         _rate = State(initialValue: d.sStr("rate"))
         _languages = State(initialValue: Set(d.sStrings("languages")))
@@ -195,7 +204,15 @@ private struct ListingForm: View {
         SectionTitle("Delivery and payment").padding(.top, 6).padding(.bottom, 4)
         SwitchRow(title: "Free delivery", detail: "You pay the rider's fee instead of the customer.", isOn: $freeDelivery)
         BucksField(digits($radius, 2), label: "Delivery radius (km)", placeholder: "3", keyboard: .number)
-        SwitchRow(title: "Cash on delivery", detail: "Only with your own store riders, who collect the cash. Add riders under Members.", isOn: $cod)
+        SwitchRow(title: "Cash on delivery", detail: "With your own store riders, or with the courier on shipped orders. You collect the cash.", isOn: $cod)
+        SectionTitle("Ship across India").padding(.top, 14).padding(.bottom, 4)
+        SwitchRow(title: "Ship by courier", detail: "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", isOn: $ships)
+        if ships {
+            BucksField(digits($shipFee, 5), label: "Shipping fee (₹)", placeholder: "99, or 0 for free shipping", keyboard: .number)
+            BucksField(digits($freeAbove, 6), label: "Free shipping above (₹)", placeholder: "1999, or leave empty for none", keyboard: .number)
+            BucksField(limited($dispatchDays, 30), label: "Ships in (days)", placeholder: "2 to 4")
+            Muted("Buyers pay the items and the shipping to you (UPI, or cash on delivery if you turned it on). You have 24 hours to accept each order.").padding(.bottom, 8)
+        }
     }
 
     @ViewBuilder private var skill: some View {
@@ -313,6 +330,11 @@ private struct ListingForm: View {
         case "BUSINESS":
             d["hours"] = .string(hours.trimmingCharacters(in: .whitespaces)); d["free_delivery"] = .bool(freeDelivery)
             d["delivery_radius_km"] = .number(Double(Int(radius) ?? 0)); d["cod"] = .bool(cod)
+            d["ships_india"] = .bool(ships)
+            if ships {
+                d["ship_fee"] = .number(Double(Int(shipFee) ?? 0)); d["free_ship_above"] = .number(Double(Int(freeAbove) ?? 0))
+                d["dispatch_days"] = .string(dispatchDays.trimmingCharacters(in: .whitespaces))
+            }
         case "SKILL":
             d["level"] = .string(level); d["rate"] = .string(rate.trimmingCharacters(in: .whitespaces)); d["languages"] = langs
         case "ASSET":

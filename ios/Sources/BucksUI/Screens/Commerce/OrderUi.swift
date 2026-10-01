@@ -16,7 +16,7 @@ func rupees(_ n: Int) -> String {
 func shortOrderId(_ id: String) -> String { String(id.replacingOccurrences(of: "-", with: "").suffix(6)).uppercased() }
 
 func deliveryModeLabel(_ mode: String) -> String {
-    switch mode { case "STORE_RIDER": "Store's own rider"; case "PICKUP": "Pick up from the shop"; default: "Delivery by a Bucks rider" }
+    switch mode { case "STORE_RIDER": "Store's own rider"; case "PICKUP": "Pick up from the shop"; case "SHIP": "Shipped to an address"; default: "Delivery by a Bucks rider" }
 }
 func paymentLabel(_ payment: String) -> String { payment == "COD" ? "Cash on delivery" : "UPI" }
 
@@ -27,6 +27,7 @@ func orderStatusLabel(_ status: String, _ mode: String = "MARKETPLACE") -> Strin
     case "ACCEPTED": "Accepted"
     case "READY": mode == "PICKUP" ? "Ready to collect" : "Packed"
     case "PICKED_UP": "On the way"
+    case "SHIPPED": "Shipped"
     case "DELIVERED": mode == "PICKUP" ? "Collected" : "Delivered"
     case "REJECTED": "Not accepted"
     case "CANCELLED": "Cancelled"
@@ -34,7 +35,7 @@ func orderStatusLabel(_ status: String, _ mode: String = "MARKETPLACE") -> Strin
     }
 }
 func orderDone(_ status: String) -> Bool { ["DELIVERED", "REJECTED", "CANCELLED"].contains(status) }
-func orderLive(_ status: String) -> Bool { ["PLACED", "ACCEPTED", "READY", "PICKED_UP"].contains(status) }
+func orderLive(_ status: String) -> Bool { ["PLACED", "ACCEPTED", "READY", "PICKED_UP", "SHIPPED"].contains(status) }
 
 @ViewBuilder func OrderStatusPill(_ status: String, _ mode: String = "MARKETPLACE") -> some View {
     switch status {
@@ -73,7 +74,9 @@ struct OrderTotals: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack { Muted("Items").frame(maxWidth: .infinity, alignment: .leading); Muted(rupees(o.subtotal)) }.padding(.top, 6)
-            if o.deliveryMode != "PICKUP" {
+            if o.deliveryMode == "SHIP" {
+                HStack { Muted("Shipping").frame(maxWidth: .infinity, alignment: .leading); Muted(o.deliveryFee == 0 ? "Free" : rupees(o.deliveryFee)) }.padding(.top, 4)
+            } else if o.deliveryMode != "PICKUP" {
                 HStack {
                     Muted(o.feeAtDoor > 0 ? "Delivery fee · to the rider" : "Delivery fee").frame(maxWidth: .infinity, alignment: .leading)
                     Muted(o.feePaidBy == "VENDOR" ? "\(rupees(o.deliveryFee)) · \(forShop ? "paid by you" : "paid by the shop")" : rupees(o.deliveryFee))
@@ -155,6 +158,8 @@ struct OrderTimeline: View {
     let task: TaskRow?
     var forShop = false
     var cancelledBy: String?
+    /// The carrier of a shipped order, for the Shipped step.
+    var carrier = ""
     var ringWindowS = 180
 
     var body: some View {
@@ -167,7 +172,7 @@ struct OrderTimeline: View {
         let detail: String
         if status == "REJECTED" {
             head = forShop ? "This order wasn't taken" : "The shop didn't take this order"
-            detail = forShop ? "It was rejected or not accepted within 5 minutes. The customer wasn't charged." : "Either they were too busy or they didn't respond within 5 minutes. Nothing has been charged. Try another shop nearby."
+            detail = forShop ? "It was rejected or not accepted in time. The customer wasn't charged." : "Either they were too busy or they didn't respond in time. Nothing has been charged. Try another shop."
         } else if byShop {
             head = forShop ? "You cancelled this order" : "The shop cancelled this order"
             detail = forShop ? "If the customer already paid you by UPI, refund them." : "If you already paid by UPI, the shop owes you a refund. Call them if it hasn't reached you."
@@ -185,25 +190,32 @@ struct OrderTimeline: View {
     }
 
     private var steps: some View {
-        let pickup = mode == "PICKUP"
-        let list: [(String, String)] = pickup
+        let pickup = mode == "PICKUP", ship = mode == "SHIP"
+        let list: [(String, String)] = ship
+            ? [("PLACED", "Order placed"), ("ACCEPTED", "Shop accepted"), ("SHIPPED", "Shipped"), ("DELIVERED", "Delivered")]
+            : pickup
             ? [("PLACED", "Order placed"), ("ACCEPTED", "Shop accepted"), ("READY", "Ready to collect"), ("DELIVERED", "Collected")]
             : [("PLACED", "Order placed"), ("ACCEPTED", "Shop accepted"), ("PICKED_UP", "Rider picked it up"), ("DELIVERED", "Delivered")]
-        let order = ["PLACED", "ACCEPTED", "READY", "PICKED_UP", "DELIVERED"]
+        let order = ["PLACED", "ACCEPTED", "READY", "PICKED_UP", "SHIPPED", "DELIVERED"]
         let at = max(order.firstIndex(of: status) ?? 0, 0)
         let cur = (!pickup && status == "READY") ? "ACCEPTED" : status
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(list.enumerated()), id: \.offset) { i, step in
                 let idx = order.firstIndex(of: step.0) ?? 0
-                StatusLine(step.1, detail: detail(step.0, pickup: pickup), done: idx < at && step.0 != cur, now: step.0 == cur, last: i == list.count - 1)
+                StatusLine(step.1, detail: detail(step.0, pickup: pickup, ship: ship), done: idx < at && step.0 != cur, now: step.0 == cur, last: i == list.count - 1)
             }
         }
     }
 
-    private func detail(_ key: String, pickup: Bool) -> String {
+    private func detail(_ key: String, pickup: Bool, ship: Bool) -> String {
+        let via = carrier.trimmingCharacters(in: .whitespaces).isEmpty ? "the carrier" : carrier
         switch key {
-        case "PLACED": return forShop ? "Accept or reject within 5 minutes." : "The shop has 5 minutes to accept."
+        case "PLACED":
+            if ship { return forShop ? "Accept or reject within 24 hours." : "The shop has 24 hours to accept." }
+            return forShop ? "Accept or reject within 5 minutes." : "The shop has 5 minutes to accept."
+        case "SHIPPED": return forShop ? "With \(via). Mark it delivered when it arrives, or the customer will confirm." : "On its way with \(via). Tap I received it when it arrives."
         case "ACCEPTED":
+            if ship { return forShop ? "Pack it and tap Mark shipped with the carrier and tracking number." : "They're packing it. You'll get the tracking number when it ships." }
             if pickup { return forShop ? "Get it ready, then mark it ready to collect." : "They're getting it ready." }
             if forShop { return status == "READY" ? "Packed. Hand it to the rider; they enter the customer's PIN when collecting." : "A rider is being rung. Mark it packed when it's ready to hand over." }
             // A request still SEARCHING past the ring window has run out, even before the server's expiry has marked it (same rule as the delivery tracker).

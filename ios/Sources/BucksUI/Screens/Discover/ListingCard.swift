@@ -12,17 +12,22 @@ struct DiscoverListingCard: View {
 
     init(hit: SearchHit, onTap: (() -> Void)? = nil) {
         card = Model(id: hit.id, kind: hit.kind, title: hit.title, category: hit.category, area: hit.area, online: hit.online, photoUrl: hit.photoUrl, distanceM: hit.distanceM,
-                     trust: Trust(up: hit.trustUp, down: hit.trustDown), line: Self.kindLine(kind: hit.kind, details: hit.details, category: hit.category, description: hit.description, matchedItem: hit.matchedItem, minPrice: hit.minPrice))
+                     ships: hit.details.str("ships_india") == "true" || hit.details["ships_india"]?.bool == true, trust: Trust(up: hit.trustUp, down: hit.trustDown), line: Self.kindLine(kind: hit.kind, details: hit.details, category: hit.category, description: hit.description, matchedItem: hit.matchedItem, minPrice: hit.minPrice))
         self.onTap = onTap
     }
     /// From a full listing row (no distance or price known).
     init(listing l: ListingRow, onTap: (() -> Void)? = nil) {
-        card = Model(id: l.id, kind: l.kind, title: l.title, category: l.category, area: l.area, online: l.online, photoUrl: l.photoUrl, distanceM: nil,
+        card = Model(id: l.id, kind: l.kind, title: l.title, category: l.category, area: l.area, online: l.online, photoUrl: l.photoUrl, distanceM: nil, ships: false,
                      trust: Trust(up: l.trustUp, down: l.trustDown), line: Self.kindLine(kind: l.kind, details: l.details, category: l.category, description: l.description, matchedItem: nil, minPrice: nil))
         self.onTap = onTap
     }
 
-    private struct Model { var id, kind, title, category, area: String; var online: Bool; var photoUrl: String?; var distanceM: Double?; var trust: Trust; var line: String }
+    private struct Model { var id, kind, title, category, area: String; var online: Bool; var photoUrl: String?; var distanceM: Double?; var ships: Bool; var trust: Trust; var line: String }
+    /// A store that ships shows "Ships across India" instead of a distance that means nothing to a buyer far away.
+    private var where_: String? {
+        guard let m = card.distanceM else { return nil }
+        return card.ships && m > 25_000 ? "Ships across India" : formatDistance(m)
+    }
 
     var body: some View {
         BucksCard(onTap: { if let onTap { onTap() } else { router.push(.listing(card.id)) } }, padding: 12) {
@@ -34,7 +39,7 @@ struct DiscoverListingCard: View {
                         KindBadge(kind: card.kind).fixedSize()
                         Spacer(minLength: 0)
                     }
-                    Muted([card.category.isEmpty ? nil : card.category, card.distanceM.map(formatDistance), card.area.isEmpty ? nil : card.area].compactMap { $0 }.joined(separator: " · "), maxLines: 1)
+                    Muted([card.category.isEmpty ? nil : card.category, where_, card.area.isEmpty ? nil : card.area].compactMap { $0 }.joined(separator: " · "), maxLines: 1)
                     HStack(spacing: 6) { OnlineDot(online: card.online); Muted(onlineText(card.kind, card.online), maxLines: 1) }.padding(.top, 4)
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }

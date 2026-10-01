@@ -120,13 +120,19 @@ struct MainStack: View {
             if showIntro { BrandIntro { showIntro = false; IntroState.pending = false }.transition(.opacity) }
         }
         .environment(\.openBucksMenu, { withAnimation(.easeOut(duration: 0.25)) { router.menuOpen = true } })
+        // The cart next to Messages in every top bar (cloud builds), with the piece count across every shop in it.
+        .environment(\.bucksCartAction, session.cloud ? CartAction(count: session.commerce.count) { if router.path.last != .cart { router.push(.cart) } } : nil)
         .animation(.easeOut(duration: 0.25), value: session.dispatch.driverRide?.id)
         .confirmationGate()
         .rideRing(session.dispatch.driverRide?.status == .ringing)
         .bucksPushRouting()
         .onChange(of: RideKey(id: session.dispatch.ride?.id, status: session.dispatch.ride?.status)) { old, new in rideChanged(from: old, to: new) }
         .onChange(of: session.dispatch.driverRide?.id) { _, _ in tripRestored() }
-        .onChange(of: session.dispatch.driverRide?.status) { old, new in if old == .ringing, new == .toPickup { router.select(.home) } }
+        .onChange(of: session.dispatch.driverRide?.status) { old, new in
+            if old == .ringing, new == .toPickup { router.select(.home) }
+            // A request ringing for me brings Home, where the accept card and the map are, to the front (Android does the same).
+            if new == .ringing, old != .ringing, session.dispatch.ride == nil, !(router.tab == .home && router.path.isEmpty) { router.select(.home) }
+        }
         // Going online (or arriving already online): say so when a request could not ring the phone outside the app. Waits for the intro.
         .task(id: [session.dispatch.online, showIntro]) {
             guard session.dispatch.online, !showIntro, !RootView.previewSkipPrompts else { return }

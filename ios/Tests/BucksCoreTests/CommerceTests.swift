@@ -26,24 +26,24 @@ import Testing
          "fee_paid_by": paidBy, "delivery_mode": mode, "payment": "UPI", "drop_label": "4th block", "status": status, "accept_by": "2026-10-01T10:05:00+00:00", "created_at": "2026-10-01T10:00:00+00:00"]
     }
 
-    @Test func cartHoldsOneShopAndAsksBeforeSwitching() {
-        let s = AppSession()
+    @Test func eachShopIsItsOwnPartOfTheCart() {
+        let s = AppSession(); var toasts: [String] = []; s.toastHandler = { toasts.append($0) }
         let c = s.commerce
         let a = listing("L1"), b = listing("L2", "Other")
         c.add(a, item("i1", 100), 2); c.add(a, item("i2", 50), 1); c.add(a, item("i1", 100), 1)
-        #expect(c.count == 4); #expect(c.subtotal == 350); #expect(c.qty("i1") == 3); #expect(c.shop?.id == "L1")
-        // Another shop: nothing changes, the UI is asked.
-        c.add(b, item("j1", 10, listing: "L2"), 1)
-        #expect(c.count == 4); #expect(c.pendingSwitch?.listing.id == "L2")
-        c.dismissSwitch(); #expect(c.pendingSwitch == nil); #expect(c.shop?.id == "L1")
-        // A removal from another shop never asks.
-        c.add(b, item("j1", 10, listing: "L2"), -1); #expect(c.pendingSwitch == nil)
-        c.add(b, item("j1", 10, listing: "L2"), 2); c.confirmSwitch()
-        #expect(c.shop?.id == "L2"); #expect(c.count == 2); #expect(c.qty("i1") == 0)
-        // Going down to zero drops the line and the shop.
+        #expect(c.count == 4); #expect(c.subtotal == 350); #expect(c.qty("i1") == 3); #expect(c.stores.map(\.listing.id) == ["L1"])
+        // Another shop joins the cart as its own part (its own order at checkout), nothing is asked or dropped.
+        c.add(b, item("j1", 10, listing: "L2"), 2)
+        #expect(c.stores.map(\.listing.id) == ["L1", "L2"]); #expect(c.count == 6); #expect(c.subtotal == 370); #expect(c.stores[1].amount == 20)
+        // Going down to zero drops the line, and a store with no lines left.
         c.add(b, item("j1", 10, listing: "L2"), -5)
-        #expect(c.lines.isEmpty); #expect(c.shop == nil)
-        c.add(a, item("i1", 100), 1); c.remove("i1"); #expect(c.shop == nil)
+        #expect(c.stores.map(\.listing.id) == ["L1"]); #expect(c.qty("j1") == 0)
+        c.remove("i2"); #expect(c.stores.first?.lines.map(\.item.id) == ["i1"])
+        c.clearStore("L1"); #expect(c.stores.isEmpty); #expect(c.count == 0)
+        // Never more than the shop has in stock.
+        var few = item("k1", 30); few.stock = 2
+        c.add(a, few, 5); #expect(c.qty("k1") == 2)
+        c.add(a, few, 1); #expect(c.qty("k1") == 2); #expect(toasts.last == "Only 2 of Item k1 in stock.")
     }
 
     @Test func orderMoneyFollowsWhoPaysTheRider() throws {
@@ -70,10 +70,10 @@ import Testing
         let s = AppSession(); s.me = ProfileRow(id: "me", shortCode: "ME0001", name: "Asha Rao")
         let c = s.commerce
         c.add(listing("L1"), item("i1", 120), 2)
-        var placed: String?
-        c.checkout(mode: "MARKETPLACE", payment: "UPI", dropLabel: "  4th block ", drop: LatLng(12.93, 77.58)) { placed = $0 }
+        var placed: [String]?
+        c.checkoutAll(choices: ["L1": .init(mode: "MARKETPLACE", payment: "UPI", dropLabel: "  4th block ")], drop: LatLng(12.93, 77.58)) { placed = $0 }
         #expect(await wait { placed != nil })
-        #expect(placed == "o-1"); #expect(c.lines.isEmpty); #expect(c.shop == nil); #expect(!c.placing)
+        #expect(placed == ["o-1"]); #expect(c.stores.isEmpty); #expect(!c.placing)
         let b = try #require(call("/rest/v1/rpc/place_order").first).body
         #expect(Set(b.keys) == ["p_listing", "p_lines", "p_lat", "p_lng", "p_drop_label", "p_payment", "p_mode"])
         #expect(b["p_listing"] as? String == "L1"); #expect(b["p_drop_label"] as? String == "4th block")
@@ -86,19 +86,65 @@ import Testing
         #expect(call("/rest/v1/orders").first?.query.contains("order=created_at.desc") == true)
     }
 
+    @Test func twoShopsAreTwoOrdersAndAFailedOneStaysInTheCart() async throws {
+        boot { path, _, body in
+            switch path {
+            case "/rest/v1/rpc/place_order":
+                return body["p_listing"] as? String == "L2" ? (400, ["message": "this shop is closed right now"]) : (200, "o-1")
+            case "/rest/v1/rpc/place_order_ship": return (200, "o-3")
+            default: return (200, [Any]())
+            }
+        }
+        let s = AppSession(); s.me = ProfileRow(id: "me", shortCode: "ME0001", name: "Asha Rao")
+        var toasts: [String] = []; s.toastHandler = { toasts.append($0) }
+        let c = s.commerce
+        c.add(listing("L1"), item("i1", 120), 1); c.add(listing("L2", "Corner Shop"), item("j1", 40, listing: "L2"), 1); c.add(listing("L3", "Silk House"), item("k1", 900, listing: "L3"), 1)
+        let home = AddressRow(name: "Asha Rao", phone: "9876543210", line1: "12 MG Road", city: "Mysuru", state: "Karnataka", pincode: "570001")
+        var placed: [String]?
+        c.checkoutAll(choices: ["L1": .init(mode: "PICKUP", payment: "UPI", dropLabel: "Jayanagar"),
+                                "L2": .init(mode: "MARKETPLACE", payment: "UPI", dropLabel: "Home"),
+                                "L3": .init(mode: "SHIP", payment: "COD", dropLabel: "", address: home)], drop: LatLng(12.93, 77.58)) { placed = $0 }
+        #expect(await wait { placed != nil })
+        #expect(placed == ["o-1", "o-3"])
+        // The shop that refused stays in the cart with its reason; the others are cleared.
+        #expect(c.stores.map(\.listing.id) == ["L2"])
+        #expect(toasts.contains("Corner Shop: This shop is closed right now"))
+        let ship = try #require(call("/rest/v1/rpc/place_order_ship").first).body
+        #expect(Set(ship.keys) == ["p_listing", "p_lines", "p_address", "p_payment"])
+        #expect(ship["p_payment"] as? String == "COD")
+        let addr = try #require(ship["p_address"] as? [String: Any])
+        #expect(addr["pincode"] as? String == "570001"); #expect(addr["phone"] as? String == "9876543210"); #expect(addr["line2"] as? String == "")
+    }
+
     @Test func deliveryWithoutAPositionIsNotPlaced() async throws {
         boot { _, _, _ in (404, ["message": "no stub"]) }
         let s = AppSession(); var toasts: [String] = []; s.toastHandler = { toasts.append($0) }
         let c = s.commerce
         c.add(listing("L1"), item("i1", 120), 1)
-        c.checkout(mode: "MARKETPLACE", payment: "UPI", dropLabel: "x", drop: nil) { _ in }
+        c.checkoutAll(choices: ["L1": .init(mode: "MARKETPLACE", payment: "UPI", dropLabel: "x")], drop: nil) { _ in }
         #expect(await wait { !toasts.isEmpty })
-        #expect(toasts.first == "Turn on location to get it delivered, or choose pick-up.")
+        #expect(toasts.first == "Turn on location to get Fresh Mart's order delivered, or choose pick-up.")
         #expect(call("/rest/v1/rpc/place_order").isEmpty); #expect(c.count == 1)
+        // A shipped order needs an address.
+        toasts = []
+        c.checkoutAll(choices: ["L1": .init(mode: "SHIP", payment: "UPI", dropLabel: "")], drop: nil) { _ in }
+        #expect(await wait { !toasts.isEmpty }); #expect(toasts.first == "Add a delivery address for Fresh Mart's order.")
         // Empty cart.
         c.clear(); toasts = []
-        c.checkout(mode: "PICKUP", payment: "UPI", dropLabel: "", drop: nil) { _ in }
+        c.checkoutAll(choices: [:], drop: nil) { _ in }
         #expect(await wait { !toasts.isEmpty }); #expect(toasts.first == "Your cart is empty.")
+    }
+
+    @Test func shippedOrdersCarryTheirAddressAndTracking() throws {
+        var j = orderJSON(status: "SHIPPED", mode: "SHIP")
+        j["ship_to"] = ["name": "Asha Rao", "phone": "9876543210", "line1": "12 MG Road", "line2": "", "city": "Mysuru", "state": "Karnataka", "pincode": "570001"]
+        j["carrier"] = "DTDC"; j["tracking_no"] = "D123"; j["tracking_url"] = "https://dtdc.in/t/D123"; j["shipped_at"] = "2026-10-01T11:00:00+00:00"
+        let o = try Backend.decoder.decode(CloudOrderRow.self, from: JSONSerialization.data(withJSONObject: j))
+        #expect(o.shipped); #expect(o.carrier == "DTDC"); #expect(o.trackingNo == "D123"); #expect(o.shippedAt != nil)
+        #expect(o.shipToText == "Asha Rao\n9876543210\n12 MG Road\nMysuru, Karnataka 570001")
+        // Older rows without the shipping columns still decode.
+        let plain = try Backend.decoder.decode(CloudOrderRow.self, from: JSONSerialization.data(withJSONObject: orderJSON()))
+        #expect(!plain.shipped); #expect(plain.carrier.isEmpty); #expect(plain.shipToText.isEmpty)
     }
 
     @Test func vendorAndBuyerActionsUseTheOrderFunctions() async throws {

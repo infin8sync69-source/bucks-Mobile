@@ -9,6 +9,7 @@ struct VendorOrdersScreen: View {
     @Environment(Router.self) private var router
     @State private var filter = "New"
     @State private var rejectFor: CloudOrderRow?
+    @State private var shipFor: CloudOrderRow?
     @State private var now = Int64(Date().timeIntervalSince1970 * 1000)
     @State private var seenTick = 0
 
@@ -20,7 +21,7 @@ struct VendorOrdersScreen: View {
     var body: some View {
         let all = commerce.vendorOrders
         let newOnes = all.filter { $0.status == "PLACED" }
-        let active = all.filter { ["ACCEPTED", "READY", "PICKED_UP"].contains($0.status) }
+        let active = all.filter { ["ACCEPTED", "READY", "PICKED_UP", "SHIPPED"].contains($0.status) }
         let done = all.filter { orderDone($0.status) }
         let shown = filter == "New" ? newOnes : filter == "Active" ? active : done
         return ContentColumn {
@@ -59,6 +60,7 @@ struct VendorOrdersScreen: View {
             if let o = rejectFor { commerce.respondOrder(o.id, accept: false) }
             rejectFor = nil
         }
+        .sheet(item: $shipFor) { o in ShipSheet { c, t, u in shipFor = nil; commerce.shipOrder(o.id, carrier: c, tracking: t, url: u) } }
         .onAppear { seenTick = commerce.newOrderTick; commerce.ordersFor(listingId) }
         .onDisappear { commerce.stopOrders() }
         .task(id: listingId) { await commerce.titlesFor([listingId]) }
@@ -99,7 +101,7 @@ struct VendorOrdersScreen: View {
         VStack(spacing: 0) {
             Avatar(systemImage: filter == "New" ? "bell" : "shippingbox.fill", size: 72)
             Text(filter == "New" ? "No new orders" : filter == "Active" ? "Nothing in progress" : "No finished orders yet").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface).padding(.top, 16)
-            Muted(filter == "New" ? "Keep this screen open while the shop is online: new orders ring here and you have 5 minutes to accept each one."
+            Muted(filter == "New" ? "Keep this screen open while the shop is online: new orders ring here. Local orders must be accepted within 5 minutes, shipped orders within 24 hours."
                   : filter == "Active" ? "Accepted orders stay here until they're delivered or collected." : "Delivered, rejected and cancelled orders are kept here.", align: .center).padding(.top, 6)
         }.frame(maxWidth: .infinity).padding(Gutter).padding(.top, 40)
     }
@@ -119,7 +121,7 @@ struct VendorOrdersScreen: View {
                 if o.status == "PLACED" {
                     let left = epochMillis(o.acceptBy) - now
                     if left <= 0 { PillBad("Time's up") }
-                    else { Pill("Accept in \(mmss(left))", bg: left < 60_000 ? BucksColor.badTint : BucksColor.warnTint, fg: left < 60_000 ? BucksColor.bad : BucksColor.warn) }
+                    else { Pill("Accept in \(left > 3_600_000 ? "\(left / 3_600_000)h \(left / 60_000 % 60)m" : mmss(left))", bg: left < 60_000 ? BucksColor.badTint : BucksColor.warnTint, fg: left < 60_000 ? BucksColor.bad : BucksColor.warn) }
                 } else { OrderStatusPill(o.status, o.deliveryMode) }
             }
             Text(orderLinesSummary(o.lines)).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface).padding(.top, 10)
@@ -132,14 +134,16 @@ struct VendorOrdersScreen: View {
                 PillGrey(paymentLabel(o.payment))
             }.padding(.top, 6)
             HStack(spacing: 0) {
-                Image(systemName: o.deliveryMode == "PICKUP" ? "figure.walk" : o.deliveryMode == "STORE_RIDER" ? "storefront.fill" : "bicycle")
+                Image(systemName: o.deliveryMode == "SHIP" ? "truck.box.fill" : o.deliveryMode == "PICKUP" ? "figure.walk" : o.deliveryMode == "STORE_RIDER" ? "storefront.fill" : "bicycle")
                     .font(.system(size: 14)).foregroundStyle(BucksColor.onSurfaceVariant)
-                Muted(" \(deliveryModeLabel(o.deliveryMode))" + (o.deliveryMode != "PICKUP" && !o.dropLabel.trimmingCharacters(in: .whitespaces).isEmpty ? " · \(o.dropLabel)" : ""), maxLines: 1)
+                Muted(" \(deliveryModeLabel(o.deliveryMode))" + (o.deliveryMode != "PICKUP" && !o.dropLabel.trimmingCharacters(in: .whitespaces).isEmpty ? " · \(o.dropLabel)" : "")
+                      + (o.shipped && !o.carrier.isEmpty ? " · \(o.carrier)" + (o.trackingNo.isEmpty ? "" : " \(o.trackingNo)") : ""), maxLines: 1)
             }.padding(.top, 6)
             actions(o, busy)
             let payRider = o.deliveryMode == "MARKETPLACE" && o.feePaidBy == "VENDOR" ? " Free delivery: pay the rider \(rupees(o.deliveryFee)) when they collect it." : ""
-            if o.status == "ACCEPTED" && o.deliveryMode != "PICKUP" { Muted("A rider is being rung. Mark it packed when it's ready to hand over.\(payRider)").padding(.top, 8) }
-            if o.status == "READY" && o.deliveryMode != "PICKUP" { Muted("Hand it to the rider. They enter the customer's PIN when collecting.\(payRider)").padding(.top, 8) }
+            if o.shipped && o.status == "ACCEPTED" { Muted("Pack it, then tap Mark shipped with the carrier and tracking number.").padding(.top, 8) }
+            if o.status == "ACCEPTED" && !["PICKUP", "SHIP"].contains(o.deliveryMode) { Muted("A rider is being rung. Mark it packed when it's ready to hand over.\(payRider)").padding(.top, 8) }
+            if o.status == "READY" && !["PICKUP", "SHIP"].contains(o.deliveryMode) { Muted("Hand it to the rider. They enter the customer's PIN when collecting.\(payRider)").padding(.top, 8) }
         }
     }
 
@@ -150,10 +154,13 @@ struct VendorOrdersScreen: View {
                 SmallButton(busy ? "Working…" : "Accept", enabled: !busy) { commerce.respondOrder(o.id, accept: true) }.frame(maxWidth: .infinity)
                 SmallButton("Reject", tonal: true, enabled: !busy) { rejectFor = o }.frame(maxWidth: .infinity)
             }.padding(.top, 12)
-        case "ACCEPTED", "READY", "PICKED_UP":
+        case "ACCEPTED", "READY", "PICKED_UP", "SHIPPED":
             HStack(spacing: 8) {
                 SmallButton("Call customer", tonal: true) { call(o) }.frame(maxWidth: .infinity)
-                if o.status == "ACCEPTED" {
+                if o.shipped {
+                    if o.status == "ACCEPTED" { SmallButton(busy ? "Working…" : "Mark shipped", enabled: !busy) { shipFor = o }.frame(maxWidth: .infinity) }
+                    else if o.status == "SHIPPED" { SmallButton(busy ? "Working…" : "Mark delivered", enabled: !busy) { commerce.markDelivered(o.id) }.frame(maxWidth: .infinity) }
+                } else if o.status == "ACCEPTED" {
                     SmallButton(busy ? "Working…" : (o.deliveryMode == "PICKUP" ? "Ready to collect" : "Packed"), enabled: !busy) { commerce.updateOrderStatus(o.id, status: "READY") }.frame(maxWidth: .infinity)
                 } else if o.status == "READY" && o.deliveryMode == "PICKUP" {
                     SmallButton(busy ? "Working…" : "Collected", enabled: !busy) { commerce.updateOrderStatus(o.id, status: "DELIVERED") }.frame(maxWidth: .infinity)

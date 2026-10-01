@@ -17,6 +17,7 @@ struct CloudOrderScreen: View {
     @State private var contact: OrderContactRow?
     @State private var confirmCancel = false
     @State private var confirmReject = false
+    @State private var showShip = false
 
     init(id: String) { self.id = id }
 
@@ -47,6 +48,7 @@ struct CloudOrderScreen: View {
         }
         .bucksConfirm(isPresented: $confirmReject, title: "Reject this order?", message: "The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.",
                       confirmTitle: "Reject", cancelTitle: "Keep it", destructive: true) { commerce.respondOrder(id, accept: false) }
+        .sheet(isPresented: $showShip) { ShipSheet { c, t, u in showShip = false; commerce.shipOrder(id, carrier: c, tracking: t, url: u) } }
     }
 
     // MARK: loading
@@ -62,7 +64,7 @@ struct CloudOrderScreen: View {
             loadFailed = failed && commerce.orders[id] == nil
             if let cur = row ?? commerce.orders[id] {
                 let mine = cur.buyerId == session.me?.id
-                if mine && cur.deliveryMode != "PICKUP" && ["ACCEPTED", "READY", "PICKED_UP", "DELIVERED"].contains(cur.status) && task?.status != "COMPLETED" {
+                if mine && !["PICKUP", "SHIP"].contains(cur.deliveryMode) && ["ACCEPTED", "READY", "PICKED_UP", "DELIVERED"].contains(cur.status) && task?.status != "COMPLETED" {
                     if let t = try? await commerce.taskForOrder(id) { task = t }
                 }
                 if hasContact(cur), let c = try? await commerce.contactFor(id) { contact = c }
@@ -91,6 +93,7 @@ struct CloudOrderScreen: View {
     private var cancelMessage: String {
         guard let s = shopOrder else { return "The shop hasn't accepted it yet, so nothing is charged. Once they accept, it can't be cancelled." }
         let refund = s.payment == "UPI" ? " If they already paid you by UPI, refund them." : ""
+        if s.shipped { return "Use this when you can't fulfil the order. The customer is told it was cancelled and the stock goes back." + refund }
         if s.deliveryMode == "PICKUP" { return "Use this when the customer isn't coming to collect it. They'll be told it was cancelled." + refund }
         return "Use this when no rider has taken the delivery; once a rider has it, it can't be cancelled." + (s.payment == "UPI" ? " If the customer already paid you by UPI, refund them." : "")
     }
@@ -125,16 +128,18 @@ struct CloudOrderScreen: View {
                 BucksCard {
                     ForEach(Array(o.lines.enumerated()), id: \.offset) { _, l in OrderLineRow(line: l) }
                     OrderTotals(o: o, forShop: vendor)
-                    if o.deliveryMode != "PICKUP" && !o.dropLabel.trimmingCharacters(in: .whitespaces).isEmpty {
+                    if !["PICKUP", "SHIP"].contains(o.deliveryMode) && !o.dropLabel.trimmingCharacters(in: .whitespaces).isEmpty {
                         HStack(spacing: 0) {
                             Image(systemName: "mappin.circle.fill").font(.system(size: 14)).foregroundStyle(BucksColor.onSurfaceVariant)
                             Muted(" \(o.dropLabel)")
                         }.padding(.top, 10)
                     }
                 }.padding(.top, 14)
+                ShipToCard(o: o).padding(.top, 12)
+                ShipmentCard(o: o).padding(.top, 12)
 
                 SectionTitle("Progress").padding(.top, 22).padding(.bottom, 10)
-                OrderTimeline(status: o.status, mode: o.deliveryMode, task: task, forShop: vendor, cancelledBy: o.cancelledBy, ringWindowS: session.dispatch.ringWindowS)
+                OrderTimeline(status: o.status, mode: o.deliveryMode, task: task, forShop: vendor, cancelledBy: o.cancelledBy, carrier: o.carrier, ringWindowS: session.dispatch.ringWindowS)
 
                 if !vendor { buyerActions(o, title) } else { vendorActions(o, acting) }
                 if hasContact(o) { callButton(vendor: vendor, title: title, customer: customer) }
@@ -149,7 +154,7 @@ struct CloudOrderScreen: View {
 
     @ViewBuilder private func buyerActions(_ o: CloudOrderRow, _ title: String) -> some View {
         // The shop is paid for what it sells (and its own rider's fee); a Bucks rider's fee goes to the rider at the door.
-        let payable = o.payment == "UPI" && ["ACCEPTED", "READY", "PICKED_UP", "DELIVERED"].contains(o.status)
+        let payable = o.payment == "UPI" && ["ACCEPTED", "READY", "PICKED_UP", "SHIPPED", "DELIVERED"].contains(o.status)
         let riderNote = o.feeAtDoor > 0 ? " The rider's \(rupees(o.feeAtDoor)) fee is paid to the rider at the door, not here." : ""
         if payable {
             let upi = contact?.upiUri
@@ -168,6 +173,7 @@ struct CloudOrderScreen: View {
         } else if o.payment == "COD" && orderLive(o.status) {
             Notice("Keep \(rupees(o.total)) in cash ready for the store's rider.").padding(.top, 18)
         }
+        if o.shipped && o.status == "SHIPPED" { PrimaryButton("I received it") { commerce.markDelivered(o.id) }.padding(.top, 10) }
         if let t = task, t.status != "COMPLETED", t.status != "PAID", t.status != "CANCELLED" {
             TintButton("Track delivery") { router.push(.deliveryTrack(t.id)) }.padding(.top, 10)
         }
@@ -181,7 +187,13 @@ struct CloudOrderScreen: View {
                 SmallButton("Reject", tonal: true, enabled: !acting) { confirmReject = true }.frame(maxWidth: .infinity)
             }.padding(.top, 18)
         case "ACCEPTED":
-            PrimaryButton(acting ? "Working…" : (o.deliveryMode == "PICKUP" ? "Ready to collect" : "Packed"), enabled: !acting) { commerce.updateOrderStatus(o.id, status: "READY") }.padding(.top, 18)
+            if o.shipped {
+                PrimaryButton(acting ? "Working…" : "Mark shipped", enabled: !acting) { showShip = true }.padding(.top, 18)
+            } else {
+                PrimaryButton(acting ? "Working…" : (o.deliveryMode == "PICKUP" ? "Ready to collect" : "Packed"), enabled: !acting) { commerce.updateOrderStatus(o.id, status: "READY") }.padding(.top, 18)
+            }
+        case "SHIPPED":
+            if o.shipped { PrimaryButton(acting ? "Working…" : "Mark delivered", enabled: !acting) { commerce.markDelivered(o.id) }.padding(.top, 18) }
         case "READY":
             if o.deliveryMode == "PICKUP" {
                 PrimaryButton(acting ? "Working…" : "Collected", enabled: !acting) { commerce.updateOrderStatus(o.id, status: "DELIVERED") }.padding(.top, 18)
