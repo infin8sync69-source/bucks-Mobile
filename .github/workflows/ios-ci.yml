@@ -1,0 +1,64 @@
+# Pull-request check for the iOS app:
+#   package: builds BucksCore, BucksUI and the macOS preview harness, and runs the unit tests (swift test), no iOS SDK needed;
+#   app:     generates the Xcode project with XcodeGen and builds the app (Firebase included) for the iOS Simulator, unsigned.
+# Publishes nothing.
+name: iOS CI
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: Build (core, screens, preview harness)
+        run: |
+          swift build 2>&1 | tee build.log; status=${PIPESTATUS[0]}
+          grep -E "error:" build.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+          exit "$status"
+      - name: Unit tests
+        # --no-parallel: the tests share one global fake server
+        run: swift test --no-parallel
+
+  app:
+    runs-on: macos-15
+    timeout-minutes: 50
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v5
+      - name: XcodeGen
+        run: brew install xcodegen
+      - name: Config
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://lboxctryrktwdsvywfqp.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3hjdHJ5cmt0d2Rzdnl3ZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Nzg4NjgsImV4cCI6MjEwNjA1NDg2OH0.f723OaejTwcD3AZsASkaF6XYLMIhYmdIqVWphasImcg' }}
+        run: |
+          # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does)
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" > Config/Secrets.xcconfig
+          xcodegen generate
+      - name: Build for the iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project Bucks.xcodeproj -scheme Bucks -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO build 2>&1 | tee xcodebuild.log | grep -E "error:|warning: unre|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" xcodebuild.log || { grep -E "error:" xcodebuild.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
