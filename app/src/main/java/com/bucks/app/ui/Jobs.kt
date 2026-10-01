@@ -134,7 +134,13 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
     /** A manager opens (or reuses) a direct chat with an applicant. Applying lets the business reach them whatever their message setting; blocks still refuse. */
     fun message(applicationId: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startApplicantChat(applicationId)) }
     /** An applicant (or anyone looking at the job) messages the business through its shared listing inbox. */
-    fun messageBusiness(listingId: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startListingChat(listingId)) }
+    fun messageBusiness(listingId: String, onOpen: (String) -> Unit) = go {
+        if (messaging) return@go
+        messaging = true
+        try { onOpen(Backend.startListingChat(listingId)) } finally { messaging = false }
+    }
+    /** True while the chat with a business is being opened (the button is off, so a double tap can't open it twice). */
+    var messaging by mutableStateOf(false); private set
 
     // ---------- me as an applicant ----------
     suspend fun refreshMySkills() { val me = social.me?.id ?: return; mySkills = Backend.myListings(me).filter { it.kind == "SKILL" } }

@@ -166,13 +166,19 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
         } finally { syncing = syncing - id }
     }
 
+    /** True while a listing chat is being opened: the Message and request buttons are off, so a double tap can't send the first line twice or open two chats. */
+    var chatStarting by mutableStateOf(false); private set
     /** Opens (or reuses) my chat with the people who run a listing; [firstLine] is sent before the chat opens, e.g. a service request. */
     fun startListingChat(id: String, onOpen: (String) -> Unit, firstLine: String? = null) = go {
-        val conv = Backend.startListingChat(id)
-        val me = social.me?.id
-        if (me != null && !firstLine.isNullOrBlank()) Backend.send(conv, me, firstLine.trim())
-        social.refreshInbox()
-        onOpen(conv)
+        if (chatStarting) return@go
+        chatStarting = true
+        try {
+            val conv = Backend.startListingChat(id)
+            val me = social.me?.id
+            if (me != null && !firstLine.isNullOrBlank()) Backend.send(conv, me, firstLine.trim())
+            social.refreshInbox()
+            onOpen(conv)
+        } finally { chatStarting = false }
     }
 }
 

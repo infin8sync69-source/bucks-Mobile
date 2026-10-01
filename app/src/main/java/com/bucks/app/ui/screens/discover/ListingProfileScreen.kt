@@ -100,14 +100,14 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 Muted(listOfNotNull("${p.recommendations} in-person recommendations", "${p.syncs} synced", if (p.members > 1) "team of ${p.members}" else null).joinToString(" · "), Modifier.padding(top = 6.dp))
                 if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Bucks Pro.", Modifier.padding(top = 12.dp))
                 else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button({ message() }, Modifier.weight(1f).height(44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
+                    Button({ message() }, Modifier.weight(1f).height(44.dp), enabled = !d.chatStarting, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
                     SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
                     HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
                     p.at?.let { at -> HeaderIcon(Icons.Rounded.Place, "Directions") { com.bucks.app.ui.screens.openDirections(ctx, at, l.title) } }
                     if (l.kind == "BUSINESS" && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
                 }
-                if (l.kind == "ASSET" && !p.mine) PrimaryButton(if (l.details.str("mode") == "SELL") "Enquire about buying" else "Enquire about renting", Modifier.padding(top = 12.dp)) {
+                if (l.kind == "ASSET" && !p.mine) PrimaryButton(if (l.details.str("mode") == "SELL") "Enquire about buying" else "Enquire about renting", Modifier.padding(top = 12.dp), enabled = !d.chatStarting) {
                     d.startListingChat(id, onOpenChat, "Hi, I'm interested in ${l.title}. Is it still available?") }
                 if (l.kind == "DRIVER" && !p.mine) {
                     if (vk != null && vk.carriesPassengers) {
@@ -274,7 +274,7 @@ private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, onOpenChat: (Stri
         Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Payments, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(proRate(l.details, services.minOfOrNull { it.price }), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp)) }
         if (services.isEmpty()) {
             Muted(if (p.mine) "No services listed yet. Add them from Menu > Bucks Pro." else "No services listed yet. Describe what you need; $first confirms the price before starting.", Modifier.padding(top = 8.dp))
-            if (!p.mine) PrimaryButton("Request a visit", Modifier.padding(top = 14.dp)) { d.startListingChat(l.id, onOpenChat, "Hi, I need help with ${l.category.ifBlank { "a job" }.lowercase()}. Are you available?") }
+            if (!p.mine) PrimaryButton("Request a visit", Modifier.padding(top = 14.dp), enabled = !d.chatStarting) { d.startListingChat(l.id, onOpenChat, "Hi, I need help with ${l.category.ifBlank { "a job" }.lowercase()}. Are you available?") }
         } else {
             Column(Modifier.padding(top = 8.dp)) {
                 services.forEachIndexed { i, s ->
@@ -282,7 +282,7 @@ private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, onOpenChat: (Stri
                     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis); Muted(servicePrice(s), maxLines = 1)
                             if (s.description.isNotBlank()) Muted(s.description, maxLines = 2) }
-                        if (!p.mine) SmallButton("Request", tonal = true) { d.startListingChat(l.id, onOpenChat, "Hi, I'd like to request: ${s.name} (₹${s.price}${if (s.unit.isNotBlank()) " " + s.unit else ""}). When are you free?") }
+                        if (!p.mine) SmallButton("Request", tonal = true, enabled = !d.chatStarting) { d.startListingChat(l.id, onOpenChat, "Hi, I'd like to request: ${s.name} (₹${s.price}${if (s.unit.isNotBlank()) " " + s.unit else ""}). When are you free?") }
                     }
                 }
             }

@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import com.bucks.app.data.*
 import io.github.jan.supabase.realtime.RealtimeChannel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -99,7 +100,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     fun loadOrder(id: String) = go { order(id) }
     suspend fun taskForOrder(orderId: String): TaskRow? = Backend.taskForOrder(orderId)
     suspend fun contactFor(orderId: String): OrderContactRow? = Backend.contactForOrder(orderId)
-    fun cancelOrder(id: String, then: () -> Unit = {}) = go { Backend.cancelOrder(id); toast("Order cancelled. Nothing to pay."); order(id); refreshMyOrders(); then() }
+    fun cancelOrder(id: String, then: () -> Unit = {}) = act(id) { Backend.cancelOrder(id); toast("Order cancelled. Nothing to pay."); order(id); refreshMyOrders(); then() }
 
     // ---------- vendor inbox ----------
     var vendorOrders by mutableStateOf<List<CloudOrderRow>>(emptyList()); private set
@@ -136,17 +137,17 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     }
     fun stopOrders() {
         liveJob?.cancel(); liveJob = null
-        liveChannel?.let { ch -> scope.launch { Backend.closeChannel(ch) } }; liveChannel = null
+        liveChannel?.let { ch -> Backend.releaseChannel(ch) }; liveChannel = null
         liveListing = null
     }
     /** Owner or admin accepts (which creates the delivery task) or rejects a PLACED order. */
-    fun respondOrder(id: String, accept: Boolean) = go {
+    fun respondOrder(id: String, accept: Boolean) = act(id) {
         Backend.respondOrder(id, accept)
         toast(if (accept) "Accepted. The customer can see it is on the way." else "Rejected. The customer has been told.")
         refreshVendorOrder(id)
     }
     /** READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came). */
-    fun updateOrderStatus(id: String, status: String) = go {
+    fun updateOrderStatus(id: String, status: String) = act(id) {
         Backend.updateOrderStatus(id, status)
         toast(when (status) { "READY" -> "Marked ready."; "CANCELLED" -> "Order cancelled. The customer has been told."; else -> "Marked as collected. Thanks!" })
         refreshVendorOrder(id)
@@ -156,10 +157,18 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         orders[id] = o; vendorOrders = vendorOrders.map { if (it.id == id) o else it }
     }
 
-    private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: Exception) { toast(friendly(e)) } }
-    /** Our own database errors come back wrapped; show just the sentence we wrote. */
-    private fun friendly(e: Exception): String {
-        val m = e.message ?: return "Something went wrong. Try again."
-        return Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(m)?.groupValues?.get(1) ?: m.substringAfter("message: ", m).substringBefore("\n").take(140)
+    private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: CancellationException) { throw e } catch (e: Exception) { toast(friendlyError(e)) } }
+
+    /** Orders with an action in flight (accept, reject, packed, collected, cancel): their buttons are off, so a second tap can't fire it twice. */
+    var actingOn by mutableStateOf<Set<String>>(emptySet()); private set
+    fun isActing(orderId: String) = orderId in actingOn
+    /** One action per order at a time. Whatever went wrong (a lost answer, "cannot go from X to Y"), the order is read again so the screen shows its real status. */
+    private fun act(id: String, block: suspend () -> Unit) = scope.launch {
+        if (id in actingOn) return@launch
+        actingOn = actingOn + id
+        try { block() }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { toast(friendlyError(e)); runCatching { refreshVendorOrder(id); order(id) } }
+        finally { actingOn = actingOn - id }
     }
 }

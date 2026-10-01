@@ -19,6 +19,7 @@ import com.bucks.app.data.OrderContactRow
 import com.bucks.app.data.TaskRow
 import com.bucks.app.data.liveOrder
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.secondsSince
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.dial
 import com.bucks.app.ui.screens.ago
@@ -66,7 +67,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
     DisposableEffect(orderId) {
         val (channel, flow) = Backend.liveOrder(orderId)
         val job = scope.launch { runCatching { flow.collect { commerce.orders[it.id] = it } } }
-        onDispose { job.cancel(); scope.launch { Backend.closeChannel(channel) } }
+        onDispose { job.cancel(); Backend.releaseChannel(channel) }
     }
 
     ContentColumn(Modifier.fillMaxHeight()) {
@@ -80,7 +81,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 SmallButton("Try again", Modifier.padding(top = 18.dp)) { loadFailed = false; attempt++ } }
             o == null -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { BucksLoader() }
             else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-                val title = commerce.titleOf(o.listingId)
+                val title = commerce.titleOf(o.listingId); val acting = commerce.isActing(o.id)
                 // Anyone but the buyer who can read the order runs the shop (owner, admin); they get the shop's view.
                 val vendor = o.buyerId != social.me?.id
                 val customer = social.nameOf(o.buyerId).takeIf { it != "…" && it.isNotBlank() }
@@ -101,7 +102,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 }
 
                 SectionTitle("Progress", Modifier.padding(top = 22.dp, bottom = 10.dp))
-                OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy)
+                OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy, ringWindowS = vm.dispatch.ringWindowS)
 
                 if (!vendor) {
                     // The shop is paid for what it sells (and its own rider's fee); a Bucks rider's fee goes to the rider at the door.
@@ -121,11 +122,11 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                     if (t != null && t.status != "COMPLETED" && t.status != "PAID" && t.status != "CANCELLED") TintButton("Track delivery", Modifier.padding(top = 10.dp)) { onTrack(t.id) }
                 } else when (o.status) {
                     "PLACED" -> Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SmallButton("Accept", Modifier.weight(1f)) { commerce.respondOrder(o.id, true) }
-                        SmallButton("Reject", Modifier.weight(1f), tonal = true) { confirmReject = true }
+                        SmallButton(if (acting) "Working…" else "Accept", Modifier.weight(1f), enabled = !acting) { commerce.respondOrder(o.id, true) }
+                        SmallButton("Reject", Modifier.weight(1f), tonal = true, enabled = !acting) { confirmReject = true }
                     }
-                    "ACCEPTED" -> PrimaryButton(if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.padding(top = 18.dp)) { commerce.updateOrderStatus(o.id, "READY") }
-                    "READY" -> if (o.deliveryMode == "PICKUP") PrimaryButton("Collected", Modifier.padding(top = 18.dp)) { commerce.updateOrderStatus(o.id, "DELIVERED") }
+                    "ACCEPTED" -> PrimaryButton(if (acting) "Working…" else if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.padding(top = 18.dp), enabled = !acting) { commerce.updateOrderStatus(o.id, "READY") }
+                    "READY" -> if (o.deliveryMode == "PICKUP") PrimaryButton(if (acting) "Working…" else "Collected", Modifier.padding(top = 18.dp), enabled = !acting) { commerce.updateOrderStatus(o.id, "DELIVERED") }
                     else -> {}
                 }
                 if (hasContact(o)) {
@@ -134,7 +135,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                     GhostButton("Call $who", Modifier.padding(top = 10.dp), enabled = phone != null) { phone?.let { dial(ctx, it) } }
                 }
                 // Buyer: only before the shop answers. Shop: an accepted order no rider has taken (the server refuses once one has).
-                if ((!vendor && o.status == "PLACED") || (vendor && o.status in setOf("ACCEPTED", "READY"))) BadButton("Cancel order", Modifier.padding(top = 10.dp)) { confirmCancel = true }
+                if ((!vendor && o.status == "PLACED") || (vendor && o.status in setOf("ACCEPTED", "READY"))) BadButton(if (acting) "Working…" else "Cancel order", Modifier.padding(top = 10.dp), enabled = !acting) { confirmCancel = true }
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -162,7 +163,7 @@ private fun hasContact(o: CloudOrderRow) = orderLive(o.status) || o.status == "D
  * the rider calls for it (advance_task checks it at pick-up, not at the door).
  */
 @Composable
-fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean = false, cancelledBy: String? = null) {
+fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean = false, cancelledBy: String? = null, ringWindowS: Long = 180) {
     if (status == "REJECTED" || status == "CANCELLED") {
         val byShop = cancelledBy == "SHOP"
         val head = when {
@@ -198,7 +199,9 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
                     pickup -> if (forShop) "Get it ready, then mark it ready to collect." else "They're getting it ready."
                     forShop -> if (status == "READY") "Packed. Hand it to the rider; they enter the customer's PIN when collecting." else "A rider is being rung. Mark it packed when it's ready to hand over."
                     else -> {
-                        val rider = when (task?.status) {
+                        // A request still SEARCHING past the ring window has run out, even before the server's expiry has marked it (same rule as the delivery tracker).
+                        val stale = task?.status == "SEARCHING" && (secondsSince(task.statusAt.ifBlank { task.createdAt }) ?: 0) >= ringWindowS
+                        val rider = when (if (stale) "NO_DRIVER" else task?.status) {
                             null -> "Finding a rider near the shop."
                             "SEARCHING" -> "Ringing riders near the shop."
                             "NO_DRIVER" -> "No rider free right now. Call the shop: they can send their own rider or cancel the order."

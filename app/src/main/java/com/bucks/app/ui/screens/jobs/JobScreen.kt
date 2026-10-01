@@ -163,7 +163,7 @@ private fun ApplicantSection(vm: BucksViewModel, job: JobPageRow, onApply: () ->
         }
     }
     // Questions before applying, or agreeing the start and pay after: the business's shared inbox, where every owner and admin sees it.
-    if (!(jobs.loadingJob && mine == null)) SmallButton("Message the business", Modifier.padding(top = 12.dp), tonal = true) { jobs.messageBusiness(job.listingId, onOpenChat) }
+    if (!(jobs.loadingJob && mine == null)) SmallButton("Message the business", Modifier.padding(top = 12.dp), tonal = true, enabled = !jobs.messaging) { jobs.messageBusiness(job.listingId, onOpenChat) }
 }
 
 /** Pick one or more of my skill profiles and add a note. */

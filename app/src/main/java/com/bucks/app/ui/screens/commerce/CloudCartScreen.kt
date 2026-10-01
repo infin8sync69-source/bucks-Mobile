@@ -36,7 +36,7 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (String) -
     // Options that stop applying fall back to a valid choice, so the button never sends something the server rejects.
     LaunchedEffect(hasStoreRiders, codAllowed) { if (mode == "STORE_RIDER" && !hasStoreRiders) mode = "MARKETPLACE"; if (payment == "COD" && !codAllowed) payment = "UPI" }
 
-    ContentColumn(Modifier.fillMaxHeight()) {
+    ContentColumn(Modifier.fillMaxHeight().imePadding()) {
         BucksTopBar("Cart", onBack = onBack, actions = { if (shop != null) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteOutline, "Empty the cart") } })
         if (shop == null) {
             Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {

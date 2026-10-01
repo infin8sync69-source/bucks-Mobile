@@ -86,6 +86,8 @@ data class Ride(
     val etaMin: Int = 0, val progress: Float = 0f, val paidWith: String? = null, val reason: String? = null, val signature: String = "",
     /** Where the driver really is (cloud builds); driverX/driverY stay for the demo's simulated drive. */
     val driverAt: LatLng? = null,
+    /** Where the rider was picked up, as named when booked (cloud builds). */
+    val pickupLabel: String = "",
 )
 
 /** DONE = collect payment; RATE = rate the customer. */
@@ -94,6 +96,8 @@ data class DriverRide(
     val id: String, val status: DriverRideStatus, val customer: String, val customerTrust: Trust,
     val pickupAt: String, val dropAt: String, val km: Double, val fare: Int, val pin: String, val secondsLeft: Int, val pickupKm: Double,
     val kind: VehicleKind = VehicleKind.BIKE, val driver: LatLng? = null, val pickup: LatLng? = null, val drop: LatLng? = null, val progress: Float = 0f, val paidWith: String? = null, val customerPhone: String = "",
+    /** Wrong PINs tried at the pick-up (the server locks the trip at 5); in cloud builds only. */
+    val pinAttempts: Int = 0, val pinLocked: Boolean = false,
 )
 
 enum class OrderStatus(val label: String) { REQUESTED("Requested"), ACCEPTED("Accepted by vendor"), PREPARING("Preparing"), OUT("Out for delivery"), DELIVERED("Delivered") }
