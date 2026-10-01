@@ -18,6 +18,7 @@ import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.dial
+import com.bucks.app.ui.secondsSince
 import com.bucks.app.ui.screens.MessageBar
 import com.bucks.app.ui.screens.RoutePoints
 import com.bucks.app.ui.sms
@@ -46,7 +47,7 @@ fun DeliveryTrackScreen(vm: BucksViewModel, taskId: String, onBack: () -> Unit) 
     DisposableEffect(taskId) {
         val (channel, flow) = Backend.liveTask(taskId)
         val job = scope.launch { runCatching { flow.collect { refresh() } } }
-        onDispose { job.cancel(); scope.launch { Backend.closeChannel(channel) } }
+        onDispose { job.cancel(); Backend.releaseChannel(channel) }
     }
     val t = task
     Column(Modifier.fillMaxSize()) {
@@ -65,9 +66,9 @@ fun DeliveryTrackScreen(vm: BucksViewModel, taskId: String, onBack: () -> Unit) 
 private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow?, phone: String?, modifier: Modifier, onCall: () -> Unit, onMessage: () -> Unit, onDone: () -> Unit) {
     val shop = t.pickup; val door = t.drop; val at = t.driverAt
     val moving = t.status in setOf("MATCHED", "ARRIVED", "IN_PROGRESS")
-    // open_tasks_near stops ringing a task 3 minutes after it started searching (created, or handed back by a rider);
+    // open_tasks_near stops ringing a task once the ring window has passed since it started searching (created, or handed back by a rider);
     // past that, "finding a rider" would be a lie.
-    val stale = t.status == "SEARCHING" && olderThanMinutes(t.statusAt.ifBlank { t.createdAt }, 3)
+    val stale = t.status == "SEARCHING" && (secondsSince(t.statusAt.ifBlank { t.createdAt }) ?: 0) >= vm.dispatch.ringWindowS
     val ends = when (t.status) { "MATCHED" -> listOfNotNull(at, shop); "IN_PROGRESS" -> listOfNotNull(at ?: shop, door); else -> listOf(shop, door) }
     // Road route between the two ends (straight line until it arrives or when offline).
     val road = rememberRoadRoute(ends.getOrNull(0), ends.getOrNull(1))
@@ -75,7 +76,7 @@ private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow
     val pins = listOfNotNull(pinAt(door, "You", MaterialTheme.colorScheme.primary, true), pinAt(shop, t.pickupLabel.ifBlank { "Shop" }, MaterialTheme.status.bad),
         at?.takeIf { moving }?.let { pinAt(it, rider?.name?.substringBefore(' ') ?: "Rider", MaterialTheme.status.good) })
     val (headline, detail) = when (t.status) {
-        "SEARCHING" -> if (stale) "No rider yet" to "Nobody nearby took it within 3 minutes. Message the shop: they can send their own rider or refund you."
+        "SEARCHING" -> if (stale) "No rider yet" to "Nobody nearby took it in time. Message the shop: they can send their own rider or refund you."
                        else "Finding a rider" to "Bikes near ${t.pickupLabel.ifBlank { "the shop" }} are being rung. The first to accept collects your order."
         "MATCHED" -> "Rider on the way to the shop" to (at?.let { "${"%.1f".format(Geo.distanceKm(it, shop))} km from ${t.pickupLabel.ifBlank { "the shop" }}" } ?: "Heading to ${t.pickupLabel.ifBlank { "the shop" }}")
         "ARRIVED" -> "Rider is at the shop" to "They'll call you for the pickup PIN below, then bring your order."
@@ -102,7 +103,7 @@ private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow
             } else if (t.status == "SEARCHING" && !stale) Muted("Your rider's name and bike will show here once someone accepts.")
             if (t.status in setOf("SEARCHING", "MATCHED", "ARRIVED") && !stale) BucksCard(Modifier.padding(top = 14.dp), tint = true) {
                 Text("Pickup PIN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { t.pin.forEach { c -> Box(Modifier.size(34.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium) } } }
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { t.pin.forEach { c -> Box(Modifier.defaultMinSize(34.dp, 34.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium) } } }
                 Text("Your rider will call you for this PIN when collecting your order at the shop. Only share it with them.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(top = 8.dp))
             }
             RoutePoints(t.pickupLabel.ifBlank { "Shop" }, t.dropLabel.ifBlank { "Your location" }, Modifier.padding(top = 14.dp))
@@ -112,7 +113,3 @@ private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow
         } }
     }
 }
-
-/** True when an ISO timestamp from PostgREST (with offset) is at least [minutes] old; false if it can't be read. */
-private fun olderThanMinutes(iso: String, minutes: Long): Boolean =
-    runCatching { java.time.Duration.between(java.time.OffsetDateTime.parse(iso.replace(" ", "T")).toInstant(), java.time.Instant.now()).toMinutes() >= minutes }.getOrDefault(false)

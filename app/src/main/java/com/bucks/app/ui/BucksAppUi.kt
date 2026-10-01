@@ -54,8 +54,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import com.bucks.app.data.LatLng
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.bucks.app.data.DriverRideStatus
+import com.bucks.app.data.Here
 import com.bucks.app.data.Prefs
+import com.bucks.app.data.RingAlert
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 
@@ -67,6 +71,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
     val sysDark = isSystemInDarkTheme()
     val dark = when (Prefs.theme) { Prefs.Theme.LIGHT -> false; Prefs.Theme.DARK -> true; else -> sysDark }
     BucksTheme(dark = dark, textScale = Prefs.textSize.scale) {
+        val startDest = remember { if (vm.isLoggedIn) Routes.HOME else Routes.SPLASH }
         val nav = rememberNavController(); val snack = remember { SnackbarHostState() }; val scope = rememberCoroutineScope()
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()
@@ -80,10 +85,12 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         LaunchedEffect(Unit) { vm.toasts.collect { toast(it) } }
         // Real position for the customer side: one fix on start and whenever the app returns to the foreground.
         val ctx = LocalContext.current
-        fun fetchLocation() { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return; runCatching { LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).addOnSuccessListener { l -> if (l != null) vm.onLocation(LatLng(l.latitude, l.longitude), Build.VERSION.SDK_INT >= 31 && l.isMock) } } }
+        fun fetchLocation() { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return; runCatching { LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).addOnSuccessListener { l -> if (l != null) Here.fixOf(l).let { vm.onLocation(it.at, it.mocked) } } } }
+        fun hasLocation() = Here.hasPermission(ctx)
         val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-        val locPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { g -> if (g.values.any { it }) fetchLocation() else vm.onLocationDenied() }
-        fun hasLocation() = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        // Asked twice and still refused, Android stops showing the prompt: the only way left is the app's own settings page.
+        val locPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { g -> if (g.values.any { it }) fetchLocation() else { vm.onLocationDenied()
+            val a = ctx.findActivity(); if (a != null && !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(a, Manifest.permission.ACCESS_FINE_LOCATION)) { toast("Location is blocked for Bucks. Allow it in the app's settings."); runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) } } } }
         // Play policy: explain what location is used for before the system prompt appears.
         var locDisclosure by rememberSaveable { mutableStateOf(false) }
         LaunchedEffect(s.user != null, showIntro) { if (s.user != null && !showIntro) { if (hasLocation()) fetchLocation() else locDisclosure = true } }
@@ -101,6 +108,10 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                 else if (!batteryOk()) runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${ctx.packageName}"))) }
                     .onFailure { runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } } }) { Text("Fix now") } },
             dismissButton = { TextButton({ reachSheet = false }) { Text("Later") } })
+        // Back in the foreground: where the phone is now, not where it was when Bucks was last opened.
+        LifecycleEventEffect(Lifecycle.Event.ON_START) { if (s.user != null && !showIntro && hasLocation()) fetchLocation() }
+        // "Turn on location" from a booking screen: ask for the permission, open the phone's location switch, or look again.
+        val enableLocation: () -> Unit = { when { !hasLocation() -> locDisclosure = true; !Here.switchedOn(ctx) -> runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }; else -> fetchLocation() } }
         if (locDisclosure) AlertDialog(onDismissRequest = { locDisclosure = false; vm.onLocationDenied() },
             title = { Text("Use your location") },
             text = { Text("Bucks uses your location to find riders, shops and services near you and to set your pick-up point. If you go online as a driver, Bucks keeps sharing your location while you're online, even when the app is closed, so nearby customers can ring you. It stops when you go offline.") },
@@ -108,8 +119,13 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             dismissButton = { TextButton({ locDisclosure = false; vm.onLocationDenied() }) { Text("Not now") } })
         // Foreground location service runs whenever a vehicle is online, whichever screen is showing. Without permission it can't start (Android 14 would crash), so go back offline.
         LaunchedEffect(s.vehicleOnline) { when { !s.vehicleOnline -> com.bucks.app.data.DriverLocationService.stop(ctx); hasLocation() -> com.bucks.app.data.DriverLocationService.start(ctx); else -> { vm.setOnline(false); toast("Allow location to go online, so customers can find you."); locDisclosure = true } } }
-        val livePos by com.bucks.app.data.DriverLocationService.position.collectAsState(); val liveMock by com.bucks.app.data.DriverLocationService.mocked.collectAsState()
-        LaunchedEffect(livePos, liveMock) { livePos?.let { vm.onLocation(it, liveMock) } }
+        // A request can only ring a driver outside the app through a notification: when those are blocked, say so as they go online (never blocks going online).
+        var notifHelp by remember { mutableStateOf<RingAlert.Problem?>(null) }
+        LaunchedEffect(s.vehicleOnline) { if (s.vehicleOnline) notifHelp = RingAlert.problem(ctx) }
+        notifHelp?.let { p -> AlertDialog(onDismissRequest = { notifHelp = null }, title = { Text("Turn on notifications") },
+            text = { Text("${p.message} Turn them on so requests reach you when Bucks is closed or the screen is off. You're online either way.") },
+            confirmButton = { TextButton({ notifHelp = null; runCatching { ctx.startActivity(RingAlert.settingsIntent(ctx, p)) } }) { Text("Open settings") } },
+            dismissButton = { TextButton({ notifHelp = null }) { Text("Not now") } }) }
         LaunchedEffect(s.user != null, showIntro) { if (!showIntro && s.user != null && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
         LaunchedEffect(Unit) { vm.nav.collect { route -> when {
             route == Routes.HOME || route == Routes.FEED || route == Routes.ACTIVITY -> nav.navigate(route) { popUpTo(Routes.HOME) { inclusive = route == Routes.HOME } }
@@ -117,7 +133,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             route.startsWith("order/") -> nav.navigate(route) { popUpTo(Routes.CART) { inclusive = true } }
             else -> nav.navigate(route) } } }
         // A tapped notification asked for a screen: open it once the person is signed in, then forget it (Push.safeRoute already vetted it).
-        LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect; runCatching { nav.navigate(r) { launchSingleTop = true } }; onStartRouteHandled() }
+        LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect
+            runCatching { nav.navigate(r) { launchSingleTop = true; if (r == Routes.HOME) popUpTo(Routes.HOME) } }; onStartRouteHandled() }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
@@ -138,6 +155,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val home: () -> Unit = { nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } } }
         val query: (String) -> Unit = { q -> vm.discover.useService(null); if (q == "jobs" && vm.social.enabled) nav.navigate(Routes.JOBS_NEAR) else { vm.setQuery(q); nav.navigate(Routes.SEARCH) } }
         val ride: () -> Unit = { vm.startRide(); nav.navigate(Routes.DESTINATION) }
+        // Home's "Return": the screen for where the rider's unfinished trip is now.
+        val returnToRide: () -> Unit = { s.ride?.status?.let { BucksViewModel.rideRoute(it) }?.let { r -> nav.navigate(r) { popUpTo(Routes.HOME); launchSingleTop = true } } }
         val logout: () -> Unit = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }
 
         Box(Modifier.fillMaxSize()) {
@@ -208,8 +227,14 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             Scaffold(containerColor = if (current == Routes.SPLASH) com.bucks.app.ui.theme.Purple else MaterialTheme.colorScheme.surface, snackbarHost = { SnackbarHost(snack) { d -> Snackbar(d, shape = MaterialTheme.shapes.medium, containerColor = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = Modifier.padding(horizontal = 4.dp)) } }, bottomBar = { if (showBottomBar) BucksBottomBar(currentTab) { tab(it) } }) { pad ->
                 Row(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
                     if (showRail) BucksRail(currentTab) { tab(it) }
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
-                        NavHost(nav, startDestination = if (vm.isLoggedIn) Routes.HOME else Routes.SPLASH,
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        // The trip screen is Home; from any other screen a driver on a trip gets a way back to it (above the content, so no button is covered).
+                        if (loggedIn && current != Routes.HOME && s.driverRide?.let { it.status != DriverRideStatus.RINGING } == true)
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary).clickable(onClickLabel = "Return to the trip") { home() }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Trip in progress", Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+                                Text("Return", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge) }
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                        NavHost(nav, startDestination = startDest,
                             enterTransition = { fadeIn(tween(220)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it / 20 } }, exitTransition = { fadeOut(tween(140)) },
                             popEnterTransition = { fadeIn(tween(200)) }, popExitTransition = { fadeOut(tween(160)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 20 } }) {
                             composable(Routes.SPLASH) { SplashScreen { nav.navigate(Routes.LOGIN) } }
@@ -217,7 +242,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.SIGNUP_EMAIL) { SignUpEmailScreen(vm, onBack = { nav.popBackStack() }, onCreated = { nav.navigate(Routes.PROFILE) }, onUseMobile = { nav.popBackStack() }) }
                             composable(Routes.OTP) { OtpScreen(vm, s.tempPhone, onBack = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.PROFILE) }, showToast = toast) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
-                            composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call, onPlace = { nav.navigate(Routes.MAPS) }) }
+                            composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call, onPlace = { nav.navigate(Routes.MAPS) }, onReturnToRide = returnToRide) }
                             composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { vm.discover.useService(null); nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onRecommend = { nav.navigate(Routes.RECOMMEND_SCAN) },
                                 // An open (or quiet) tile: taxi and auto book a ride of that kind, jobs open jobs near me, the rest search that service.
                                 onOpenService = { key -> when (key) {
@@ -244,10 +269,10 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!; if (vm.social.enabled) CloudOrderScreen(vm, id, onBack = { nav.popBackStack() }, onTrack = { nav.navigate(Routes.deliveryTrack(it)) }, onOpenListing = { nav.navigate(Routes.listing(it)) }) else OrderScreen(vm, id, onBack = { nav.popBackStack() }, onVote = { nav.navigate(Routes.provider(it, "votes")) }, onChatWith = chatWith, onHome = home) }
                             composable(Routes.REQUEST, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RequestScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onSent = { nav.navigate(Routes.requestStatus(it)) { popUpTo(Routes.HOME) } }) }
                             composable(Routes.REQUEST_STATUS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RequestStatusScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onVote = { nav.navigate(Routes.provider(it, "votes")) }, onChatWith = chatWith) }
-                            composable(Routes.DESTINATION) { DestinationScreen(vm, onBack = { nav.popBackStack() }, onChosen = { nav.navigate(Routes.CHOOSE_RIDE) }) }
+                            composable(Routes.DESTINATION) { DestinationScreen(vm, onBack = { nav.popBackStack() }, onChosen = { nav.navigate(Routes.CHOOSE_RIDE) }, onEnableLocation = enableLocation) }
                             composable(Routes.CHOOSE_RIDE) { ChooseRideScreen(vm, onBack = { nav.popBackStack() }, onConfirm = { nav.navigate(Routes.CONFIRM_PICKUP) }) }
-                            composable(Routes.CONFIRM_PICKUP) { ConfirmPickupScreen(vm, onBack = { nav.popBackStack() }) }
-                            composable(Routes.SEARCHING) { SearchingScreen(vm, onChangeType = { nav.navigate(Routes.CHOOSE_RIDE) { popUpTo(Routes.HOME) } }) }
+                            composable(Routes.CONFIRM_PICKUP) { ConfirmPickupScreen(vm, onBack = { nav.popBackStack() }, onEnableLocation = enableLocation) }
+                            composable(Routes.SEARCHING) { SearchingScreen(vm, onChangeType = { nav.navigate(Routes.CHOOSE_RIDE) { popUpTo(Routes.HOME) } }, onBack = { nav.popBackStack() }) }
                             composable(Routes.DRIVER_FOUND) { DriverFoundScreen(vm, chatWith, call, toast) }
                             composable(Routes.IN_RIDE) { InRideScreen(vm, toast) }
                             composable(Routes.PAY) { PayScreen(vm) }
@@ -352,8 +377,13 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.MY_APPLICATIONS) { if (vm.social.enabled) MyApplicationsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onNear = { nav.navigate(Routes.JOBS_NEAR) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.JOBS_NEAR) { if (vm.social.enabled) JobsNearScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onMyApplications = { nav.navigate(Routes.MY_APPLICATIONS) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                         }
+                        // A driver's ringing request shows over whichever screen they're on; it never moves them away from what they're doing.
+                        // imePadding: with a keyboard up (chat, search) the card sits in the space above it, so Accept is never behind the keys.
+                        if (loggedIn) s.driverRide?.takeIf { it.status == DriverRideStatus.RINGING }?.let { dr ->
+                            RideRequestCard(dr, onAccept = { vm.driverAccept() }, onDecline = { vm.driverDecline() }, busy = vm.dispatch.busy, modifier = Modifier.align(Alignment.Center).imePadding()) }
                         if (s.call != null) CallOverlay(vm)
                         ConfirmationSheet(vm, toast)
+                        }
                     }
                 }
             }

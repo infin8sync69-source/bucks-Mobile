@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -29,14 +31,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.PIN_TRIES
+import com.bucks.app.ui.isCash
+import com.bucks.app.ui.payWord
 import com.bucks.app.ui.dial
 import com.bucks.app.ui.sms
 import com.bucks.app.ui.shareText
@@ -59,27 +72,35 @@ fun RoutePoints(pickup: String, drop: String, modifier: Modifier = Modifier, tra
 
 private fun metres(km: Double) = if (km < 1) "${(km * 1000).toInt()}m" else "${km}km"
 
-/** The incoming ride card on Home (driver online). Accept before the countdown runs out. */
+/**
+ * The incoming request card, shown over whichever screen a driver on duty is on. Accept before the countdown runs out; the bar on the
+ * button drains with it while the label stays a solid, readable colour. The request details are a live region, so TalkBack reads a new
+ * request out; the countdown is not (it would be read every second). [busy]: the claim is with the server.
+ */
 @Composable
-fun RideRequestCard(dr: DriverRide, onAccept: () -> Unit, onDecline: () -> Unit, modifier: Modifier = Modifier) {
+fun RideRequestCard(dr: DriverRide, onAccept: () -> Unit, onDecline: () -> Unit, modifier: Modifier = Modifier, busy: Boolean = false) {
     // Slides up with a small overshoot; the countdown bar drains smoothly instead of in 1-second steps.
     val left by animateFloatAsState(dr.secondsLeft / 15f, tween(1000, easing = LinearEasing), label = "countdown")
     val urgent = dr.secondsLeft <= 5
     // Bikes carry goods only, so a bike request is always a delivery: pick up at the shop, drop at the customer.
     val delivery = dr.kind == VehicleKind.BIKE
-    Surface(modifier.popIn().fillMaxWidth().padding(horizontal = 16.dp), shape = MaterialTheme.shapes.large, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) { BrandPill(if (delivery) "Delivery" else dr.kind.label); Spacer(Modifier.weight(1f)); IconButton(onDecline, Modifier.size(28.dp)) { Icon(Icons.Rounded.Close, "Decline") } }
-            Text("₹${animatedInt(dr.fare)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(top = 8.dp))
-            if (delivery) Text("Delivery for ${dr.pickupAt.substringBefore(" · ")}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
-            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(dr.customer), size = 36)
-                Column(Modifier.padding(start = 10.dp)) { Text(dr.customer, style = MaterialTheme.typography.titleSmall); TrustBadge(dr.customerTrust, compact = true) } }
-            RoutePoints(if (delivery) "Collect at ${dr.pickupAt}" else dr.pickupAt, if (delivery) "Deliver to ${dr.dropAt}" else dr.dropAt)
-            Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) { Muted("${if (delivery) "Shop" else "Pickup"}: ${metres(dr.pickupKm)}"); Muted("Drop: ${dr.km}km") }
-            // Accept button doubles as the countdown: the darker part shrinks as time runs out.
-            Box(Modifier.breathe(amount = if (urgent) 0.035f else 0.015f, periodMs = if (urgent) 450 else 900).fillMaxWidth().height(44.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)).clickable(onClick = withHaptic(onAccept))) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(left).background(MaterialTheme.colorScheme.primary))
-                Text("Accept · ${dr.secondsLeft}s", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.Center))
+    // Never wider than a phone card (tablets, landscape), and never taller than the screen: the details scroll, the Accept button stays put.
+    Surface(modifier.popIn().widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), shape = MaterialTheme.shapes.large, border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
+        Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) { BrandPill(if (delivery) "Delivery" else dr.kind.label); Spacer(Modifier.weight(1f)); IconButton(onDecline) { Icon(Icons.Rounded.Close, "Decline this request") } }
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(end = 12.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Assertive; contentDescription = if (delivery) "New delivery request" else "New ${dr.kind.label} ride request" }) {
+                Text("₹${animatedInt(dr.fare)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold))
+                if (delivery) Text("Delivery for ${dr.pickupAt.substringBefore(" · ")}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
+                Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(dr.customer), size = 36)
+                    Column(Modifier.padding(start = 10.dp)) { Text(dr.customer, style = MaterialTheme.typography.titleSmall); TrustBadge(dr.customerTrust, compact = true) } }
+                RoutePoints(if (delivery) "Collect at ${dr.pickupAt}" else dr.pickupAt, if (delivery) "Deliver to ${dr.dropAt}" else dr.dropAt)
+                Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) { Muted("${if (delivery) "Shop" else "Pickup"}: ${metres(dr.pickupKm)}"); Muted("Drop: ${dr.km}km") }
+            }
+            // The whole button is the accept target; the thin bar along its foot is the countdown, so the label keeps a solid, readable background.
+            Box(Modifier.padding(end = 12.dp).breathe(amount = if (urgent) 0.035f else 0.015f, periodMs = if (urgent) 450 else 900).fillMaxWidth().height(48.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary)
+                .clickable(enabled = !busy, role = Role.Button, onClickLabel = "Accept this request", onClick = withHaptic(onAccept)).semantics { contentDescription = if (busy) "Accepting" else "Accept this request" }) {
+                Text(if (busy) "Accepting…" else "Accept · ${dr.secondsLeft}s", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.Center).clearAndSetSemantics { })
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(left).height(4.dp).background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)).clearAndSetSemantics { })
             }
         }
     }
@@ -108,6 +129,10 @@ fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Uni
             s.pro?.skillListings.orEmpty().forEach { k -> OnlineRow(categoryIcon(k.name), k.name, if (k.online) "Taking service requests" else "Offline", k.online) { vm.setSkillOnline(k.name, it) } }
         }
         if (s.mockLocation) Notice("Mock location is on. Turn it off to take rides.", Modifier.padding(bottom = 10.dp))
+        // A request rings a driver outside the app only through a notification: say so when they can't.
+        val ctx = LocalContext.current; var alertProblem by remember { mutableStateOf(RingAlert.problem(ctx)) }
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { alertProblem = RingAlert.problem(ctx) }
+        if (s.vehicleOnline) alertProblem?.let { p -> Column(Modifier.padding(bottom = 10.dp)) { Notice(p.message); SmallButton("Notification settings", Modifier.padding(top = 8.dp), tonal = true) { runCatching { ctx.startActivity(RingAlert.settingsIntent(ctx, p)) } } } }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BucksCard(Modifier.weight(1f), onClick = { onDismiss(); onEarnings() }, padding = 14) { Text("₹${s.earnings}", style = MaterialTheme.typography.titleLarge); Muted("Today") }
             BucksCard(Modifier.weight(1f), onClick = { onDismiss(); onListings() }, padding = 14) { Text("${s.incoming.size}", style = MaterialTheme.typography.titleLarge); Muted("Incoming") } }
@@ -120,8 +145,8 @@ fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Uni
                     Muted(when { link == null && !vm.dispatch.paymentLinkLoaded -> "Checking…"; link == null -> "Not set. Customers pay in cash until you add one."; else -> upiPayee(link)?.let { "Customers pay ${it.first} by UPI" } ?: "UPI set up" }) }
                 Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (s.vehicleOnline && !vm.dispatch.enabled) TintButton("Simulate a ride request", Modifier.weight(1f)) { onDismiss(); vm.simulateRing() }
-            if (s.businesses.any { it.online } || s.pro?.skillListings?.any { it.online } == true) TintButton("Simulate an order", Modifier.weight(1f)) { onDismiss(); vm.simulateIncoming() } }
+            if (vm.demoTools && s.vehicleOnline) TintButton("Simulate a ride request", Modifier.weight(1f)) { onDismiss(); vm.simulateRing() }
+            if (vm.demoTools && (s.businesses.any { it.online } || s.pro?.skillListings?.any { it.online } == true)) TintButton("Simulate an order", Modifier.weight(1f)) { onDismiss(); vm.simulateIncoming() } }
     } }
 }
 
@@ -138,7 +163,8 @@ private fun qr(text: String, size: Int = 512): Bitmap { val m = QRCodeWriter().e
 fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit) {
     val s by vm.state.collectAsState(); val dr = s.driverRide ?: return
     val ctx = LocalContext.current; val cloud = vm.dispatch.enabled
-    var pin by remember(dr.id) { mutableStateOf("") }; var cash by remember(dr.id) { mutableStateOf(false) }; var stars by remember(dr.id) { mutableIntStateOf(0) }; var cancel by remember { mutableStateOf(false) }
+    var pin by remember(dr.id) { mutableStateOf("") }; var cash by remember(dr.id) { mutableStateOf(false) }; var stars by remember(dr.id) { mutableIntStateOf(0) }
+    var cancel by remember { mutableStateOf(false) }; var endAsk by remember { mutableStateOf(false) }
     // With cloud dispatch the server checks the PIN; the field clears once the trip has really started, so a wrong PIN stays for a retry.
     LaunchedEffect(dr.status) { if (dr.status == DriverRideStatus.IN_RIDE) pin = "" }
     val delivery = dr.kind == VehicleKind.BIKE
@@ -149,6 +175,7 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
         DriverRideStatus.TO_PICKUP -> Triple(me, pickup, lerp(me, pickup, dr.progress))
         DriverRideStatus.ARRIVED -> Triple(pickup, pickup, pickup)
         else -> Triple(pickup, drop, lerp(pickup, drop, dr.progress)) }
+    val working = vm.dispatch.busy || vm.dispatch.handingBack
     Column(Modifier.fillMaxSize().imePadding()) {
         if (dr.status != DriverRideStatus.DONE) Box(Modifier.weight(1f).fillMaxWidth()) {
             val road = rememberRoadRoute(car.takeIf { from != to && car != to }, to)
@@ -158,29 +185,36 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
             if (from != to) SmallButton(road?.let { "Navigate · ${it.minutes} min" } ?: "Navigate", Modifier.align(Alignment.TopEnd).padding(12.dp)) { vm.openMapsTo(if (dr.status == DriverRideStatus.TO_PICKUP) dr.pickupAt else dr.dropAt, to, autoStart = true) }
         }
         Surface(Modifier.fillMaxWidth().then(if (dr.status == DriverRideStatus.DONE) Modifier.weight(1f) else Modifier), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
-            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Scrolls, so the buttons stay reachable at large text sizes and on small phones.
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 when (dr.status) {
                     DriverRideStatus.TO_PICKUP -> {
                         Text(if (delivery) "Delivery for ${dr.pickupAt.substringBefore(" · ")}" else dr.customer, style = MaterialTheme.typography.titleMedium)
                         if (delivery) Muted("Order for ${dr.customer}${dr.pickupAt.substringAfter(" · ", "").let { if (it.isBlank()) "" else " · $it" }}", Modifier.padding(top = 2.dp))
-                        Row(Modifier.padding(top = 4.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { Muted("${maxOf(1, ((1 - dr.progress) * dr.pickupKm * 4).toInt())} mins"); Muted("${if (delivery) "Shop" else "Pickup"}: ${metres(dr.pickupKm * (1 - dr.progress))}") }
+                        Row(Modifier.padding(top = 4.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { Muted("${maxOf(1, ((1 - dr.progress) * dr.pickupKm * 4).toInt())} min"); Muted("${if (delivery) "Shop" else "Pickup"}: ${metres(dr.pickupKm * (1 - dr.progress))}") }
                         MessageBar("Message your customer", onCall = { if (cloud) { if (dr.customerPhone.isBlank()) noPhone() else dial(ctx, dr.customerPhone) } else onCall(dr.customer, "+91 98450 00000") }) { if (cloud) { if (dr.customerPhone.isBlank()) noPhone() else sms(ctx, dr.customerPhone) } else onChatWith(dr.customer, "Customer") }
-                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) { TextButton({ cancel = true }) { Text(if (delivery) "Cancel delivery" else "Cancel ride", color = MaterialTheme.colorScheme.error) }; TextButton({ vm.driverNext() }, enabled = !vm.dispatch.busy) { Text(if (delivery) "I'm at the shop" else "I've arrived") } }
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) { TextButton({ cancel = true }, enabled = !working) { Text(if (delivery) "Cancel delivery" else "Cancel ride", color = MaterialTheme.colorScheme.error) }; TextButton({ vm.driverNext() }, enabled = !working) { Text(if (working) "Working…" else if (delivery) "I'm at the shop" else "I've arrived") } }
                     }
                     DriverRideStatus.ARRIVED -> {
+                        val left = (PIN_TRIES - dr.pinAttempts).coerceAtLeast(0)
                         Text(if (delivery) "Enter the pickup PIN" else "Enter customer's PIN", style = MaterialTheme.typography.titleMedium)
-                        PinBoxes(pin, Modifier.padding(top = 20.dp, bottom = 8.dp), onDone = { if (pin.length == 4 && vm.driverNext(pin) && !cloud) pin = "" }) { pin = it }
+                        PinBoxes(pin, Modifier.padding(top = 20.dp, bottom = 8.dp), onDone = { if (pin.length == 4 && !dr.pinLocked && vm.driverNext(pin) && !cloud) pin = "" }) { if (!dr.pinLocked) pin = it }
+                        // Wrong PINs keep the boxes filled and count down; the fifth locks the trip (the server says so) and only a hand-back is left.
+                        if (cloud && dr.pinAttempts > 0) Text(if (dr.pinLocked) "Too many wrong PINs. This trip is locked: hand it back so another rider can take it." else "That PIN didn't match. $left ${if (left == 1) "try" else "tries"} left.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
                         Muted(when { cloud && delivery -> "Call the customer for their 4-digit PIN before you leave the shop; it confirms you have their order."
-                                     cloud -> "Ask the customer to read out the 4-digit PIN on their screen."; else -> "Demo build: the customer's PIN is ${dr.pin}" }, Modifier.padding(bottom = 14.dp))
+                                     cloud -> "Ask the customer to read out the 4-digit PIN on their screen."; vm.demoTools -> "Demo build: the customer's PIN is ${dr.pin}"; else -> "Ask the customer to read out their 4-digit PIN." }, Modifier.padding(bottom = 14.dp))
                         if (cloud) MessageBar("Message your customer", onCall = { if (dr.customerPhone.isBlank()) noPhone() else dial(ctx, dr.customerPhone) }) { if (dr.customerPhone.isBlank()) noPhone() else sms(ctx, dr.customerPhone) }
-                        DarkButton(if (vm.dispatch.busy) "Checking…" else "Confirm PIN", Modifier.padding(top = if (cloud) 14.dp else 0.dp), enabled = pin.length == 4 && !vm.dispatch.busy) { if (vm.driverNext(pin) && !cloud) pin = "" }
+                        DarkButton(if (vm.dispatch.busy) "Checking…" else "Confirm PIN", Modifier.padding(top = if (cloud) 14.dp else 0.dp), enabled = pin.length == 4 && !working && !dr.pinLocked) { if (vm.driverNext(pin) && !cloud) pin = "" }
+                        // The server lets a trip go back to other riders until the PIN is in.
+                        TextButton({ cancel = true }, Modifier.padding(top = 4.dp), enabled = !working) { Text(if (delivery) "Can't collect it? Hand back" else "Customer not here? Hand back", color = MaterialTheme.colorScheme.error) }
                     }
                     DriverRideStatus.IN_RIDE -> {
                         Text(dr.customer, style = MaterialTheme.typography.titleMedium)
                         Muted(if (dr.progress >= 1f) "Arrived at destination" else "On the way to ${dr.dropAt}", Modifier.padding(top = 4.dp))
                         Muted(if (dr.progress >= 1f) "Dropping off" else "${"%.1f".format((1 - dr.progress) * dr.km)} km left", Modifier.padding(bottom = 14.dp))
                         if (cloud) Box(Modifier.padding(bottom = 14.dp)) { MessageBar("Message your customer", onCall = { if (dr.customerPhone.isBlank()) noPhone() else dial(ctx, dr.customerPhone) }) { if (dr.customerPhone.isBlank()) noPhone() else sms(ctx, dr.customerPhone) } }
-                        DarkButton(if (delivery) "Delivered · end trip" else "End ride", enabled = !vm.dispatch.busy) { vm.driverNext() }
+                        DarkButton(if (working) "Working…" else if (delivery) "Delivered · end trip" else "End ride", enabled = !working) { endAsk = true }
                     }
                     DriverRideStatus.DONE -> PaymentPanel(vm, dr, cash) { cash = it }
                     DriverRideStatus.RATE -> {
@@ -194,7 +228,17 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
             }
         }
     }
-    if (cancel) AlertDialog(onDismissRequest = { cancel = false }, title = { Text(if (delivery) "Cancel this delivery?" else "Cancel this ride?") }, text = { Text("The ${if (delivery) "order" else "customer"} goes to the next rider. Cancelling after accepting counts against your recommendations.") }, confirmButton = { TextButton(onClick = { cancel = false; vm.driverCancel() }) { Text(if (delivery) "Cancel delivery" else "Cancel ride", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { cancel = false }) { Text(if (delivery) "Keep delivery" else "Keep ride") } })
+    if (endAsk) AlertDialog(onDismissRequest = { endAsk = false }, title = { Text(if (delivery) "Hand over the order here?" else "End the ride here?") },
+        text = { Text(if (delivery) "Only end the trip once the customer has their order. Then you collect any payment due." else "The customer is asked to pay ₹${dr.fare} once you end the ride. Only end it at the drop point.") },
+        confirmButton = { TextButton({ endAsk = false; vm.driverNext() }) { Text(if (delivery) "Yes, delivered" else "End ride") } }, dismissButton = { TextButton({ endAsk = false }) { Text("Not yet") } })
+    if (cancel) {
+        val atPickup = dr.status == DriverRideStatus.ARRIVED
+        AlertDialog(onDismissRequest = { cancel = false }, title = { Text(if (atPickup) "Hand this ${if (delivery) "delivery" else "ride"} back?" else if (delivery) "Cancel this delivery?" else "Cancel this ride?") },
+            text = { Text((if (atPickup) (if (delivery) "Use this when you can't collect the order. " else "Use this when the customer isn't there. ") + "It goes to the next rider and you won't be rung for it again."
+                          else "The ${if (delivery) "order" else "customer"} goes to the next rider.") + (if (cloud) "" else " Cancelling after accepting counts against your recommendations.")) },
+            confirmButton = { TextButton(onClick = { cancel = false; vm.driverCancel() }) { Text(if (atPickup) "Hand back" else if (delivery) "Cancel delivery" else "Cancel ride", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { cancel = false }) { Text(if (delivery) "Keep delivery" else "Keep ride") } })
+    }
 }
 
 @Composable
@@ -216,11 +260,15 @@ private fun PaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean, onCa
         Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(MaterialTheme.shapes.small).border(1.dp, if (cash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small).clickable { onCash(!cash) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Payments, null, tint = MaterialTheme.status.good); Text("Pay cash", Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium); RadioButton(cash, { onCash(!cash) }) }
         Spacer(Modifier.height(20.dp))
-        DarkButton("Proceed", enabled = cash || upi.isNotBlank()) { vm.driverPaid(if (cash) "cash" else "UPI") }
+        DarkButton("Proceed", enabled = cash || upi.isNotBlank()) { vm.driverPaid(if (cash) "CASH" else "UPI") }
     }
 }
 
-/** Cloud trip done: show the fare QR from the driver's uploaded UPI code (the customer's app also opens it by itself), or take cash. */
+/**
+ * Cloud trip done: show the fare QR from the driver's uploaded UPI code (the customer's app also opens it by itself), or take cash.
+ * What the customer taps on their phone is only their word; Bucks can't see the bank or the cash, so the driver checks and then confirms
+ * for themselves, once, with the amount in front of them.
+ */
 @Composable
 private fun CloudPaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean, onCash: (Boolean) -> Unit) {
     val link = vm.dispatch.paymentLink; val delivery = dr.kind == VehicleKind.BIKE
@@ -228,6 +276,7 @@ private fun CloudPaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean,
     // Deliveries: the amount at the door comes from the order (free delivery = 0, store-rider COD = the whole bill), not the fee.
     var collect by remember(dr.id) { mutableStateOf<Int?>(if (delivery) null else dr.fare) }
     if (delivery) LaunchedEffect(dr.id) { collect = runCatching { com.bucks.app.data.Backend.taskGeo(dr.id)?.collect }.getOrNull() }
+    var confirm by remember(dr.id) { mutableStateOf(false) }
     if (delivery && collect == 0) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Delivered · nothing to collect", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
@@ -238,10 +287,13 @@ private fun CloudPaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean,
         return
     }
     val amount = collect ?: dr.fare
+    val theyPaid = dr.paidWith
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(if (delivery) "Delivered · collect ₹$amount" else "Total payable ₹$amount", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
         if (delivery && collect == null) Muted("Checking what to collect…", align = TextAlign.Center)
-        if (dr.paidWith != null) PillGood("Customer paid by ${dr.paidWith}") else Muted("${dr.customer.substringBefore(' ')} sees the amount on their phone and can pay by UPI or cash.", align = TextAlign.Center)
+        if (theyPaid != null) { PillWarn("${dr.customer.substringBefore(' ')} says they paid by ${payWord(theyPaid)}")
+            Muted("Bucks can't see it. Check ${if (isCash(theyPaid)) "you have the cash" else "your UPI app"} before you continue.", Modifier.padding(top = 6.dp), TextAlign.Center) }
+        else Muted("${dr.customer.substringBefore(' ')} sees the amount on their phone and can pay by UPI or cash.", align = TextAlign.Center)
         Spacer(Modifier.height(14.dp))
         if (link != null) {
             val pay = upiPayLink(link, amount, "Bucks ${if (delivery) "delivery" else "ride"}")
@@ -255,14 +307,17 @@ private fun CloudPaymentPanel(vm: BucksViewModel, dr: DriverRide, cash: Boolean,
         Row(Modifier.fillMaxWidth().padding(top = 24.dp).clip(MaterialTheme.shapes.small).border(1.dp, if (cash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small).clickable { onCash(!cash) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Payments, null, tint = MaterialTheme.status.good); Text("Cash received", Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium); RadioButton(cash, { onCash(!cash) }) }
         Spacer(Modifier.height(20.dp))
-        DarkButton(if (cash) "Cash received · continue" else "UPI received · continue", enabled = cash || link != null || dr.paidWith != null) { vm.driverPaid(if (cash) "cash" else "UPI") }
+        DarkButton(if (cash) "Cash received · continue" else "UPI received · continue", enabled = cash || link != null || theyPaid != null) { confirm = true }
         Muted("Nothing to collect yet? Wait for the customer; their payment shows up here.", Modifier.padding(top = 8.dp), TextAlign.Center)
     }
+    if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(if (cash) "Did you receive ₹$amount in cash?" else "Did ₹$amount reach your UPI account?") },
+        text = { Text(if (cash) "Count it before you continue. This closes the payment step for this ${if (delivery) "delivery" else "trip"}." else "Look for it in your UPI app first. Bucks can't check your bank, and this closes the payment step for this ${if (delivery) "delivery" else "trip"}.") },
+        confirmButton = { TextButton({ confirm = false; vm.driverPaid(if (cash) "CASH" else "UPI") }) { Text(if (cash) "Yes, I have the cash" else "Yes, it arrived") } }, dismissButton = { TextButton({ confirm = false }) { Text("Not yet") } })
 }
 
 @Composable
 fun PinBoxes(value: String, modifier: Modifier = Modifier, onDone: () -> Unit = {}, onChange: (String) -> Unit) = BasicTextField(value, { onChange(it.filter(Char::isDigit).take(4)) }, modifier, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { onDone() }),
-    decorationBox = { Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) { (0 until 4).forEach { i -> Box(Modifier.size(52.dp).clip(MaterialTheme.shapes.small).border(2.dp, if (i == value.length) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
+    decorationBox = { Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) { (0 until 4).forEach { i -> Box(Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 52.dp).clip(MaterialTheme.shapes.small).border(2.dp, if (i == value.length) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), MaterialTheme.shapes.small).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
         Text(value.getOrNull(i)?.toString() ?: "", style = MaterialTheme.typography.headlineSmall) } } } })
 
 /** Call button + "message …" pill that opens the chat. */

@@ -50,6 +50,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     /** Profile id -> display name, filled as rows arrive. */
     val names: SnapshotStateMap<String, String> = mutableStateMapOf()
     var here: LatLng = Geo.CENTER
+    /** True once a real fix has set [here]; until then it is only the map's default centre and must not be sent as my position. */
+    var hereKnown = false
 
     private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: Exception) { toast(friendly(e)) } }
     /** Our own database errors come back wrapped; show just the sentence we wrote. */

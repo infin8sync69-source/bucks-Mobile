@@ -32,7 +32,7 @@ class DriverLocationService : Service() {
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var lastPush = 0L
     private val callback = object : LocationCallback() { override fun onLocationResult(r: LocationResult) { r.lastLocation?.let { l ->
-        val p = LatLng(l.latitude, l.longitude); position.value = p; mocked.value = (Build.VERSION.SDK_INT >= 31 && l.isMock)
+        val p = LatLng(l.latitude, l.longitude); position.value = p; mocked.value = Here.looksMocked(l)
         val now = System.currentTimeMillis()
         if (Backend.enabled && now - lastPush >= PUSH_EVERY_MS) { lastPush = now; io.launch { runCatching { Backend.updateLocation(p) } } }
     } } }
@@ -49,13 +49,22 @@ class DriverLocationService : Service() {
         // Not sticky: after process death the online flag is gone, so a restarted service would track with no owner.
         return START_NOT_STICKY
     }
-    override fun onDestroy() { client.removeLocationUpdates(callback); io.cancel(); super.onDestroy() }
+    /** Swiping Bucks away from recents must not leave the driver on the map: presence off first (best effort, on the app scope), then stop. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        AppLife.scope.launch { try { Presence.offline() } finally { stopSelf() } }
+        super.onTaskRemoved(rootIntent)
+    }
+    override fun onDestroy() { client.removeLocationUpdates(callback); io.cancel(); clearPosition(); super.onDestroy() }
     companion object {
         const val CHANNEL = "bucks_on_duty"
         private const val PUSH_EVERY_MS = 5_000L
         val position = MutableStateFlow<LatLng?>(null)
         val mocked = MutableStateFlow(false)
         fun start(ctx: Context) { runCatching { ctx.startForegroundService(Intent(ctx, DriverLocationService::class.java)) } }
-        fun stop(ctx: Context) { ctx.stopService(Intent(ctx, DriverLocationService::class.java)) }
+        fun stop(ctx: Context) { ctx.stopService(Intent(ctx, DriverLocationService::class.java)); clearPosition() }
+        /** Stops from a place with no Context at hand (a cleared ViewModel). */
+        fun stopAll() { AppLife.app?.let { stop(it) } }
+        /** A stopped service leaves no position behind: a stale mocked = true or an old fix must never be applied again later. */
+        private fun clearPosition() { position.value = null; mocked.value = false }
     }
 }

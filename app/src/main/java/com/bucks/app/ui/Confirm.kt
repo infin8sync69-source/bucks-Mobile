@@ -25,7 +25,8 @@ fun ConfirmationSheet(vm: BucksViewModel, showToast: (String) -> Unit) {
     val ctx = LocalContext.current
     val speaker = remember { Speaker(ctx) }
     DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
-    LaunchedEffect(p) { speaker.say("${p.title}. ${p.summary}. Say confirm or tap.", s.voiceLang) }
+    // "Say confirm" only exists in the demo's assistant; the online build has no voice confirmation to offer.
+    LaunchedEffect(p) { speaker.say("${p.title}. ${p.summary}." + if (vm.demoTools) " Say confirm or tap." else "", s.voiceLang) }
     fun authenticateThenRun() {
         val activity = ctx as? FragmentActivity ?: return
         val can = BiometricManager.from(ctx).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)

@@ -1,5 +1,6 @@
 package com.bucks.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -12,7 +13,11 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.bucks.app.ui.Invite
+import com.bucks.app.ui.findActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -92,21 +97,58 @@ fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, 
 
 /** Explains the pin colours on the maps: providers are drawn in the theme primary (only where the map shows them), online riders in status good (only where the map shows riders). */
 @Composable
-private fun MapLegend(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) = Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
-    Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { if (shops) LegendDot(MaterialTheme.colorScheme.primary, "Shops & services"); if (riders) LegendDot(MaterialTheme.status.good, "Riders online") }
+private fun MapLegend(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) {
+    val dots: @Composable () -> Unit = { if (shops) LegendDot(MaterialTheme.colorScheme.primary, "Shops & services"); if (riders) LegendDot(MaterialTheme.status.good, "Riders online") }
+    // Large text: one dot per line, so the pill is never wider than the screen and its labels never wrap letter by letter.
+    if (largeText()) Surface(modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) { Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { dots() } }
+    else Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) { Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { dots() } }
 }
 @Composable
-private fun LegendDot(color: Color, text: String) = Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(color)); Spacer(Modifier.width(6.dp)); Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-/** Legend at the start and the OSM attribution at the end, sitting on the map just above the sheet. */
+private fun LegendDot(color: Color, text: String) = Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(color)); Spacer(Modifier.width(6.dp)); Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 @Composable
-private fun MapFooter(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) { if (riders || shops) MapLegend(riders = riders, shops = shops); Spacer(Modifier.weight(1f)); MapAttribution() }
+private fun largeText() = LocalDensity.current.fontScale > 1.3f
+/** Legend at the start and the OSM attribution at the end, sitting on the map just above the sheet. With large text they stack, so the footer cannot squeeze the sheet off screen. */
+@Composable
+private fun MapFooter(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) {
+    if (largeText()) Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) { if (riders || shops) MapLegend(Modifier.align(Alignment.Start), riders = riders, shops = shops); MapAttribution() }
+    else Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) { if (riders || shops) MapLegend(riders = riders, shops = shops); Spacer(Modifier.weight(1f)); MapAttribution() }
+}
 
 /** Cloud builds: category chips for searching live listings (the categories shops and pros pick from when they list), not the demo seed's. */
 private val CLOUD_CATEGORIES = (com.bucks.app.ui.screens.manage.BUSINESS_CATEGORIES + com.bucks.app.ui.screens.manage.SKILL_CATEGORIES).filter { it != "Other" }.distinct()
 
+/**
+ * The rider's unfinished ride, always one tap from Home: leaving a ride screen with Back (or the phone's gesture) never cancels it,
+ * so this is the way back in until the trip is rated or skipped (the pay and rate screens included).
+ */
 @Composable
-fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }, onPlace: () -> Unit = {}) {
+private fun ActiveRideCard(r: Ride, onReturn: () -> Unit) {
+    val eta = etaText(r.etaMin)
+    val detail = when (r.status) {
+        RideStatus.SEARCHING -> "Looking for a nearby ${r.kind.label.lowercase()} rider"
+        RideStatus.NO_DRIVER -> "Nobody accepted yet. Return to ring again."
+        RideStatus.MATCHED -> (r.driver?.name?.substringBefore(' ')?.let { "$it is on the way" } ?: "Your rider is on the way") + (eta?.let { " · $it away" } ?: "")
+        RideStatus.ARRIVED -> "Your rider is here. Share PIN ${r.pin} to start."
+        RideStatus.IN_RIDE -> "On the way to ${r.dest.name}"
+        RideStatus.COMPLETED -> "Trip finished. Pay ₹${r.fare} to close it."
+        RideStatus.PAID -> "Paid. Rate your ride, or skip it."
+        RideStatus.CANCELLED -> return }
+    BucksCard(Modifier.padding(bottom = 12.dp), tint = true, padding = 14) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 10.dp)) { Text("Ride in progress", style = MaterialTheme.typography.titleMedium); Muted(detail) }
+            SmallButton("Return", onClick = onReturn)
+        }
+    }
+}
+
+@Composable
+fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }, onPlace: () -> Unit = {}, onReturnToRide: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
+    // Back on Home while on duty or with a trip open puts Bucks in the background instead of closing it (closing would take the driver off the map).
+    val activity = LocalContext.current.findActivity()
+    BackHandler(enabled = activity != null && (s.vehicleOnline || s.driverRide != null || s.ride != null)) { activity?.moveTaskToBack(true) }
+    // The button and the "being checked" note follow the server: reload my vehicles whenever Home comes back on screen.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (vm.dispatch.enabled && s.user != null) vm.dispatch.reloadVehicles() }
     // An accepted ride takes over Home until it's closed.
     if (s.driverRide != null && s.driverRide?.status != DriverRideStatus.RINGING) { DriverTripScreen(vm, onChatWith, onCall); return }
     // Cloud dispatch polls online drivers every 15 s only while a map is on screen.
@@ -114,32 +156,43 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     var showOnline by remember { mutableStateOf(false) }
     val wide = windowWidth() != Width.COMPACT
     val unread = vm.unreadCount(chats)
+    // Drivers with a checked vehicle get the button while offline too (it opens the sheet with their vehicle switch), on every layout.
+    val showFab = s.receiving || vm.cloudVehicle != null
     run {
         // Provider pins come from the demo seed only (cloud sign-in clears it); cloud listings have no map position here, so the map shows me and the riders online.
         val shopPins = providers.filter { it.scope == Scope.LOCAL }.take(6)
         // Me and online riders at their real positions; the demo's sample shops keep their spots on the Bengaluru grid.
         val pins = listOf(pinAt(vm.mePos, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }
-        // Same content on phones (in the sheet) and wide screens (in the side panel): the search pill; services live in the Services tab.
+        // Same content on phones (in the sheet) and wide screens (in the side panel): an unfinished ride, the vehicle note, the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
+            s.ride?.let { r -> ActiveRideCard(r, onReturnToRide) }
+            // A cloud vehicle the server hasn't activated yet: say why there is no online button, and where to look.
+            vm.waitingVehicle?.takeIf { !showFab }?.let { v -> Column(Modifier.padding(bottom = 12.dp)) {
+                Notice(if (v.status == "SUSPENDED") "Your ${v.model.ifBlank { "vehicle" }} (${v.plate}) is suspended, so you can't go online with it. Open Manage listings for details."
+                       else "Bucks is still checking your ${v.model.ifBlank { "vehicle" }} (${v.plate}). The online button appears here once it's active.")
+                SmallButton("Manage listings", Modifier.padding(top = 8.dp), tonal = true, onClick = onListings) } }
             if (vm.social.enabled) HomeSearch(vm, "Where to, or what do you need?", onSearchAll = onQuery, onPlace = onPlace) else SearchBar("Where to, or what do you need?", onClick = onSearch)
         }
         if (wide) Column(Modifier.fillMaxSize()) {
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
-            Row(Modifier.weight(1f)) { Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins); MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp), shops = shopPins.isNotEmpty()) }; Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter), content = panel) }
+            Row(Modifier.weight(1f)) {
+                Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins); MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp), shops = shopPins.isNotEmpty())
+                    if (showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 32.dp)) { showOnline = true } }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter), content = panel) }
         }
         // Phone: full-bleed map with the wordmark bar laid over it; the sheet holds the search pill, services live in the Services tab.
         else Box(Modifier.fillMaxSize()) {
             BucksMap(Modifier.fillMaxSize(), pins)
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            // Kept clear of the top bar; a panel taller than the space left (large text, ride card and notes together) scrolls instead of pushing off screen.
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(top = 64.dp)) {
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())
-                Sheet { panel(); Spacer(Modifier.height(24.dp)) }
+                Sheet(Modifier.weight(1f, fill = false), scrollable = true) { panel(); Spacer(Modifier.height(24.dp)) }
             }
-            // Cloud drivers with a checked vehicle get the button while offline too: it opens the sheet with their vehicle switch.
-            if (s.receiving || vm.cloudVehicle != null) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
-            s.driverRide?.takeIf { it.status == DriverRideStatus.RINGING }?.let { dr -> RideRequestCard(dr, onAccept = { vm.driverAccept() }, onDecline = { vm.driverDecline() }, modifier = Modifier.align(Alignment.Center)) }
+            if (showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
         }
     }
+    // A ringing request is a card over whichever screen is showing (BucksAppUi), so nothing rings here.
     if (showOnline) OnlineSheet(vm, onDismiss = { showOnline = false }, onListings = onListings, onEarnings = onEarnings)
 }
 

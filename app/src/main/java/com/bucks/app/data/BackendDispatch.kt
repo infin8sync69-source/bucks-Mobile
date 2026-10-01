@@ -8,6 +8,7 @@ import io.github.jan.supabase.realtime.RealtimeChannel
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.serialization.SerialName
@@ -31,7 +32,9 @@ import kotlinx.serialization.json.put
     @SerialName("pickup_lat") val pickupLat: Double, @SerialName("pickup_lng") val pickupLng: Double, @SerialName("drop_lat") val dropLat: Double, @SerialName("drop_lng") val dropLng: Double,
     @SerialName("driver_lat") val driverLat: Double? = null, @SerialName("driver_lng") val driverLng: Double? = null, @SerialName("order_items") val orderItems: Int? = null,
     /** Delivery only: what the rider takes from the buyer at the door (0 = nothing); null when not readable yet. */
-    val collect: Int? = null) {
+    val collect: Int? = null,
+    /** Wrong PINs the driver has tried so far (5 lock the trip); 0 until the server counts them. */
+    @SerialName("pin_attempts") val pinAttempts: Int = 0) {
     val pickup get() = LatLng(pickupLat, pickupLng)
     val drop get() = LatLng(dropLat, dropLng)
     val driverAt: LatLng? get() = driverLat?.let { la -> driverLng?.let { LatLng(la, it) } }
@@ -53,6 +56,22 @@ suspend fun Backend.onlineDriversNear(at: LatLng, radiusM: Int = 5000): List<Nea
 suspend fun Backend.taskDriver(taskId: String): TaskDriverRow? = client.postgrest.rpc("task_driver", buildJsonObject { put("p_task", taskId) }).decodeList<TaskDriverRow>().firstOrNull()
 suspend fun Backend.myPaymentLink(me: String): String? = client.postgrest.from("profile_private").select { filter { eq("profile_id", me) } }.decodeSingleOrNull<PrivateRow>()?.upiUri?.takeIf { it.isNotBlank() }
 suspend fun Backend.clearPaymentLink(me: String) { client.postgrest.from("profile_private").update({ set("upi_uri", null as String?) }) { filter { eq("profile_id", me) } } }
+/** Presence off by profile, without needing the vehicle (the presence row is the driver's own). */
+suspend fun Backend.setOffline(me: String) { client.postgrest.from("driver_presence").update({ set("online", false) }) { filter { eq("profile_id", me) } } }
+@Serializable private data class RingSetting(val key: String, val value: Double)
+/** A number from the server's settings table (readable by every signed-in user); null when missing or unreadable. */
+suspend fun Backend.settingValue(key: String): Double? = client.postgrest.from("settings").select { filter { eq("key", key) } }.decodeList<RingSetting>().firstOrNull()?.value
+
+/**
+ * Who is online from this phone, for the paths that outlive the UI: the location service after Bucks was swiped away
+ * from recents, and a ViewModel that is already gone. Set when going online, cleared when going offline.
+ */
+object Presence {
+    @Volatile var meId: String? = null
+    /** Presence off, best effort: never throws, gives up after 4 s, and is safe to call twice. */
+    suspend fun offline() { val me = meId ?: return; meId = null; withTimeoutOrNull(4_000) { runCatching { Backend.setOffline(me) } } }
+}
+
 /** Account deletion on the server: presence off, open tasks cancelled or handed back, phone and UPI link deleted, profile anonymised. */
 suspend fun Backend.deleteMyAccount() { client.postgrest.rpc("delete_my_account") }
 

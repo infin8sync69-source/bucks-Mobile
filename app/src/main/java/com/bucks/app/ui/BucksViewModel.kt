@@ -1,7 +1,9 @@
 package com.bucks.app.ui
 
 import android.app.Activity
+import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import com.bucks.app.BuildConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -14,6 +16,8 @@ import com.bucks.app.ui.nav.Routes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -75,7 +79,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Cloud social features (Sync, chat, feed, Moments, settings); active when Supabase and Firebase are configured. */
     val social = Social(viewModelScope, repo, ::toast)
     /** Cloud rides and deliveries on Supabase tasks (presence, ringing, PIN, payment). In demo builds the simulation below runs instead. */
-    val dispatch = Dispatch(viewModelScope, social, ::toast)
+    val dispatch = Dispatch(viewModelScope, social, ::toast) { msg -> toast(msg); navTo(Routes.HOME) }
     /** Cloud commerce: cart over live items, checkout, my orders, order page and the vendor inbox. */
     val commerce = Commerce(viewModelScope, social, ::toast)
     /** Cloud discovery: search over live listings and the universal listing profile. */
@@ -91,9 +95,14 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Sample Moments for the demo build (the online build reads real ones from the server). */
     val demoMoments = com.bucks.app.ui.screens.DemoMoments()
     fun unreadCount(demoChats: List<Chat>) = if (social.enabled) social.unread else demoChats.sumOf { it.unread }
+    /** Cloud builds: every vehicle I own or drive, from whichever list knows it (Home refreshes [Dispatch.vehicles] each time it opens, so its status wins). */
+    val cloudVehicles: List<VehicleRow> get() = if (!dispatch.enabled) emptyList() else (dispatch.vehicles + myListings.vehicles).distinctBy { it.id }
     /** Cloud builds: the checked (ACTIVE) vehicle the online switch uses: the one online now, else the first ACTIVE one I own or drive. Null in demo builds. */
-    val cloudVehicle: VehicleRow? get() = if (!dispatch.enabled) null
-        else dispatch.vehicle?.takeIf { dispatch.online } ?: (if (myListings.loaded) myListings.vehicles else dispatch.vehicles).firstOrNull { it.status == "ACTIVE" }
+    val cloudVehicle: VehicleRow? get() = if (!dispatch.enabled) null else dispatch.vehicle?.takeIf { dispatch.online } ?: cloudVehicles.firstOrNull { it.status == "ACTIVE" }
+    /** Cloud builds: a vehicle of mine that the server hasn't activated (PENDING or SUSPENDED), only while I have no ACTIVE one. Home says so instead of staying silent. */
+    val waitingVehicle: VehicleRow? get() = cloudVehicles.takeIf { v -> v.isNotEmpty() && v.none { it.status == "ACTIVE" } }?.firstOrNull()
+    /** The simulated parts (fake ring, "Simulate a ride request", the PIN shown on screen, auto-accepting riders) exist only in debug builds without the cloud. */
+    val demoTools get() = BuildConfig.DEBUG && !dispatch.enabled
     /** A fresh UiState for sign-out and account deletion; cloud builds keep reading the online state from dispatch. */
     private fun freshState() = UiState(dispatchOnline = if (dispatch.enabled) false else null)
 
@@ -110,8 +119,12 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         viewModelScope.launch { dispatch.drivers.collect { if (dispatch.enabled) repo.replaceDrivers(it, mePos) } }
         // Cloud builds: the vehicle switch, the OnlineFab and DriverLocationService follow the server presence.
         if (dispatch.enabled) viewModelScope.launch { dispatch.onlineFlow.collect { on -> _s.update { it.copy(dispatchOnline = on) } } }
+        // The driver's position comes from the location service, which keeps running with the screen off; collecting it here (not in a
+        // composable, which pauses in the background) keeps the ring search and the trip on the real position all the time.
+        viewModelScope.launch { combine(DriverLocationService.position, DriverLocationService.mocked) { p, m -> p to m }.collect { (p, m) -> if (p != null) onLocation(p, m) } }
     }
-    override fun onCleared() { dispatch.signedOut() }
+    /** The activity is finishing: leave the map (presence off on the app scope, since viewModelScope is already cancelled) and stop the location service. */
+    override fun onCleared() { dispatch.signedOut(); DriverLocationService.stopAll() }
     /** Opens any route from a screen that has no navigation callback for it (e.g. the payment QR from the online sheet). */
     fun open(route: String) = navTo(route)
     /** The repository is re-seeded on every launch; put this user's own skills and businesses back into search. */
@@ -184,9 +197,9 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
-        // Remove this phone from my profile while the Firebase user can still sign that request, then sign out (Push.unregister never throws and gives up after a few seconds offline).
-        viewModelScope.launch { try { Push.unregister() } finally { Cloud.signOut() } } }
+    fun logout() { if (s.online) setOnline(false); val off = dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
+        // Take presence off and remove this phone from my profile while the Firebase user can still sign those requests, then sign out (each gives up after a few seconds offline).
+        viewModelScope.launch { try { withTimeoutOrNull(4_000) { off?.join() }; Push.unregister() } finally { Cloud.signOut() } } }
     fun deleteAccount() { val meId = social.me?.id; autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud()
         // Server first, while the Firebase user still exists to sign the request: this phone's push token, then presence, open tasks,
         // phone, UPI link and profile (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
@@ -213,14 +226,21 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             return }
         toast(if (v) "Online. Nearby ride requests will ring you." else "Offline")
         // Demo dispatch: while a vehicle is online and idle, a nearby customer rings now and then.
-        if (v) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null && s.ride == null) simulateRing(); delay(60000) } } }
+        if (v && demoTools) autoRingJob = viewModelScope.launch { delay(8000); while (s.vehicleOnline) { if (s.driverRide == null && s.ride == null) simulateRing(); delay(60000) } } }
 
     // ---------- location ----------
-    fun onLocation(p: LatLng, mocked: Boolean) { social.here = p; val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.")
+    private var lastFixAt = 0L
+    fun onLocation(p: LatLng, mocked: Boolean) { social.here = p; social.hereKnown = true; lastFixAt = SystemClock.elapsedRealtime(); val wasMocked = s.mockLocation; val (x, y) = Geo.toPercent(p); _s.update { it.copy(me = p, meX = x, meY = y, locationGranted = true, mockLocation = mocked) }; repo.updateDistances(p); if (mocked && !wasMocked) toast("A fake-location app is on. Turn it off to book or take rides.")
         if (dispatch.enabled) dispatch.driverMoved(p)
         // Name the pick-up point from the map, again only after moving ~250 m (the lookup service is shared and free).
-        if (labelledAt?.let { Geo.distanceKm(it, p) > 0.25 } != false) { labelledAt = p
-            viewModelScope.launch { MapServices.label(p)?.let { l -> if (s.me == p) _s.update { it.copy(hereLabel = l) } } } } }
+        // The old name is dropped at once: after 250 m it no longer describes where I am.
+        if (labelledAt?.let { Geo.distanceKm(it, p) > 0.25 } != false) { labelledAt = p; _s.update { it.copy(hereLabel = null) }
+            viewModelScope.launch { MapServices.label(p)?.let { l -> if (labelledAt == p) _s.update { it.copy(hereLabel = l) } } } } }
+    /** A fix taken now, for booking. False when there is none (no permission, location switched off, no answer in time); a fix under 90 s old still counts. */
+    suspend fun refreshLocation(ctx: Context): Boolean {
+        Here.fresh(ctx)?.let { onLocation(it.at, it.mocked); return true }
+        return s.me != null && SystemClock.elapsedRealtime() - lastFixAt < 90_000
+    }
     private var labelledAt: LatLng? = null
     fun onLocationDenied() = _s.update { it.copy(locationGranted = false) }
     val mePos: LatLng get() = s.me ?: Geo.fromPercent(s.meX, s.meY)
@@ -315,8 +335,14 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Called by the UI after the user tapped Confirm and (when required) passed BiometricPrompt. */
     fun confirmPending(expected: PendingAction) { val p = s.pending ?: return; if (p !== expected) return; _s.update { it.copy(pending = null) }; p.run() }
     private fun firstTimeWith(counterparty: String) = s.orders.none { it.providerName == counterparty } && s.requests.none { it.providerName == counterparty }
-    private fun proposeRide(place: Place, k: VehicleKind) { val f = fare(k, place.km); propose(PendingAction("Book a ${k.label.lowercase()}", "${s.ridePickup?.name ?: s.user?.area} → ${place.name} · ${place.km} km · about ₹$f, pay after the trip", f, "Nearest online rider", null, needsBiometric = false) { doRequestRide() }) }
-    fun requestRide() { val d = s.rideDest ?: return; proposeRide(d, s.rideKind) }
+    private fun proposeRide(place: Place, k: VehicleKind) { val f = fare(k, place.km); propose(PendingAction("Book a ${k.label.lowercase()}", "${s.ridePickup?.name ?: s.hereLabel ?: "Current location"} → ${place.name} · ${place.km} km · about ₹$f, pay after the trip", f, "Nearest online rider", null, needsBiometric = false) { doRequestRide() }) }
+    /** Why this trip can't be booked (a fake-location app is on, or - online - the distance is outside what the server takes); null when it can. */
+    fun bookingProblem(d: Place): String? = when {
+        s.mockLocation -> "A fake-location app is on. Turn it off to book a ride."
+        dispatch.enabled && d.km < MIN_TRIP_KM -> "That's too close for a ride. Pick a destination at least 200 m away."
+        dispatch.enabled && d.km > MAX_TRIP_KM -> "That trip is too far for Bucks. Rides go up to ${MAX_TRIP_KM.toInt()} km."
+        else -> null }
+    fun requestRide() { val d = s.rideDest ?: return; bookingProblem(d)?.let { toast(it); return }; proposeRide(d, s.rideKind) }
     fun placeOrder(): Boolean { val cl = cartLines(); val p = cl.first ?: return false; val total = cl.third
         propose(PendingAction("Place order with ${p.name}", cl.second.joinToString(", ") { "${it.first} × ${it.third}" } + " · ₹$total", total, p.name, p.trust, needsBiometric = total >= 500 || firstTimeWith(p.name)) { doPlaceOrder() }); return true }
 
@@ -369,13 +395,16 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun fare(k: VehicleKind, km: Double) = (k.farePerKm * km + 20).roundToInt()
     fun onlineCount(k: VehicleKind) = Geo.ring(pickupAt, repo.drivers.value, k).size
     private fun doRequestRide() {
-        if (dispatch.enabled) { val dest = s.rideDest ?: return
+        val d0 = s.rideDest ?: return; bookingProblem(d0)?.let { toast(it); return }
+        if (dispatch.enabled) { val dest = d0
+            // A pick-up the rider moved on the map wins; otherwise it is where the phone is now.
             val me = s.ridePickup?.at ?: s.me ?: run { toast("Turn on location so your rider can find your pick-up point."); return }
             // The real point the rider chose; x/y are clamped to the drawn map, so a pick beyond its edge would move the drop.
             val to = dest.at ?: Geo.PLACES[dest.name] ?: Geo.fromPercent(dest.x, dest.y)
-            dispatch.requestRide(s.rideKind, me, s.ridePickup?.name ?: s.hereLabel ?: s.user?.area?.ifBlank { null } ?: Geo.nearestArea(me), dest, to, fare(s.rideKind, dest.km)); return }
-        val dest = s.rideDest ?: return; val k = s.rideKind; val id = "ride${System.currentTimeMillis()}"; val f = fare(k, dest.km)
-        val ride = Ride(id, k, dest, f, RideStatus.SEARCHING, (1000 + Random.nextInt(9000)).toString(), signature = sign(Identity.txnPayload("ride", id, s.user?.id ?: "", "", f, System.currentTimeMillis())))
+            dispatch.requestRide(s.rideKind, me, s.ridePickup?.name ?: s.hereLabel ?: "Current location", dest, to, fare(s.rideKind, dest.km)); return }
+        if (!demoTools) { toast("Booking rides needs the online version of Bucks."); return }
+        val dest = d0; val k = s.rideKind; val id = "ride${System.currentTimeMillis()}"; val f = fare(k, dest.km)
+        val ride = Ride(id, k, dest, f, RideStatus.SEARCHING, (1000 + Random.nextInt(9000)).toString(), signature = sign(Identity.txnPayload("ride", id, s.user?.id ?: "", "", f, System.currentTimeMillis())), pickupLabel = s.ridePickup?.name ?: s.user?.area.orEmpty())
         _s.update { it.copy(ride = ride) }; navTo(Routes.SEARCHING)
         ringJob?.cancel(); ringJob = viewModelScope.launch {
             delay(4500); val cand = Geo.ring(mePos, repo.drivers.value, k).firstOrNull()
@@ -393,10 +422,14 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.ARRIVED)) }; toast("Your rider is here. Share PIN ${s.ride?.pin} to start.")
         }
     }
-    fun cancelRide(reason: String) { if (s.ride?.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) return; ringJob?.cancel(); driveJob?.cancel()
-        s.ride?.let { r -> _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides) } }
-        if (dispatch.enabled) dispatch.cancelRide() else _s.update { it.copy(ride = null) }
-        toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
+    /** Cloud: the server cancels first and the screen follows its answer; only then "Nothing to pay". A refusal shows the ride's real status instead. */
+    fun cancelRide(reason: String) { val r = s.ride ?: return
+        if (r.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) { toast("This trip has already started, so it can't be cancelled here."); return }
+        fun cancelled() { _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides) }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
+        if (dispatch.enabled) { dispatch.cancelRide { err -> if (err == null) cancelled() else toast(err) }; return }
+        ringJob?.cancel(); driveJob?.cancel(); _s.update { it.copy(ride = null) }; cancelled() }
+    /** Back out of a request nobody took: forget it so the screens and the driver ring are free again. */
+    fun dismissEndedRide() { if (dispatch.enabled) dispatch.dismissEndedRide() else _s.update { if (it.ride?.status == RideStatus.NO_DRIVER) it.copy(ride = null) else it } }
     fun startTrip() {
         if (dispatch.enabled) return  // the driver starts the trip after checking the PIN
         _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.IN_RIDE)) }; navTo(Routes.IN_RIDE)
@@ -416,13 +449,10 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Cloud ride follow-up: navigate as the task moves along, exactly as the demo simulation does. */
     private fun onCloudRide(prev: Ride?, r: Ride?) {
         if (r == null) return
-        if (prev == null || prev.id != r.id) { when (r.status) {   // new request, or a trip restored after the app was killed
-            RideStatus.SEARCHING, RideStatus.NO_DRIVER -> navTo(Routes.SEARCHING)
-            RideStatus.MATCHED, RideStatus.ARRIVED -> navTo(Routes.DRIVER_FOUND)
-            RideStatus.IN_RIDE -> navTo(Routes.IN_RIDE)
-            RideStatus.COMPLETED -> navTo(Routes.PAY)
-            RideStatus.PAID -> navTo(Routes.RATE_RIDE)
-            RideStatus.CANCELLED -> {} }; return }
+        if (prev == null || prev.id != r.id) {   // new request, or a trip restored after the app was killed
+            // The destination and vehicle come back with a restored ride, so "Ring again" has something to ring.
+            _s.update { it.copy(rideDest = r.dest, rideKind = r.kind) }
+            rideRoute(r.status)?.let { navTo(it) }; return }
         if (r.status == prev.status) return
         when (r.status) {
             RideStatus.MATCHED -> navTo(Routes.DRIVER_FOUND)
@@ -435,8 +465,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         }
     }
     private fun onCloudDriverRide(prev: DriverRide?, d: DriverRide?) {
-        if (d == null || (prev != null && prev.id == d.id)) return
-        if (d.status == DriverRideStatus.RINGING) { if (s.ride == null && s.pending == null) navTo(Routes.HOME); return }
+        if (d == null) return
+        // Accepting from whichever screen the ring card showed on: the trip lives on Home, so go there (the driver asked for it).
+        if (prev != null && prev.id == d.id) { if (prev.status == DriverRideStatus.RINGING && d.status == DriverRideStatus.TO_PICKUP) navTo(Routes.HOME); return }
+        // A ringing request is a card over whatever screen is showing (BucksAppUi); it never moves anyone away from a ride in progress.
+        if (d.status == DriverRideStatus.RINGING) return
         // A trip restored after the app was killed: back to the trip screen, and back on duty so location keeps flowing.
         navTo(Routes.HOME)
         if (!s.online) setOnline(true)
@@ -444,7 +477,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
 
     // ---------- provider side ----------
     fun simulateRing() {
-        if (s.driverRide != null) return
+        if (!demoTools || s.driverRide != null) return
         if (!s.vehicleOnline) { toast("Turn your vehicle online to receive ride requests."); return }
         val k = s.pro?.vehicle?.kind ?: VehicleKind.BIKE; val me = mePos
         val pickup = LatLng(me.lat + (Random.nextDouble() - 0.5) * 0.012, me.lng + (Random.nextDouble() - 0.5) * 0.012); val pickupKm = (Geo.distanceKm(me, pickup) * 10).roundToInt().coerceAtLeast(1) / 10.0
@@ -463,7 +496,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     }
     fun driverDecline() { if (dispatch.enabled) { dispatch.driverDecline(); return }; drvRingJob?.cancel(); _s.update { it.copy(driverRide = null) }; toast("Passed. We'll send you the next one.") }
     fun driverAccept() { if (dispatch.enabled) { dispatch.driverAccept(); return }; drvRingJob?.cancel()
-        _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.TO_PICKUP, progress = 0f)) }; toast("It's yours. Head to the pick-up.")
+        _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.TO_PICKUP, progress = 0f)) }; toast("It's yours. Head to the pick-up."); navTo(Routes.HOME)
         animateDriver(DriverRideStatus.TO_PICKUP) { _s.update { it.copy(driverRide = it.driverRide?.copy(status = DriverRideStatus.ARRIVED)) }; toast("You're at the pick-up. Ask the customer for their PIN.") } }
     /** Simulated drive for the current leg; replace with real location updates from DriverLocationService. */
     private fun animateDriver(leg: DriverRideStatus, onDone: () -> Unit) { drvDriveJob?.cancel(); drvDriveJob = viewModelScope.launch {
@@ -481,14 +514,18 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             else -> {}
         }; return true
     }
-    fun driverPaid(method: String) { val d = s.driverRide ?: return
-        if (dispatch.enabled) dispatch.driverPaid(method) else _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.RATE, paidWith = method)) }
-        _s.update { it.copy(earnings = it.earnings + d.fare) }; toast("₹${d.fare} received by $method. Added to today's earnings.") }
+    /** Cash or UPI collected. Counted once, and only from the payment step: a second tap finds the trip already past it. [method] is "CASH", "UPI" or "shop". */
+    fun driverPaid(method: String) { val d = s.driverRide ?: return; if (d.status != DriverRideStatus.DONE) return
+        if (dispatch.enabled) { if (!dispatch.driverPaid(method)) return } else _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.RATE, paidWith = method)) }
+        _s.update { it.copy(earnings = it.earnings + d.fare) }
+        toast(if (method == "shop") "Delivery done. ₹${d.fare} comes from the shop." else "₹${d.fare} received by ${payWord(method)}. Added to today's earnings.") }
     fun setUpi(id: String) { val v = id.trim(); if (!Regex("^[\\w.\\-]{2,}@[a-zA-Z]{2,}$").matches(v)) { toast("A UPI ID looks like name@bank. Check it and try again."); return }; _s.update { it.copy(pro = (it.pro ?: ProProfile()).copy(upiId = v)) }; persist() }
     fun driverRateCustomer(stars: Int) { val up = stars >= 3; _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1)) }; persist()
         if (dispatch.enabled) dispatch.closeTrip() else _s.update { it.copy(driverRide = null) }; toast("Trip closed. Fare added to today's earnings.") }
-    fun driverCancel() { _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1)) }; persist()
-        if (dispatch.enabled) dispatch.driverCancel() else _s.update { it.copy(driverRide = null) }; toast("Ride cancelled. This counts against your recommendations.") }
+    /** Hands the trip back. Cloud: only once the server has done it (a refusal shows where the trip really is). */
+    fun driverCancel() {
+        if (dispatch.enabled) { val ringing = s.driverRide?.status == DriverRideStatus.RINGING; dispatch.driverCancel { ok -> if (ok && !ringing) toast("Handed back. Other riders will be rung for it.") }; return }
+        _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1), driverRide = null) }; persist(); toast("Ride cancelled. This counts against your recommendations.") }
     fun setProKind(k: ProKind) = _s.update { it.copy(proKind = k) }
     fun setProStep(n: Int) = _s.update { it.copy(proStep = n) }
     fun startPro(kind: ProKind?, step: Int) = _s.update { it.copy(proKind = kind, proStep = step, editBiz = null) }
@@ -518,7 +555,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         edit?.takeIf { !it.name.equals(name, true) }?.let { old -> repo.removeProvider("biz-me-${old.name.lowercase()}") }
         addBusinessProvider(name, cat, scope, items, replace = true)
         _s.update { st -> st.copy(businesses = st.editBiz?.let { e -> st.businesses.mapIndexed { j, b -> if (j == e) biz else b } } ?: (st.businesses + biz), editBiz = null, proStep = 3, proMessage = "$name is live. Customers searching \"${cat.lowercase()}\" will find you.") }; persist(); return true }
-    fun simulateIncoming() { val openBiz = s.businesses.firstOrNull { it.online }; val openSkill = s.pro?.skillListings?.firstOrNull { it.online }
+    fun simulateIncoming() { if (!demoTools) return; val openBiz = s.businesses.firstOrNull { it.online }; val openSkill = s.pro?.skillListings?.firstOrNull { it.online }
         val inc = when { openBiz != null -> Incoming("Arjun R", "Order: ${openBiz.items.firstOrNull()?.name ?: "1 item"} × 2 for ${openBiz.name} · deliver to Jayanagar"); openSkill != null -> Incoming("Meera S", "Request: ${openSkill.name} needed today evening"); s.businesses.isNotEmpty() || !s.pro?.skills.isNullOrEmpty() -> { toast("Go online with a business or skill to receive orders and requests"); return }; else -> { toast("Add a business or a skill first, then switch it online."); navTo(Routes.PRO_CREATE); return } }
         _s.update { it.copy(incoming = listOf(inc) + it.incoming) }; toast("New request. Open Incoming to accept it."); navTo(Routes.LISTINGS) }
     fun acceptIncoming(i: Incoming) { _s.update { it.copy(incoming = it.incoming - i) }; toast("Accepted. The customer knows you're on it.") }
@@ -549,5 +586,15 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun linkDevice(code: String): Boolean { if (code.trim().length < 6) { toast("Enter the 6-character code shown on the other device"); return false }; _s.update { it.copy(devices = it.devices + LinkedDevice("dev-${code.trim().lowercase()}", "Device ${code.trim().uppercase()}", "Linked just now", false)) }; toast("Device linked. Your profile will sync there."); return true }
     fun unlinkDevice(id: String) = _s.update { it.copy(devices = it.devices.filterNot { d -> d.id == id && !d.thisDevice }) }
 
+    companion object {
+        /** The ride screen for a status (null for a cancelled ride): where a rider goes as it moves along, and what Home's "Return" opens. */
+        fun rideRoute(st: RideStatus): String? = when (st) {
+            RideStatus.SEARCHING, RideStatus.NO_DRIVER -> Routes.SEARCHING
+            RideStatus.MATCHED, RideStatus.ARRIVED -> Routes.DRIVER_FOUND
+            RideStatus.IN_RIDE -> Routes.IN_RIDE
+            RideStatus.COMPLETED -> Routes.PAY
+            RideStatus.PAID -> Routes.RATE_RIDE
+            RideStatus.CANCELLED -> null }
+    }
     class Factory(private val repo: BucksRepository) : ViewModelProvider.Factory { @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T = BucksViewModel(repo) as T }
 }

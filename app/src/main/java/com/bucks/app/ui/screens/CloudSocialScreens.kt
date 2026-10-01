@@ -507,7 +507,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
     DisposableEffect(id) {
         val (channel, flow) = Backend.liveMessages(id)
         val job = scope.launch { runCatching { flow.collect { m -> if (msgs.none { it.id == m.id }) { social.namesFor(listOf(m.senderId)); msgs = msgs + m; if (m.senderId != meId) social.markRead(id) } } } }
-        onDispose { job.cancel(); scope.launch { Backend.closeChannel(channel) } }
+        onDispose { job.cancel(); Backend.releaseChannel(channel) }
     }
     LaunchedEffect(msgs.size) { if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1) }
     // Photos and videos from the gallery; a file that can't be read (or is over 25 MB) says so instead of doing nothing.
