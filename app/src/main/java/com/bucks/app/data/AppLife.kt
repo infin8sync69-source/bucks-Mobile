@@ -80,13 +80,13 @@ object RingAlert {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return Problem.OFF
         if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return Problem.OFF
         Push.ensureChannels(ctx)
-        val importance = ctx.getSystemService(NotificationManager::class.java)?.getNotificationChannel(Push.CH_TASKS)?.importance ?: return null
+        val importance = ctx.getSystemService(NotificationManager::class.java)?.getNotificationChannel(Push.CH_RIDE)?.importance ?: return null
         return when { importance == NotificationManager.IMPORTANCE_NONE -> Problem.CHANNEL; importance < NotificationManager.IMPORTANCE_HIGH -> Problem.QUIET; else -> null }
     }
 
     /** The system screen where the driver fixes [p]: the app's notification settings, or that one channel's. */
     fun settingsIntent(ctx: Context, p: Problem): Intent {
-        val i = if (p == Problem.OFF) Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS) else Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_CHANNEL_ID, Push.CH_TASKS)
+        val i = if (p == Problem.OFF) Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS) else Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_CHANNEL_ID, Push.CH_RIDE)
         return i.putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
@@ -102,7 +102,7 @@ object RingAlert {
         val delivery = dr.kind == VehicleKind.BIKE
         val away = if (dr.pickupKm < 1) "${(dr.pickupKm * 1000).toInt()} m" else "${dr.pickupKm} km"
         val secs = dr.secondsLeft.coerceAtLeast(5)
-        val n = NotificationCompat.Builder(ctx, Push.CH_TASKS)
+        val n = NotificationCompat.Builder(ctx, Push.CH_RIDE)
             .setSmallIcon(com.bucks.app.R.drawable.ic_stat_bucks).setColor(0xFF811FF0.toInt())
             .setContentTitle("${if (delivery) "New delivery" else "New ride request"} · ₹${dr.fare}").setContentText("${dr.pickupAt.substringBefore(" · ")} · $away away · tap to accept")
             .setContentIntent(tap).setAutoCancel(true).setCategory(NotificationCompat.CATEGORY_EVENT).setPriority(NotificationCompat.PRIORITY_MAX).setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
