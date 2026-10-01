@@ -19,8 +19,9 @@ android {
         targetSdk = 36
         // CI passes the GitHub run number, so every test build is newer than the last and installs over it; a local build is 1.
         val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
-        versionCode = buildNumber
-        versionName = "0.2.$buildNumber"
+        // Play releases (android-release.yml) set VERSION_CODE and VERSION_NAME from the release tag; test builds use the run number.
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: buildNumber
+        versionName = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() } ?: "0.2.$buildNumber"
         buildConfigField("int", "BUILD_NUMBER", "$buildNumber")
         // Where test builds are published (GitHub Releases "build-N"), and which branch this one came from: the in-app
         // updater only offers newer builds of the same branch.
@@ -39,9 +40,15 @@ android {
     // The pilot key (a CI secret, see scripts/setup-pilot-signing.sh). Every test build must carry the same signature, or Android
     // refuses to install it over the previous one. Without the secret, builds fall back to a throwaway debug key.
     val pilotKeystore = System.getenv("PILOT_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    // The Play upload key (CI secrets, see scripts/setup-upload-signing.sh), only for release bundles sent to Google Play. Google re-signs
+    // them with the app signing key it holds (Play App Signing). Without it, release builds come out unsigned (CI still checks they build).
+    val uploadKeystore = System.getenv("UPLOAD_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
         if (pilotKeystore != null) create("pilot") {
             storeFile = pilotKeystore; storePassword = System.getenv("PILOT_KEYSTORE_PASSWORD"); keyAlias = "pilot"; keyPassword = System.getenv("PILOT_KEYSTORE_PASSWORD")
+        }
+        if (uploadKeystore != null) create("upload") {
+            storeFile = uploadKeystore; storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD"); keyAlias = "upload"; keyPassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
         }
     }
     buildTypes {
@@ -51,6 +58,7 @@ android {
             buildConfigField("boolean", "SELF_UPDATE", "true")
         }
         release {
+            if (uploadKeystore != null) signingConfig = signingConfigs.getByName("upload")
             buildConfigField("boolean", "SELF_UPDATE", "false")
             // R8 shrinks and optimises the release build; Compose is several times faster than in a debug build.
             isMinifyEnabled = true
