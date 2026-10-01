@@ -1,6 +1,9 @@
 \set ON_ERROR_STOP 1
 \pset format unaligned
 \pset tuples_only on
+-- These flows are walked in milliseconds and without moving anyone: switch off hardening_dispatch.sql's clock and distance checks, as
+-- device-test projects do (supabase/README.md, "Dispatch settings"). hardening_dispatch_scenarios.sql tests those checks themselves.
+update public.settings set value = 0 where key in ('min_trip_seconds', 'arrive_radius_m', 'complete_radius_m', 'presence_max_speed_mps');
 create or replace function pg_temp.expect_fail(sql text, want text) returns text language plpgsql as $$
 begin execute sql; return 'FAIL (no error): ' || want; exception when others then return case when sqlerrm ilike '%' || want || '%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u)::text, false) $$;

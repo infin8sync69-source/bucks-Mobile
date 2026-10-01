@@ -1,9 +1,18 @@
 \set ON_ERROR_STOP 1
 \pset format unaligned
 \pset tuples_only on
+-- These flows are walked in milliseconds and without moving anyone: switch off hardening_dispatch.sql's clock and distance checks, as
+-- device-test projects do (supabase/README.md, "Dispatch settings"). hardening_dispatch_scenarios.sql tests those checks themselves.
+update public.settings set value = 0 where key in ('min_trip_seconds', 'arrive_radius_m', 'complete_radius_m', 'presence_max_speed_mps');
 -- helpers: act as a signed-in user, or as the database owner
 create or replace function pg_temp.expect_fail(sql text, want text) returns text language plpgsql as $$
 begin execute sql; return 'FAIL (no error): ' || want; exception when others then return case when sqlerrm ilike '%' || want || '%' or want = '' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
+
+create or replace function pg_temp.pin_refused(t uuid) returns text language plpgsql as $$
+declare st text;
+begin st := (public.advance_task(t, 'IN_PROGRESS', '0000')).status;
+  return case when st = 'ARRIVED' then 'ok, refused (the trip stays ARRIVED)' else 'FAIL (a wrong PIN moved the trip to ' || st || ')' end;
+exception when others then return case when sqlerrm ilike '%PIN%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 
 \echo '== 1. Sign-up creates profiles with UUIDv7 ids and 8-char Bucks IDs'
 set role authenticated;
@@ -93,7 +102,8 @@ select 'rider rung for: ' || type || ' ' || pickup_label || ' -> ' || drop_label
 select set_config('t.task', (select id::text from open_tasks_near(12.9080, 77.5870) limit 1), false) is not null;
 select 'claim: ' || claim_task(current_setting('t.task')::uuid);
 select 'arrived: ' || (advance_task(current_setting('t.task')::uuid, 'ARRIVED')).status;
-select 'wrong PIN -> ' || pg_temp.expect_fail(format($$select advance_task(%L, 'IN_PROGRESS', '0000')$$, current_setting('t.task')), 'PIN');
+-- A wrong PIN is refused; since hardening_dispatch.sql it is counted (5 tries) instead of raising, so the trip simply stays ARRIVED.
+select 'wrong PIN -> ' || pg_temp.pin_refused(current_setting('t.task')::uuid);
 reset role; select set_config('t.pin', pin, false) is not null from tasks where id = current_setting('t.task')::uuid; set role authenticated;
 select 'picked up: ' || (advance_task(current_setting('t.task')::uuid, 'IN_PROGRESS', current_setting('t.pin'))).status;
 select 'delivered: ' || (advance_task(current_setting('t.task')::uuid, 'COMPLETED')).status;
