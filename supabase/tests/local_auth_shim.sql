@@ -15,3 +15,9 @@ create table if not exists storage.objects (id uuid primary key default gen_rand
 alter table storage.objects enable row level security;
 create or replace function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
 grant usage on schema storage to authenticated; grant select, insert, update, delete on storage.objects to authenticated;
+-- Supabase's default privileges: every table, view, sequence and function that postgres creates in public is granted to anon,
+-- authenticated and service_role. The migrations must revoke what they don't want, so the tests start from the same grants as production.
+grant usage on schema public to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;

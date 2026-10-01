@@ -120,4 +120,17 @@ select pg_temp.eq(pg_temp.q($$select count(*)::text from posts where body = 'New
 select pg_temp.check(pg_temp.q(format($$select rate_listing(%L, 1, 'Lovely silks')$$, :'ship_shop')) !~ '^ERR', 'anyone can recommend a live store with a comment');
 select pg_temp.eq(pg_temp.sq(format($$select trust_up::text from listings where id = %L$$, :'ship_shop')), '1', 'the recommendation counts in the trust numbers');
 
+-- ---------- delete_my_account: saved addresses and product recommendations go with the account ----------
+-- The profile row is kept (anonymised), so on delete cascade never fires; delete_my_account must remove them itself.
+select pg_temp.as_user('uma');
+select pg_temp.pid('uma') as uma_id \gset
+insert into addresses (profile_id, name, phone, line1, city, state, pincode) values (:'uma_id', 'Uma R', '9876543210', '12 MG Road', 'Mysuru', 'Karnataka', '570001');
+select pg_temp.check(pg_temp.q(format($$select rate_product(%L, public.item_product_key(details, id), 1, 'Good rice') from items where listing_id = %L and name = 'Rice'$$,
+  :'ship_shop', :'ship_shop')) !~ '^ERR', 'uma recommends a product with a comment');
+select pg_temp.eq(pg_temp.sq(format($$select (select count(*) from addresses where profile_id = %L) || '/' || (select count(*) from product_ratings where profile_id = %L)$$,
+  :'uma_id', :'uma_id')), '1/1', 'before deleting: one saved address and one product recommendation');
+select delete_my_account();
+select pg_temp.eq(pg_temp.sq(format($$select count(*)::text from addresses where profile_id = %L$$, :'uma_id')), '0', 'deleting the account removes the saved delivery addresses');
+select pg_temp.eq(pg_temp.sq(format($$select count(*)::text from product_ratings where profile_id = %L$$, :'uma_id')), '0', 'deleting the account removes the product recommendations and their comments');
+
 reset role;
