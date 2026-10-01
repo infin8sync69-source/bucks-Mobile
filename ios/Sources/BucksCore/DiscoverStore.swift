@@ -141,7 +141,8 @@ public final class DiscoverStore {
                 let me = session.me?.id
                 // A store's Products tab needs names, prices and one photo each, not every description: the slim catalogue is about a quarter of the size.
                 let slim = l.kind == "BUSINESS" ? (try? await b.catalogItems(id)) : nil
-                let items = slim ?? ((try? await b.discoverItems(id)) ?? [])
+                let items: [ItemRow]
+                if let slim { items = slim } else { items = (try? await b.discoverItems(id)) ?? [] }
                 let reviews = (try? await b.reviews(id)) ?? []
                 let posts = (l.kind == "SKILL" || l.kind == "BUSINESS") ? ((try? await b.discoverPosts(id)) ?? []) : []
                 let members = (try? await b.discoverMembers(id)) ?? []
