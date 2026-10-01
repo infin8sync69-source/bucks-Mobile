@@ -19,6 +19,7 @@ public final class LocationService: NSObject, CLLocationManagerDelegate {
     private var waiting: [Int: CheckedContinuation<Fix?, Never>] = [:]
     private var nextWaiter = 0
     private var driverMode = false
+    private var precise = false
     private var updating = false
 
     public override init() {
@@ -66,9 +67,20 @@ public final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.showsBackgroundLocationIndicator = on
         manager.pausesLocationUpdatesAutomatically = false
         #endif
-        manager.desiredAccuracy = on ? kCLLocationAccuracyBest : kCLLocationAccuracyNearestTenMeters
-        manager.distanceFilter = on ? 15 : 25
+        applyAccuracy()
         if on { if hasPermission { updating = true; manager.startUpdatingLocation() } } else if !updating { manager.stopUpdatingLocation() }
+    }
+
+    /// Turn-by-turn on the Maps screen: best accuracy and an update every few metres while it guides (Android asks for a fix every 2 s).
+    public func setPrecise(_ on: Bool) {
+        precise = on
+        applyAccuracy()
+        if on, hasPermission { updating = true; manager.startUpdatingLocation() }
+    }
+
+    private func applyAccuracy() {
+        manager.desiredAccuracy = (precise || driverMode) ? kCLLocationAccuracyBest : kCLLocationAccuracyNearestTenMeters
+        manager.distanceFilter = precise ? 3 : driverMode ? 15 : 25
     }
 
     /// A fix taken now; nil without permission, with location switched off, or when none arrives within `timeout` seconds.

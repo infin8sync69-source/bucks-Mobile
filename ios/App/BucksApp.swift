@@ -18,6 +18,8 @@ struct BucksApp: App {
         let firebaseReady = AppDelegate.firebaseAvailable
         let info = Bundle.main.infoDictionary ?? [:]
         let config = BackendConfig(url: info["SupabaseURL"] as? String ?? "", anonKey: info["SupabaseAnonKey"] as? String ?? "")
+        // Mapbox tiles, search and routes when a token is built in; OpenStreetMap's servers otherwise (same as Android).
+        MapServices.token = (info["MapboxToken"] as? String ?? "").trimmingCharacters(in: .whitespaces)
         session.configure(config, auth: firebaseReady ? FirebasePhoneAuth() : nil)
     }
 

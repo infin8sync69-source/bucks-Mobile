@@ -52,9 +52,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://lboxctryrktwdsvywfqp.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3hjdHJ5cmt0d2Rzdnl3ZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Nzg4NjgsImV4cCI6MjEwNjA1NDg2OH0.f723OaejTwcD3AZsASkaF6XYLMIhYmdIqVWphasImcg' }}
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does)
-          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" > Config/Secrets.xcconfig
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\n' "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" > Config/Secrets.xcconfig
           xcodegen generate
       - name: Build for the iOS Simulator
         run: |

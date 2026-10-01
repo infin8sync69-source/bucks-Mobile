@@ -85,7 +85,6 @@ struct SideMenu: View {
 
     private var footer: some View {
         VStack(spacing: 1) {
-            item("mappin.and.ellipse", "Maps & directions", selected: router.path.last == .maps) { go(.maps) }
             item("gearshape", "Account settings") { close(); router.select(.account, accountTab: "settings") }
             item("rectangle.portrait.and.arrow.right", "Logout") { close(); Task { await session.logout() } }
         }.padding(12)

@@ -12,6 +12,7 @@ struct DriverTripScreen: View {
 private struct TripBody: View {
     let dr: DriverRide
     @Environment(AppSession.self) private var session
+    @Environment(Router.self) private var router
     @State private var pin = ""
     @State private var cash = false
     @State private var stars = 0
@@ -67,9 +68,11 @@ private struct TripBody: View {
         return ZStack(alignment: .topTrailing) {
             BucksMap(pins: [MapPin(id: "me", at: l.car, title: "You", tint: driverMeColor, isMe: true), MapPin(id: "to", at: l.to, title: "", tint: BucksColor.primary)],
                      route: travelling ? (road.route?.points ?? [l.car, l.to]) : [])
-            // Turn-by-turn in the phone's own navigation app.
+            // Turn-by-turn inside Bucks (the Maps screen starts guiding straight away).
             if l.from != l.to {
-                SmallButton(road.route.map { "Navigate · \($0.minutes) min" } ?? "Navigate") { driverNavigate(to: l.to) }
+                SmallButton(road.route.map { "Navigate · \($0.minutes) min" } ?? "Navigate") {
+                    openMapsTo(router, name: dr.status == .toPickup ? dr.pickupAt : dr.dropAt, at: l.to, autoStart: true)
+                }
                     .fixedSize().padding(12)
             }
         }.frame(maxHeight: .infinity)

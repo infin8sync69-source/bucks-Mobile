@@ -61,6 +61,7 @@ targets:
         NSContactsUsageDescription: Bucks reads your contacts on this phone to help you call, message and invite people. They are never uploaded.
         NSFaceIDUsageDescription: Bucks asks for Face ID before confirming larger orders and payments.
         GeminiAPIKey: $(GEMINI_API_KEY)
+        MapboxToken: $(MAPBOX_TOKEN)
         CFBundleURLTypes:
           - CFBundleURLSchemes: [$(REVERSED_CLIENT_ID)]
         LSApplicationQueriesSchemes: [upi, tez, phonepe, paytmmp, gpay, tel, sms]

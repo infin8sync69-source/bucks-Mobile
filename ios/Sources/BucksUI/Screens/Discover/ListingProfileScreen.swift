@@ -203,7 +203,7 @@ private struct ProfileHeader: View {
                     }.buttonStyle(.plain).disabled(d.chatStarting)
                     SyncButton(synced: synced, busy: d.syncing.contains(l.id)) { d.syncListing(l.id, on: !synced) }
                     ShareLink(item: shareText) { HeaderIconFace(systemImage: "square.and.arrow.up") }.buttonStyle(.plain).accessibilityLabel("Share")
-                    if let at = p.at { HeaderIcon(systemImage: "mappin.and.ellipse", label: "Directions") { openDirections(to: at, label: l.title) } }
+                    if let at = p.at { HeaderIcon(systemImage: "mappin.and.ellipse", label: "Directions") { openMapsTo(router, name: l.title, detail: l.area, at: at) } }
                     if l.kind == "BUSINESS" && cartHere && l.online {
                         HeaderIcon(systemImage: "cart.fill", label: "Order", on: true, action: onCart)
                             .overlay(alignment: .topTrailing) { Text("\(session.commerce.count)").bucks(.labelSmall).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.error)).offset(x: 6, y: -6) }

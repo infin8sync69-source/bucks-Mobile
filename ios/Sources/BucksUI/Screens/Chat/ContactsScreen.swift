@@ -115,6 +115,7 @@ private struct ContactRow: View {
     let onMessage: (ProfileRow) -> Void
     let onAttach: () -> Void
     @Environment(AppSession.self) private var session
+    @Environment(Router.self) private var router
 
     private var first: String? { c.phones.first }
     private var inviteText: String { Invite.contactText(firstName: c.name.components(separatedBy: " ")[0]) }
@@ -167,7 +168,7 @@ private struct ContactRow: View {
             }
             if !c.org.isEmpty { detail("briefcase", [c.org, c.title.isEmpty ? nil : c.title].compactMap { $0 }.joined(separator: " · ")) {} }
             if !c.address.isEmpty {
-                detail("mappin.and.ellipse", c.address) { detailButton("mappin", "Show on map") { start("http://maps.apple.com/?q=\(encoded(c.address))") } }
+                detail("mappin.and.ellipse", c.address) { detailButton("mappin", "Show on map") { MapsPick.query = c.address; router.push(.maps) } }
             }
         }
     }

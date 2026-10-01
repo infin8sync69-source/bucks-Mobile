@@ -1,7 +1,8 @@
 // Defaults first, then Secrets.xcconfig (not committed; create it with scripts/make_secrets.sh) overrides them with the Supabase project,
-// the Gemini key and the Firebase reversed client id.
+// the Gemini key, the Mapbox token (empty: OpenStreetMap tiles and search, like Android) and the Firebase reversed client id.
 SUPABASE_URL =
 SUPABASE_ANON_KEY =
 GEMINI_API_KEY =
+MAPBOX_TOKEN =
 REVERSED_CLIENT_ID = com.googleusercontent.apps.not-configured
 #include? "Secrets.xcconfig"

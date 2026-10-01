@@ -68,11 +68,6 @@ private func detectQR(handler: VNImageRequestHandler) -> String? {
     #endif
 }
 
-/// Driving directions to `to` in Apple Maps.
-@MainActor func driverNavigate(to: LatLng) {
-    driverOpenURL("http://maps.apple.com/?daddr=\(to.lat),\(to.lng)&dirflg=d")
-}
-
 /// Short distance text used on the request card and trip screen.
 func driverMetres(_ km: Double) -> String { km < 1 ? "\(Int(km * 1000))m" : "\(Geo.round1(km))km" }
 
