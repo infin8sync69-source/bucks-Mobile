@@ -19,7 +19,7 @@ struct ChooseRideScreen: View {
     }
 
     private func content(_ dest: Place) -> some View {
-        let me = session.mePos
+        let me = session.pickupAt
         let road = loader.route
         var pins = [MapPin(id: "me", at: me, title: "You", tint: BucksColor.purple, isMe: true),
                     MapPin(id: "dest", at: dest.at, title: dest.name, tint: BucksColor.primary)]

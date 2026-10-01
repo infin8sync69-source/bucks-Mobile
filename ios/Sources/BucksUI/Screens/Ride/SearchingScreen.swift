@@ -19,10 +19,10 @@ struct SearchingScreen: View {
     }
 
     private func content(_ r: Ride) -> some View {
-        let me = session.mePos
+        let me = session.pickupAt
         let n = session.onlineCount(r.kind)
         let cancelling = session.dispatch.cancelling
-        var pins = [MapPin(id: "me", at: me, title: "You", tint: BucksColor.purple, isMe: true), MapPin(id: "dest", at: r.dest.at, title: r.dest.name, tint: BucksColor.bad)]
+        var pins = [MapPin(id: "me", at: me, title: "Pick-up", tint: BucksColor.purple, isMe: true), MapPin(id: "dest", at: r.dest.at, title: r.dest.name, tint: BucksColor.bad)]
         pins += session.dispatch.drivers.filter { $0.online && $0.vehicle == r.kind }.compactMap { d in d.at.map { MapPin(id: "d-\(d.id)", at: $0, tint: BucksColor.primary) } }
         return VStack(spacing: 0) {
             // Back while searching asks first (leaving would leave the request ringing); once nobody took it, Back just leaves.

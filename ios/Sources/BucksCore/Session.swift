@@ -66,6 +66,8 @@ public final class AppSession: DispatchHost {
 
     // MARK: ride planning
     public var rideDest: Place?
+    /// The pick-up the customer moved the pin to or searched; nil means "where I am".
+    public private(set) var ridePickup: Place?
     public var rideKind: VehicleKind = .auto
     public private(set) var savedPlaces: [String] = []
     public var pending: PendingBooking?
@@ -202,7 +204,7 @@ public final class AppSession: DispatchHost {
     private func clearLocalState() {
         // Cart, orders, search results, listings, jobs, chats and the feed belong to the person who signed out, not the next account on this phone.
         commerce.signedOut(); discover.signedOut(); listings.signedOut(); services.signedOut(); jobs.signedOut(); social.signedOut(); chat.signedOut(); feed.clear()
-        me = nil; user = nil; names = [:]; tempPhone = ""; otpStatus = ""; rideDest = nil; pending = nil; earningsToday = 0
+        me = nil; user = nil; names = [:]; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
         defaults.removeObject(forKey: "storedUser")
     }
 
@@ -245,9 +247,13 @@ public final class AppSession: DispatchHost {
 
     /// Same fare formula as Android: per-km rate plus a ₹20 base.
     public func fare(_ k: VehicleKind, km: Double) -> Int { Int((Double(k.farePerKm) * km + 20).rounded()) }
-    public func onlineCount(_ k: VehicleKind) -> Int { dispatch.ring(from: mePos, kind: k).count }
+    public func onlineCount(_ k: VehicleKind) -> Int { dispatch.ring(from: pickupAt, kind: k).count }
 
-    public func startRide() { rideDest = nil; pending = nil }
+    public func startRide() { rideDest = nil; ridePickup = nil; pending = nil }
+    /// Where the rider will be picked up: the point the customer chose, else where they are.
+    public var pickupAt: LatLng { ridePickup?.at ?? mePos }
+    public func setPickup(_ name: String, at p: LatLng) { ridePickup = Place(name: name, km: 0, at: p) }
+    public func resetPickup() { ridePickup = nil }
     /// One of the built-in places.
     public func chooseDest(_ name: String) { if let at = Geo.place(named: name) { chooseDestPlace(name, at: at) } }
     public func chooseDestPlace(_ name: String, at: LatLng) { rideDest = Place(name: name, km: Geo.round1(Geo.distanceKm(mePos, at)), at: at) }
@@ -276,15 +282,16 @@ public final class AppSession: DispatchHost {
         guard let d = rideDest else { return }
         if let p = bookingProblem(d) { toast(p); return }
         let f = fare(rideKind, km: d.km), kind = rideKind
-        pending = PendingBooking(title: "Book a \(kind.label.lowercased())", summary: "\(hereLabel ?? "Current location") → \(d.name) · \(d.km) km · about ₹\(f), pay after the trip", amount: f) { [weak self] in self?.doRequestRide() }
+        pending = PendingBooking(title: "Book a \(kind.label.lowercased())", summary: "\(ridePickup?.name ?? hereLabel ?? "Current location") → \(d.name) · \(d.km) km · about ₹\(f), pay after the trip", amount: f) { [weak self] in self?.doRequestRide() }
     }
     public func confirmPending(_ p: PendingBooking) { guard pending?.id == p.id else { return }; pending = nil; p.run() }
     public func cancelPending() { pending = nil }
     private func doRequestRide() {
         guard let d = rideDest else { return }
         if let p = bookingProblem(d) { toast(p); return }
-        guard hereKnown else { toast("Turn on location so your rider can find your pick-up point."); return }
-        dispatch.requestRide(kind: rideKind, from: here, fromLabel: hereLabel ?? "Current location", dest: d, fare: fare(rideKind, km: d.km))
+        // A pick-up the rider moved on the map wins; otherwise it is where the phone is now.
+        guard let from = ridePickup?.at ?? (hereKnown ? here : nil) else { toast("Turn on location so your rider can find your pick-up point."); return }
+        dispatch.requestRide(kind: rideKind, from: from, fromLabel: ridePickup?.name ?? hereLabel ?? "Current location", dest: d, fare: fare(rideKind, km: d.km))
     }
 
     /// Rider: cancel before the trip starts. Shows the server's answer; success returns home.

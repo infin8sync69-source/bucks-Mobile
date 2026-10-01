@@ -122,6 +122,7 @@ struct MainStack: View {
         .environment(\.openBucksMenu, { withAnimation(.easeOut(duration: 0.25)) { router.menuOpen = true } })
         .animation(.easeOut(duration: 0.25), value: session.dispatch.driverRide?.id)
         .confirmationGate()
+        .rideRing(session.dispatch.driverRide?.status == .ringing)
         .bucksPushRouting()
         .onChange(of: RideKey(id: session.dispatch.ride?.id, status: session.dispatch.ride?.status)) { old, new in rideChanged(from: old, to: new) }
         .onChange(of: session.dispatch.driverRide?.id) { _, _ in tripRestored() }

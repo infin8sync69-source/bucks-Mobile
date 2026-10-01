@@ -27,13 +27,18 @@ import Testing
         #expect(p.title == "Asha"); #expect(p.body == "Hi"); #expect(p.route == nil); #expect(p.kind == .social)
         #expect(PushPayload(userInfo: ["body": "no title"]) == nil)
     }
+    @Test func aRideRequestRingsInTheAppNotAsABanner() throws {
+        let p = try #require(PushPayload(userInfo: ["type": "ride", "title": "New ride request", "body": "Jayanagar to MG Road", "route": "home"]))
+        #expect(p.kind == .ride); #expect(p.interruptionLevel == "timeSensitive")
+        #expect(p.foreground == .init(banner: false, list: false, sound: false))
+    }
     @Test func quietHoursArePassiveAndSilent() throws {
         let p = try #require(PushPayload(userInfo: ["type": "messages", "title": "t", "quiet": "true"]))
         #expect(p.interruptionLevel == "passive"); #expect(p.foreground == .init(banner: false, list: true, sound: false))
     }
     @Test func kindsMapToAndroidsChannelIds() {
         #expect(PushKind(type: "messages").categoryId == "bucks_messages"); #expect(PushKind(type: "orders").categoryId == "bucks_orders")
-        #expect(PushKind(type: "tasks").categoryId == "bucks_tasks"); #expect(PushKind(type: "anything").categoryId == "bucks_social"); #expect(PushKind(type: nil) == .social)
+        #expect(PushKind(type: "tasks").categoryId == "bucks_trips"); #expect(PushKind(type: "ride").categoryId == "bucks_ride_request"); #expect(PushKind(type: "anything").categoryId == "bucks_social"); #expect(PushKind(type: nil) == .social)
     }
     @MainActor @Test func inboxKeepsOnlyASafeRouteAndHandsItOutOnce() {
         let inbox = PushInbox()

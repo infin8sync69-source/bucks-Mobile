@@ -194,7 +194,7 @@ private struct PlaceRow: View {
     }
 }
 
-private struct HitRow: View {
+struct HitRow: View {
     let hit: MapServices.PlaceHit; let km: Double; let selected: Bool; let onTap: () -> Void
     var body: some View {
         VStack(spacing: 0) {

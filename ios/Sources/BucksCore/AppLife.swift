@@ -52,6 +52,8 @@ public func withTimeoutOrNil<T: Sendable>(_ seconds: Double, _ op: @escaping @Se
 /// expired or cancelled, and times out on its own.
 public enum RingAlert {
     private static let identifier = "bucks.ring"
+    /// The ride-request tune in the app bundle (5.6 s, 16-bit PCM WAV: within iOS's 30-second limit for notification sounds).
+    public static let tune = "ride_request.wav"
     /// False in unit tests, where there is no app bundle for the notification centre to attach to.
     nonisolated(unsafe) public static var enabled = true
 
@@ -97,7 +99,9 @@ public enum RingAlert {
         let content = UNMutableNotificationContent()
         content.title = "\(delivery ? "New delivery" : "New ride request") · ₹\(dr.fare)"
         content.body = "\(dr.pickupAt.components(separatedBy: " · ")[0]) · \(away) away · tap to accept"
-        content.sound = .default   // a critical-alert sound needs Apple's Critical Alerts entitlement, which this app does not have
+        // The Bucks ride-request tune (ios/App/ride_request.wav, the same file as Android's channel sound). A critical-alert sound would need
+        // Apple's Critical Alerts entitlement, which this app does not have.
+        content.sound = UNNotificationSound(named: UNNotificationSoundName(RingAlert.tune))
         content.interruptionLevel = .timeSensitive
         content.userInfo = ["route": "home"]
         let req = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)

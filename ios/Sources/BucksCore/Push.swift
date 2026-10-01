@@ -22,11 +22,12 @@ public extension Backend {
 
 /// What kind of notification a push is. iOS has no channels: the kind becomes the thread (grouping), the category and the interruption level.
 public enum PushKind: String, CaseIterable, Sendable {
-    case messages, orders, tasks, social
+    /// `tasks`: updates on my own trips and deliveries; `ride`: a new request ringing this driver (the Bucks ride-request tune).
+    case messages, orders, tasks, ride, social
     public init(type: String?) { self = PushKind(rawValue: type ?? "") ?? .social }
     /// Android's channel ids, kept as category identifiers so settings and logs read the same on both phones.
     public var categoryId: String {
-        switch self { case .messages: "bucks_messages"; case .orders: "bucks_orders"; case .tasks: "bucks_tasks"; case .social: "bucks_social" }
+        switch self { case .messages: "bucks_messages"; case .orders: "bucks_orders"; case .tasks: "bucks_trips"; case .ride: "bucks_ride_request"; case .social: "bucks_social" }
     }
     public static let quietCategoryId = "bucks_quiet"
 }
@@ -53,10 +54,14 @@ public struct PushPayload: Equatable, Sendable {
         self.init(kind: PushKind(type: s("type")), title: title, body: s("body") ?? apsBody ?? "", route: Push.safeRoute(s("route")), quiet: s("quiet") == "true")
     }
 
-    /// How to present it while Bucks is open: quiet hours land silently in the notification list, everything else banners with sound.
-    public var foreground: Presentation { quiet ? Presentation(banner: false, list: true, sound: false) : Presentation(banner: true, list: true, sound: true) }
+    /// How to present it while Bucks is open: quiet hours land silently in the notification list, a ride request is not shown at all (the
+    /// request card rings inside the app, as on Android), everything else banners with sound.
+    public var foreground: Presentation {
+        if kind == .ride { return Presentation(banner: false, list: false, sound: false) }
+        return quiet ? Presentation(banner: false, list: true, sound: false) : Presentation(banner: true, list: true, sound: true)
+    }
     /// `time-sensitive` for rides and deliveries (the one you must not miss), `passive` in quiet hours.
-    public var interruptionLevel: String { quiet ? "passive" : (kind == .tasks ? "timeSensitive" : "active") }
+    public var interruptionLevel: String { quiet ? "passive" : ((kind == .tasks || kind == .ride) ? "timeSensitive" : "active") }
 
     public struct Presentation: Equatable, Sendable { public var banner: Bool; public var list: Bool; public var sound: Bool }
 }

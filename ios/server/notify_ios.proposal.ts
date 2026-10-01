@@ -12,7 +12,8 @@
 const APNS_COLLAPSE_MAX = 64;   // bytes; APNs rejects a longer apns-collapse-id with 400 BadCollapseId
 
 function apnsFor(n: { type: string; title: string; body: string; tag?: string }, quiet: boolean) {
-  const ttl = n.type === "tasks" ? 900 : 86400;
+  // "ride": a new request ringing a driver (ringDrivers): it lapses with the ring window, rings with the Bucks tune (ios/App/ride_request.wav).
+  const ttl = n.type === "ride" ? 120 : n.type === "tasks" ? 900 : 86400;
   const collapse = n.tag && new TextEncoder().encode(n.tag).length <= APNS_COLLAPSE_MAX ? { "apns-collapse-id": n.tag } : {};
   return {
     headers: {
@@ -26,8 +27,8 @@ function apnsFor(n: { type: string; title: string; body: string; tag?: string },
         alert: { title: n.title, body: n.body },
         "thread-id": n.type,
         category: quiet ? "bucks_quiet" : `bucks_${n.type}`,                 // the categories AppDelegate registers
-        "interruption-level": quiet ? "passive" : n.type === "tasks" ? "time-sensitive" : "active",
-        ...(quiet ? {} : { sound: "default" }),
+        "interruption-level": quiet ? "passive" : n.type === "tasks" || n.type === "ride" ? "time-sensitive" : "active",
+        ...(quiet ? {} : { sound: n.type === "ride" ? "ride_request.wav" : "default" }),
       },
     },
   };
