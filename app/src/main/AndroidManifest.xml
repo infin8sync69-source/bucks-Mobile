@@ -8,6 +8,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Drivers: asked once when going online, so ride requests still ring when the phone would otherwise put the app to sleep. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Contacts screen: your phonebook is read on this phone and shown to you only; nothing from it is uploaded. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Saving a photo or video to the gallery on Android 9 and older; newer Android needs no permission for this. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <queries>
         <intent><action android:name="android.speech.RecognitionService" /></intent>
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
@@ -21,7 +28,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bucks">
         <service android:name=".data.DriverLocationService" android:foregroundServiceType="location" android:exported="false" />
-        <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
+        <!-- Push notifications (Firebase Cloud Messaging); see data/Push.kt and docs/PUSH_SETUP.md. -->
+        <!-- Icon and colour Firebase uses when it shows a notification itself (app in the background). -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_bucks" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/bucks_purple" />
+        <service android:name=".data.BucksMessagingService" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <!-- Files opened from chat (PDFs, documents): saved to the cache and handed to the phone's own viewer, not a web page. -->
+        <provider android:name=".FilesProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+        <activity android:name=".MainActivity" android:exported="true" android:theme="@style/Theme.Bucks.Starting" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
