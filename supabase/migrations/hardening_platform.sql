@@ -543,6 +543,11 @@ begin
   delete from notifications where profile_id = my;
   delete from recommendations where recommender_id = my;
   delete from staff where profile_id = my;
+  -- Saved delivery addresses (name, mobile, house address) and product recommendations with their comments. Both reference the profile
+  -- with on delete cascade, but the profile row is kept (anonymised below), so the cascade never fires: delete them here.
+  -- Placed orders keep their ship-to snapshot: the shop needs it for its records.
+  if to_regclass('public.addresses') is not null then delete from addresses where profile_id = my; end if;
+  if to_regclass('public.product_ratings') is not null then delete from product_ratings where profile_id = my; end if;
   update profiles set name = '', bio = '', area = '', photo_url = null, home = null, status = 'DELETED', auth_uid = 'deleted:' || id::text where id = my;
 end $$;
 
@@ -651,5 +656,10 @@ grant execute on function public.snap_grid(geography), public.try_uuid(text), pu
 revoke execute on function public.guard_profile_insert(), public.guard_insert_stamps(), public.guard_profile_private(), public.snap_location(),
   public.note_comment(), public.note_vote(), public.note_reaction(), public.check_application(), public.guard_listing_reverify(), public.prune_recommendations(),
   public.vehicle_normalise(), public.device_token_cap() from public, anon, authenticated;
+
+-- Signed-out callers get nothing from any table, view or sequence either. Supabase grants anon every new one by default; row-level
+-- security already returns no rows (no policy is for anon), and this removes the grants themselves. Runs last, so it covers every file.
+revoke all on all tables in schema public from anon;
+revoke all on all sequences in schema public from anon;
 
 reset client_min_messages;
