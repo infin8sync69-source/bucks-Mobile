@@ -49,7 +49,7 @@ class RuleIntentEngine : IntentEngine {
         if (Regex("^(no|cancel|stop|nahi|beda|never mind)\\b").containsMatchIn(l)) return ParsedIntent(Tools.CANCEL)
         if (l.contains("show the map")) return ParsedIntent(Tools.SHOW_MAP)
         val kind = when { Regex("\\b(bike|scooter|scooty|two wheeler)\\b").containsMatchIn(l) -> VehicleKind.BIKE; Regex("\\b(auto|rickshaw)\\b").containsMatchIn(l) -> VehicleKind.AUTO; Regex("\\b(cab|taxi|car)\\b").containsMatchIn(l) -> VehicleKind.CAB; else -> null }
-        if (kind != null || Regex("\\b(ride|drop me|take me|pick me)\\b").containsMatchIn(l)) return ParsedIntent(Tools.RIDE, mapOf("vehicle" to (kind ?: VehicleKind.BIKE).name, "destination" to (placeIn(l) ?: "")))
+        if (kind != null || Regex("\\b(ride|drop me|take me|pick me)\\b").containsMatchIn(l)) return ParsedIntent(Tools.RIDE, mapOf("vehicle" to (kind ?: VehicleKind.AUTO).name, "destination" to (placeIn(l) ?: "")))
         if (Regex("\\b(compare|cheapest|best|which is better)\\b").containsMatchIn(l)) return ParsedIntent(Tools.COMPARE, mapOf("query" to l.replace(Regex("\\b(compare|cheapest|best|which is better|for|the|near me|me)\\b"), "").trim()))
         if (l.startsWith("sort")) return ParsedIntent(Tools.SORT, mapOf("by" to when { Regex("price|cheap").containsMatchIn(l) -> "PRICE"; Regex("near|close|distance").containsMatchIn(l) -> "NEAR"; else -> "TRUST" }))
         if (Regex("\\b(my orders|my rides|my requests|history|activity)\\b").containsMatchIn(l)) return ParsedIntent(Tools.ACTIVITY)

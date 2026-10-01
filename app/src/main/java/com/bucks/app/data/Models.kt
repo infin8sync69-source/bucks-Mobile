@@ -3,7 +3,10 @@ package com.bucks.app.data
 enum class ProviderType { BUSINESS, SKILL }
 enum class Scope { LOCAL, GLOBAL }
 enum class VehicleKind(val wheels: String, val label: String, val farePerKm: Int) {
-    BIKE("2", "Bike", 8), AUTO("3", "Auto", 12), CAB("4", "Cab", 18)
+    BIKE("2", "Bike", 8), AUTO("3", "Auto", 12), CAB("4", "Cab", 18);
+    /** Bikes carry goods only (pick-up and delivery), never passengers. */
+    val carriesPassengers get() = this != BIKE
+    companion object { val PASSENGER = entries.filter { it.carriesPassengers } }
 }
 
 data class Trust(val up: Int, val down: Int) {
@@ -36,8 +39,10 @@ data class Provider(
 
 data class Driver(
     val id: String, val name: String, val vehicle: VehicleKind, val plate: String, val model: String,
-    val x: Float, val y: Float, val distanceKm: Double, val up: Int, val down: Int, val online: Boolean,
-) { val trust get() = Trust(up, down); val pos: LatLng get() = Geo.fromPercent(x, y) }
+    val x: Float, val y: Float, val distanceKm: Double, val up: Int, val down: Int, val online: Boolean, val phone: String = "",
+    /** Real position (cloud builds). x/y are the demo's Bengaluru grid, which clamps anything outside it to its edge. */
+    val at: LatLng? = null,
+) { val trust get() = Trust(up, down); val pos: LatLng get() = at ?: Geo.fromPercent(x, y) }
 
 data class Post(
     val id: String, val who: String, val ago: String, val text: String,
@@ -71,13 +76,16 @@ data class ProProfile(val vehicles: List<Vehicle> = emptyList(), val skillListin
 }
 data class Business(val name: String, val category: String, val scope: Scope, val items: List<Item>, val online: Boolean = true, val area: String = "", val followers: Int = 0)
 
-data class Place(val name: String, val x: Float, val y: Float, val km: Double)
+/** A destination. [x]/[y] place it on the drawn map (clamped to its edges); [at] is the real point when known, and is what a ride is booked to. */
+data class Place(val name: String, val x: Float, val y: Float, val km: Double, val at: LatLng? = null)
 
 enum class RideStatus { SEARCHING, MATCHED, ARRIVED, IN_RIDE, COMPLETED, PAID, NO_DRIVER, CANCELLED }
 data class Ride(
     val id: String, val kind: VehicleKind, val dest: Place, val fare: Int, val status: RideStatus,
     val pin: String, val driver: Driver? = null, val driverX: Float = 0f, val driverY: Float = 0f,
     val etaMin: Int = 0, val progress: Float = 0f, val paidWith: String? = null, val reason: String? = null, val signature: String = "",
+    /** Where the driver really is (cloud builds); driverX/driverY stay for the demo's simulated drive. */
+    val driverAt: LatLng? = null,
 )
 
 /** DONE = collect payment; RATE = rate the customer. */
@@ -85,7 +93,7 @@ enum class DriverRideStatus { RINGING, TO_PICKUP, ARRIVED, IN_RIDE, DONE, RATE }
 data class DriverRide(
     val id: String, val status: DriverRideStatus, val customer: String, val customerTrust: Trust,
     val pickupAt: String, val dropAt: String, val km: Double, val fare: Int, val pin: String, val secondsLeft: Int, val pickupKm: Double,
-    val kind: VehicleKind = VehicleKind.BIKE, val driver: LatLng? = null, val pickup: LatLng? = null, val drop: LatLng? = null, val progress: Float = 0f, val paidWith: String? = null,
+    val kind: VehicleKind = VehicleKind.BIKE, val driver: LatLng? = null, val pickup: LatLng? = null, val drop: LatLng? = null, val progress: Float = 0f, val paidWith: String? = null, val customerPhone: String = "",
 )
 
 enum class OrderStatus(val label: String) { REQUESTED("Requested"), ACCEPTED("Accepted by vendor"), PREPARING("Preparing"), OUT("Out for delivery"), DELIVERED("Delivered") }

@@ -14,6 +14,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -23,11 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.bucks.app.R
 
-val Purple = Color(0xFF6E0FF2)
+val Purple = Color(0xFF811FF0)   // the logo's purple (branding/, app icon, splash)
 val PurpleDeep = Color(0xFF4A0AA6)
 val PurpleTint = Color(0xFFEFE6FE)
 /** Vivid brand purple from the Home design: wordmark, badges, selected navigation. */
-val Brand = Color(0xFF6E0FF2)
+val Brand = Purple
 val Ink = Color(0xFF15111C)
 val Good = Color(0xFF117A47)
 val GoodTint = Color(0xFFE6F4EC)
@@ -84,6 +86,7 @@ val BucksType = Typography(
 val BucksShapes = Shapes(extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp), extraLarge = RoundedCornerShape(28.dp))
 
 @Composable
-fun BucksTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalStatus provides if (dark) DarkStatus else LightStatus) { MaterialTheme(colorScheme = if (dark) Dark else Light, typography = BucksType, shapes = BucksShapes, content = content) }
+fun BucksTheme(dark: Boolean = isSystemInDarkTheme(), textScale: Float = 1f, content: @Composable () -> Unit) {
+    val d = LocalDensity.current
+    CompositionLocalProvider(LocalStatus provides if (dark) DarkStatus else LightStatus, LocalDensity provides Density(d.density, d.fontScale * textScale)) { MaterialTheme(colorScheme = if (dark) Dark else Light, typography = BucksType, shapes = BucksShapes, content = content) }
 }
