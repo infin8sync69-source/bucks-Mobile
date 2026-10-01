@@ -45,8 +45,12 @@ safe to re-run (each is idempotent) but must run after the ones before it in the
 | 12 | `migrations/push.sql` | Device tokens, `push_notify` webhook to the `notify` Edge Function. |
 | 13 | `migrations/notifications.sql` | In-app notifications written by triggers. |
 | 14 | `migrations/interactions.sql` | Comment, like and reaction notifications. |
-| 15 | `migrations/hardening_dispatch.sql` | Audit fixes for dispatch, rides, deliveries, orders and reviews. |
-| 16 | `migrations/hardening_platform.sql` | Audit fixes for privacy, storage, data shape and account deletion (P1 to P14 of the audit; the header of the file lists them). |
+| 15 | `migrations/ring_drivers.sql` | `drivers_to_ring`: who the `notify` function pushes a new ride or delivery request to. |
+| 16 | `migrations/aspire_media.sql` | `media_urls_ok` also accepts the Aspire More store's own Shopify CDN photos. |
+| 17 | `migrations/product_feedback.sql` | Product recommend / not recommend, the slim `catalog_items`, a store's posts in its followers' Feed. |
+| 18 | `migrations/ecommerce.sql` | Shipping across India (`place_order_ship`, address book, `ship_order`, `mark_delivered`), local delivery inside the shop's radius, `rate_listing`. |
+| 19 | `migrations/hardening_dispatch.sql` | Audit fixes for dispatch, rides, deliveries, orders and reviews (its `place_order`, `place_order_ship` and `contact_for_order` keep ecommerce.sql's rules). |
+| 20 | `migrations/hardening_platform.sql` | Audit fixes for privacy, storage, data shape and account deletion (P1 to P14 of the audit; the header of the file lists them; its `search_listings` and `can_see_post` keep ecommerce.sql's and product_feedback.sql's rules). |
 
 The two hardening files come last on purpose: they redefine the latest version of functions that earlier files define.
 
@@ -78,6 +82,7 @@ psql -d scratch -X -q -f supabase/tests/hardening_platform_scenarios.sql | grep 
 dropdb scratch
 ```
 
+`ecommerce_scenarios.sql` checks shipping, local delivery radius, store search and follower posts as they stand after the hardening files (which redefine those functions).
 `hardening_platform_scenarios.sql` starts every audit item as an exploit: run against the stack **without** `hardening_platform.sql` it prints `FAIL: ... (exploit works ...)`
 lines, with it every line is `ok`. `local_auth_shim.sql` is only for tests: it is not applied to Supabase, and a real project needs neither it nor a local copy of `auth` or `storage`.
 

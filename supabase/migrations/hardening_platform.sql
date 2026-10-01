@@ -403,7 +403,9 @@ end $$;
 create or replace function public.can_see_post(p public.posts) returns boolean language sql stable security definer set search_path = public, extensions as $$
   select p.deleted_at is null and not blocked_between(me(), p.author_id)
          and (p.listing_id is null or exists (select 1 from listings l where l.id = p.listing_id and (l.status = 'LIVE' or listing_role(l.id) is not null)))
-         and (p.author_id = me() or p.visibility in ('PUBLIC', 'LOCAL') or (p.visibility = 'SYNCED' and synced(me(), p.author_id)))
+         and (p.author_id = me() or p.visibility in ('PUBLIC', 'LOCAL') or (p.visibility = 'SYNCED' and synced(me(), p.author_id))
+              -- a store's posts reach the people who synced with the store (product_feedback.sql)
+              or (p.listing_id is not null and exists (select 1 from listing_syncs s where s.profile_id = me() and s.listing_id = p.listing_id)))
 $$;
 drop policy if exists posts_write on public.posts;
 create policy posts_write on public.posts for insert to authenticated
@@ -561,7 +563,8 @@ language sql stable security definer set search_path = public, extensions as $$
   where l.status = 'LIVE'
     and (kinds is null or l.kind = any(kinds))
     and (services is null or l.service = any(services))
-    and l.location is not null and st_dwithin(l.location, here.g, least(greatest(coalesce(radius_m, 10000), 0), 50000))
+    and ((l.location is not null and st_dwithin(l.location, here.g, least(greatest(coalesce(radius_m, 10000), 0), 50000)))
+         or (l.kind = 'BUSINESS' and lower(coalesce(l.details->>'ships_india', '')) = 'true'))   -- stores that ship are found from anywhere (ecommerce.sql)
     and (term.t is null or l.search @@ websearch_to_tsquery('simple', term.t) or l.title % term.t or l.category ilike '%' || term.t || '%'
          or exists (select 1 from items i where i.listing_id = l.id and i.name ilike '%' || term.t || '%'))
   order by (l.online) desc,

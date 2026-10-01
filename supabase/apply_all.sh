@@ -12,7 +12,8 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Order matters: services.sql before studio.sql (studio replaces listing_service_rules and place_order), the two hardening files last.
+# Order matters: services.sql before studio.sql (studio replaces listing_service_rules and place_order), ecommerce.sql after studio.sql
+# (it replaces place_order again), the two hardening files last (they carry the latest version of every function they redefine).
 files=(
   schema.sql
   migrations/manage.sql
@@ -28,6 +29,10 @@ files=(
   migrations/push.sql
   migrations/notifications.sql
   migrations/interactions.sql
+  migrations/ring_drivers.sql
+  migrations/aspire_media.sql
+  migrations/product_feedback.sql
+  migrations/ecommerce.sql
   migrations/hardening_dispatch.sql
   migrations/hardening_platform.sql
 )

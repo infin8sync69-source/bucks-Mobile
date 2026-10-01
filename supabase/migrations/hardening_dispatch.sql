@@ -348,7 +348,7 @@ language sql stable security definer set search_path = public, extensions as $$
 $$;
 
 -- The shop side sees the buyer from PLACED. The buyer gets the owner's phone and UPI link once the shop has accepted (or cancelled
--- an accepted order, so a buyer who paid can call about the refund).
+-- an accepted order, so a buyer who paid can call about the refund). SHIPPED (ecommerce.sql) counts as live for both sides.
 create or replace function public.contact_for_order(p_order uuid) returns table (phone text, upi_uri text, name text)
 language sql stable security definer set search_path = public, extensions as $$
   select pp.phone,
@@ -359,16 +359,17 @@ language sql stable security definer set search_path = public, extensions as $$
   join profiles p on p.id = case when o.buyer_id = public.me() then l.owner_id else o.buyer_id end
   left join profile_private pp on pp.profile_id = p.id
   where o.id = p_order
-    and ((o.buyer_id = public.me() and (o.status in ('ACCEPTED', 'READY', 'PICKED_UP', 'DELIVERED') or (o.status = 'CANCELLED' and o.cancelled_by = 'SHOP')))
-      or (public.can_manage_listing(o.listing_id) and (o.status in ('PLACED', 'ACCEPTED', 'READY', 'PICKED_UP', 'DELIVERED') or (o.status = 'CANCELLED' and o.cancelled_by = 'SHOP'))))
+    and ((o.buyer_id = public.me() and (o.status in ('ACCEPTED', 'READY', 'PICKED_UP', 'SHIPPED', 'DELIVERED') or (o.status = 'CANCELLED' and o.cancelled_by = 'SHOP')))
+      or (public.can_manage_listing(o.listing_id) and (o.status in ('PLACED', 'ACCEPTED', 'READY', 'PICKED_UP', 'SHIPPED', 'DELIVERED') or (o.status = 'CANCELLED' and o.cancelled_by = 'SHOP'))))
 $$;
 
--- ---------- place_order: studio.sql's, plus limits ----------
+-- ---------- place_order: ecommerce.sql's (local delivery only inside the shop's radius; SHIP goes to place_order_ship), plus limits ----------
 create or replace function public.place_order(p_listing uuid, p_lines jsonb, p_lat double precision, p_lng double precision, p_drop_label text, p_payment text, p_mode text)
 returns uuid language plpgsql security definer set search_path = public, extensions as $$
-declare l listings; lines jsonb := '[]'; sub int := 0; line jsonb; it items; q int; km numeric; fee int := 0; oid uuid; my uuid := public.me(); drop_at geography;
+declare l listings; lines jsonb := '[]'; sub int := 0; line jsonb; it items; q int; km numeric; fee int := 0; oid uuid; my uuid := public.me(); drop_at geography; radius_m numeric;
 begin
   if my is null then raise exception 'not signed in'; end if;
+  if p_mode = 'SHIP' then raise exception 'use place_order_ship for shipped orders'; end if;
   select * into l from listings where id = p_listing and kind = 'BUSINESS' and status = 'LIVE';
   if not found then raise exception 'this shop is not taking orders'; end if;
   if not l.online then raise exception 'this shop is closed right now'; end if;   -- switched off by the owner (MyListings "closed")
@@ -407,12 +408,69 @@ begin
     sub := sub + it.price * q;
   end loop;
   if p_mode <> 'PICKUP' then
+    radius_m := greatest(coalesce(nullif(l.details->>'delivery_radius_km', '')::numeric, 5), 1) * 1000;
+    if l.location is null or st_distance(l.location, drop_at) > radius_m then
+      raise exception '%', 'this shop is too far for local delivery; ship it to an address instead'
+        || case when lower(coalesce(l.details->>'ships_india', '')) = 'true' then '' else ' or pick it up' end;
+    end if;
     km := round((st_distance(l.location, drop_at) / 1000.0 * 1.3)::numeric, 1);   -- road ~1.3x straight line
     fee := (setting('delivery_base_fee') + setting('delivery_fee_per_km') * km)::int;
   end if;
   insert into orders (listing_id, buyer_id, lines, subtotal, delivery_fee, fee_paid_by, delivery_mode, payment, drop_location, drop_label, accept_by)
   values (p_listing, my, lines, sub, fee, case when coalesce((l.details->>'free_delivery')::boolean, false) then 'VENDOR' else 'BUYER' end,
           p_mode, p_payment, drop_at, left(coalesce(p_drop_label, ''), 120), now() + make_interval(mins => setting('order_accept_minutes')::int))
+  returning id into oid;
+  return oid;
+end $$;
+
+-- ---------- place_order_ship: ecommerce.sql's, plus the same limits as place_order ----------
+create or replace function public.place_order_ship(p_listing uuid, p_lines jsonb, p_address jsonb, p_payment text)
+returns uuid language plpgsql security definer set search_path = public, extensions as $$
+declare l listings; lines jsonb := '[]'; sub int := 0; line jsonb; it items; q int; fee int := 0; oid uuid; free_above int; a jsonb; my uuid := public.me();
+begin
+  if my is null then raise exception 'sign in first'; end if;
+  select * into l from listings where id = p_listing and kind = 'BUSINESS' and status = 'LIVE';
+  if not found then raise exception 'this shop is not taking orders'; end if;
+  if not l.online then raise exception 'this shop is closed right now'; end if;
+  if lower(coalesce(l.details->>'ships_india', '')) <> 'true' then raise exception 'this shop does not ship; choose pick-up or delivery nearby'; end if;
+  if l.owner_id = my or listing_role(p_listing) is not null then raise exception 'you cannot order from your own shop'; end if;
+  if p_payment is null or p_payment not in ('UPI', 'COD') then raise exception 'choose UPI or cash on delivery'; end if;
+  if p_payment = 'COD' and lower(coalesce(l.details->>'cod', '')) <> 'true' then raise exception 'this shop does not take cash on delivery'; end if;
+  if p_address is null or jsonb_typeof(p_address) <> 'object' then raise exception 'enter the delivery address'; end if;
+  -- the address, checked and trimmed: a courier needs all of it
+  a := jsonb_build_object('name', btrim(coalesce(p_address->>'name', '')), 'phone', btrim(coalesce(p_address->>'phone', '')), 'line1', btrim(coalesce(p_address->>'line1', '')),
+                          'line2', btrim(coalesce(p_address->>'line2', '')), 'city', btrim(coalesce(p_address->>'city', '')), 'state', btrim(coalesce(p_address->>'state', '')), 'pincode', btrim(coalesce(p_address->>'pincode', '')));
+  if length(a->>'name') not between 1 and 80 then raise exception 'enter the name of the person receiving it'; end if;
+  if (a->>'phone') !~ '^[6-9][0-9]{9}$' then raise exception 'enter a 10-digit mobile number the courier can call'; end if;
+  if length(a->>'line1') not between 3 and 150 or length(a->>'line2') > 150 then raise exception 'enter the house or flat number and street'; end if;
+  if length(a->>'city') not between 1 and 60 or length(a->>'state') not between 1 and 60 then raise exception 'enter the city and state'; end if;
+  if (a->>'pincode') !~ '^[1-9][0-9]{5}$' then raise exception 'enter a 6-digit pincode'; end if;
+  if p_lines is null or jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then raise exception 'your cart is empty'; end if;
+  if jsonb_array_length(p_lines) > 30 then raise exception 'too many items in one order (30 lines at most)'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('order:' || my::text, 0));
+  if (select count(*) from orders where buyer_id = my and status = 'PLACED' and accept_by > now()) >= 3 then
+    raise exception 'you already have 3 orders waiting for a shop to answer; wait for them first';
+  end if;
+  if (select count(*) from orders where buyer_id = my and created_at > now() - interval '1 hour') >= 10 then
+    raise exception 'you have placed 10 orders in the last hour; try again later';
+  end if;
+  for line in select * from jsonb_array_elements(p_lines) loop
+    if jsonb_typeof(line) <> 'object' or coalesce(line->>'item_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then raise exception 'an item is no longer available'; end if;
+    if (line->>'qty') is null then q := 1;
+    elsif (line->>'qty') ~ '^[0-9]{1,4}$' then q := (line->>'qty')::int;
+    else raise exception 'quantity must be between 1 and 99'; end if;
+    if q < 1 or q > 99 then raise exception 'quantity must be between 1 and 99'; end if;
+    select * into it from items where id = (line->>'item_id')::uuid and listing_id = p_listing and in_stock for update;
+    if not found then raise exception 'an item is no longer available'; end if;
+    if it.stock is not null and q > it.stock then raise exception 'only % left of %', it.stock, it.name; end if;
+    if it.stock is not null then update items set stock = stock - q where id = it.id; end if;
+    lines := lines || jsonb_build_object('item_id', it.id, 'name', it.name, 'price', it.price, 'qty', q);
+    sub := sub + it.price * q;
+  end loop;
+  fee := coalesce(nullif(l.details->>'ship_fee', '')::int, 0); free_above := coalesce(nullif(l.details->>'free_ship_above', '')::int, 0);
+  if free_above > 0 and sub >= free_above then fee := 0; end if;
+  insert into orders (listing_id, buyer_id, lines, subtotal, delivery_fee, fee_paid_by, delivery_mode, payment, drop_label, ship_to, accept_by)
+  values (p_listing, my, lines, sub, fee, 'BUYER', 'SHIP', p_payment, left((a->>'city') || ', ' || (a->>'state') || ' ' || (a->>'pincode'), 120), a, now() + interval '24 hours')
   returning id into oid;
   return oid;
 end $$;
@@ -582,13 +640,13 @@ revoke execute on function public.can_claim(text, text, geography, uuid, uuid[],
   public.request_ride(text, double precision, double precision, text, double precision, double precision, text, numeric, integer),
   public.update_location(double precision, double precision), public.online_drivers_near(double precision, double precision, integer),
   public.contact_for_task(uuid), public.contact_for_order(uuid), public.review(uuid, uuid, uuid, integer, text),
-  public.place_order(uuid, jsonb, double precision, double precision, text, text, text) from public, anon;
+  public.place_order(uuid, jsonb, double precision, double precision, text, text, text), public.place_order_ship(uuid, jsonb, jsonb, text) from public, anon;
 grant execute on function public.can_claim(text, text, geography, uuid, uuid[], timestamptz), public.claim_task(uuid), public.open_tasks_near(double precision, double precision),
   public.advance_task(uuid, text, text, text), public.staff_close_task(uuid, text),
   public.request_ride(text, double precision, double precision, text, double precision, double precision, text, numeric, integer),
   public.update_location(double precision, double precision), public.online_drivers_near(double precision, double precision, integer),
   public.contact_for_task(uuid), public.contact_for_order(uuid), public.review(uuid, uuid, uuid, integer, text),
-  public.place_order(uuid, jsonb, double precision, double precision, text, text, text) to authenticated;
+  public.place_order(uuid, jsonb, double precision, double precision, text, text, text), public.place_order_ship(uuid, jsonb, jsonb, text) to authenticated;
 -- Helpers, trigger bodies and the cron job run only from inside other functions, as triggers, or as the database owner.
 revoke execute on function public.dispatch_cfg(text, numeric), public.new_pin(), public.driver_near_check(geography, text, numeric, text), public.expire_tasks(),
   public.presence_touch(), public.presence_clamp(), public.vehicle_offline(), public.tasks_hygiene(), public.orders_hygiene() from public, anon, authenticated;
