@@ -1,0 +1,77 @@
+# XcodeGen spec: `brew install xcodegen && cd ios && xcodegen generate && open Bucks.xcodeproj`
+name: Bucks
+options:
+  bundleIdPrefix: com.bucks
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Shared.xcconfig
+  Release: Config/Shared.xcconfig
+packages:
+  Bucks:
+    path: .
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 11.0.0
+targets:
+  Bucks:
+    type: application
+    platform: iOS
+    # GoogleService-Info.plist (gitignored) is picked up from App/ when it exists.
+    sources:
+      - path: App
+    dependencies:
+      - package: Bucks
+        product: BucksCore
+      - package: Bucks
+        product: BucksUI
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseMessaging
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bucks.app
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_ENTITLEMENTS: App/Bucks.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Bucks
+        UILaunchScreen:
+          UIColorName: AccentColor
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location, remote-notification]
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        NSLocationWhenInUseUsageDescription: Bucks uses your location to find your pick-up point and nearby riders. Drivers who are online share it so riders can see them arrive.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Online drivers share their location in the background so riders can follow the trip.
+        NSCameraUsageDescription: Bucks uses the camera to take photos and videos for posts, Moments and messages, and to scan recommendation codes.
+        NSMicrophoneUsageDescription: Bucks uses the microphone for voice commands and for the sound in videos you record.
+        NSSpeechRecognitionUsageDescription: Bucks turns what you say into a search or command.
+        NSPhotoLibraryUsageDescription: Bucks reads the photos and videos you choose, such as a vehicle document, a post or your UPI QR code.
+        NSPhotoLibraryAddUsageDescription: Bucks saves photos and videos you choose to keep to your gallery.
+        NSContactsUsageDescription: Bucks reads your contacts on this phone to help you call, message and invite people. They are never uploaded.
+        NSFaceIDUsageDescription: Bucks asks for Face ID before confirming larger orders and payments.
+        GeminiAPIKey: $(GEMINI_API_KEY)
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [$(REVERSED_CLIENT_ID)]
+        LSApplicationQueriesSchemes: [upi, tez, phonepe, paytmmp, gpay, tel, sms]
+        ITSAppUsesNonExemptEncryption: false
+        FirebaseAppDelegateProxyEnabled: false
+schemes:
+  Bucks:
+    build:
+      targets:
+        Bucks: all
+    run:
+      config: Debug
+    test:
+      config: Debug
