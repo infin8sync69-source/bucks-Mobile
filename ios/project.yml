@@ -18,9 +18,13 @@ targets:
   Bucks:
     type: application
     platform: iOS
-    # GoogleService-Info.plist (gitignored) is picked up from App/ when it exists.
+    # GoogleService-Info.plist (gitignored) is picked up from App/ when it exists. The privacy manifest is listed on its own so it always
+    # lands in Copy Bundle Resources (App Store Connect rejects uploads without it).
     sources:
       - path: App
+        excludes: [PrivacyInfo.xcprivacy]
+      - path: App/PrivacyInfo.xcprivacy
+        buildPhase: resources
     dependencies:
       - package: Bucks
         product: BucksCore

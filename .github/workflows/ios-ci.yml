@@ -63,3 +63,9 @@ jobs:
           xcodebuild -project Bucks.xcodeproj -scheme Bucks -configuration Debug -destination 'generic/platform=iOS Simulator' \
             -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO build 2>&1 | tee xcodebuild.log | grep -E "error:|warning: unre|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" xcodebuild.log || { grep -E "error:" xcodebuild.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+      - name: Privacy manifest is in the app
+        run: |
+          app="$(find ~/Library/Developer/Xcode/DerivedData -type d -name Bucks.app -path '*Debug-iphonesimulator*' | head -1)"
+          test -n "$app" || { echo "::error::Bucks.app not found in DerivedData"; exit 1; }
+          test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is missing from $app"; exit 1; }
+          plutil -lint "$app/PrivacyInfo.xcprivacy"
