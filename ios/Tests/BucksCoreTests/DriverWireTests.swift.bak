@@ -1,0 +1,226 @@
+import Foundation
+import Testing
+@testable import BucksCore
+
+/// What the driver side and the vehicle calls put on the wire (function names, `p_` parameters, filters, headers) and how they recover
+/// from lost answers. A wrong parameter name is a silent production bug, so these are written against supabase/schema.sql and the
+/// hardening migrations, and the Kotlin calls in Backend.kt / BackendDispatch.kt / BackendManage.kt.
+extension DispatchTests {
+    private func call(_ path: String) -> [(method: String, path: String, query: String, body: [String: Any])] { FakeServer.calls.filter { $0.path == path } }
+
+    @Test func driverCallsUseTheServersParameterNames() async throws {
+        var state = TaskState()
+        var claimed = false
+        boot { path, _, params in
+            switch path {
+            case "/rest/v1/vehicles": return (200, [["id": "v1", "owner_id": "me", "kind": "AUTO", "model": "Bajaj RE", "plate": "KA05AB1234", "status": "ACTIVE", "docs": []]])
+            case "/rest/v1/driver_presence": return (201, [:])
+            case "/rest/v1/rpc/open_tasks_near": return (200, claimed ? [] : [state.row(requester: "u9")])
+            case "/rest/v1/tasks_geo": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/profiles": return (200, [["id": "u9", "short_code": "CU0009", "name": "Meera Shah"]])
+            case "/rest/v1/rpc/claim_task": claimed = true; state.status = "MATCHED"; state.driverId = "me"; return (200, true)
+            case "/rest/v1/rpc/contact_for_task": return (200, [["phone": "9000000001"]])
+            case "/rest/v1/rpc/advance_task":
+                let to = params["p_status"] as? String ?? ""
+                if to == "IN_PROGRESS", (params["p_pin"] as? String) != "4321" { state.pinAttempts += 1 } else { state.status = to }
+                return (200, state.row(requester: "u9"))
+            case "/rest/v1/rpc/update_location": return (204, [:])
+            case "/rest/v1/rpc/pass_task": return (204, [:])
+            default: return (404, ["message": "no stub for \(path)"])
+            }
+        }
+        let d = Dispatch(host: host)
+        #expect(await d.setOnline(true, plate: nil))
+        // Going online: an upsert on the presence row, location as EWKT (lng first), merged on the primary key.
+        let up = try #require(call("/rest/v1/driver_presence").first)
+        #expect(up.method == "POST"); #expect(FakeServer.prefer["POST /rest/v1/driver_presence"]?.contains("resolution=merge-duplicates") == true)
+        #expect(Set(up.body.keys) == ["profile_id", "vehicle_id", "kind", "online", "location"])
+        #expect(up.body["profile_id"] as? String == "me"); #expect(up.body["vehicle_id"] as? String == "v1"); #expect(up.body["kind"] as? String == "AUTO"); #expect(up.body["online"] as? Bool == true)
+        #expect(up.body["location"] as? String == "SRID=4326;POINT(77.5836 12.9279)")
+
+        try await d.pollRing()
+        // open_tasks_near still takes plain `lat` / `lng` (no p_ prefix).
+        #expect(Set(try #require(call("/rest/v1/rpc/open_tasks_near").first).body.keys) == ["lat", "lng"])
+        d.driverAccept()
+        #expect(await wait { d.driverRide?.status == .toPickup })
+        #expect(try #require(call("/rest/v1/rpc/claim_task").first).body as NSDictionary == ["p_task": "t1"] as NSDictionary)
+        d.driverNext()
+        #expect(await wait { d.driverRide?.status == .arrived })
+        let arrive = try #require(call("/rest/v1/rpc/advance_task").first)
+        #expect(arrive.body["p_task"] as? String == "t1"); #expect(arrive.body["p_status"] as? String == "ARRIVED")
+        #expect(arrive.body["p_pin"] is NSNull); #expect(arrive.body["p_paid_with"] is NSNull)   // sent as JSON null, not left out
+        d.driverNext(pin: "4321")
+        #expect(await wait { d.driverRide?.status == .inRide })
+        #expect(call("/rest/v1/rpc/advance_task").last?.body["p_pin"] as? String == "4321")
+        // The task rows are read through the view that carries coordinates, one id at a time.
+        #expect(call("/rest/v1/tasks_geo").allSatisfy { $0.query.contains("id=eq.t1") })
+
+        try await Backend.shared.updateLocation(LatLng(12.93, 77.59))
+        let loc = try #require(call("/rest/v1/rpc/update_location").first)
+        #expect(Set(loc.body.keys) == ["lat", "lng"]); #expect(loc.body["lat"] as? Double == 12.93)
+
+        await d.setOnline(false)
+        #expect(await wait { call("/rest/v1/driver_presence").count >= 2 })
+        #expect(call("/rest/v1/driver_presence").last?.body["online"] as? Bool == false)
+    }
+
+    @Test func decliningAndMissingARequestTellTheServer() async throws {
+        let state = TaskState()
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/vehicles": return (200, [["id": "v1", "owner_id": "me", "kind": "AUTO", "plate": "KA05AB1234", "status": "ACTIVE"]])
+            case "/rest/v1/driver_presence": return (201, [:])
+            case "/rest/v1/rpc/open_tasks_near": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/tasks_geo": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/profiles": return (200, [["id": "u9", "short_code": "CU0009", "name": "Meera Shah"]])
+            case "/rest/v1/rpc/pass_task": return (204, [:])
+            default: return (404, ["message": "no stub"])
+            }
+        }
+        let d = Dispatch(host: host)
+        await d.setOnline(true)
+        try await d.pollRing()
+        d.driverDecline()
+        #expect(await wait { !call("/rest/v1/rpc/pass_task").isEmpty })
+        #expect(NSDictionary(dictionary: call("/rest/v1/rpc/pass_task")[0].body) == ["p_task": "t1", "p_missed": false] as NSDictionary)
+        #expect(d.driverRide == nil); #expect(host.toasts.last == "Passed. We'll send you the next one.")
+        // A declined request does not ring again.
+        try await d.pollRing()
+        #expect(d.driverRide == nil)
+        await d.setOnline(false)
+    }
+
+    @Test func aLostClaimAnswerIsRecognisedFromTheTaskRow() async throws {
+        var state = TaskState()
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/vehicles": return (200, [["id": "v1", "owner_id": "me", "kind": "AUTO", "plate": "KA05AB1234", "status": "ACTIVE"]])
+            case "/rest/v1/driver_presence": return (201, [:])
+            case "/rest/v1/rpc/open_tasks_near": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/tasks_geo": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/profiles": return (200, [["id": "u9", "short_code": "CU0009", "name": "Meera Shah"]])
+            case "/rest/v1/rpc/contact_for_task": return (200, [["phone": "9000000001"]])
+            // The claim lands on the server but the answer never makes it back (a gateway error twice).
+            case "/rest/v1/rpc/claim_task": state.status = "MATCHED"; state.driverId = "me"; return (502, ["message": "bad gateway"])
+            default: return (404, ["message": "no stub"])
+            }
+        }
+        let d = Dispatch(host: host)
+        await d.setOnline(true)
+        try await d.pollRing()
+        d.driverAccept()
+        #expect(await wait(timeout: 6) { d.driverRide?.status == .toPickup })
+        #expect(call("/rest/v1/rpc/claim_task").count == 2)   // retried once
+        #expect(!host.toasts.contains("Couldn't reach Bucks. Try again."))
+        await d.setOnline(false)
+    }
+
+    @Test func aRefusedClaimShowsTheServersSentenceAndMovesOn() async throws {
+        let state = TaskState()
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/vehicles": return (200, [["id": "v1", "owner_id": "me", "kind": "AUTO", "plate": "KA05AB1234", "status": "ACTIVE"]])
+            case "/rest/v1/driver_presence": return (201, [:])
+            case "/rest/v1/rpc/open_tasks_near": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/tasks_geo": return (200, [state.row(requester: "u9")])
+            case "/rest/v1/profiles": return (200, [["id": "u9", "short_code": "CU0009", "name": "Meera Shah"]])
+            case "/rest/v1/rpc/my_open_task": return (200, [])
+            case "/rest/v1/rpc/claim_task": return (400, ["code": "P0001", "message": "vehicle not verified"])
+            default: return (404, ["message": "no stub"])
+            }
+        }
+        let d = Dispatch(host: host)
+        await d.setOnline(true)
+        try await d.pollRing()
+        d.driverAccept()
+        #expect(await wait { d.driverRide == nil })
+        #expect(host.toasts.last == "Vehicle not verified")
+        await d.setOnline(false)
+    }
+
+    @Test func vehicleAndPaymentWritesUseTheRightColumnsAndFilters() async throws {
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/vehicles": return (201, [["id": "v9", "owner_id": "me", "kind": "CAB", "model": "Dzire", "plate": "KA05AB1234", "status": "PENDING"]])
+            case "/rest/v1/rpc/invite": return (200, "inv1")
+            default: return (204, [:])
+            }
+        }
+        let b = Backend.shared
+        let v = try await b.addVehicle(me: "me", kind: "CAB", model: "Dzire", plate: "ka05 ab1234")
+        #expect(v.id == "v9")
+        let add = try #require(call("/rest/v1/vehicles").first)
+        #expect(add.method == "POST"); #expect(FakeServer.prefer["POST /rest/v1/vehicles"] == "return=representation")
+        #expect(NSDictionary(dictionary: add.body) == ["owner_id": "me", "kind": "CAB", "model": "Dzire", "plate": "KA05AB1234"] as NSDictionary)
+
+        try await b.updateVehicleDetails(id: "v9", kind: "AUTO", model: "RE", plate: "ka 01 x 1", docs: [VehicleDoc(kind: "RC", path: "me/vehicle-rc-1.jpg")])
+        let upd = try #require(call("/rest/v1/vehicles").last)
+        #expect(upd.method == "PATCH"); #expect(upd.query.contains("id=eq.v9"))
+        #expect(upd.body["plate"] as? String == "KA01X1"); #expect(upd.body["kind"] as? String == "AUTO")
+        let docs = try #require(upd.body["docs"] as? [[String: String]])
+        #expect(docs == [["kind": "RC", "path": "me/vehicle-rc-1.jpg"]])
+
+        try await b.removeVehicleMember(vehicleId: "v9", profileId: "d1")
+        let del = try #require(call("/rest/v1/vehicle_members").first)
+        #expect(del.method == "DELETE"); #expect(del.query.contains("vehicle_id=eq.v9")); #expect(del.query.contains("profile_id=eq.d1"))
+
+        try await b.inviteDriver(vehicleId: "v9", bucksId: "H6VFYWYF")
+        let inv = try #require(call("/rest/v1/rpc/invite").first)
+        #expect(Set(inv.body.keys) == ["p_listing", "p_vehicle", "p_short_code", "p_role"])
+        #expect(inv.body["p_listing"] is NSNull); #expect(inv.body["p_vehicle"] as? String == "v9"); #expect(inv.body["p_role"] as? String == "ADMIN")
+
+        try await b.setPaymentLink(profileId: "me", upiUri: "upi://pay?pa=a@b")
+        try await b.clearPaymentLink(me: "me")
+        let pay = call("/rest/v1/profile_private")
+        #expect(pay.count == 2); #expect(pay.allSatisfy { $0.method == "PATCH" && $0.query.contains("profile_id=eq.me") })
+        #expect(pay[0].body["upi_uri"] as? String == "upi://pay?pa=a@b"); #expect(pay[1].body["upi_uri"] is NSNull)
+
+        try await b.revokeInvite(id: "inv1")
+        #expect(call("/rest/v1/invites").last?.body["status"] as? String == "REVOKED")
+    }
+
+    @Test func deletingAnAccountEmptiesTheDocsFolderFirst() async throws {
+        boot { path, _, _ in
+            switch path {
+            case "/storage/v1/object/list/docs": return (200, [["name": "vehicle-rc-1.jpg"], ["name": "vehicle-dl-2.pdf"]])
+            default: return (200, [:])
+            }
+        }
+        try await Backend.shared.deleteMyDocFiles(me: "me")
+        let list = try #require(call("/storage/v1/object/list/docs").first)
+        #expect(list.body["prefix"] as? String == "me")
+        let del = try #require(call("/storage/v1/object/docs").first)
+        #expect(del.method == "DELETE"); #expect(del.body["prefixes"] as? [String] == ["me/vehicle-rc-1.jpg", "me/vehicle-dl-2.pdf"])
+    }
+
+    @Test func rowsDecodeWhatPostgresReallyReturns() throws {
+        // numeric and bigint columns arrive as plain JSON numbers; whole-number km and fare must still read as Double / Int.
+        let stat = try Backend.decoder.decode(VehicleStat.self, from: Data(#"{"vehicle_id":"v1","plate":"KA05AB1234","model":"","kind":"AUTO","accepted":3,"rejected":1,"completed":2,"km":12,"earnings":240}"#.utf8))
+        #expect(stat.km == 12); #expect(stat.earnings == 240)
+        let geo = try Backend.decoder.decode(TaskGeoRow.self, from: Data(#"{"id":"t","type":"DELIVERY","requester_id":"u","order_id":"o","vehicle_kind":"BIKE","km":3,"fare":30,"pin":"","status":"COMPLETED","driver_id":"d","vehicle_id":"v","paid_with":null,"driver_lat":null,"driver_lng":null,"order_items":2,"collect":0,"pickup_lat":12.9,"pickup_lng":77.5,"drop_lat":12.95,"drop_lng":77.6,"pin_attempts":0}"#.utf8))
+        #expect(geo.collect == 0); #expect(geo.isDelivery); #expect(geo.driverAt == nil); #expect(geo.orderItems == 2); #expect(geo.km == 3)
+        let near = try Backend.decoder.decode(NearDriverRow.self, from: Data(#"{"profile_id":"p","kind":"AUTO","lat":12.9,"lng":77.5,"name":null,"model":"RE","plate":"••1234","up":0,"down":0}"#.utf8))
+        #expect(near.name == ""); #expect(near.plate == "••1234")
+        let inv = try Backend.decoder.decode([InviteForMe].self, from: Data(#"[{"id":"i","listing_id":null,"vehicle_id":"v","inviter_id":"u","inviter_name":"Ravi","role":"ADMIN","title":"Dzire KA05AB1234","kind":"VEHICLE","created_at":"2026-09-30T10:15:20.123456+00:00"}]"#.utf8))
+        #expect(inv[0].kind == "VEHICLE"); #expect(inv[0].listingId == nil)
+        // A vehicle whose docs hold bare path strings, objects and junk.
+        let rows = try Backend.decoder.decode([VehicleRow].self, from: Data(#"[{"id":"v","owner_id":"o","kind":"BIKE","model":"","plate":"KA01","status":"ACTIVE","docs":["a.jpg",{"kind":"RC","path":"b.jpg"},null,{"kind":"X"}],"created_at":"2026-01-01T00:00:00+00:00"}]"#.utf8))
+        #expect(rows[0].status == "ACTIVE")
+    }
+}
+
+@Suite struct UpiLinkTests {
+    @Test func readsPayeesTheWayAndroidDoes() {
+        // '+' is a space in a query, raw spaces and non-ASCII letters survive, only the first of a repeated name counts.
+        #expect(upiPayee("upi://pay?pa=ravi@okaxis&pn=Ravi+Kumar&mc=0000")?.name == "Ravi Kumar")
+        #expect(upiPayee("upi://pay?pa=ravi@okaxis&pn=Ravi Kumar Ś")?.name == "Ravi Kumar Ś")
+        #expect(upiPayee("upi://pay?pa=a@b&pa=c@d")?.address == "a@b")
+        #expect(upiPayee("upi://pay?pa=&pn=x") == nil); #expect(upiPayee("upi://pay") == nil)
+        #expect(upiPayee("upi://pay?pa=ravi@okaxis&pn=")?.name == "ravi")
+    }
+    @Test func buildsALinkWithEscapedValuesAndTheAmount() {
+        let link = upiPayLink(base: " upi://pay?pa=ravi@okaxis&pn=A%26B+Co&am=1&cu=USD&tn=old&mc=5411 ", amountRupees: 82, note: "Bucks ride")
+        #expect(link == "upi://pay?pa=ravi%40okaxis&pn=A%26B%20Co&mc=5411&am=82.00&cu=INR&tn=Bucks%20ride")
+        #expect(upiPayee(link)?.name == "A&B Co")
+    }
+}

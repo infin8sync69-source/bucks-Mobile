@@ -1,0 +1,189 @@
+import SwiftUI
+import BucksCore
+
+/// Driver's active trip: to pick-up → PIN → drop → payment → rate customer.
+struct DriverTripScreen: View {
+    @Environment(AppSession.self) private var session
+    var body: some View {
+        if let dr = session.dispatch.driverRide { TripBody(dr: dr).id(dr.id) }
+    }
+}
+
+private struct TripBody: View {
+    let dr: DriverRide
+    @Environment(AppSession.self) private var session
+    @State private var pin = ""
+    @State private var cash = false
+    @State private var stars = 0
+    @State private var cancel = false
+    @State private var endAsk = false
+    @State private var road = DriverRoadRoute()
+
+    private var d: Dispatch { session.dispatch }
+    private var delivery: Bool { dr.kind == .bike }
+    private var working: Bool { d.busy || d.handingBack }
+
+    private var me: LatLng { dr.driver ?? Geo.center }
+    private var pickup: LatLng { dr.pickup ?? me }
+    private var drop: LatLng { dr.drop ?? me }
+    private func lerp(_ a: LatLng, _ b: LatLng, _ t: Double) -> LatLng { LatLng(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t) }
+    /// From, to and where the car is drawn.
+    private var leg: (from: LatLng, to: LatLng, car: LatLng) {
+        switch dr.status {
+        case .toPickup: (me, pickup, lerp(me, pickup, dr.progress))
+        case .arrived: (pickup, pickup, pickup)
+        default: (pickup, drop, lerp(pickup, drop, dr.progress))
+        }
+    }
+    private var travelling: Bool { let l = leg; return l.from != l.to && l.car != l.to }
+
+    var body: some View {
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                if dr.status != .done { mapArea }
+                panel(maxHeight: geo.size.height * 0.75)
+            }
+        }
+        .bucksBackground()
+        .bucksHideNavigationBar()
+        .bucksConfirm(isPresented: $endAsk, title: delivery ? "Hand over the order here?" : "End the ride here?",
+                      message: delivery ? "Only end the trip once the customer has their order. Then you collect any payment due." : "The customer is asked to pay ₹\(dr.fare) once you end the ride. Only end it at the drop point.",
+                      confirmTitle: delivery ? "Yes, delivered" : "End ride", cancelTitle: "Not yet") { d.driverNext() }
+        .alert(cancelTitle, isPresented: $cancel) {
+            Button(delivery ? "Keep delivery" : "Keep ride", role: .cancel) {}
+            Button(cancelConfirm, role: .destructive) { Task { if await d.driverCancel() { session.toast("Handed back. Other riders will be rung for it.") } } }
+        } message: { Text(cancelMessage) }
+        // The field clears once the trip has really started, so a wrong PIN stays for a retry.
+        .onChange(of: dr.status) { _, s in if s == .inRide { pin = "" } }
+        .task(id: "\(Int(leg.car.lat * 500)),\(Int(leg.car.lng * 500)),\(Int(leg.to.lat * 500)),\(Int(leg.to.lng * 500)),\(travelling)") {
+            await road.load(from: travelling ? leg.car : nil, to: travelling ? leg.to : nil)
+        }
+    }
+
+    // MARK: map
+
+    private var mapArea: some View {
+        let l = leg
+        return ZStack(alignment: .topTrailing) {
+            BucksMap(pins: [MapPin(id: "me", at: l.car, title: "You", tint: driverMeColor, isMe: true), MapPin(id: "to", at: l.to, title: "", tint: BucksColor.primary)],
+                     route: travelling ? (road.route?.points ?? [l.car, l.to]) : [])
+            // Turn-by-turn in the phone's own navigation app.
+            if l.from != l.to {
+                SmallButton(road.route.map { "Navigate · \($0.minutes) min" } ?? "Navigate") { driverNavigate(to: l.to) }
+                    .fixedSize().padding(12)
+            }
+        }.frame(maxHeight: .infinity)
+    }
+
+    // MARK: panel
+
+    /// Natural height (so the map keeps the rest), scrolling when it would not fit (large text, small phones); the payment step fills the screen.
+    private func panel(maxHeight: CGFloat) -> some View {
+        let body = VStack(spacing: 0) { content }.frame(maxWidth: .infinity).padding(20)
+        return Group {
+            if dr.status == .done { ScrollView { body }.frame(maxHeight: .infinity, alignment: .top) }
+            else { ViewThatFits(in: .vertical) { body; ScrollView { body } }.frame(maxHeight: maxHeight) }
+        }
+        .frame(maxWidth: .infinity)
+        .background(UnevenRoundedRectangle(topLeadingRadius: BucksRadius.sheet, topTrailingRadius: BucksRadius.sheet, style: .continuous)
+            .fill(BucksColor.surface).shadow(color: .black.opacity(0.18), radius: 12, y: -2).ignoresSafeArea(edges: .bottom))
+    }
+
+    @ViewBuilder private var content: some View {
+        switch dr.status {
+        case .toPickup: toPickup
+        case .arrived: arrived
+        case .inRide: inRide
+        case .done: CloudPaymentPanel(dr: dr, cash: $cash)
+        case .rate: rate
+        case .ringing: EmptyView()
+        }
+    }
+
+    private func noPhone() { session.toast("The customer's number isn't available yet. Try again in a moment.") }
+    private func messageBar() -> some View {
+        MessageBar(hint: "Message your customer", onCall: { dr.customerPhone.isEmpty ? noPhone() : driverDial(dr.customerPhone) },
+                   onMessage: { dr.customerPhone.isEmpty ? noPhone() : driverSMS(dr.customerPhone) })
+    }
+    private func textButton(_ title: String, tint: Color = BucksColor.primary, enabled: Bool = true, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Text(title).bucks(.labelLarge).foregroundStyle(enabled ? tint : tint.opacity(0.4)).padding(.horizontal, 12).frame(minHeight: 44).contentShape(Rectangle()) }
+            .buttonStyle(.plain).disabled(!enabled)
+    }
+
+    private var toPickup: some View {
+        let km = driverMetres(dr.pickupKm * (1 - dr.progress))
+        let mins = max(1, Int((1 - dr.progress) * dr.pickupKm * 4))
+        return VStack(spacing: 0) {
+            Text(delivery ? "Delivery for \(driverBeforeDot(dr.pickupAt))" : dr.customer).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            if delivery {
+                let rest = driverAfterDot(dr.pickupAt)
+                Muted("Order for \(dr.customer)\(rest.trimmingCharacters(in: .whitespaces).isEmpty ? "" : " · \(rest)")").padding(.top, 2)
+            }
+            HStack(spacing: 20) { Muted("\(mins) min"); Muted("\(delivery ? "Shop" : "Pickup"): \(km)") }.padding(.top, 4).padding(.bottom, 14)
+            messageBar()
+            HStack {
+                textButton(delivery ? "Cancel delivery" : "Cancel ride", tint: BucksColor.error, enabled: !working) { cancel = true }
+                Spacer()
+                textButton(working ? "Working…" : (delivery ? "I'm at the shop" : "I've arrived"), enabled: !working) { d.driverNext() }
+            }.padding(.top, 8)
+        }
+    }
+
+    private var arrived: some View {
+        let left = max(pinTries - dr.pinAttempts, 0)
+        return VStack(spacing: 0) {
+            Text(delivery ? "Enter the pickup PIN" : "Enter customer's PIN").bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            // No auto-submit on the fourth digit: a typo would cost one of the five tries. "Confirm PIN" sends it, as Android's keyboard Done / button do.
+            PinBoxes(value: Binding(get: { pin }, set: { if !dr.pinLocked { pin = $0 } }))
+                .padding(.top, 20).padding(.bottom, 8)
+            // Wrong PINs keep the boxes filled and count down; the fifth locks the trip (the server says so) and only a hand-back is left.
+            if dr.pinAttempts > 0 {
+                Text(dr.pinLocked ? "Too many wrong PINs. This trip is locked: hand it back so another rider can take it." : "That PIN didn't match. \(left) \(left == 1 ? "try" : "tries") left.")
+                    .bucks(.bodySmall).foregroundStyle(BucksColor.error).multilineTextAlignment(.center).padding(.bottom, 8)
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+            Muted(delivery ? "Call the customer for their 4-digit PIN before you leave the shop; it confirms you have their order." : "Ask the customer to read out the 4-digit PIN on their screen.", align: .center).padding(.bottom, 14)
+            messageBar()
+            DarkButton(d.busy ? "Checking…" : "Confirm PIN", enabled: pin.count == 4 && !working && !dr.pinLocked) { d.driverNext(pin: pin) }.padding(.top, 14)
+            // The server lets a trip go back to other riders until the PIN is in.
+            textButton(delivery ? "Can't collect it? Hand back" : "Customer not here? Hand back", tint: BucksColor.error, enabled: !working) { cancel = true }.padding(.top, 4)
+        }
+    }
+
+    private var inRide: some View {
+        VStack(spacing: 0) {
+            Text(dr.customer).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            Muted(dr.progress >= 1 ? "Arrived at destination" : "On the way to \(dr.dropAt)").padding(.top, 4)
+            Muted(dr.progress >= 1 ? "Dropping off" : "\(String(format: "%.1f", (1 - dr.progress) * dr.km)) km left").padding(.bottom, 14)
+            messageBar().padding(.bottom, 14)
+            DarkButton(working ? "Working…" : (delivery ? "Delivered · end trip" : "End ride"), enabled: !working) { endAsk = true }
+        }
+    }
+
+    private var rate: some View {
+        VStack(spacing: 0) {
+            Text("Rate your customer").bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            Avatar(initials: initials(dr.customer), size: 48).padding(.top, 8)
+            Text(dr.customer).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface).padding(.top, 6)
+            HStack(spacing: 0) {
+                ForEach(1...5, id: \.self) { i in
+                    Button { stars = i } label: {
+                        Image(systemName: i <= stars ? "star.fill" : "star").font(.system(size: 30))
+                            .foregroundStyle(i <= stars ? BucksColor.onSurface : BucksColor.onSurfaceVariant).frame(width: 48, height: 48)
+                    }.buttonStyle(.plain).accessibilityLabel("\(i) star\(i > 1 ? "s" : "")")
+                }
+            }.padding(.vertical, 14)
+            DarkButton("Submit", enabled: stars > 0) { session.driverRateCustomer(stars: stars) }
+        }
+    }
+
+    // MARK: dialogs
+
+    private var atPickup: Bool { dr.status == .arrived }
+    private var cancelTitle: String { atPickup ? "Hand this \(delivery ? "delivery" : "ride") back?" : (delivery ? "Cancel this delivery?" : "Cancel this ride?") }
+    private var cancelConfirm: String { atPickup ? "Hand back" : (delivery ? "Cancel delivery" : "Cancel ride") }
+    private var cancelMessage: String {
+        atPickup ? (delivery ? "Use this when you can't collect the order. " : "Use this when the customer isn't there. ") + "It goes to the next rider and you won't be rung for it again."
+                 : "The \(delivery ? "order" : "customer") goes to the next rider."
+    }
+}

@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+*.xcodeproj
+Config/Secrets.xcconfig
+App/GoogleService-Info.plist
+xcuserdata/
+DerivedData/
