@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Bucks</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
+	<key>GeminiAPIKey</key>
+	<string>$(GEMINI_API_KEY)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>upi</string>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>gpay</string>
+		<string>tel</string>
+		<string>sms</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Bucks uses the camera to take photos and videos for posts, Moments and messages, and to scan recommendation codes.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Bucks reads your contacts on this phone to help you call, message and invite people. They are never uploaded.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Bucks asks for Face ID before confirming larger orders and payments.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Online drivers share their location in the background so riders can follow the trip.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Bucks uses your location to find your pick-up point and nearby riders. Drivers who are online share it so riders can see them arrive.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Bucks uses the microphone for voice commands and for the sound in videos you record.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Bucks saves photos and videos you choose to keep to your gallery.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Bucks reads the photos and videos you choose, such as a vehicle document, a post or your UPI QR code.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Bucks turns what you say into a search or command.</string>
+	<key>SupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>AccentColor</string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>

@@ -92,12 +92,20 @@ object MapServices {
     /** Places matching [query], nearest first; empty when offline. */
     suspend fun search(query: String, near: LatLng): List<PlaceHit> = searchOrNull(query, near).orEmpty()
 
-    /** A short name for the point: "12th Main, Indiranagar" or a landmark; null when offline. */
+    /** A short name for the point: "12th Main, Indiranagar" or a landmark; null when offline. Mapbox when a token is built in (the public
+     *  Photon server is only a fallback: it is not meant for an app's traffic, and this runs every time a pick-up pin settles). */
     suspend fun label(at: LatLng): String? {
-        val o = get("https://photon.komoot.io/reverse?lat=${at.lat}&lon=${at.lng}&limit=1&lang=en") as? JsonObject ?: return null
-        val h = (o["features"] as? JsonArray)?.firstOrNull()?.let { it as? JsonObject }?.let(::hitOf) ?: return null
+        val h = (if (token.isNotBlank()) mapboxPlaceAt(at) else null) ?: photonPlaceAt(at) ?: return null
         val area = h.detail.split(", ").firstOrNull { it.isNotBlank() }
         return listOfNotNull(h.name, area?.takeIf { it != h.name }).joinToString(", ")
+    }
+    private suspend fun mapboxPlaceAt(at: LatLng): PlaceHit? {
+        val o = get("https://api.mapbox.com/search/geocode/v6/reverse?longitude=${at.lng}&latitude=${at.lat}&types=address,street,neighborhood,locality,place&language=en&access_token=$token") as? JsonObject
+        return (o?.get("features") as? JsonArray)?.firstNotNullOfOrNull { (it as? JsonObject)?.let(::mapboxHit) }
+    }
+    private suspend fun photonPlaceAt(at: LatLng): PlaceHit? {
+        val o = get("https://photon.komoot.io/reverse?lat=${at.lat}&lon=${at.lng}&limit=1&lang=en") as? JsonObject ?: return null
+        return (o["features"] as? JsonArray)?.firstOrNull()?.let { it as? JsonObject }?.let(::hitOf)
     }
 
     /** Road route for [profile] (driving, driving-traffic, cycling, walking) with its turn-by-turn steps; null when offline or no route (the caller draws a straight line instead). */
