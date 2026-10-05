@@ -1,0 +1,83 @@
+# Builds an installable debug APK on every push and attaches it to a GitHub Release,
+# so testers can download it straight onto their phones.
+name: Android build
+
+on:
+  push:
+    branches: [main, pilot-release-fixes]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Optional: add the whole google-services.json as a repository secret named GOOGLE_SERVICES_JSON
+      # (Settings > Secrets and variables > Actions) to build with Firebase switched on.
+      # Live mode (Firebase sign-in + Supabase) switches on when FIREBASE_ON is true: set the repository variable FIREBASE_ON
+      # (Settings > Secrets and variables > Actions > Variables) once Supabase trusts this Firebase project, or it is flipped here.
+      # Until then builds stay in the on-device demo. The config is firebase/google-services.json (a GOOGLE_SERVICES_JSON secret overrides it).
+      - name: Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          FIREBASE_ON: ${{ vars.FIREBASE_ON || 'true' }}   # live mode on for the device tests; set the variable to false for a demo build
+        run: |
+          if [ "$FIREBASE_ON" != "true" ]; then echo "Firebase: off (demo mode)"; exit 0; fi
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then echo "$GOOGLE_SERVICES_JSON" > app/google-services.json; else cp firebase/google-services.json app/google-services.json; fi
+          echo "Firebase: on (live mode)"
+
+      # One fixed signing key for every test build, so each installs over the last (and the in-app updater works).
+      # Created once with scripts/setup-pilot-signing.sh, which stores it in the PILOT_KEYSTORE_B64 / PILOT_KEYSTORE_PASSWORD secrets.
+      - name: Pilot signing key
+        env:
+          PILOT_KEYSTORE_B64: ${{ secrets.PILOT_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$PILOT_KEYSTORE_B64" ]; then
+            echo "$PILOT_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pilot.jks"
+            echo "PILOT_KEYSTORE_FILE=$RUNNER_TEMP/pilot.jks" >> "$GITHUB_ENV"
+            echo "Signing: pilot key (installs over earlier builds)"
+          else
+            echo "::warning::No PILOT_KEYSTORE_B64 secret: this APK is signed with a throwaway key and cannot update an earlier install. Run scripts/setup-pilot-signing.sh once."
+          fi
+
+      # The runner image ships the Android SDK; Gradle installs any missing platform itself.
+      - name: Build debug APK
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_BRANCH: ${{ github.ref_name }}
+          PILOT_KEYSTORE_PASSWORD: ${{ secrets.PILOT_KEYSTORE_PASSWORD }}
+          # The anon key is Supabase's client-side key (safe in the app; row-level security does the protecting). A repository secret overrides it.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://lboxctryrktwdsvywfqp.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3hjdHJ5cmt0d2Rzdnl3ZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Nzg4NjgsImV4cCI6MjEwNjA1NDg2OH0.f723OaejTwcD3AZsASkaF6XYLMIhYmdIqVWphasImcg' }}
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          chmod +x gradlew
+          # Surface Kotlin compile errors as annotations so they show on the run summary.
+          ./gradlew assembleDebug 2>&1 | tee build.log; status=${PIPESTATUS[0]}
+          grep -E "^e: |What went wrong|Could not resolve" -A2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+          [ "$status" = 0 ] || exit "$status"
+          cp app/build/outputs/apk/debug/app-debug.apk bucks-pilot-${{ github.run_number }}.apk
+
+      # What's new: the commit message (minus attribution trailers), shown in the app's update prompt.
+      - name: Release notes
+        run: git log -1 --pretty=format:'%s%n%n%b' | { grep -viE '^(co-authored-by|claude-session):' || true; } > notes.md
+
+      - name: Publish test build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Test build ${{ github.run_number }} (${{ github.ref_name }})
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          body_path: notes.md
+          files: bucks-pilot-${{ github.run_number }}.apk

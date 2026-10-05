@@ -2,7 +2,9 @@ package com.bucks.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,41 +12,98 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.bucks.app.data.SyncStatus
 import com.bucks.app.data.VerificationLevel
-import com.bucks.app.ui.VOICE_LANGS
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
+import com.bucks.app.ui.nav.Routes
+import com.bucks.app.ui.shareText
 import com.bucks.app.ui.theme.status
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, onMessages: () -> Unit, onProCreate: () -> Unit, onOrder: (String) -> Unit, onRequest: (String) -> Unit, onEditProfile: () -> Unit, onToggleTheme: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit, onCreatePost: () -> Unit = {}, showToast: (String) -> Unit) {
+fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, onMessages: () -> Unit, onProCreate: () -> Unit, onOrder: (String) -> Unit, onRequest: (String) -> Unit, onEditProfile: () -> Unit, onToggleTheme: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit, onCreatePost: () -> Unit = {}, onOpen: (String) -> Unit = {}, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val chats by vm.repo.chats.collectAsState(); val people by vm.repo.people.collectAsState(); val communities by vm.repo.communities.collectAsState(); val u = s.user ?: return
     val tabs = listOf("activity" to "Activity", "settings" to "Settings")
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
-    if (tab == "profile") { PersonalProfile(vm, onEditProfile, onCreatePost); return }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Account", onMenu = onMenu, unread = chats.sumOf { it.unread }, onChat = onMessages)
+    // Cloud builds: my real profile and posts (the demo profile writes to the local demo store, which no neighbour ever sees).
+    if (tab == "profile") { if (vm.social.enabled) CloudPersonalProfile(vm, onEditProfile, onOpen) else PersonalProfile(vm, onEditProfile, onCreatePost); return }
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Account", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         PrimaryTabRow(selectedTabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) { tabs.forEach { (k, l) -> Tab(selected = tab == k, onClick = { tab = k }, text = { Text(l, style = MaterialTheme.typography.labelLarge) }) } }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             when (tab) {
                 "activity" -> {
                     SectionTitle("Rides", Modifier.padding(bottom = 4.dp))
                     if (s.rides.isEmpty()) Muted("No rides yet. Tap Taxi in Services when you need to go somewhere.") else s.rides.forEach { r -> ListRowCompact(r.kind.icon, r.dest.name, "₹${r.fare} · ${r.status.name.lowercase().replaceFirstChar { it.uppercase() }}" + (r.driver?.let { " · ${it.name}" } ?: "")) }
-                    SectionTitle("Orders", Modifier.padding(top = 20.dp, bottom = 4.dp))
-                    if (s.orders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.") else s.orders.forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, o.providerName, "₹${o.total} · ${o.status.label}") { onOrder(o.id) } }
+                    SectionTitle("Orders", Modifier.padding(top = 20.dp, bottom = 4.dp), action = if (vm.social.enabled) "See all" else null, onAction = if (vm.social.enabled) ({ onOpen(Routes.MY_ORDERS) }) else null)
+                    if (vm.social.enabled) {
+                        LaunchedEffect(vm.social.me?.id) { vm.commerce.refreshMyOrders() }
+                        if (vm.commerce.myOrders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.")
+                        else vm.commerce.myOrders.take(5).forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, vm.commerce.titleOf(o.listingId), "₹${o.subtotal + if (o.feePaidBy == "BUYER") o.deliveryFee else 0} · ${com.bucks.app.ui.screens.commerce.orderStatusLabel(o.status, o.deliveryMode)}") { onOpen(Routes.cloudOrder(o.id)) } }
+                    } else if (s.orders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.") else s.orders.forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, o.providerName, "₹${o.total} · ${o.status.label}") { onOrder(o.id) } }
+                    if (vm.social.enabled) { SectionTitle("Jobs", Modifier.padding(top = 20.dp, bottom = 4.dp)); ListRowCompact(Icons.Rounded.Work, "My applications", "Jobs you applied to and where they stand") { onOpen(Routes.MY_APPLICATIONS) } }
                     SectionTitle("Service requests", Modifier.padding(top = 20.dp, bottom = 4.dp))
                     if (s.requests.isEmpty()) Muted("No service requests yet. Search for a plumber, tutor or any skill.") else s.requests.forEach { r -> ListRowCompact(Icons.Rounded.Handyman, r.providerName, "${r.category} · ${r.status.label}") { onRequest(r.id) } }
                 }
-                else -> { SectionTitle("Identity", Modifier.padding(bottom = 10.dp)); VerificationCard(vm, u.id, u.verified); Spacer(Modifier.height(22.dp)); SettingsTab(vm, onEditProfile, onToggleTheme, onLogout, onDeleted, showToast) }
+                else -> SettingsHub(vm, identity = { if (vm.social.enabled) BucksIdCard(vm) { onOpen(Routes.SYNC) } else VerificationCard(vm, u.id, u.verified) }, onOpen = onOpen, onEditProfile = onEditProfile, onLogout = onLogout, onDeleted = onDeleted, showToast = showToast)
             }
         }
     }
+}
+
+/** My own profile in cloud builds: name, Bucks ID, synced people and chats from the server, and my posts from the feed. Posting goes through social.post like the Feed tab. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onOpen: (String) -> Unit) {
+    val social = vm.social; val s by vm.state.collectAsState(); val u = s.user ?: return; val ctx = LocalContext.current
+    val me = social.me
+    var compose by remember { mutableStateOf(false) }; var comments by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(me?.id) { if (me != null) { social.refreshFeed(); social.refreshSyncs() } }
+    val name = me?.name?.ifBlank { null } ?: u.name; val area = me?.area?.ifBlank { null } ?: u.area; val bio = me?.bio?.ifBlank { null } ?: u.bio
+    val mine = social.feed.filter { it.authorId == me?.id }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ProfileCover(initials(name))
+        Column(Modifier.padding(horizontal = Gutter, vertical = 10.dp)) {
+            Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)); Muted(me?.let { "Bucks ID ${it.shortCode}" } ?: handleOf(name))
+            if (area.isNotBlank()) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" $area") }
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Row(Modifier.clickable { onOpen(Routes.SYNC) }, verticalAlignment = Alignment.Bottom) { Text("${social.synced.size}", style = MaterialTheme.typography.titleMedium); Muted(" synced") }
+                Row(Modifier.clickable { onOpen(Routes.CONTACTS) }, verticalAlignment = Alignment.Bottom) { Icon(Icons.Rounded.Group, null, Modifier.size(18.dp).padding(bottom = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" Contacts") } }
+            if (bio.isNotBlank()) Text(bio, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SoftButton("Edit profile", Icons.Rounded.EditNote, onClick = onEditProfile)
+                SoftButton("Share", Icons.Rounded.IosShare) { shareText(ctx, "$name on Bucks" + (me?.let { " · Bucks ID ${it.shortCode}" } ?: "") + (if (area.isNotBlank()) " · $area" else "")) } }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(initials(name), size = 40)
+            Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { compose = true }.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted("Share with people nearby") }
+            IconButton(onClick = { compose = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, "Create a post", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        var ptab by rememberSaveable { mutableIntStateOf(0) }
+        PrimaryTabRow(selectedTabIndex = ptab, containerColor = MaterialTheme.colorScheme.surface, divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }) {
+            listOf("Feed", "Media", "Files", "Recommended").forEachIndexed { i, l -> Tab(selected = ptab == i, onClick = { ptab = i }, text = { Text(l, style = MaterialTheme.typography.labelLarge, maxLines = 1) }) }
+        }
+        when (ptab) {
+            0 -> {
+                if (me != null && mine.isEmpty()) Muted("Your recent posts show here. Share a recommendation, a deal or a question above; people nearby see it in their Feed.", Modifier.padding(Gutter))
+                mine.forEach { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it) }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
+            }
+            1 -> MyMediaTab(vm)
+            2 -> MyFilesTab(vm)
+            else -> MyRecommendationsTab(vm, onOpen)
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+    if (compose) NewPostSheet(vm) { compose = false }
+    comments?.let { id -> CloudCommentsSheet(vm, id) { comments = null } }
 }
 
 @Composable
@@ -74,42 +133,3 @@ private fun VerificationCard(vm: BucksViewModel, id: String, levels: Set<Verific
 @Composable private fun ProfileRow(icon: ImageVector, title: String, sub: String) = BucksCard(Modifier.padding(bottom = 10.dp), padding = 14) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Column(Modifier.padding(start = 14.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(sub) } } }
 @Composable private fun ListRowCompact(icon: ImageVector, title: String, sub: String, onClick: (() -> Unit)? = null) { Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(icon = icon, size = 36, tinted = false); Column(Modifier.padding(start = 12.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(sub) } }; Divider() }
 
-@Composable
-private fun SettingsTab(vm: BucksViewModel, onEditProfile: () -> Unit, onToggleTheme: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit, showToast: (String) -> Unit) {
-    val s by vm.state.collectAsState(); val ctx = LocalContext.current
-    var deleteDialog by remember { mutableStateOf(false) }
-    var linkDialog by remember { mutableStateOf(false) }; var code by remember { mutableStateOf("") }
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { u -> runCatching { ctx.contentResolver.openOutputStream(u)?.use { it.write(vm.exportSnapshot().toByteArray()) }; showToast("Backup saved. Open it on another device to restore.") } } }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { u -> runCatching { ctx.contentResolver.openInputStream(u)?.bufferedReader()?.readText() }.getOrNull()?.let { vm.importSnapshot(it) } } }
-
-    SectionTitle("Devices and sync", Modifier.padding(bottom = 10.dp))
-    BucksCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(when (s.syncStatus) { SyncStatus.SYNCED -> Icons.Rounded.CloudDone; SyncStatus.SYNCING -> Icons.Rounded.Sync; SyncStatus.OFFLINE -> Icons.Rounded.CloudOff }, null, tint = if (s.syncStatus == SyncStatus.SYNCED) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant)
-            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text(when (s.syncStatus) { SyncStatus.SYNCED -> "Everything is in sync"; SyncStatus.SYNCING -> "Syncing…"; SyncStatus.OFFLINE -> "Offline, will sync later" }, style = MaterialTheme.typography.titleMedium); Muted("Last synced ${s.lastSynced} · encrypted backup of your profile and preferences") }
-            SmallButton("Sync now", tonal = true, enabled = s.syncStatus != SyncStatus.SYNCING) { vm.syncNow() }
-        }
-        Divider()
-        s.devices.forEach { d -> Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(if (d.thisDevice) Icons.Rounded.Smartphone else Icons.Rounded.Devices, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text(d.name + if (d.thisDevice) " (this device)" else "", style = MaterialTheme.typography.titleSmall); Muted(d.lastSeen) }; if (!d.thisDevice) TextButton(onClick = { vm.unlinkDevice(d.id) }) { Text("Unlink") } } }
-        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SmallButton("Link a device", Modifier.weight(1f)) { linkDialog = true }; SmallButton("Back up", Modifier.weight(1f), tonal = true) { exportLauncher.launch("bucks-backup.json") }; SmallButton("Restore", Modifier.weight(1f), tonal = true) { importLauncher.launch(arrayOf("application/json", "*/*")) } }
-    }
-    SectionTitle("Voice and AI", Modifier.padding(top = 22.dp, bottom = 10.dp))
-    BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
-        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Cloud understanding", style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." else "Off. Add GEMINI_API_KEY to local.properties to understand free-form commands; the built-in rules work offline.") }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
-    SectionTitle("Preferences", Modifier.padding(top = 22.dp, bottom = 10.dp))
-    SettingRow(Icons.Rounded.Person, "Edit profile", onEditProfile)
-    SettingRow(Icons.Rounded.Notifications, "Notifications") { showToast("Notification settings") }
-    SettingRow(Icons.Rounded.DarkMode, "Appearance", onToggleTheme)
-    SettingRow(Icons.Rounded.Lock, "Privacy and data") { showToast("Location is used only while you book or drive. Your number is never shown to other users.") }
-    SettingRow(Icons.Rounded.Gavel, "Community rules") { showToast("Review only what you actually ordered or booked. Every review needs a reason.") }
-    SectionTitle("Account", Modifier.padding(top = 22.dp, bottom = 10.dp))
-    SettingRow(Icons.Rounded.Logout, "Log out", onLogout)
-    SettingRow(Icons.Rounded.DeleteOutline, "Delete account") { deleteDialog = true }
-    if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, title = { Text("Delete your account?") },
-        text = { Text("This removes your profile, listings, businesses, saved sign-in and identity key from this device. It can't be undone. Back up first if you want to restore it later.") },
-        confirmButton = { TextButton(onClick = { deleteDialog = false; vm.deleteAccount(); onDeleted() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("Cancel") } })
-    if (linkDialog) AlertDialog(onDismissRequest = { linkDialog = false }, title = { Text("Link a device") }, text = { Column { Muted("Install Bucks on the other device, sign in with the same number, then enter the 6-character code it shows under Settings → Devices."); OutlinedTextField(code, { code = it.take(6) }, modifier = Modifier.padding(top = 12.dp).fillMaxWidth(), singleLine = true, placeholder = { Text("A1B2C3") }); Muted("This device's code: ${s.devices.firstOrNull { it.thisDevice }?.id?.takeLast(6)?.uppercase() ?: "—"}", Modifier.padding(top = 8.dp)) } },
-        confirmButton = { TextButton(onClick = { if (vm.linkDevice(code)) { linkDialog = false; code = "" } }) { Text("Link") } }, dismissButton = { TextButton(onClick = { linkDialog = false }) { Text("Cancel") } })
-}
-@Composable private fun SettingRow(icon: ImageVector, label: String, onClick: () -> Unit) { ListRow(label, leading = { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }, trailing = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = onClick); Divider() }

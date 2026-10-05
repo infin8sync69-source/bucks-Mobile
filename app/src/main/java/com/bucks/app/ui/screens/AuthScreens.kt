@@ -1,5 +1,9 @@
 package com.bucks.app.ui.screens
 
+import com.bucks.app.data.Cloud
+import com.bucks.app.data.LatLng
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,26 +15,50 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.findActivity
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.Purple
 import com.bucks.app.ui.theme.PurpleDeep
 
+/**
+ * Welcome screen for people who are not signed in. The wordmark plays its entrance in the middle of the purple field
+ * (letters spring up one after another, a light sweeps across), glides up into place, then the promise and the button
+ * rise in. With reduced motion everything is simply there.
+ */
 @Composable
 fun SplashScreen(onStart: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Purple).padding(32.dp), horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.Bottom) {
-        Text("bucks", style = MaterialTheme.typography.displaySmall, color = Color.White)
-        Text("Rides, food, skilled people and local shops — ranked only by the people who used them.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(top = 12.dp, bottom = 40.dp))
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PurpleDeep)) { Text("Get started", style = MaterialTheme.typography.labelLarge) }
+    val reduced = rememberReducedMotion()
+    val entrance = remember { WordmarkEntrance() }; val settle = remember { Animatable(0f) }; val copy = remember { Animatable(0f) }
+    LightSystemBars()
+    LaunchedEffect(Unit) {
+        if (reduced) { entrance.snapIn(); settle.snapTo(1f); copy.snapTo(1f); return@LaunchedEffect }
+        entrance.play()
+        settle.animateTo(1f, tween(620, easing = Motion.Emphasized))
+        copy.animateTo(1f, tween(460, easing = Motion.Emphasized))
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(Purple).systemBarsPadding()) {
+        val lift = with(LocalDensity.current) { (maxHeight * 0.16f).toPx() }
+        BucksWordmark(Modifier.align(Alignment.Center).graphicsLayer { translationY = -lift * settle.value; val z = 1f - 0.12f * settle.value; scaleX = z; scaleY = z },
+            height = 72.dp, color = Color.White, sheen = { entrance.sheen.value }, pose = entrance::pose)
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 32.dp, vertical = 32.dp)
+            .graphicsLayer { alpha = copy.value; translationY = (1f - copy.value) * 48f }, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Rides, food, skilled people and local shops, ranked only by the people who used them.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = .88f), textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 32.dp))
+            Button(onClick = onStart, enabled = copy.value > 0.3f, modifier = Modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PurpleDeep, disabledContainerColor = Color.White, disabledContentColor = PurpleDeep)) { Text("Get started", style = MaterialTheme.typography.labelLarge) }
+        }
     }
 }
 
@@ -50,8 +78,9 @@ fun LoginScreen(vm: BucksViewModel, onSent: () -> Unit, onSignedIn: () -> Unit, 
     ContentColumn { BucksTopBar()
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
             Headline("Sign in")
-            Muted("Use your mobile number for a one-time code, or your email and password.", Modifier.padding(top = 8.dp, bottom = 20.dp))
-            Row(Modifier.padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Mobile number", selected = mode == "Mobile number") { mode = "Mobile number" }; Chip("Email", selected = mode == "Email") { mode = "Email" } }
+            // With Firebase on, sign-in is by mobile number only: the email accounts live on this device and can't book real rides.
+            Muted(if (vm.cloud) "We'll text a one-time code to your mobile number." else "Use your mobile number for a one-time code, or your email and password.", Modifier.padding(top = 8.dp, bottom = 20.dp))
+            if (!vm.cloud) Row(Modifier.padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Mobile number", selected = mode == "Mobile number") { mode = "Mobile number" }; Chip("Email", selected = mode == "Email") { mode = "Email" } }
             if (mode == "Mobile number") {
                 Label("Mobile number")
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -66,7 +95,7 @@ fun LoginScreen(vm: BucksViewModel, onSent: () -> Unit, onSignedIn: () -> Unit, 
                 PrimaryButton("Sign in", Modifier.padding(top = 6.dp)) { if (vm.signInEmail(email, password)) { if (vm.isLoggedIn) onSignedIn() else onSent() } }
                 TextButton(onClick = { showToast("Reset link sent to $email") }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Forgot password?") }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Muted("New to Bucks?"); TextButton(onClick = onSignUp) { Text("Create an account") } }
+            if (!vm.cloud) Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Muted("New to Bucks?"); TextButton(onClick = onSignUp) { Text("Create an account") } }
             Muted("By continuing you agree to the community rules: review honestly, one account per person.", Modifier.padding(top = 8.dp).fillMaxWidth(), TextAlign.Center)
         }
     }
@@ -90,14 +119,25 @@ fun SignUpEmailScreen(vm: BucksViewModel, onBack: () -> Unit, onCreated: () -> U
 
 @Composable
 fun OtpScreen(vm: BucksViewModel, phone: String, onBack: () -> Unit, onVerified: () -> Unit, showToast: (String) -> Unit) {
-    var code by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; var wrong by remember { mutableIntStateOf(0) }
+    val length = if (vm.cloud) 6 else 4
+    val activity = LocalContext.current.findActivity()
+    // Send the SMS once per visit, not again on rotation.
+    var sent by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { if (!sent && activity != null) { sent = true; vm.sendOtp(activity, onSignedIn = onVerified) } }
     ContentColumn { BucksTopBar(onBack = onBack)
         Column(Modifier.padding(20.dp)) {
             Headline("Enter the code")
-            Muted("Sent to +91 $phone. In this build the code is 1234.", Modifier.padding(top = 8.dp, bottom = 28.dp))
-            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(4) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
-            PrimaryButton("Verify", Modifier.padding(top = 20.dp)) { if (vm.verifyOtp(code)) onVerified() else showToast("Wrong code. Try 1234.") }
-            TextButton(onClick = { showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
+            Muted(if (vm.cloud) "We sent a $length-digit code to +91 $phone." else "Sent to +91 $phone. In this build the code is 1234.", Modifier.padding(top = 8.dp, bottom = 28.dp))
+            OutlinedTextField(code, { code = it.filter { ch -> ch.isDigit() }.take(length) }, modifier = Modifier.fillMaxWidth().shakeOn(wrong), shape = MaterialTheme.shapes.medium, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)))
+            PrimaryButton(if (busy) "Checking…" else "Verify", Modifier.padding(top = 20.dp), enabled = !busy && code.length == length) { busy = true; vm.verifyOtp(code) { ok -> busy = false; if (ok) onVerified() else wrong++ } }
+            TextButton(onClick = { if (vm.cloud) activity?.let { vm.sendOtp(it, resend = true, onSignedIn = onVerified) } else showToast("Code resent") }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)) { Text("Resend code") }
+            if (vm.cloud) {
+                val status by vm.otpStatus.collectAsState()
+                if (activity == null) Muted("Couldn't start sign-in on this screen (no activity). Send a screenshot.", Modifier.padding(top = 12.dp))
+                if (status.isNotBlank()) Muted(status, Modifier.padding(top = 12.dp).fillMaxWidth(), TextAlign.Center)
+                if (com.bucks.app.BuildConfig.SELF_UPDATE) Muted("Build ${com.bucks.app.BuildConfig.BUILD_NUMBER} · ${Cloud.project ?: "no Firebase"}", Modifier.padding(top = 6.dp).fillMaxWidth(), TextAlign.Center)
+            }
         }
     }
 }
@@ -110,29 +150,31 @@ fun CreateProfileScreen(vm: BucksViewModel, onDone: () -> Unit, showToast: (Stri
     val s by vm.state.collectAsState(); val u = s.user
     var step by remember { mutableIntStateOf(1) }
     var name by remember { mutableStateOf(u?.name ?: "") }; var bio by remember { mutableStateOf(u?.bio ?: "") }
-    val areas = listOf("Jayanagar", "Koramangala", "Indiranagar", "Whitefield", "JP Nagar", "HSR Layout"); var area by remember { mutableStateOf(u?.area?.substringBefore(',') ?: areas[0]) }
+    // Where you are based: chosen anywhere (current location or a searched place). The point chosen becomes your home, which decides who can recommend you.
+    var area by remember { mutableStateOf(u?.area.orEmpty()) }; var homeAt by remember { mutableStateOf<LatLng?>(null) }
+    LaunchedEffect(s.hereLabel, s.me) { if (u == null && area.isBlank() && homeAt == null) { val here = s.me; val a = areaOf(s.hereLabel); if (here != null && a != null) { area = a; homeAt = here } } }
     var gender by remember { mutableStateOf(u?.gender ?: "") }; val interests = remember { mutableStateListOf<String>().apply { addAll(u?.interests ?: emptyList()) } }
     ContentColumn { BucksTopBar(onBack = if (step > 1) ({ step -= 1 }) else null)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
             Row(Modifier.fillMaxWidth().padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { (1..3).forEach { i -> Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)) } }
             when (step) {
                 1 -> {
-                    Headline(if (u == null) "What should we call you?" else "Edit your profile"); Muted("This is what neighbours and providers see.", Modifier.padding(top = 8.dp, bottom = 24.dp))
+                    Headline(if (u == null) "What should we call you?" else "Edit your profile"); Muted("This is what people and providers nearby see.", Modifier.padding(top = 8.dp, bottom = 24.dp))
                     Box(Modifier.fillMaxWidth().padding(bottom = 20.dp), contentAlignment = Alignment.Center) { Avatar(if (name.isBlank()) "?" else initials(name), size = 84) }
                     BucksField(name, { name = it }, "Full name", "e.g. Deepa Nair")
                     PrimaryButton("Continue") { if (name.isBlank()) showToast("Add your name") else step = 2 }
                 }
                 2 -> {
-                    Headline("Where are you based?"); Muted("Used for distance, ride pick-ups and local rankings. Only your area is shown, never your address.", Modifier.padding(top = 8.dp, bottom = 24.dp))
-                    Label("Your area"); FlowChips(areas, setOf(area)) { area = it }
+                    Headline("Where are you based?"); Muted("Used for distance, ride pick-ups and who can recommend you. Only your area is shown, never your address.", Modifier.padding(top = 8.dp, bottom = 24.dp))
+                    LocationPicker(area, s.me, s.hereLabel) { label, at -> area = label; homeAt = at }
                     Spacer(Modifier.height(20.dp)); Label("Gender (optional)"); ChipRow(listOf("Woman", "Man", "Non-binary", "Prefer not to say"), gender.ifBlank { null }) { gender = it }
-                    PrimaryButton("Continue", Modifier.padding(top = 24.dp)) { step = 3 }
+                    PrimaryButton("Continue", Modifier.padding(top = 24.dp)) { if (area.isBlank()) showToast("Choose where you're based") else step = 3 }
                 }
                 else -> {
                     Headline("A little about you"); Muted("Your reputation starts at zero and grows with reviews. Interests only shape what you see in Discover.", Modifier.padding(top = 8.dp, bottom = 24.dp))
                     BucksField(bio, { bio = it }, "One line about you (optional)", "Product designer, biriyani enthusiast")
                     Label("Interests"); FlowChips(INTERESTS, interests.toSet()) { if (it in interests) interests.remove(it) else interests.add(it) }
-                    PrimaryButton(if (u == null) "Finish" else "Save changes", Modifier.padding(top = 24.dp)) { vm.createProfile(name.trim(), "$area, Bengaluru", bio.trim(), gender, interests.toList()); onDone() }
+                    PrimaryButton(if (u == null) "Finish" else "Save changes", Modifier.padding(top = 24.dp)) { vm.createProfile(name.trim(), area, bio.trim(), gender, interests.toList(), homeAt ?: if (u == null) s.me else null); onDone() }
                 }
             }
         }

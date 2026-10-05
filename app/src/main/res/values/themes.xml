@@ -3,4 +3,12 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <!-- Launch: a plain field of the logo's purple (no icon); the wordmark motion is drawn by Compose right after
+         (BrandIntro for signed-in people, the welcome screen otherwise), so the hand-over is seamless. -->
+    <style name="Theme.Bucks.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bucks_purple</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_blank</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bucks</item>
+    </style>
 </resources>
