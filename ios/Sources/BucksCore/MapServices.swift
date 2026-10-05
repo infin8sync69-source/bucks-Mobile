@@ -86,12 +86,25 @@ public enum MapServices {
     /// Places matching `query`, nearest first; empty when offline.
     public static func search(_ query: String, near: LatLng) async -> [PlaceHit] { await searchOrNull(query, near: near) ?? [] }
 
-    /// A short name for the point: "12th Main, Indiranagar" or a landmark; nil when offline.
+    /// A short name for the point: "12th Main, Indiranagar" or a landmark; nil when offline. Mapbox when a token is built in (the public
+    /// Photon server is only a fallback: it is not meant for an app's traffic, and this runs every time a pick-up pin settles).
     public static func label(at: LatLng) async -> String? {
-        guard let o = await get("https://photon.komoot.io/reverse?lat=\(at.lat)&lon=\(at.lng)&limit=1&lang=en") as? [String: Any],
-              let f = (o["features"] as? [[String: Any]])?.first, let h = hit(of: f) else { return nil }
+        var found: PlaceHit? = nil
+        if !token.isEmpty { found = await mapboxPlace(at: at) }
+        if found == nil { found = await photonPlace(at: at) }
+        guard let h = found else { return nil }
         let area = h.detail.components(separatedBy: ", ").first { !$0.isEmpty }
         return [h.name, area.flatMap { $0 != h.name ? $0 : nil }].compactMap { $0 }.joined(separator: ", ")
+    }
+    private static func mapboxPlace(at: LatLng) async -> PlaceHit? {
+        let url = "https://api.mapbox.com/search/geocode/v6/reverse?longitude=\(at.lng)&latitude=\(at.lat)&types=address,street,neighborhood,locality,place&language=en&access_token=\(token)"
+        guard let o = await get(url) as? [String: Any], let fs = o["features"] as? [[String: Any]] else { return nil }
+        return fs.lazy.compactMap { mapboxHit($0) }.first
+    }
+    private static func photonPlace(at: LatLng) async -> PlaceHit? {
+        guard let o = await get("https://photon.komoot.io/reverse?lat=\(at.lat)&lon=\(at.lng)&limit=1&lang=en") as? [String: Any],
+              let f = (o["features"] as? [[String: Any]])?.first else { return nil }
+        return hit(of: f)
     }
 
     /// Road route for `profile` (driving, driving-traffic, cycling, walking) with its turn-by-turn steps; nil when offline or no route
