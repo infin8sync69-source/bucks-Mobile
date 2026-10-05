@@ -5,6 +5,15 @@ name: Android build
 on:
   push:
     branches: [main, pilot-release-fixes]
+    # A merge that only touches the iOS app, docs or CI for other platforms must not publish an Android tester build.
+    paths-ignore:
+      - 'ios/**'
+      - 'docs/**'
+      - '**.md'
+      - '.github/workflows/ios-*.yml'
+      - '.github/workflows/database-ci.yml'
+      - '.github/CODEOWNERS'
+      - '.github/pull_request_template.md'
   workflow_dispatch:
 
 permissions:

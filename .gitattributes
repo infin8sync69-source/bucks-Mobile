@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ttf binary
+*.jks binary
+# Generated or vendored: collapsed in diffs and excluded from language stats
+ios/Sources/BucksUI/Design/WordmarkData.swift linguist-generated=true
+ios/Bucks.xcodeproj/** linguist-generated=true

@@ -1,0 +1,8 @@
+# Who reviews what. Each area has one owner so a pull request that touches it asks for the right review.
+# Replace the handle with a team (@org/ios, @org/android, @org/backend) when more people join.
+*                       @infin8sync69-source
+/app/                   @infin8sync69-source
+/ios/                   @infin8sync69-source
+/supabase/              @infin8sync69-source
+/.github/               @infin8sync69-source
+/docs/                  @infin8sync69-source
