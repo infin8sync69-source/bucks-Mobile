@@ -1,17 +1,26 @@
 \set ON_ERROR_STOP 1
 \pset format unaligned
 \pset tuples_only on
+-- These flows are walked in milliseconds and without moving anyone: switch off hardening_dispatch.sql's clock and distance checks, as
+-- device-test projects do (supabase/README.md, "Dispatch settings"). hardening_dispatch_scenarios.sql tests those checks themselves.
+update public.settings set value = 0 where key in ('min_trip_seconds', 'arrive_radius_m', 'complete_radius_m', 'presence_max_speed_mps');
 -- Dispatch scenarios: ride request -> claim -> PIN -> complete -> paid, plus the views/functions the app uses to follow a task.
 create or replace function pg_temp.expect_fail(sql text, want text) returns text language plpgsql as $$
 begin execute sql; return 'FAIL (no error): ' || want; exception when others then return case when sqlerrm ilike '%' || want || '%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u)::text, false) $$;
 create or replace function pg_temp.pid(u text) returns uuid language sql as $$ select id from public.profiles where auth_uid = u $$;
+create or replace function pg_temp.pin_refused(t uuid) returns text language plpgsql as $$
+declare st text;
+begin st := (public.advance_task(t, 'IN_PROGRESS', '0000')).status;
+  return case when st = 'ARRIVED' then 'ok, refused (the trip stays ARRIVED)' else 'FAIL (a wrong PIN moved the trip to ' || st || ')' end;
+exception when others then return case when sqlerrm ilike '%PIN%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 
 set role authenticated;
 select pg_temp.as_user('kavya');  select (public.ensure_profile('Kavya (customer)', '9000000021')).id is not null;
 select pg_temp.as_user('suresh'); select (public.ensure_profile('Suresh (auto driver)', '9000000022')).id is not null;
 select pg_temp.as_user('ravi');   select (public.ensure_profile('Ravi (bike rider)', '9000000023')).id is not null;
 select pg_temp.as_user('nobody'); select (public.ensure_profile('Someone else', '9000000024')).id is not null;
+select pg_temp.as_user('meera');  select (public.ensure_profile('Meera (second customer)', '9000000025')).id is not null;
 
 \echo '== 1. Driver registers an auto, uploads a UPI QR, goes online; the map sees him with vehicle and trust'
 select pg_temp.as_user('suresh');
@@ -56,13 +65,13 @@ select 'my_open_task (driver): ' || status from my_open_task();
 select 'driver reads the PIN via tasks_geo: ''' || pin || '''' from tasks_geo where id = current_setting('t.task')::uuid;
 select 'driver reads the PIN from tasks -> ' || pg_temp.expect_fail(format($$select pin from tasks where id = %L$$, current_setting('t.task')), 'permission denied');
 select 'driver reads the PIN via my_open_task: ''' || pin || '''' from my_open_task();
-\echo '-- one trip at a time: a busy driver cannot claim a second request'
-select pg_temp.as_user('kavya');
+\echo '-- one trip at a time: a busy driver cannot claim a second request (from another customer: one open ride per customer, too)'
+select pg_temp.as_user('meera');
 select set_config('t.busy', (request_ride('AUTO', 12.9250, 77.5938, 'Jayanagar', 12.9352, 77.6245, 'Koramangala', 5.1, 81)).id::text, false) is not null;
 select pg_temp.as_user('suresh');
 select 'second ring shows no PIN: ''' || pin || '''' from open_tasks_near(12.9260, 77.5940) where id = current_setting('t.busy')::uuid;
 select 'busy driver claims another -> ' || pg_temp.expect_fail(format($$select claim_task(%L)$$, current_setting('t.busy')), 'current trip');
-select pg_temp.as_user('kavya'); select 'customer cancels it: ' || (advance_task(current_setting('t.busy')::uuid, 'CANCELLED')).status;
+select pg_temp.as_user('meera'); select 'customer cancels it: ' || (advance_task(current_setting('t.busy')::uuid, 'CANCELLED')).status;
 select pg_temp.as_user('suresh');
 select update_location(12.9255, 77.5939);
 select pg_temp.as_user('kavya');
@@ -75,7 +84,8 @@ select pg_temp.as_user('nobody'); select 'outsider task_driver: ' || count(*) fr
 select pg_temp.as_user('suresh');
 select set_config('t.arr', row_to_json(advance_task(current_setting('t.task')::uuid, 'ARRIVED'))::text, false) is not null;
 select 'arrived: ' || (current_setting('t.arr')::json->>'status') || ', PIN in the row the driver gets back: ''' || (current_setting('t.arr')::json->>'pin') || '''';
-select 'wrong PIN -> ' || pg_temp.expect_fail(format($$select advance_task(%L, 'IN_PROGRESS', '0000')$$, current_setting('t.task')), 'PIN');
+-- A wrong PIN is refused; since hardening_dispatch.sql it is counted (5 tries) instead of raising, so the trip simply stays ARRIVED.
+select 'wrong PIN -> ' || pg_temp.pin_refused(current_setting('t.task')::uuid);
 select pg_temp.as_user('kavya'); select set_config('t.pin', pin, false) is not null from tasks_geo where id = current_setting('t.task')::uuid;
 select pg_temp.as_user('suresh');
 select 'started with the customer''s PIN: ' || (advance_task(current_setting('t.task')::uuid, 'IN_PROGRESS', current_setting('t.pin'))).status;

@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -130,7 +131,7 @@ fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 @Composable fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; OutlinedButton(onClick, modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
 @Composable fun TintButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; Button(onClick, modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
 @Composable fun GoodButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) { val src = remember { MutableInteractionSource() }; Button(onClick, modifier.fillMaxWidth().height(52.dp).pressScale(src), interactionSource = src, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.buttonColors(containerColor = Good, contentColor = Color.White)) { Text(text, style = MaterialTheme.typography.labelLarge) } }
-@Composable fun BadButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) = TextButton(onClick, modifier.fillMaxWidth().height(48.dp), shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(text, style = MaterialTheme.typography.labelLarge) }
+@Composable fun BadButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) = TextButton(onClick, modifier.fillMaxWidth().height(48.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(text, style = MaterialTheme.typography.labelLarge) }
 @Composable fun SmallButton(text: String, modifier: Modifier = Modifier, tonal: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) =
     if (tonal) FilledTonalButton(onClick, modifier.height(38.dp), enabled = enabled, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }
     else Button(onClick, modifier.height(38.dp), enabled = enabled, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text, style = MaterialTheme.typography.labelMedium) }
@@ -166,10 +167,10 @@ fun BucksCard(modifier: Modifier = Modifier, tint: Boolean = false, onClick: (()
     if (onClick != null) m = m.clickable(onClick = onClick)
     Column(m.padding(padding.dp), content = content)
 }
-/** A bottom panel floating over a map. */
+/** A bottom panel floating over a map. [scrollable]: give it a bounded height (weight or heightIn) and a panel taller than that scrolls instead of pushing off screen. */
 @Composable
-fun Sheet(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) = Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
-    Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) { Box(Modifier.align(Alignment.CenterHorizontally).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline)); Spacer(Modifier.height(14.dp)); content() }
+fun Sheet(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) = Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
+    Column(Modifier.then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(horizontal = 20.dp, vertical = 16.dp)) { Box(Modifier.align(Alignment.CenterHorizontally).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline)); Spacer(Modifier.height(14.dp)); content() }
 }
 @Composable fun Divider() = HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 

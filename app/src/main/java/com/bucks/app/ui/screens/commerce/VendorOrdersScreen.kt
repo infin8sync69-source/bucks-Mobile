@@ -70,7 +70,7 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
             }
             else -> LazyColumn(contentPadding = PaddingValues(horizontal = Gutter, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(shown, key = { it.id }) { o ->
-                    VendorOrderCard(o, buyer = social.nameOf(o.buyerId), now = now, onOpen = { onOpen(o.id) },
+                    VendorOrderCard(o, buyer = social.nameOf(o.buyerId), now = now, busy = commerce.isActing(o.id), onOpen = { onOpen(o.id) },
                         onAccept = { commerce.respondOrder(o.id, true) }, onReject = { rejectFor = o },
                         onReady = { commerce.updateOrderStatus(o.id, "READY") }, onCollected = { commerce.updateOrderStatus(o.id, "DELIVERED") }, onShip = { shipFor = o }, onDelivered = { commerce.markDelivered(o.id) },
                         onCall = { scope.launch { val c = runCatching { commerce.contactFor(o.id) }.getOrNull(); val p = c?.phone; if (p.isNullOrBlank()) vm.toast("This customer hasn't shared a phone number.") else dial(ctx, p) } })
@@ -85,7 +85,7 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
 }
 
 @Composable
-private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, onOpen: () -> Unit, onAccept: () -> Unit, onReject: () -> Unit, onReady: () -> Unit, onCollected: () -> Unit, onShip: () -> Unit, onDelivered: () -> Unit, onCall: () -> Unit) {
+private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, busy: Boolean, onOpen: () -> Unit, onAccept: () -> Unit, onReject: () -> Unit, onReady: () -> Unit, onCollected: () -> Unit, onShip: () -> Unit, onDelivered: () -> Unit, onCall: () -> Unit) {
     val st = MaterialTheme.status
     BucksCard(onClick = onOpen) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -112,14 +112,14 @@ private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, onOpen: 
         }
         when (o.status) {
             "PLACED" -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("Accept", Modifier.weight(1f), onClick = onAccept)
-                SmallButton("Reject", Modifier.weight(1f), tonal = true, onClick = onReject)
+                SmallButton(if (busy) "Working…" else "Accept", Modifier.weight(1f), enabled = !busy, onClick = onAccept)
+                SmallButton("Reject", Modifier.weight(1f), tonal = true, enabled = !busy, onClick = onReject)
             }
             "ACCEPTED", "READY", "PICKED_UP", "SHIPPED" -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallButton("Call customer", Modifier.weight(1f), tonal = true, onClick = onCall)
-                if (o.shipped) { if (o.status == "ACCEPTED") SmallButton("Mark shipped", Modifier.weight(1f), onClick = onShip) else if (o.status == "SHIPPED") SmallButton("Mark delivered", Modifier.weight(1f), onClick = onDelivered) }
-                else if (o.status == "ACCEPTED") SmallButton(if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.weight(1f), onClick = onReady)
-                else if (o.status == "READY" && o.deliveryMode == "PICKUP") SmallButton("Collected", Modifier.weight(1f), onClick = onCollected)
+                if (o.shipped) { if (o.status == "ACCEPTED") SmallButton(if (busy) "Working…" else "Mark shipped", Modifier.weight(1f), enabled = !busy, onClick = onShip) else if (o.status == "SHIPPED") SmallButton(if (busy) "Working…" else "Mark delivered", Modifier.weight(1f), enabled = !busy, onClick = onDelivered) }
+                else if (o.status == "ACCEPTED") SmallButton(if (busy) "Working…" else if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.weight(1f), enabled = !busy, onClick = onReady)
+                else if (o.status == "READY" && o.deliveryMode == "PICKUP") SmallButton(if (busy) "Working…" else "Collected", Modifier.weight(1f), enabled = !busy, onClick = onCollected)
             }
             else -> {}
         }

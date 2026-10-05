@@ -2,6 +2,11 @@ package com.bucks.app.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
@@ -38,6 +43,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.payWord
 import com.bucks.app.ui.dial
 import com.bucks.app.ui.sms
 import com.bucks.app.ui.shareText
@@ -47,11 +53,34 @@ import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 
+/**
+ * Shown while a booking can't start because Bucks has no position for the rider (permission off, location switched off, or no fix yet):
+ * says which, and [onEnable] asks for the permission, opens the phone's location switch, or looks again. Never booked from the map's default centre.
+ */
 @Composable
-fun DestinationScreen(vm: BucksViewModel, onBack: () -> Unit, onChosen: () -> Unit) {
+fun LocationNotice(onEnable: () -> Unit, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current; var tick by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
+    val perm = remember(tick) { Here.hasPermission(ctx) }; val on = remember(tick) { Here.switchedOn(ctx) }
+    Column(modifier.fillMaxWidth()) {
+        Notice(when { !perm -> "Bucks can't see where you are: location permission is off. Your rider needs your exact pick-up point."; !on -> "Location is switched off on this phone. Turn it on so your rider can find you."
+                      else -> "Bucks hasn't found your position yet. Step outside or check your GPS signal, then try again." })
+        SmallButton(if (perm && on) "Try again" else "Turn on location", Modifier.padding(top = 8.dp), onClick = onEnable)
+    }
+}
+
+/** "Pick-up in 4 min" / "under a minute"; null when the rider's position isn't known yet (a negative estimate). */
+fun etaText(min: Int): String? = when { min < 0 -> null; min == 0 -> "under a minute"; else -> "$min min" }
+
+@Composable
+fun DestinationScreen(vm: BucksViewModel, onBack: () -> Unit, onChosen: () -> Unit, onEnableLocation: () -> Unit = {}) {
     val s by vm.state.collectAsState(); var f by remember { mutableStateOf("") }; var picked by remember { mutableStateOf<String?>(null) }
     var savedOpen by remember { mutableStateOf(false) }; var onMap by remember { mutableStateOf(false) }; var center by remember { mutableStateOf<LatLng?>(null) }
     val me = vm.mePos
+    // Without a real position the distance to anywhere would be measured from the map's default centre, so the booking waits for one.
+    val noFix = vm.dispatch.enabled && s.me == null
+    // Back leaves the map picker first, not the whole screen.
+    BackHandler(enabled = onMap) { onMap = false }
     if (onMap) { Box(Modifier.fillMaxSize()) {
         BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MeColor, true)), zoom = 14.0, onCenter = { center = it })
         Icon(Icons.Rounded.LocationOn, "Destination", Modifier.align(Alignment.Center).padding(bottom = 36.dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
@@ -59,22 +88,24 @@ fun DestinationScreen(vm: BucksViewModel, onBack: () -> Unit, onChosen: () -> Un
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             MapAttribution(Modifier.align(Alignment.End).padding(8.dp))
             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(20.dp)) {
-                Muted("Drag the map to place the pin", Modifier.padding(bottom = 10.dp)); DarkButton("Set destination here", enabled = center != null) { center?.let { vm.chooseDestAt(it); picked = s.rideDest?.name; onMap = false; onChosen() } } } }
+                Muted("Drag the map to place the pin", Modifier.padding(bottom = 10.dp)); DarkButton("Set destination here", enabled = center != null && !noFix) { center?.let { vm.chooseDestAt(it); picked = s.rideDest?.name; onMap = false; onChosen() } } } }
     }; return }
     val places = Geo.PLACES.keys.filter { it.contains(f, ignoreCase = true) }
     // Anywhere in the map's address data, nearest first; the built-in list above stays for offline and quick picks.
     var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var searching by remember { mutableStateOf(false) }
     var pickedHit by remember { mutableStateOf<MapServices.PlaceHit?>(null) }
     LaunchedEffect(f) { if (f.trim().length < 3 || f == picked) { hits = emptyList(); return@LaunchedEffect }; kotlinx.coroutines.delay(350); searching = true; hits = MapServices.search(f, me); searching = false }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().imePadding()) {
         IconButton(onBack, Modifier.padding(8.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
         Column(Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 14.dp, vertical = 6.dp)) {
-            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.status.good)); Text((s.hereLabel ?: s.user?.area)?.let { "Current location · $it" } ?: "Current location", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Rounded.MyLocation, "Using current location", Modifier.size(18.dp)) }
+            // The pick-up is where the phone is now, named from the map when it can be, never the area in the profile.
+            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.status.good)); Text(if (noFix) "Waiting for your location" else s.hereLabel?.let { "Current location · $it" } ?: "Current location", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Rounded.MyLocation, if (noFix) "Location not found yet" else "Using current location", Modifier.size(18.dp)) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.status.bad))
                 BasicTextField(f, { f = it; picked = null; pickedHit = null }, Modifier.weight(1f).padding(start = 12.dp), singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     decorationBox = { inner -> Box { if (f.isEmpty()) Muted("Enter destination"); inner() } }) }
         }
+        if (noFix) LocationNotice(onEnableLocation, Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             if (hits.isNotEmpty() || searching) {
                 Text("Places", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
@@ -88,7 +119,7 @@ fun DestinationScreen(vm: BucksViewModel, onBack: () -> Unit, onChosen: () -> Un
             if (savedOpen) { if (s.savedPlaces.isEmpty()) Muted("Star a place to save it.", Modifier.padding(bottom = 8.dp)); s.savedPlaces.forEach { name -> Geo.PLACES[name]?.let { ll -> PlaceRow(name, Geo.distanceKm(me, ll), saved = true, selected = picked == name, onStar = { vm.toggleSavedPlace(name) }) { picked = name; f = name } } } }
         }
         Row(Modifier.align(Alignment.CenterHorizontally).padding(vertical = 10.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { onMap = true }.padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" Select on map") }
-        DarkButton("Confirm", Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp), enabled = picked != null || pickedHit != null) {
+        DarkButton("Confirm", Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp), enabled = (picked != null || pickedHit != null) && !noFix) {
             pickedHit?.let { vm.chooseDestPlace(it.name, it.at); onChosen() } ?: picked?.let { vm.chooseDest(it); onChosen() } }
     }
 }
@@ -135,11 +166,14 @@ fun ChooseRideScreen(vm: BucksViewModel, onBack: () -> Unit, onConfirm: () -> Un
                     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer).border(if (on) 2.dp else 0.dp, if (on) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.small).clickable(enabled = nearest != null) { vm.setRideKind(k) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(k.icon, null, Modifier.size(40.dp), tint = if (nearest != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(k.label, style = MaterialTheme.typography.titleSmall)
-                            Muted(if (away != null) "$away mins away · ETA $eta" else "No riders online nearby"); Muted("Max ${when (k) { VehicleKind.BIKE -> 1; VehicleKind.AUTO -> 3; VehicleKind.CAB -> 4 }} · ₹${k.farePerKm}/per km") }
+                            Muted(if (away != null) "$away ${if (away == 1) "min" else "mins"} away · ETA $eta" else "No riders online nearby"); Muted("Max ${when (k) { VehicleKind.BIKE -> 1; VehicleKind.AUTO -> 3; VehicleKind.CAB -> 4 }} · ₹${k.farePerKm}/per km") }
                         Text("₹$f–${(f * 1.15).toInt()}", style = MaterialTheme.typography.titleSmall)
                     } }
             }
-            DarkButton("Confirm", Modifier.padding(top = 14.dp), enabled = vm.onlineCount(s.rideKind) > 0, onClick = onConfirm)
+            // Fares are estimates until the server prices the trip; a trip the server would refuse is stopped here with the reason.
+            val problem = vm.bookingProblem(dest)
+            if (problem != null) Notice(problem, Modifier.padding(top = 12.dp)) else Muted("Fares are estimates. Bucks sets the final fare from the distance when you book.", Modifier.padding(top = 10.dp))
+            DarkButton("Confirm", Modifier.padding(top = 14.dp), enabled = problem == null && vm.onlineCount(s.rideKind) > 0, onClick = onConfirm)
         }
     }
 }
@@ -149,16 +183,25 @@ fun ChooseRideScreen(vm: BucksViewModel, onBack: () -> Unit, onConfirm: () -> Un
  * "Use my location" snaps back to where I am. The fare is worked out again from the pin when it moved.
  */
 @Composable
-fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit) {
-    val s by vm.state.collectAsState(); val cmds = remember { MapCommands() }; val scope = rememberCoroutineScope()
+fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit, onEnableLocation: () -> Unit = {}) {
+    val s by vm.state.collectAsState(); val cmds = remember { MapCommands() }; val scope = rememberCoroutineScope(); val ctx = LocalContext.current
+    val cloud = vm.dispatch.enabled
     val start = vm.pickupAt; val dest = s.rideDest
     var center by remember { mutableStateOf(start) }
-    var label by remember { mutableStateOf(s.ridePickup?.name ?: s.hereLabel ?: s.user?.area?.ifBlank { null } ?: "Your location") }
+    // The name is the map's (the street under the pin), never the profile's area.
+    var label by remember { mutableStateOf(s.ridePickup?.name ?: s.hereLabel ?: "Your location") }
     var q by remember { mutableStateOf("") }; var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var busy by remember { mutableStateOf(false) }
+    // chosen: the rider picked a searched place (or came back with a pick-up already set). noFix: the last lookup of where the phone is failed.
+    var chosen by remember { mutableStateOf(s.ridePickup != null) }; var noFix by remember { mutableStateOf(false) }
+    val waiting = cloud && s.me == null
     LaunchedEffect(Unit) { delay(300); cmds.moveTo(start, 16.0) }
+    // The first fix arrived while the pin still sat on the map's default centre: put the pin where the phone is.
+    LaunchedEffect(s.me != null) { if (s.me != null) { noFix = false; if (!chosen && s.ridePickup == null) cmds.moveTo(vm.mePos, 16.0) } }
     // The street name under the pin, a moment after the map stops moving.
     LaunchedEffect(center) { delay(700); MapServices.label(center)?.let { label = it } }
     LaunchedEffect(q) { if (q.trim().length < 3) { hits = emptyList(); return@LaunchedEffect }; delay(450); hits = MapServices.search(q, center).take(5) }
+    val movedM = Geo.distanceKm(center, vm.mePos) * 1000
+    val moved = chosen || movedM > 50
     Box(Modifier.fillMaxSize()) {
         BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.mePos, "You", MeColor, true)), zoom = 16.0, commands = cmds, onCenter = { center = it })
         // The pin stays in the middle; the map moves under it.
@@ -173,27 +216,35 @@ fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit) {
                 }
             }
             if (hits.isNotEmpty()) Surface(Modifier.padding(top = 6.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
-                Column { hits.forEach { h -> HitRow(h, Geo.distanceKm(vm.mePos, h.at), false) { q = ""; hits = emptyList(); label = h.name; center = h.at; cmds.moveTo(h.at, 16.0) } } }
+                Column { hits.forEach { h -> HitRow(h, Geo.distanceKm(vm.mePos, h.at), false) { q = ""; hits = emptyList(); label = h.name; center = h.at; chosen = true; cmds.moveTo(h.at, 16.0) } } }
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             Row(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Spacer(Modifier.weight(1f))
-                Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable { cmds.moveTo(vm.mePos, 16.0) }) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MyLocation, "Use my location") } }
+                Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable { chosen = false; cmds.moveTo(vm.mePos, 16.0) }) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MyLocation, "Use my location") } }
             }
             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { MapAttribution() }
             Sheet {
                 Text("Pick-up", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(label, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-                val moved = Geo.distanceKm(center, vm.mePos) * 1000
-                Muted(if (moved > 50) "${com.bucks.app.ui.formatDistance(moved)} from where you are. The rider comes to the pin. Riders within 5 km of it are rung." else "Drag the map to move the pin. Riders within 5 km are rung; the first to accept comes here.", Modifier.padding(vertical = 8.dp))
-                DarkButton(if (busy) "Checking the route…" else "Confirm pick-up", enabled = !busy) {
-                    busy = true
-                    scope.launch {
-                        vm.setPickup(label, center)
-                        // The fare follows the road from the pin to the drop, so work the distance out again from here.
-                        if (dest != null) MapServices.route(center, dest.at ?: Geo.fromPercent(dest.x, dest.y))?.let { vm.setDestKm(it.km) }
-                        busy = false; vm.requestRide()
+                Text(if (waiting && !moved) "Finding where you are…" else label, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Muted(if (movedM > 50) "${com.bucks.app.ui.formatDistance(movedM)} from where you are. The rider comes to the pin. Riders within 5 km of it are rung." else "Drag the map to move the pin. Riders within 5 km are rung; the first to accept comes here.", Modifier.padding(vertical = 8.dp))
+                if (noFix || (waiting && !moved)) LocationNotice(onEnableLocation, Modifier.padding(bottom = 12.dp))
+                DarkButton(if (busy) "Checking the route…" else "Confirm pick-up", enabled = !busy && !vm.dispatch.busy) {
+                    // ensureActive: leaving the screen during a lookup must not pop the booking sheet up over wherever the rider went.
+                    scope.launch { busy = true
+                        try {
+                            var at = center; var name = label
+                            // An unmoved pin means "where I am": looked up again on tap, never booked from a stale or default position.
+                            if (cloud && !moved) {
+                                if (!vm.refreshLocation(ctx)) { noFix = true; return@launch }
+                                ensureActive(); noFix = false; at = vm.mePos; name = vm.state.value.hereLabel ?: label
+                            }
+                            vm.setPickup(name, at)
+                            // The fare follows the road from the pin to the drop, so work the distance out again from here.
+                            if (dest != null) MapServices.route(at, dest.at ?: Geo.fromPercent(dest.x, dest.y))?.let { vm.setDestKm(it.km) }
+                            ensureActive(); vm.requestRide()
+                        } finally { busy = false }
                     }
                 }
             }
@@ -202,9 +253,13 @@ fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
+fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit, onBack: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val r = s.ride ?: return
-    val n = vm.onlineCount(r.kind)
+    val n = vm.onlineCount(r.kind); val cancelling = vm.dispatch.cancelling
+    var ask by remember { mutableStateOf(false) }
+    // Back while searching asks first (leaving would leave the request ringing); once nobody took it, Back just leaves.
+    BackHandler(enabled = r.status == RideStatus.SEARCHING) { ask = true }
+    BackHandler(enabled = r.status == RideStatus.NO_DRIVER) { vm.dismissEndedRide(); onBack() }
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
         // The 5 km circle the request rings within, with the riders of this kind that are in it.
@@ -214,26 +269,28 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet {
             if (r.status == RideStatus.SEARCHING) {
-                Row(verticalAlignment = Alignment.CenterVertically) { PulseRings(Modifier.size(56.dp)) { Icon(r.kind.icon, null, Modifier.size(26.dp).breathe(amount = 0.08f), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 12.dp)) { Text("Ringing $n rider${if (n > 1) "s" else ""}", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · within 5 km · first to accept gets the ride") } }
-                BadButton("Cancel request", Modifier.padding(top = 14.dp)) { vm.cancelRide("Changed my mind") }
+                Row(verticalAlignment = Alignment.CenterVertically) { PulseRings(Modifier.size(56.dp)) { Icon(r.kind.icon, null, Modifier.size(26.dp).breathe(amount = 0.08f), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 12.dp)) { Text("Looking for nearby ${r.kind.label.lowercase()} riders", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · riders nearby are rung · first to accept gets the ride") } }
+                BadButton(if (cancelling) "Cancelling…" else "Cancel request", Modifier.padding(top = 14.dp), enabled = !cancelling) { vm.cancelRide("Changed my mind") }
             } else {
                 Text("No rider accepted", style = MaterialTheme.typography.titleLarge); Muted(if (n > 0) "All nearby riders were busy. Try again or switch vehicle type." else "Nobody is online nearby.")
                 PrimaryButton("Ring again", Modifier.padding(top = 14.dp)) { vm.requestRide() }; GhostButton("Change ride type", Modifier.padding(top = 10.dp), onClick = onChangeType)
             }
         }
     }
+    if (ask) AlertDialog(onDismissRequest = { ask = false }, title = { Text("Cancel this ride request?") }, text = { Text("Riders nearby will stop being rung. You can book again any time.") },
+        confirmButton = { TextButton({ ask = false; vm.cancelRide("Changed my mind") }, enabled = !cancelling) { Text("Cancel ride", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ ask = false }) { Text("Keep searching") } })
 }
 
 @Composable
 fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
-    val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }; val ctx = LocalContext.current
+    val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }; val ctx = LocalContext.current; val cancelling = vm.dispatch.cancelling
     val me = vm.mePos; val car = r.driverAt ?: Geo.fromPercent(r.driverX, r.driverY); val road = rememberRoadRoute(car, me)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) { BucksMap(Modifier.fillMaxSize(), listOf(pinAt(me, "You", MaterialTheme.colorScheme.primary, true), pinAt(car, d.name.substringBefore(' '), MaterialTheme.status.good)), zoom = 15.0, route = road?.points ?: listOf(car, me)); MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
         Sheet { Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
             // The headline slides to the new status so "your rider is here" can't be missed.
-            AnimatedContent(if (arrived) "Your rider is here" else "Pick-up in ${r.etaMin} min", Modifier.align(Alignment.CenterHorizontally), transitionSpec = {
+            AnimatedContent(if (arrived) "Your rider is here" else etaText(r.etaMin)?.let { "Pick-up in $it" } ?: "Your rider is on the way", Modifier.align(Alignment.CenterHorizontally), transitionSpec = {
                 (slideInVertically(tween(Motion.MEDIUM, easing = Motion.Emphasized)) { it / 2 } + fadeIn(tween(Motion.MEDIUM))) togetherWith (slideOutVertically(tween(Motion.SHORT)) { -it / 2 } + fadeOut(tween(Motion.SHORT))) }, label = "rideHeadline") { t ->
                 Text(t, style = MaterialTheme.typography.titleMedium, color = if (arrived) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurface) }
             HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
@@ -242,23 +299,23 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
                 Icon(d.vehicle.icon, null, Modifier.padding(start = 12.dp).size(44.dp))
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { r.pin.forEachIndexed { i, c -> Box(Modifier.size(26.dp).popIn(i).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall) } } }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { r.pin.forEachIndexed { i, c -> Box(Modifier.defaultMinSize(26.dp, 26.dp).popIn(i).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall) } } }
                     Text(d.plate, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 6.dp)); Muted(d.model); Muted(d.name)
                 }
             }
             Muted("Share this PIN with your rider when they arrive.", Modifier.padding(top = 6.dp))
             Box(Modifier.padding(vertical = 14.dp)) { MessageBar("Message your driver", onCall = { if (vm.cloud) { if (d.phone.isBlank()) showToast("${d.name.substringBefore(' ')}'s number isn't available yet. Try again in a moment.") else dial(ctx, d.phone) } else onCall(d.name, "+91 98450 12345") }) { if (vm.cloud) { if (d.phone.isBlank()) showToast("${d.name.substringBefore(' ')}'s number isn't available yet. Try again in a moment.") else sms(ctx, d.phone) } else onChatWith(d.name, "Rider") } }
-            RoutePoints(s.user?.area ?: "Current location", r.dest.name) { Icon(Icons.Rounded.Share, "Share trip", Modifier.size(18.dp).clickable { if (vm.cloud) shareText(ctx, "I'm on a Bucks ride to ${r.dest.name} with ${d.name}, ${d.model} ${d.plate}.") else showToast("Live trip link copied") }) }
+            RoutePoints(r.pickupLabel.ifBlank { "Pick-up point" }, r.dest.name) { IconButton({ if (vm.cloud) shareText(ctx, "I'm on a Bucks ride to ${r.dest.name} with ${d.name}, ${d.model} ${d.plate}.") else showToast("Live trip link copied") }) { Icon(Icons.Rounded.Share, "Share trip", Modifier.size(20.dp)) } }
             Row(Modifier.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) { Text("Total fare", style = MaterialTheme.typography.titleMedium); Text("  ₹${r.fare}", style = MaterialTheme.typography.titleLarge) }
             // With Firebase the driver starts the trip once they've entered your PIN.
             if (arrived && !vm.cloud) DarkButton("Rider has my PIN · Start trip", Modifier.padding(bottom = 10.dp)) { vm.startTrip() }
-            GhostButton("Cancel ride") { cancel = true }
+            GhostButton(if (cancelling) "Cancelling…" else "Cancel ride", enabled = !cancelling) { cancel = true }
         } }
     }
     if (cancel) Dialog(onDismissRequest = { cancel = false }) { Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surface) { Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("!", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge) }
         Text("Cancel ride", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)); Muted("${d.name.substringBefore(' ')} is already on the way. Cancel anyway?", Modifier.padding(top = 4.dp), TextAlign.Center)
-        Button({ cancel = false; vm.cancelRide("Cancelled by rider") }, Modifier.fillMaxWidth().padding(top = 16.dp), shape = MaterialTheme.shapes.small) { Text("Cancel ride") }
+        Button({ cancel = false; vm.cancelRide("Cancelled by rider") }, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = !cancelling, shape = MaterialTheme.shapes.small) { Text("Cancel ride") }
         TextButton({ cancel = false }) { Text("Keep ride") }
     } } }
 }
@@ -295,13 +352,22 @@ fun PayScreen(vm: BucksViewModel) {
     }
 }
 
-/** Cloud ride: pay through the driver's UPI QR (their app opens with the fare filled in) or hand over cash; both tell the driver. */
+/**
+ * Cloud ride: pay through the driver's UPI QR (their app opens with the fare filled in) or hand over cash; both tell the driver.
+ * "Done · I paid" only appears once the rider has been to their UPI app and come back to Bucks, or chose cash: Bucks can't see the
+ * payment itself, so the least it can do is not offer the confirmation before the rider has even tried.
+ */
 @Composable
 private fun CloudPayPanel(vm: BucksViewModel, r: Ride, d: Driver) {
-    val ctx = LocalContext.current
+    val ctx = LocalContext.current; val paying = vm.dispatch.paying
     var contact by remember(r.id) { mutableStateOf<ContactRow?>(null) }; var loaded by remember(r.id) { mutableStateOf(false) }; var upiOpened by remember(r.id) { mutableStateOf(false) }
+    var away by remember(r.id) { mutableStateOf(false) }; var returned by remember(r.id) { mutableStateOf(false) }
     var confirmCash by remember { mutableStateOf(false) }
     LaunchedEffect(r.id) { contact = runCatching { vm.dispatch.contact(r.id) }.getOrNull(); loaded = true }
+    // Leaving Bucks for the UPI app and coming back is what "returned" means. Pause/resume, not stop/start: some UPI apps open as a
+    // see-through screen over Bucks, which pauses it without ever stopping it.
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { if (upiOpened) away = true }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (away) returned = true }
     val upi = contact?.upiUri?.takeIf { it.startsWith("upi://pay", ignoreCase = true) }
     val first = d.name.substringBefore(' ')
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -310,19 +376,20 @@ private fun CloudPayPanel(vm: BucksViewModel, r: Ride, d: Driver) {
             upi == null -> Notice("$first hasn't added a UPI QR yet. Pay ₹${r.fare} in cash.")
             else -> {
                 upiPayee(upi)?.let { (pn, pa) -> Muted("UPI goes to $pn ($pa)", align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
-                DarkButton(if (upiOpened) "Open UPI app again" else "Pay ₹${r.fare} by UPI") {
+                DarkButton(if (upiOpened) "Open UPI app again" else "Pay ₹${r.fare} by UPI", enabled = !paying) {
                     val link = upiPayLink(upi, r.fare, "Bucks ride")
                     val ok = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) }.isSuccess
-                    if (ok) upiOpened = true else vm.toast("No UPI app found on this phone. Pay in cash instead.")
+                    if (ok) { upiOpened = true; away = false; returned = false } else vm.toast("No UPI app found on this phone. Pay in cash instead.")
                 }
-                if (upiOpened) PrimaryButton("Done · I paid ₹${r.fare} by UPI") { vm.payRide("UPI") }
+                if (upiOpened && !returned) Muted("Finish the payment in your UPI app, then come back here to confirm.", align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                if (upiOpened && returned) PrimaryButton(if (paying) "Saving…" else "Done · I paid ₹${r.fare} by UPI", enabled = !paying) { vm.payRide("UPI") }
             }
         }
-        if (loaded) GhostButton("Paid in cash") { confirmCash = true }
-        Muted("Only tap after you've paid. Your rider sees what you chose.", align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        if (loaded) GhostButton(if (paying) "Saving…" else "Paid in cash", enabled = !paying) { confirmCash = true }
+        Muted("Only tap after you've paid. Your rider sees what you chose; Bucks can't check it.", align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
     if (confirmCash) AlertDialog(onDismissRequest = { confirmCash = false }, title = { Text("Paid ₹${r.fare} in cash?") }, text = { Text("$first will be told you paid in cash.") },
-        confirmButton = { TextButton({ confirmCash = false; vm.payRide("Cash") }) { Text("Yes, paid") } }, dismissButton = { TextButton({ confirmCash = false }) { Text("Not yet") } })
+        confirmButton = { TextButton({ confirmCash = false; vm.payRide("CASH") }) { Text("Yes, paid") } }, dismissButton = { TextButton({ confirmCash = false }) { Text("Not yet") } })
 }
 
 @Composable
@@ -330,8 +397,8 @@ fun RateRideScreen(vm: BucksViewModel) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
     var vote by remember { mutableStateOf<Int?>(null) }; var comment by remember { mutableStateOf("") }
     ContentColumn { BucksTopBar()
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp).padding(top = 24.dp)) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Avatar(initials(d.name), size = 76); Headline("How was ${d.name.substringBefore(' ')}?", Modifier.padding(top = 12.dp)); Muted("Paid ₹${r.fare} by ${r.paidWith}. Your review decides who gets the next ride.", align = TextAlign.Center) }
+        Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(20.dp).padding(top = 24.dp)) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Avatar(initials(d.name), size = 76); Headline("How was ${d.name.substringBefore(' ')}?", Modifier.padding(top = 12.dp)); Muted("Paid ₹${r.fare} by ${payWord(r.paidWith)}.", align = TextAlign.Center) }
             Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalArrangement = Arrangement.Center) { VoteButton("Recommend", vote == 1, true) { vote = 1 }; Spacer(Modifier.width(10.dp)); VoteButton("Not recommended", vote == -1, false) { vote = -1 } }
             BucksField(comment, { comment = it }, "One line on why", "Safe riding, on time", singleLine = false, minLines = 2)
             PrimaryButton("Post review") { vm.finishRide(vote, comment, false) }

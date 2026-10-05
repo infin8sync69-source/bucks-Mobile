@@ -1,7 +1,9 @@
 package com.bucks.app.data
 
 import com.bucks.app.BuildConfig
+import android.os.SystemClock
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
@@ -19,9 +21,16 @@ import io.github.jan.supabase.realtime.decodeRecord
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.SerialName
@@ -42,18 +51,12 @@ object Backend {
     val client: SupabaseClient by lazy {
         createSupabaseClient(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY) {
             // Supabase only accepts a Firebase token that carries role=authenticated. The claim is set by the claim-role Supabase
-            // function (asked once per account here) or by firebase/functions setSupabaseRole on the Blaze plan. The token
-            // cached at sign-in predates it, so fetch a fresh one until the claim is there; after that the cache is used as normal.
+            // function (see roleToken) or by firebase/functions setSupabaseRole on the Blaze plan. The token cached at sign-in
+            // predates it, so a fresh one is fetched until the claim is there; after that the cache is used as normal.
             accessToken = {
                 val user = FirebaseAuth.getInstance().currentUser
                 val cached = user?.getIdToken(false)?.await()
-                if (user != null && cached != null && cached.claims["role"] == null) {
-                    if (claimAskedFor != user.uid) { claimAskedFor = user.uid; runCatching { requestRoleClaim(cached.token.orEmpty()) } }
-                    // The new claim can take a moment to reach a refreshed token; without it Supabase answers 401.
-                    var fresh = user.getIdToken(true).await()
-                    repeat(3) { if (fresh?.claims?.get("role") == null) { kotlinx.coroutines.delay(1_500); fresh = user.getIdToken(true).await() } }
-                    fresh?.token
-                } else cached?.token
+                if (user != null && cached != null && cached.claims["role"] == null) roleToken(user, cached.token.orEmpty()) else cached?.token
             }
             install(Postgrest)
             install(Realtime)
@@ -62,8 +65,33 @@ object Backend {
     }
     private val db get() = client.postgrest
 
-    /** The account whose role claim was already requested in this run (asked once, not on every call). */
-    @Volatile private var claimAskedFor: String? = null
+    private val claimLock = Mutex()
+    /** The account the claim state below belongs to, how many asks failed in a row, and when the next ask is allowed (elapsedRealtime). */
+    @Volatile private var claimUid: String? = null
+    @Volatile private var claimFailures = 0
+    @Volatile private var claimRetryAt = 0L
+    /**
+     * A token for an account whose cached token has no role claim yet. One caller at a time asks for the claim. A failed ask is
+     * retried after a growing pause (5 s, doubling to 60 s), not on every request; while it waits, requests go out with the cached
+     * token (Supabase answers 401 at once and the caller retries) instead of each burning seconds on forced token refreshes.
+     */
+    private suspend fun roleToken(user: FirebaseUser, cachedToken: String): String? = claimLock.withLock {
+        if (claimUid != user.uid) { claimUid = user.uid; claimFailures = 0; claimRetryAt = 0L }
+        // A request that waited for the lock may find the claim already in.
+        runCatching { user.getIdToken(false).await() }.getOrNull()?.takeIf { it.claims["role"] != null }?.let { return@withLock it.token }
+        val now = SystemClock.elapsedRealtime()
+        if (now < claimRetryAt) return@withLock cachedToken
+        try {
+            if (requestRoleClaim(cachedToken) in 200..299) {
+                // The new claim can take a moment to reach a refreshed token; without it Supabase answers 401.
+                var fresh = user.getIdToken(true).await()
+                repeat(3) { if (fresh?.claims?.get("role") == null) { delay(1_500); fresh = user.getIdToken(true).await() } }
+                if (fresh?.claims?.get("role") != null) { claimFailures = 0; claimRetryAt = 0L; return@withLock fresh?.token }
+            }
+        } catch (e: CancellationException) { throw e } catch (_: Exception) { }
+        claimFailures++; claimRetryAt = SystemClock.elapsedRealtime() + minOf(60_000L, 5_000L shl (claimFailures - 1).coerceAtMost(4))
+        cachedToken
+    }
     /**
      * Asks the claim-role Supabase function to mark this Firebase user as authenticated. Plain HTTP on purpose: going through
      * [client] would ask [accessToken] for a token again and loop.
@@ -252,6 +280,8 @@ object Backend {
         return channel to flow
     }
     suspend fun closeChannel(channel: RealtimeChannel) { runCatching { client.realtime.removeChannel(channel) } }
+    /** Closes a channel from a place that is being cancelled (onDispose, a finally block): it runs on the app scope, so the cancellation can't skip it and leak the channel. */
+    fun releaseChannel(channel: RealtimeChannel) { AppLife.scope.launch { withContext(NonCancellable) { closeChannel(channel) } } }
 
     // ---------- files (Supabase Storage) ----------
     /** Uploads to a private bucket; the first folder decides who may read it (see storage policies in schema.sql). */
@@ -342,7 +372,10 @@ object Backend {
     val completed: Int = 0, val km: Double = 0.0, val earnings: Int = 0)
 @Serializable data class TaskRow(val id: String, val type: String, @SerialName("requester_id") val requesterId: String, @SerialName("order_id") val orderId: String? = null,
     @SerialName("vehicle_kind") val vehicleKind: String, @SerialName("pickup_label") val pickupLabel: String = "", @SerialName("drop_label") val dropLabel: String = "", val km: Double = 0.0,
-    val fare: Int = 0, val pin: String = "", val status: String, @SerialName("driver_id") val driverId: String? = null, @SerialName("paid_with") val paidWith: String? = null)
+    val fare: Int = 0, val pin: String = "", val status: String, @SerialName("driver_id") val driverId: String? = null, @SerialName("paid_with") val paidWith: String? = null,
+    /** Wrong PINs the driver has tried (5 lock the trip); 0 until the server counts them. */
+    @SerialName("pin_attempts") val pinAttempts: Int = 0,
+    @SerialName("created_at") val createdAt: String = "", @SerialName("status_at") val statusAt: String = "")
 @Serializable data class ContactRow(val phone: String? = null, @SerialName("upi_uri") val upiUri: String? = null)
 @Serializable data class OrderRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("buyer_id") val buyerId: String, val subtotal: Int, @SerialName("delivery_fee") val deliveryFee: Int = 0,
     @SerialName("fee_paid_by") val feePaidBy: String = "BUYER", @SerialName("delivery_mode") val deliveryMode: String = "MARKETPLACE", val payment: String = "UPI",

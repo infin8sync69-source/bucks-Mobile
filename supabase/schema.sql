@@ -1,5 +1,8 @@
--- Bucks: Supabase (Postgres) schema.
--- Run once in Supabase > SQL Editor. Safe to re-run: every object is created "if not exists" or replaced.
+-- Bucks: Supabase (Postgres) schema, the base every migration builds on.
+-- NOT safe to re-run on its own: it drops every policy in public and re-creates the first versions, re-grants full table and function
+-- privileges, and re-creates older versions of functions that later migrations replaced. Apply it only through supabase/apply_all.sh, which
+-- runs this file and then every migration in order (see supabase/README.md). The guard below refuses a re-run on a database that already
+-- has Bucks tables; apply_all.sh lifts it for its own session with: set bucks.allow_schema_rerun = 'on'.
 --
 -- Identity: users sign in with Firebase (phone OTP). Supabase trusts the Firebase token
 -- (Authentication > Third-party auth > Firebase), so auth.jwt()->>'sub' is the Firebase uid.
@@ -9,6 +12,12 @@
 -- Everything writes through row-level security. Actions with rules (placing an order,
 -- accepting it, claiming a task, recommending someone, accepting an invite) go through
 -- security-definer functions so the rules can't be bypassed from the app.
+
+do $$ begin
+  if to_regclass('public.profiles') is not null and current_setting('bucks.allow_schema_rerun', true) is distinct from 'on' then
+    raise exception 'schema.sql would undo later migrations: run supabase/apply_all.sh';
+  end if;
+end $$;
 
 create schema if not exists extensions;
 create extension if not exists postgis with schema extensions;

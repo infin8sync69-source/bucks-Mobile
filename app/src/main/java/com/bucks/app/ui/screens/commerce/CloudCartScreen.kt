@@ -75,7 +75,7 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     val needsAddress = stores.any { modeOf(it) == "SHIP" }
     val grand = commerce.subtotal + stores.filter { modeOf(it) == "SHIP" }.sumOf { shipFee(it) }
 
-    ContentColumn(Modifier.fillMaxHeight()) {
+    ContentColumn(Modifier.fillMaxHeight().imePadding()) {
         BucksTopBar("Cart", onBack = onBack, actions = { if (stores.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteOutline, "Empty the cart") } })
         if (stores.isEmpty()) {
             Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
