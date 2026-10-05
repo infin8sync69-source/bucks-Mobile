@@ -71,3 +71,28 @@ Nothing secret is committed. Android reads `local.properties`; iOS generates `io
 `ios/scripts/make_secrets.sh`; CI reads repository secrets (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MAPBOX_TOKEN`, optional
 `GOOGLE_SERVICES_JSON`). `firebase/google-services.json` is a client config and is committed for the tester build; the iOS
 `ios/App/GoogleService-Info.plist` is gitignored.
+
+## Working in parallel without collisions
+
+Several people (and several Claude sessions) can work on the same repository at once. These rules keep them apart:
+
+1. **One branch per task, one person (or session) per branch.** Never push to a branch someone else created. If you need their work, branch from it
+   (`git switch -c ios/<name> origin/<their-branch>`) and open a pull request into theirs.
+2. **Start from the latest.** `git fetch --all --prune` and look at `git branch -r` and `gh pr list` before you start: if the work already exists on
+   another branch, build on that branch instead of redoing it.
+3. **Stay inside your area.** Android is `app/`, iOS is `ios/`, the backend is `supabase/`. A pull request that touches two areas is a feature
+   pull request (`feat/<name>`) and lists the follow-up for any platform it leaves out. Files outside your area are changed only when the
+   feature needs them. `.github/CODEOWNERS` names the reviewer for each area.
+4. **Shared contract files change first and alone.** An RPC name, parameter or row shape that both apps use is changed in a `db/<name>` pull request
+   that merges before the app changes that depend on it.
+5. **Rebase or merge `main` into your branch before asking for review**, never force-push a branch other people have pulled, and never force-push `main`.
+6. **Do not commit generated or local files:** `ios/Bucks.xcodeproj`, `ios/Config/Secrets.xcconfig`, `ios/App/GoogleService-Info.plist`,
+   `local.properties`, build folders. They are in `.gitignore`.
+7. **Merge small and often.** A branch older than a few days is a branch that will conflict.
+
+### Publishing to testers
+
+- A push to `main` publishes the **Android** tester build (`android-build.yml`). Changes that only touch `ios/`, `docs/` or markdown are
+  excluded from that trigger, so an iOS merge never publishes an APK.
+- iOS builds are made on a Mac: see `docs/IOS_RELEASE.md` (signing, TestFlight, build numbers).
+- Both apps take their build number from the same counter so a build number means the same commit on both platforms (`docs/IOS_RELEASE.md`).
