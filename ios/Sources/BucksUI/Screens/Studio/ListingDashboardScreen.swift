@@ -105,6 +105,7 @@ struct ListingDashboardScreen: View {
         case "ITEMS": tab = .items
         case "VEHICLES": router.push(.vehicles)
         case "DOCS": router.push(.listingDocs(id))
+        case "SHOWCASE": router.push(.showcaseDocs(id))
         case "RECOMMEND": router.push(.recommendShow(id))
         case "MEMBERS": router.push(.members(id))
         case "ORDERS": router.push(.vendorOrders(id))
@@ -182,6 +183,7 @@ private struct OverviewTab: View {
                     if l.kind != "DRIVER" { StatTile(value: c.map { "\($0.members)" } ?? "–", label: "Team") }
                 }
                 AboutCard(l: l, manage: manage) { goTo("EDIT") }
+                if manage { ShowcaseDocsCard(listingId: l.id) { goTo("SHOWCASE") } }
                 if manage { manageTiles } else { Notice("You're a store rider here: you deliver its orders. Only the owner and admins change the listing.") }
             }.padding(Gutter)
         }

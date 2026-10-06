@@ -61,6 +61,7 @@ struct ListingProfileScreen: View {
                     case "photos": GalleryTab(listing: l)
                     case "about":
                         AboutTab(profile: p, onOpenListing: { router.push(.listing($0)) }).task(id: l.id) { session.services.loadBadges(l.id) }
+                        ShowcaseDocsSection(listingId: l.id, team: p.myRole == "OWNER" || p.myRole == "ADMIN", onManage: { router.push(.showcaseDocs(id)) })
                         if l.kind == "BUSINESS" && !l.gallery.isEmpty {
                             SectionTitle("Photos").padding(.horizontal, Gutter).padding(.top, 8)
                             GalleryTab(listing: l)
@@ -206,6 +207,7 @@ private struct ProfileHeader: View {
             }
             HStack { TrustBadge(up: l.trustUp, down: l.trustDown); Spacer(minLength: 0) }.padding(.top, 10)
             StatsRow(stats: stats(p)).padding(.top, 10)
+            ShowcaseDocsChip(listingId: l.id) { onTab("about") }
             if !p.mine {
                 HStack(spacing: 8) {
                     RateButton(up: true, mine: myVote == 1) { onRate(1) }

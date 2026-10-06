@@ -20,7 +20,7 @@ public enum PushRouting {
         let table: [(String, (String) -> Route)] = [
             ("chat/", { .chat($0) }), ("cloud-order/", { .order($0) }), ("orders-for/", { .vendorOrders($0) }), ("delivery/", { .deliveryTrack($0) }),
             ("moments/", { .moments($0) }), ("l/", { .listing($0) }), ("job/", { .job($0) }), ("jobs-of/", { .listingJobs($0) }),
-            ("members/", { .members($0) }), ("studio/", { .studio($0) }), ("listing-docs/", { .listingDocs($0) }), ("post/", { .post($0) }),
+            ("members/", { .members($0) }), ("studio/", { .studio($0) }), ("listing-docs/", { .listingDocs($0) }), ("doc-requests/", { .showcaseDocs($0) }), ("post/", { .post($0) }),
         ]
         for (prefix, make) in table where r.hasPrefix(prefix) { return make(String(r.dropFirst(prefix.count))) }
         return nil

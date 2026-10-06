@@ -26,6 +26,9 @@ final class FakeSupabase: URLProtocol, @unchecked Sendable {
     struct Job { var id = "t-driver"; var status = "SEARCHING"; var driverId: String?; var attempts = 0; var completedAt: Date?; var paid = false }
     nonisolated(unsafe) static var job: Job?
     nonisolated(unsafe) static var driverOnlineSince: Date?
+    /// Cancels made after someone accepted, for my_cancel_stats (the nudge on the cancel sheets).
+    nonisolated(unsafe) static var riderCancels = 0
+    nonisolated(unsafe) static var driverCancels = 0
 
     // MARK: URLProtocol
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -138,6 +141,24 @@ final class FakeSupabase: URLProtocol, @unchecked Sendable {
             return (200, [])
         case ("POST", "/rest/v1/rpc/claim_task"): job?.status = "MATCHED"; job?.driverId = "me"; return (200, true)
         case ("POST", "/rest/v1/rpc/pass_task"): job = nil; return (204, [:])
+        case ("POST", "/rest/v1/rpc/cancel_task"):
+            // cancellation.sql: a reason is required once a driver accepted; refused once the trip has started.
+            guard let r = ride, params["p_task"] as? String == r.id else { return (400, ["message": "ride not found"]) }
+            let now = rideGeo(r)["status"] as? String ?? r.status
+            guard ["SEARCHING", "MATCHED", "ARRIVED", "NO_DRIVER"].contains(now) else { return (400, ["message": "this ride can no longer be cancelled (it is \(now.lowercased().replacingOccurrences(of: "_", with: " ")))"]) }
+            if ["MATCHED", "ARRIVED"].contains(now) && (params["p_reason"] as? String) == nil { return (400, ["message": "choose why you are cancelling"]) }
+            if ["MATCHED", "ARRIVED"].contains(now) { riderCancels += 1 }
+            ride?.cancelled = true
+            return (200, taskRow(from: rideGeo(ride!)))
+        case ("POST", "/rest/v1/rpc/release_task"):
+            guard let j = job, params["p_task"] as? String == j.id else { return (400, ["message": "ride not found"]) }
+            guard ["MATCHED", "ARRIVED"].contains(j.status) else { return (400, ["message": "it can only be handed back before the trip starts (it is \(j.status.lowercased().replacingOccurrences(of: "_", with: " ")))"]) }
+            guard (params["p_reason"] as? String) != nil else { return (400, ["message": "choose why you are handing it back"]) }
+            driverCancels += 1
+            job = Job()
+            return (200, taskRow(from: jobGeo(job ?? Job())))
+        case ("POST", "/rest/v1/rpc/my_cancel_stats"):
+            return (200, ["rider_day": riderCancels, "rider_week": riderCancels, "driver_day": driverCancels, "driver_week": driverCancels])
         case ("POST", "/rest/v1/rpc/advance_task"):
             let id = params["p_task"] as? String, to = params["p_status"] as? String ?? ""
             if id == ride?.id {

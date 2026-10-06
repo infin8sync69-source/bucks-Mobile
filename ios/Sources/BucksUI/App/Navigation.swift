@@ -14,6 +14,8 @@ public enum Route: Hashable {
     // Studio (my listings)
     case myListings, studio(String), listingEdit(id: String?, kind: String, service: String?), listingDocs(String), staffReview, itemEdit(listing: String, item: String?)
     case members(String), recommendShow(String), recommendScan
+    // Showcase documents a profile shows (the owner's manage screen), by listing id
+    case showcaseDocs(String)
     // Jobs
     case listingJobs(String), job(String), jobNew(String), myApplications, jobsNear
     // Social

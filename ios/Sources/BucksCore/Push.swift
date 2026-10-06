@@ -114,7 +114,7 @@ public final class Push {
         return routePrefixes.contains { r.hasPrefix($0) && r.count > $0.count } ? r : nil
     }
     public nonisolated static let exactRoutes: Set<String> = ["home", "feed", "sync", "messages", "invites", "my/orders", "my/applications", "my/listings", "jobs-near", "bucks-id"]
-    public nonisolated static let routePrefixes = ["chat/", "cloud-order/", "orders-for/", "delivery/", "moments/", "l/", "job/", "jobs-of/", "members/", "studio/", "listing-docs/", "post/"]
+    public nonisolated static let routePrefixes = ["chat/", "cloud-order/", "orders-for/", "delivery/", "moments/", "l/", "job/", "jobs-of/", "members/", "studio/", "listing-docs/", "doc-requests/", "post/"]
 }
 
 /// A tapped notification's route, waiting for the person to be signed in. The app delegate fills it; the shell opens it once and clears it.

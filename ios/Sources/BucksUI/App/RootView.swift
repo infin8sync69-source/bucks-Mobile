@@ -216,6 +216,7 @@ struct MainStack: View {
         case .studio(let id): ListingDashboardScreen(id: id)
         case .listingEdit(let id, let kind, let service): ListingEditScreen(id: id, kind: kind, service: service)
         case .listingDocs(let id): ListingDocsScreen(id: id)
+        case .showcaseDocs(let id): ShowcaseDocsManageScreen(id: id)
         case .staffReview: StaffReviewScreen()
         case .itemEdit(let listing, let item): ItemEditScreen(listing: listing, item: item)
         case .members(let id): MembersScreen(id: id)

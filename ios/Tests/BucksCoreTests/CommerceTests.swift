@@ -223,4 +223,42 @@ import Testing
         #expect(call("/rest/v1/listing_members").first?.query.contains("listing_id=eq.L1") == true)
         c.signedOut(); #expect(c.vendorOrders.isEmpty); #expect(!c.vendorLoaded); #expect(c.orders.isEmpty)
     }
+
+    @Test func orderReasonsGoToTheServerAndARefusalReachesTheCaller() async throws {
+        var refuse = true
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/rpc/cancel_order":
+                if refuse { return (400, ["message": "this order is already accepted; it can only be cancelled before the shop accepts"]) }
+                return (204, [:])
+            case "/rest/v1/rpc/respond_order", "/rest/v1/rpc/update_order_status": return (204, [:])
+            case "/rest/v1/orders": return (200, [self.orderJSON(status: "PLACED")])
+            case "/rest/v1/listings": return (200, [["id": "L1", "kind": "BUSINESS", "owner_id": "o1", "title": "Fresh Mart"]])
+            case "/rest/v1/profiles": return (200, [["id": "me", "short_code": "ME0001", "name": "Asha Rao"]])
+            default: return (404, ["message": "no stub for \(path)"])
+            }
+        }
+        let s = AppSession(); s.me = ProfileRow(id: "me", shortCode: "ME0001", name: "Asha Rao")
+        var toasts: [String] = []; s.toastHandler = { toasts.append($0) }
+        let c = s.commerce
+        var finished = false, outcome: String? = nil
+        // A refusal goes to the caller (whose sheet stays open and prints it), not to a toast the sheet would cover.
+        c.cancelOrder("o-1", reason: "CHANGED_MIND", done: { err in outcome = err; finished = true })
+        #expect(await wait { finished && !c.isActing("o-1") })
+        #expect(outcome == "This order is already accepted; it can only be cancelled before the shop accepts"); #expect(toasts.isEmpty)
+        #expect(try #require(call("/rest/v1/rpc/cancel_order").first).body as NSDictionary == ["p_order": "o-1", "p_reason": "CHANGED_MIND"] as NSDictionary)
+        // The same call going through reports nil.
+        refuse = false; finished = false; outcome = "unset"
+        c.cancelOrder("o-1", reason: "OTHER", done: { err in outcome = err; finished = true })
+        #expect(await wait { finished && !c.isActing("o-1") }); #expect(outcome == nil)
+        // The shop's reasons ride on respond_order (reject) and update_order_status (cancel); without a reason the body is as before.
+        finished = false
+        c.respondOrder("o-1", accept: false, reason: "OUT_OF_STOCK", done: { err in outcome = err; finished = true })
+        #expect(await wait { finished && !c.isActing("o-1") }); #expect(outcome == nil)
+        #expect(try #require(call("/rest/v1/rpc/respond_order").first).body as NSDictionary == ["p_order": "o-1", "p_accept": false, "p_reason": "OUT_OF_STOCK"] as NSDictionary)
+        finished = false
+        c.updateOrderStatus("o-1", status: "CANCELLED", reason: "CLOSED", done: { err in outcome = err; finished = true })
+        #expect(await wait { finished && !c.isActing("o-1") }); #expect(outcome == nil)
+        #expect(try #require(call("/rest/v1/rpc/update_order_status").first).body as NSDictionary == ["p_order": "o-1", "p_status": "CANCELLED", "p_reason": "CLOSED"] as NSDictionary)
+    }
 }

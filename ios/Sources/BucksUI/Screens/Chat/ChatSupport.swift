@@ -44,6 +44,7 @@ enum NotificationRouteOpener {
             else if r.hasPrefix("members/") { router.push(.members(tail("members/"))) }
             else if r.hasPrefix("studio/") { router.push(.studio(tail("studio/"))) }
             else if r.hasPrefix("listing-docs/") { router.push(.listingDocs(tail("listing-docs/"))) }
+            else if r.hasPrefix("doc-requests/") { router.push(.showcaseDocs(tail("doc-requests/"))) }
             else if r.hasPrefix("post/") { router.push(.post(tail("post/"))) }
         }
     }
