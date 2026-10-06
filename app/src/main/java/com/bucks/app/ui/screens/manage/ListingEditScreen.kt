@@ -70,6 +70,16 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     // Which Services tile a business belongs to; it decides the documents it needs. Fixed once the listing is live.
     var service by remember { mutableStateOf(existing?.service?.takeIf { it in BUSINESS_SERVICES } ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: existing?.category?.let { serviceForCategory(it) } ?: "FOOD") }
     val serviceLocked = existing != null && existing.status != "PENDING"
+    // What the business is (ui/PageTypes.kt). Shops derive their service from the category above; every other type gets it from
+    // the server, which also fixes the type once the page is live (same rule as the service).
+    var typeKey by remember { mutableStateOf(existing?.let { PageTypes.of(it) }?.key ?: PageTypes.byKey(initialType)?.key ?: "RETAIL_SHOP") }
+    val type: PageType = PageTypes.byKey(typeKey) ?: PageTypes.all.first()
+    // A page that takes requests (service, company, NGO, institution) rather than orders: no delivery, contact details instead.
+    val orgPage = kind == "BUSINESS" && !type.isShop
+    var pickType by remember { mutableStateOf(false) }
+    var registration by remember { mutableStateOf(d.str("registration")) }
+    var website by remember { mutableStateOf(d.str("website")) }
+    var email by remember { mutableStateOf(d.str("email")) }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var area by remember { mutableStateOf(existing?.area?.ifBlank { null } ?: social.me?.area?.substringBefore(',')?.ifBlank { null } ?: areaOf(st.hereLabel) ?: "") }
     var hours by remember { mutableStateOf(d.str("hours")) }
@@ -104,21 +114,28 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     val pick = rememberImagePicker(onUnusable = { vm.toast("Couldn't read that image. Try a JPG or PNG photo.") }) { p, u -> photo = p; preview = u }
     val owner = existing == null || m.isOwner(existing.id)
     val driverTitle = "${social.me?.name?.ifBlank { null } ?: "Driver"} - ${vehicleKindLabel(vehicleKind)}"
-    val screenTitle = when { existing == null && kind == "BUSINESS" -> "Add a business"; existing == null && kind == "SKILL" -> "Add a skill"; existing == null && kind == "ASSET" -> "List an asset"; existing == null -> "Your driver profile"; else -> "Edit ${kindLabel(kind).lowercase()}" }
+    val screenTitle = when { existing == null && kind == "BUSINESS" -> if (orgPage) "Set up your page" else "Add a business"; existing == null && kind == "SKILL" -> "Add a skill"; existing == null && kind == "ASSET" -> "List an asset"; existing == null -> "Your driver profile"; else -> "Edit ${kindLabel(kind).lowercase()}" }
 
     fun save() {
         val t = if (kind == "DRIVER") driverTitle else title.trim()
-        if (t.isBlank()) { vm.toast(when (kind) { "SKILL" -> "Name the skill, like Plumber or Maths tutor."; "ASSET" -> "Give it a title, like 2BHK flat in 4th Block."; else -> "Add the business name." }); return }
+        if (t.isBlank()) { vm.toast(when { kind == "SKILL" -> "Name the skill, like Plumber or Maths tutor."; kind == "ASSET" -> "Give it a title, like 2BHK flat in 4th Block."; orgPage -> "Name the page."; else -> "Add the business name." }); return }
         if (kind != "DRIVER" && category.isBlank()) { vm.toast(if (kind == "ASSET") "Pick what it is: house, flat, shop, vehicle…" else "Pick a category so people can find you."); return }
         if (kind == "ASSET" && price.isNotBlank() && price.toLongOrNull() == null) { vm.toast("Enter the price in rupees, numbers only."); return }
         if (kind == "ASSET" && year.isNotBlank() && (year.toIntOrNull() ?: 0) !in 1950..2100) { vm.toast("Enter the year it was made, like 2019."); return }
-        if (kind == "BUSINESS" && (radius.toIntOrNull() ?: 0) !in 1..50) { vm.toast("Delivery radius should be between 1 and 50 km."); return }
+        if (kind == "BUSINESS" && !orgPage && (radius.toIntOrNull() ?: 0) !in 1..50) { vm.toast("Delivery radius should be between 1 and 50 km."); return }
         val details = buildJsonObject {
             d.forEach { (k, v) -> put(k, v) }   // keep anything other features stored
             when (kind) {
-                "BUSINESS" -> { put("hours", hours.trim()); put("free_delivery", freeDelivery); put("delivery_radius_km", radius.toInt()); put("cod", cod)
-                    put("ships_india", ships)
-                    if (ships) { put("ship_fee", shipFee.toIntOrNull() ?: 0); put("free_ship_above", freeAbove.toIntOrNull() ?: 0); put("dispatch_days", dispatch.trim()) }
+                "BUSINESS" -> { put("hours", hours.trim())
+                    if (orgPage) {
+                        // No delivery on a page that takes requests: the delivery keys leave (a shop that changed type while pending) and the contact facts come in; blanks are removed, not saved empty.
+                        for (k in listOf("free_delivery", "delivery_radius_km", "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days")) put(k, JsonNull)
+                        for ((k, v) in listOf("registration" to registration, "website" to website, "email" to email)) { if (v.isNotBlank()) put(k, v.trim()) else put(k, JsonNull) }
+                    } else {
+                        put("free_delivery", freeDelivery); put("delivery_radius_km", radius.toInt()); put("cod", cod)
+                        put("ships_india", ships)
+                        if (ships) { put("ship_fee", shipFee.toIntOrNull() ?: 0); put("free_ship_above", freeAbove.toIntOrNull() ?: 0); put("dispatch_days", dispatch.trim()) }
+                    }
                 }
                 "SKILL" -> { put("level", level); put("rate", rate.trim()); put("languages", buildJsonArray { languages.forEach { add(JsonPrimitive(it)) } }) }
                 "ASSET" -> {
@@ -137,12 +154,15 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         if (existing == null) {
             val at = fix ?: run { vm.toast("Turn on location so Bucks can save where your shop is."); return }
             // A new business or skill goes straight on to its documents: they are the other half of going live.
-            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details.withoutNulls(), photo, if (kind == "BUSINESS") service else null) { row -> when { onCreated != null -> onCreated(row.id); kind == "DRIVER" -> onDone(); else -> onDocs(row.id) } }
+            // Only a shop sends its service (derived from the category); the server sets it from the type for every other page.
+            m.createListing(kind, t, cat, description.trim(), area.trim(), at, details.withoutNulls(), photo, if (kind == "BUSINESS" && type.isShop) service else null, if (kind == "BUSINESS") typeKey else null) { row -> when { onCreated != null -> onCreated(row.id); kind == "DRIVER" -> onDone(); else -> onDocs(row.id) } }
         } else m.updateListing(existing.id, t, cat, description.trim(), area.trim(), if (moveHere) fix else null, details.withoutNulls(), photo,
-            if (kind == "BUSINESS" && service != existing.service && !serviceLocked) service else null) { onDone() }
+            if (kind == "BUSINESS" && type.isShop && service != existing.service && !serviceLocked) service else null,
+            if (kind == "BUSINESS" && !serviceLocked && typeKey != PageTypes.of(existing)?.key) typeKey else null) { onDone() }
     }
 
-    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && !serviceLocked) service = knownServiceForCategory(c) ?: service; pickCategory = false }, onDismiss = { pickCategory = false })
+    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && type.isShop && !serviceLocked) service = knownServiceForCategory(c) ?: service; pickCategory = false }, onDismiss = { pickCategory = false })
+    if (pickType) PageTypePickerSheet(initialGroup = type.group, selected = typeKey, onPick = { picked -> typeKey = picked.key; if (picked.isShop && !serviceLocked) service = knownServiceForCategory(category) ?: service; pickType = false }, onDismiss = { pickType = false })
 
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
@@ -151,25 +171,35 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(top = 8.dp, bottom = 16.dp)) {
                 when (kind) {
                     "BUSINESS" -> {
-                        BucksField(title, { title = it.take(80) }, "Business name", "Sri Lakshmi Stores")
-                        Label("Type of business")
-                        CategoryField(category, "Pick a type, or add your own") { pickCategory = true }
-                        Muted("Shows under ${serviceDef(service)!!.label} in Services." + (if (serviceLocked) " That can't change while you're live, but you can rename your type." else " It decides the documents Bucks checks."), Modifier.padding(top = 6.dp, bottom = 4.dp))
+                        PageTypeCard(type, locked = serviceLocked) { pickType = true }
+                        BucksField(title, { title = it.take(80) }, if (orgPage) "Page name" else "Business name", pageNamePlaceholder(type))
+                        Label(pageCategoryLabel(type))
+                        CategoryField(category, if (orgPage) "Pick one, or add your own" else "Pick a type, or add your own") { pickCategory = true }
+                        Muted(if (orgPage) "Shows under ${PageTypes.group(type.group)?.label ?: "Services"} in Services." + (if (serviceLocked) " That can't change while you're live, but you can rename your category." else " The type decides the documents Bucks checks.")
+                              else "Shows under ${serviceDef(service)!!.label} in Services." + (if (serviceLocked) " That can't change while you're live, but you can rename your type." else " It decides the documents Bucks checks."), Modifier.padding(top = 6.dp, bottom = 4.dp))
                         Spacer(Modifier.height(14.dp))
-                        BucksField(description, { description = it.take(600) }, "About the business", "What you sell, what you're known for", singleLine = false, minLines = 3)
-                        BucksField(hours, { hours = it.take(80) }, "Opening hours", "9 am - 9 pm, closed Sundays")
+                        BucksField(description, { description = it.take(600) }, if (orgPage) "About the page" else "About the business", if (orgPage) "What you do, who it's for, what you're known for" else "What you sell, what you're known for", singleLine = false, minLines = 3)
+                        BucksField(hours, { hours = it.take(80) }, if (orgPage) "Timings" else "Opening hours", if (orgPage) "Mon - Sat, 9 am - 5 pm" else "9 am - 9 pm, closed Sundays")
                         BucksField(area, { area = it.take(60) }, "Area", "Jayanagar")
-                        SectionTitle("Delivery and payment", Modifier.padding(top = 6.dp, bottom = 4.dp))
-                        SwitchRow("Free delivery", "You pay the rider's fee instead of the customer.", freeDelivery) { freeDelivery = it }
-                        BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, "Delivery radius (km)", "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                        SwitchRow("Cash on delivery", "With your own store riders, or with the courier on shipped orders. You collect the cash.", cod) { cod = it }
-                        SectionTitle("Ship across India", Modifier.padding(top = 14.dp, bottom = 4.dp))
-                        SwitchRow("Ship by courier", "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", ships) { ships = it }
-                        if (ships) {
-                            BucksField(shipFee, { shipFee = it.filter { c -> c.isDigit() }.take(5) }, "Shipping fee (₹)", "99, or 0 for free shipping", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            BucksField(freeAbove, { freeAbove = it.filter { c -> c.isDigit() }.take(6) }, "Free shipping above (₹)", "1999, or leave empty for none", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            BucksField(dispatch, { dispatch = it.take(30) }, "Ships in (days)", "2 to 4")
-                            Muted("Buyers pay the items and the shipping to you (UPI, or cash on delivery if you turned it on). You have 24 hours to accept each order.", Modifier.padding(bottom = 8.dp))
+                        if (orgPage) {
+                            SectionTitle("Contact and registration", Modifier.padding(top = 6.dp, bottom = 4.dp))
+                            BucksField(registration, { registration = it.take(40) }, "${pageRegistrationLabel(type)} (optional)", if (type.key == "SCHOOL_COLLEGE") "Board or university affiliation number" else "Society, trust or company registration number")
+                            BucksField(website, { website = it.trim().take(120) }, "Website (optional)", "www.example.org", keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                            BucksField(email, { email = it.trim().take(120) }, "Email (optional)", "hello@example.org", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email))
+                            Muted("Shown on your page so people can reach you outside Bucks. People book, enquire or join through the page itself.", Modifier.padding(bottom = 8.dp))
+                        } else {
+                            SectionTitle("Delivery and payment", Modifier.padding(top = 6.dp, bottom = 4.dp))
+                            SwitchRow("Free delivery", "You pay the rider's fee instead of the customer.", freeDelivery) { freeDelivery = it }
+                            BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, "Delivery radius (km)", "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            SwitchRow("Cash on delivery", "With your own store riders, or with the courier on shipped orders. You collect the cash.", cod) { cod = it }
+                            SectionTitle("Ship across India", Modifier.padding(top = 14.dp, bottom = 4.dp))
+                            SwitchRow("Ship by courier", "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", ships) { ships = it }
+                            if (ships) {
+                                BucksField(shipFee, { shipFee = it.filter { c -> c.isDigit() }.take(5) }, "Shipping fee (₹)", "99, or 0 for free shipping", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                BucksField(freeAbove, { freeAbove = it.filter { c -> c.isDigit() }.take(6) }, "Free shipping above (₹)", "1999, or leave empty for none", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                BucksField(dispatch, { dispatch = it.take(30) }, "Ships in (days)", "2 to 4")
+                                Muted("Buyers pay the items and the shipping to you (UPI, or cash on delivery if you turned it on). You have 24 hours to accept each order.", Modifier.padding(bottom = 8.dp))
+                            }
                         }
                     }
                     "SKILL" -> {
@@ -227,7 +257,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         BucksField(area, { area = it.take(60) }, "Home area", "Jayanagar")
                     }
                 }
-                PhotoField(when (kind) { "BUSINESS" -> "Cover photo"; "ASSET" -> "Cover photo"; else -> "Profile photo" }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
+                PhotoField(when (kind) { "BUSINESS" -> "Cover photo"; "ASSET" -> "Cover photo"; else -> "Profile photo" }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> type.icon; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
                 Label("Location")
                 when {
                     existing == null && fix != null -> Muted("Saved as where you are now: near ${areaOf(st.hereLabel) ?: "your current location"}. People within 3 km of this spot can recommend you, so create it " + (if (kind == "ASSET") "at the property or where the asset is kept." else "at your shop or where you usually work."))

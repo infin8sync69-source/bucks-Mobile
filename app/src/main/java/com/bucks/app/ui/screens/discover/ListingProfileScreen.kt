@@ -153,9 +153,12 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
                 // The catalogue count is the type's: products for a shop, services, programs or events for the others.
-                val catalogueStat = type?.catalogueTab?.let { k -> val n = when (k) { "products" -> p.products.size; "services" -> p.services.size; "programs" -> p.programs.size; else -> p.events.size }
-                    if (n > 0) Triple(n, tabLabel(type, k), { tab = k }) else null }
-                StatsRow(listOfNotNull(Triple(p.syncs, "Synced", null), catalogueStat, Triple(l.trustUp, "Recommendations") { tab = "reviews" }, (Triple(p.members, "Team", null)).takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
+                val catalogueStat: Triple<Int, String, (() -> Unit)?>? = type?.let { t -> t.catalogueTab?.let { k ->
+                    val n = when (k) { "products" -> p.products.size; "services" -> p.services.size; "programs" -> p.programs.size; else -> p.events.size }
+                    if (n > 0) Triple(n, tabLabel(t, k), { tab = k }) else null } }
+                // Recommendations open Reviews where the type has that tab (a place of worship or a community group has none).
+                val openReviews: (() -> Unit)? = if (type == null || type.reviews) ({ tab = "reviews" }) else null
+                StatsRow(listOfNotNull(Triple(p.syncs, "Synced", null), catalogueStat, Triple(l.trustUp, "Recommendations", openReviews), (Triple(p.members, "Team", null)).takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
                 val docCount by rememberShowcaseCount(id)
                 docCount?.takeIf { it > 0 }?.let { n -> Box(Modifier.padding(top = 8.dp)) { Chip(if (n == 1) "1 document" else "$n documents", icon = Icons.Rounded.Description) { tab = "about" } } }
                 if (!p.mine && (type == null || type.reviews)) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,24 +190,33 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     } else Notice("Bike riders carry parcels only, never passengers. Order from a shop nearby and a rider delivers it.", Modifier.padding(top = 12.dp))
                 }
             }
-            val tabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0)
-            TabRow(tabIndex, containerColor = MaterialTheme.colorScheme.surface,
-                indicator = { pos -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(pos[tabIndex]), height = 3.dp, color = MaterialTheme.colorScheme.primary) }, divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }) {
-                tabs.forEach { (k, label) -> Tab(tab == k, onClick = { tab = k }, modifier = Modifier.height(48.dp), selectedContentColor = MaterialTheme.colorScheme.onSurface, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant) {
-                    Text(label, style = MaterialTheme.typography.titleSmall.copy(fontWeight = if (tab == k) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)) } }
+            val tabIndex = tabs.indexOfFirst { it.first == tabKey }.coerceAtLeast(0)
+            // Up to five tabs fit the width; a page with more scrolls them.
+            val tabCells: @Composable () -> Unit = {
+                tabs.forEach { (k, label) -> Tab(tabKey == k, onClick = { tab = k }, modifier = Modifier.height(48.dp), selectedContentColor = MaterialTheme.colorScheme.onSurface, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant) {
+                    Text(label, style = MaterialTheme.typography.titleSmall.copy(fontWeight = if (tabKey == k) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)) } }
             }
-            when (tab) {
-                "products" -> StoreProducts(vm, p, onMessage = { message() }, onCart = onCart)
-                "jobs" -> JobsTab(p) { onJobs(id) }
-                "services" -> ServicesTab(vm, p, onOpenChat)
+            if (tabs.size > 5) ScrollableTabRow(tabIndex, containerColor = MaterialTheme.colorScheme.surface, edgePadding = Gutter,
+                indicator = { pos -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(pos[tabIndex]), height = 3.dp, color = MaterialTheme.colorScheme.primary) }, divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }, tabs = tabCells)
+            else TabRow(tabIndex, containerColor = MaterialTheme.colorScheme.surface,
+                indicator = { pos -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(pos[tabIndex]), height = 3.dp, color = MaterialTheme.colorScheme.primary) }, divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }, tabs = tabCells)
+            when (tabKey) {
+                "products" -> if (sellsProducts) StoreProducts(vm, p, onMessage = { message() }, onCart = onCart)
+                "jobs" -> JobsTab(p, volunteer = type?.key == "NGO_CHARITY") { onJobs(id) }
+                "services" -> ServicesTab(vm, p, type, onOpenChat)
+                "programs" -> ProgramsTab(vm, p, type, "PROGRAM", onOpenChat)
+                "events" -> ProgramsTab(vm, p, type, "EVENT", onOpenChat)
+                "team" -> TeamTab(vm, p)
                 "feed" -> FeedTab(vm, p)
-                "photos" -> GalleryTab(l)
-                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); ShowcaseDocsSection(vm, id, p.mine, onManage = { onShowcaseDocs(id) }); if (l.kind == "BUSINESS" && photos) { SectionTitle("Photos", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); GalleryTab(l) } }
+                "photos" -> GalleryTab(l, p.mine)
+                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, type, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); ShowcaseDocsSection(vm, id, p.mine, onManage = { onShowcaseDocs(id) })
+                    // A shop has no Photos tab, so its photos live here; a type with one keeps them in that tab.
+                    if (l.kind == "BUSINESS" && photos && type?.tabs?.contains("photos") != true) { SectionTitle("Photos", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); GalleryTab(l, p.mine) } }
                 "reviews" -> ReviewsTab(vm, p, myDirect) { rateVote = it }
             }
             Spacer(Modifier.height(24.dp))
         }
-        if (l.kind == "BUSINESS" && l.online && cartCount > 0 && tab == "products") DarkButton("View cart · ${plural(cartCount, "item")}", Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
+        if (sellsProducts && l.online && cartCount > 0 && tabKey == "products") DarkButton("View cart · ${plural(cartCount, "item")}", Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
     }
     // Commerce: asks "Start a new cart?" when an item from a second shop is added (vm.commerce.pendingSwitch).
     CartSwitchDialog(vm)
@@ -326,31 +338,58 @@ private fun HeaderIcon(icon: ImageVector, label: String, on: Boolean = false, on
 
 /* ---------- BUSINESS: Products and Jobs ---------- */
 
+/** Open jobs, or volunteer roles on an NGO page ([volunteer]); the card opens the listing's jobs. */
 @Composable
-private fun JobsTab(p: ListingProfile, onJobs: () -> Unit) = Column(Modifier.padding(Gutter)) {
+private fun JobsTab(p: ListingProfile, volunteer: Boolean = false, onJobs: () -> Unit) = Column(Modifier.padding(Gutter)) {
     BucksCard(onClick = onJobs) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Work, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+            Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(if (volunteer) Icons.Rounded.Favorite else Icons.Rounded.Work, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text("Open jobs at ${p.listing.title}", style = MaterialTheme.typography.titleMedium)
-                Muted(if (p.openJobs > 0) "${plural(p.openJobs, "opening")} right now. Apply with your skill profile." else "See openings here and apply with your skill profile.")
+                Text(if (volunteer) "Volunteer with ${p.listing.title}" else "Open jobs at ${p.listing.title}", style = MaterialTheme.typography.titleMedium)
+                Muted(when {
+                    p.openJobs > 0 && volunteer -> "${plural(p.openJobs, "open role")} right now. Apply with your skill profile."
+                    p.openJobs > 0 -> "${plural(p.openJobs, "opening")} right now. Apply with your skill profile."
+                    volunteer -> "Volunteer roles show here. Apply with your skill profile."
+                    else -> "See openings here and apply with your skill profile."
+                })
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    if (p.mine) Muted("Post a job and manage applications from Menu > Bucks Pro.", Modifier.padding(top = 10.dp))
+    if (p.mine) Muted(if (volunteer) "Post a volunteer role as a job and manage applications from Menu > Bucks Pro." else "Post a job and manage applications from Menu > Bucks Pro.", Modifier.padding(top = 10.dp))
 }
 
-/* ---------- SKILL: Services and Feed ---------- */
+/* ---------- Services (a pro, or a service / company / hospital page), programs, events, team ---------- */
 
+/** The type's message for its primary action with one catalogue entry named at the end: "Hi, I'd like to book with X. When are you free? Service: Haircut". */
+private fun itemMessage(t: PageType, title: String, noun: String, name: String): String {
+    val base = PageTypes.ctaMessage(t, title).trim().trimEnd(':').trimEnd()
+    return base + (if (base.endsWith('?') || base.endsWith('.')) "" else ".") + " ${noun.replaceFirstChar { it.uppercase() }}: $name"
+}
+
+/**
+ * Services with prices and a button per row. For a pro ([type] null) the button requests a visit; on a business page it says
+ * what the type does (Book, Get quote, Enquire) and opens the chat with the type's message.
+ */
 @Composable
-private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, onOpenChat: (String) -> Unit) {
+private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, type: PageType?, onOpenChat: (String) -> Unit) {
     val d = vm.discover; val l = p.listing; val services = p.services; val first = l.title.substringBefore(' ')
+    val min = services.filter { it.price > 0 }.minOfOrNull { it.price }
+    val noun = type?.catalogueLabel?.lowercase() ?: "services"
+    val action = when (type?.cta) { null -> "Request"; "BOOK" -> "Book"; "QUOTE" -> "Get quote"; "HIRE" -> "Hire"; else -> "Enquire" }
     Column(Modifier.padding(Gutter)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Payments, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(proRate(l.details, services.minOfOrNull { it.price }), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp)) }
+        val rate = if (type == null) proRate(l.details, min) else min?.let { "From ${inr(it.toLong())}" } ?: if (type.cta == "QUOTE") "Quotes on request" else "Prices on request"
+        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Payments, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(rate, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp)) }
         if (services.isEmpty()) {
-            Muted(if (p.mine) "No services listed yet. Add them from Menu > Bucks Pro." else "No services listed yet. Describe what you need; $first confirms the price before starting.", Modifier.padding(top = 8.dp))
-            if (!p.mine) PrimaryButton("Request a visit", Modifier.padding(top = 14.dp)) { d.startListingChat(l.id, onOpenChat, "Hi, I need help with ${l.category.ifBlank { "a job" }.lowercase()}. Are you available?") }
+            Muted(when {
+                p.mine -> "No $noun listed yet. Add them from Menu > Bucks Pro."
+                type != null -> "No $noun listed yet. Tell ${l.title} what you need and they reply in chat."
+                else -> "No services listed yet. Describe what you need; $first confirms the price before starting."
+            }, Modifier.padding(top = 8.dp))
+            if (!p.mine) {
+                if (type != null) PrimaryButton(type.ctaLabel, Modifier.padding(top = 14.dp)) { d.startListingChat(l.id, onOpenChat, PageTypes.ctaMessage(type, l.title)) }
+                else PrimaryButton("Request a visit", Modifier.padding(top = 14.dp)) { d.startListingChat(l.id, onOpenChat, "Hi, I need help with ${l.category.ifBlank { "a job" }.lowercase()}. Are you available?") }
+            }
         } else {
             Column(Modifier.padding(top = 8.dp)) {
                 services.forEachIndexed { i, s ->
@@ -358,12 +397,91 @@ private fun ServicesTab(vm: BucksViewModel, p: ListingProfile, onOpenChat: (Stri
                     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis); Muted(servicePrice(s), maxLines = 1)
                             if (s.description.isNotBlank()) Muted(s.description, maxLines = 2) }
-                        if (!p.mine) SmallButton("Request", tonal = true) { d.startListingChat(l.id, onOpenChat, "Hi, I'd like to request: ${s.name} (₹${s.price}${if (s.unit.isNotBlank()) " " + s.unit else ""}). When are you free?") }
+                        if (!p.mine) SmallButton(action, tonal = true) {
+                            d.startListingChat(l.id, onOpenChat, if (type != null) itemMessage(type, l.title, "service", s.name)
+                                else "Hi, I'd like to request: ${s.name} (₹${s.price}${if (s.unit.isNotBlank()) " " + s.unit else ""}). When are you free?") }
                     }
                 }
             }
-            if (!p.mine) Notice("Request opens a chat with $first, who confirms the price before starting.", Modifier.padding(top = 14.dp))
+            if (!p.mine) Notice(if (type != null) "$action opens a chat with ${l.title}, who confirms the price and the time." else "Request opens a chat with $first, who confirms the price before starting.", Modifier.padding(top = 14.dp))
         }
+    }
+}
+
+/**
+ * Programs (an NGO, a school) or events (a group, an association, a place of worship): name, price or Free, unit, description,
+ * and Enquire / Join, which opens the chat with the type's message and the entry's name.
+ */
+@Composable
+private fun ProgramsTab(vm: BucksViewModel, p: ListingProfile, type: PageType?, kind: String, onOpenChat: (String) -> Unit) {
+    val d = vm.discover; val l = p.listing
+    val events = kind == "EVENT"
+    val rows = if (events) p.events else p.programs
+    val noun = if (events) "event" else "program"
+    val action = if (events) "Join" else "Enquire"
+    val icon = if (events) Icons.Rounded.CalendarMonth else Icons.Rounded.Favorite
+    Column(Modifier.padding(Gutter)) {
+        if (rows.isEmpty()) {
+            Muted(if (p.mine) "No ${noun}s yet. Add them from Menu > Bucks Pro." else "${l.title} hasn't listed ${noun}s yet. Message them to ask what's coming up.")
+            if (!p.mine) SmallButton("Message", Modifier.padding(top = 12.dp), tonal = true) { d.startListingChat(l.id, onOpenChat) }
+        } else {
+            rows.forEachIndexed { i, s ->
+                if (i > 0) Divider()
+                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Muted(programPrice(s), maxLines = 1)
+                        if (s.description.isNotBlank()) Muted(s.description, Modifier.padding(top = 2.dp), maxLines = 3)
+                    }
+                    if (!p.mine) SmallButton(action, tonal = true) {
+                        d.startListingChat(l.id, onOpenChat, if (type != null) itemMessage(type, l.title, noun, s.name) else "Hi ${l.title}, I'd like to know more about ${s.name}.") }
+                }
+            }
+            if (p.mine) Muted("Add or edit ${noun}s from Menu > Bucks Pro.", Modifier.padding(top = 10.dp))
+            else Notice("$action opens a chat with ${l.title}, who replies with the details.", Modifier.padding(top = 14.dp))
+        }
+    }
+}
+
+/** "Free", or "₹500 · per month", with a date or duration when the owner gave one. */
+private fun programPrice(s: ItemRow): String = listOfNotNull(if (s.price <= 0) "Free" else inr(s.price.toLong()), s.unit.ifBlank { null },
+    s.details.str("date") ?: s.details.str("schedule"), s.details.str("duration")?.let { "about $it" }).joinToString(" · ")
+
+private fun teamRole(role: String) = when (role) { "OWNER" -> "Owner"; "ADMIN" -> "Admin"; else -> "Member" }
+
+/** Who runs the page: owner and admins from listing_members (readable by everyone), with their names; store riders stay off the public page. */
+@Composable
+private fun TeamTab(vm: BucksViewModel, p: ListingProfile) {
+    val social = vm.social; val l = p.listing; val meId = social.me?.id
+    var rows by remember(l.id) { mutableStateOf<List<MemberRow>?>(null) }
+    var failed by remember(l.id) { mutableStateOf(false) }
+    LaunchedEffect(l.id) {
+        val got = runCatching { Backend.publicMembers(l.id) }.getOrNull()
+        if (got == null) failed = true
+        else {
+            runCatching { social.namesFor(got.map { it.profileId }) }
+            rows = got.filter { it.role != "STORE_RIDER" }.sortedWith(compareBy({ TEAM_ORDER[it.role] ?: 9 }, { social.nameOf(it.profileId).lowercase() }))
+        }
+    }
+    Column(Modifier.padding(Gutter)) {
+        val list = rows
+        when {
+            list == null && !failed -> Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { repeat(3) { Row { SkeletonBox(Modifier.size(40.dp), CircleShape); SkeletonLines(2, Modifier.padding(start = 12.dp).weight(1f)) } } }
+            list == null -> Muted("Couldn't load the team. Check your connection and open the page again.")
+            list.isEmpty() -> Muted(if (p.mine) "Only you so far. Invite admins from Menu > Bucks Pro > Members." else "${l.title} hasn't added its team yet.")
+            else -> list.forEachIndexed { i, m ->
+                if (i > 0) Divider()
+                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(initials(social.nameOf(m.profileId)).ifBlank { "?" }, size = 40)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(social.nameOf(m.profileId) + if (m.profileId == meId) " (you)" else "", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Muted(teamRole(m.role), maxLines = 1)
+                    }
+                }
+            }
+        }
+        if (p.mine) Muted("Invite people and set their roles from Menu > Bucks Pro > Members.", Modifier.padding(top = 10.dp))
     }
 }
 
@@ -392,8 +510,9 @@ private fun ListingPost(vm: BucksViewModel, post: PostRow, title: String) = Colu
 
 /* ---------- About and Reviews (every kind) ---------- */
 
+/** [type]: the page type of a business (shop rows like delivery and shipping show only for shops; the others show registration details). */
 @Composable
-private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onOpenListing: (String) -> Unit, badges: List<com.bucks.app.data.BadgeRow> = emptyList()) = Column {
+private fun AboutTab(p: ListingProfile, type: PageType?, vk: VehicleKind?, distance: String?, onOpenListing: (String) -> Unit, badges: List<com.bucks.app.data.BadgeRow> = emptyList()) = Column {
     val l = p.listing; val det = l.details
     Column(Modifier.padding(Gutter)) {
         if (l.description.isNotBlank()) Text(l.description, style = MaterialTheme.typography.bodyMedium) else Muted("No description yet.")
@@ -402,13 +521,19 @@ private fun AboutTab(p: ListingProfile, vk: VehicleKind?, distance: String?, onO
         when (l.kind) {
             "BUSINESS" -> {
                 det.str("hours")?.let { AboutRow(Icons.Rounded.Schedule, "Hours", it) }
-                det.str("free_delivery")?.let { AboutRow(Icons.Rounded.DeliveryDining, "Delivery", if (it == "true") "Free delivery" else "Delivery charged") }
-                (det.str("delivery_radius_km")?.let { "$it km" } ?: det.str("delivery_radius_m")?.toDoubleOrNull()?.let { formatDistance(it) })?.let { AboutRow(Icons.Rounded.MyLocation, "Delivers within", it) }
-                if (det.str("ships_india") == "true") {
-                    val fee = det.str("ship_fee")?.toIntOrNull() ?: 0; val above = det.str("free_ship_above")?.toIntOrNull() ?: 0
-                    AboutRow(Icons.Rounded.LocalShipping, "Ships across India", listOfNotNull(if (fee == 0) "Free shipping" else "Shipping ${inr(fee.toLong())}", if (fee > 0 && above > 0) "free above ${inr(above.toLong())}" else null,
-                        det.str("dispatch_days")?.let { "ships in $it days" }, if (det.str("cod") == "true") "cash on delivery available" else null).joinToString(" · "))
+                if (type == null || type.isShop) {
+                    det.str("free_delivery")?.let { AboutRow(Icons.Rounded.DeliveryDining, "Delivery", if (it == "true") "Free delivery" else "Delivery charged") }
+                    (det.str("delivery_radius_km")?.let { "$it km" } ?: det.str("delivery_radius_m")?.toDoubleOrNull()?.let { formatDistance(it) })?.let { AboutRow(Icons.Rounded.MyLocation, "Delivers within", it) }
+                    if (det.str("ships_india") == "true") {
+                        val fee = det.str("ship_fee")?.toIntOrNull() ?: 0; val above = det.str("free_ship_above")?.toIntOrNull() ?: 0
+                        AboutRow(Icons.Rounded.LocalShipping, "Ships across India", listOfNotNull(if (fee == 0) "Free shipping" else "Shipping ${inr(fee.toLong())}", if (fee > 0 && above > 0) "free above ${inr(above.toLong())}" else null,
+                            det.str("dispatch_days")?.let { "ships in $it days" }, if (det.str("cod") == "true") "cash on delivery available" else null).joinToString(" · "))
+                    }
                 }
+                // Organisations: what they are registered as, who they are affiliated to (a school's board, a college's university).
+                det.str("org_type")?.let { AboutRow(Icons.Rounded.Apartment, "Organisation type", it) }
+                det.str("registration")?.let { AboutRow(Icons.Rounded.Description, "Registration", it) }
+                det.str("affiliation")?.let { AboutRow(Icons.Rounded.WorkspacePremium, "Affiliation", it) }
             }
             "SKILL" -> {
                 AboutRow(Icons.Rounded.Payments, "Rate", proRate(det, p.services.minOfOrNull { it.price }))
@@ -506,12 +631,13 @@ private fun servicePrice(s: ItemRow): String {
     return listOfNotNull(money, s.unit.ifBlank { null } ?: when (pricing) { "HOURLY" -> "per hour"; "VISIT" -> "per visit"; else -> null }, s.details.str("duration")?.let { "about $it" }).joinToString(" · ")
 }
 
-/** A listing's photos (portfolio for a pro) in a grid; tap for full size with the caption. */
+/** A listing's photos (portfolio for a pro, gallery or campus for a page) in a grid; tap for full size with the caption. Owners see a hint when it is empty. */
 @Composable
-private fun GalleryTab(l: ListingRow) {
+private fun GalleryTab(l: ListingRow, mine: Boolean = false) {
     var open by remember { mutableStateOf<Int?>(null) }
     val g = l.gallery
     Column(Modifier.padding(Gutter)) {
+        if (g.isEmpty()) Muted(if (mine) "No photos yet. Add up to 20 from Menu > Bucks Pro." else "${l.title} hasn't added photos yet.")
         g.chunked(3).forEachIndexed { row, photos ->
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 photos.forEachIndexed { i, ph ->

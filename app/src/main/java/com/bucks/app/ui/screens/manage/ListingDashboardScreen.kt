@@ -42,6 +42,7 @@ import com.bucks.app.data.Upload
 import com.bucks.app.data.showcaseDocs
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.MyListings
+import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.screens.ListingSwitch
 import com.bucks.app.ui.screens.SignedImage
@@ -53,12 +54,19 @@ import kotlinx.serialization.json.JsonObject
 /** Tabs of a listing's dashboard. */
 private enum class DashTab { OVERVIEW, ITEMS, PHOTOS, FEED, REVIEWS }
 
-private fun tabsFor(kind: String, manage: Boolean): List<Pair<DashTab, String>> = when {
-    !manage -> listOf(DashTab.OVERVIEW to "Overview", DashTab.REVIEWS to "Reviews")
-    kind == "BUSINESS" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.ITEMS to "Products", DashTab.PHOTOS to "Photos", DashTab.FEED to "Feed", DashTab.REVIEWS to "Reviews")
-    kind == "SKILL" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.ITEMS to "Services", DashTab.PHOTOS to "Portfolio", DashTab.FEED to "Feed", DashTab.REVIEWS to "Reviews")
-    kind == "ASSET" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.PHOTOS to "Photos", DashTab.REVIEWS to "Reviews")
-    else -> listOf(DashTab.OVERVIEW to "Overview", DashTab.PHOTOS to "Photos", DashTab.REVIEWS to "Reviews")
+/** A business's tabs follow its page type (ui/PageTypes.kt): the catalogue tab is named for what it holds and left out when the type has none. */
+private fun tabsFor(l: ListingRow, manage: Boolean): List<Pair<DashTab, String>> {
+    val type = PageTypes.of(l)
+    return when {
+        !manage -> listOf(DashTab.OVERVIEW to "Overview", DashTab.REVIEWS to "Reviews")
+        type != null -> buildList<Pair<DashTab, String>> {
+            add(DashTab.OVERVIEW to "Overview"); type.catalogueLabel?.let { add(DashTab.ITEMS to it) }
+            add(DashTab.PHOTOS to pagePhotosLabel(type)); add(DashTab.FEED to "Feed"); add(DashTab.REVIEWS to "Reviews")
+        }
+        l.kind == "SKILL" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.ITEMS to "Services", DashTab.PHOTOS to "Portfolio", DashTab.FEED to "Feed", DashTab.REVIEWS to "Reviews")
+        l.kind == "ASSET" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.PHOTOS to "Photos", DashTab.REVIEWS to "Reviews")
+        else -> listOf(DashTab.OVERVIEW to "Overview", DashTab.PHOTOS to "Photos", DashTab.REVIEWS to "Reviews")
+    }
 }
 
 /**
@@ -82,7 +90,7 @@ fun ListingDashboardScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, o
     }
     val manage = m.canManage(id); val owner = m.isOwner(id); val ctx = LocalContext.current
     LaunchedEffect(id, l.kind) { if (l.kind == "BUSINESS" || l.kind == "SKILL") m.loadItems(id); if (l.kind != "DRIVER" && manage) vm.services.loadCompliance(id) }
-    val tabs = tabsFor(l.kind, manage)
+    val tabs = tabsFor(l, manage)
     var tab by rememberSaveable(id) { mutableStateOf(DashTab.OVERVIEW) }
     var menu by remember { mutableStateOf(false) }; var confirmDelete by remember { mutableStateOf(false) }
 
@@ -129,7 +137,7 @@ private fun StatusStrip(m: MyListings, l: ListingRow, manage: Boolean) {
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = Gutter, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             when (l.status) {
-                "LIVE" -> { Text(onlineLabel(l.kind, l.online), style = MaterialTheme.typography.titleSmall); Muted(if (l.online) "Customers nearby can find and reach you now." else "Live, but hidden from search until you switch it on.") }
+                "LIVE" -> { Text(onlineLabel(l, l.online), style = MaterialTheme.typography.titleSmall); Muted(if (l.online) "People nearby can find and reach you now." else "Live, but hidden from search until you switch it on.") }
                 "SUSPENDED" -> { Text(if (l.complianceHold) "Paused for documents" else "Suspended", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error); Muted(if (l.complianceHold) "A document expired or is missing. Upload it and it comes back on its own." else "Hidden from customers. Contact Bucks support.") }
                 else -> { Text("Not live yet", style = MaterialTheme.typography.titleSmall); Muted("$recs of $NEEDED recommendations. See the checklist in Overview.") }
             }
@@ -145,7 +153,9 @@ private fun StatusStrip(m: MyListings, l: ListingRow, manage: Boolean) {
 private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owner: Boolean, goTo: (String) -> Unit) {
     val m = vm.myListings; val recs = m.recommendations[l.id] ?: 0; val c = m.counts[l.id]
     val hasVehicle = m.vehicles.any { it.status != "SUSPENDED" }
-    val steps = goLiveSteps(l, if (l.kind == "BUSINESS" || l.kind == "SKILL") m.items[l.id] else emptyList(), if (l.kind == "DRIVER") emptyList() else vm.services.compliance[l.id], recs, hasVehicle)
+    // The page type of a business (never null for one); orders and payment exist only where it sells products.
+    val type = PageTypes.of(l); val sells = type?.sellsProducts == true
+    val steps = goLiveSteps(l, if (l.kind == "BUSINESS" || l.kind == "SKILL") m.items[l.id] else emptyList(), if (l.kind == "DRIVER") emptyList() else vm.services.compliance[l.id], recs, hasVehicle, type)
     val noUpi = vm.dispatch.enabled && vm.dispatch.paymentLinkLoaded && vm.dispatch.paymentLink == null
     LaunchedEffect(Unit) { if (vm.dispatch.enabled && !vm.dispatch.paymentLinkLoaded) vm.dispatch.refreshPaymentLink() }
     LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -154,7 +164,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 ListingCover(l, Modifier.fillMaxWidth().height(170.dp))
                 Column(Modifier.padding(16.dp)) {
                     Text(l.title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
-                    Muted(listOfNotNull(kindLabel(l.kind), l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(" · "))
+                    Muted(listOfNotNull(type?.label ?: kindLabel(l.kind), l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(" · "))
                     if (l.kind == "ASSET") Text(assetPriceLine(l.details), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
                 }
             }
@@ -170,7 +180,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 steps.forEach { s -> GoLiveRow(s) { goTo(s.target) } }
             }
         }
-        if (manage && l.kind == "BUSINESS" && noUpi && owner) item {
+        if (manage && sells && noUpi && owner) item {
             Notice("Add your UPI QR so customers can pay your orders by UPI. Until then they have to pay you directly.")
             SmallButton("Add payment QR", Modifier.padding(top = 8.dp)) { goTo("PAYMENT") }
         }
@@ -190,8 +200,9 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 ManageTile(Icons.Rounded.Edit, "Edit details") { goTo("EDIT") }
                 if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Description, "Documents") { goTo("DOCS") }
                 if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Groups, "Team") { goTo("MEMBERS") }
-                if (l.kind == "BUSINESS") { ManageTile(Icons.Rounded.Assignment, "Orders") { goTo("ORDERS") }; ManageTile(Icons.Rounded.Work, "Jobs") { goTo("JOBS") } }
-                if (l.kind == "BUSINESS" && owner) ManageTile(Icons.Rounded.QrCode2, "Payment QR") { goTo("PAYMENT") }
+                if (sells) ManageTile(Icons.Rounded.Assignment, "Orders") { goTo("ORDERS") }
+                if (l.kind == "BUSINESS") ManageTile(Icons.Rounded.Work, if (type?.key == "NGO_CHARITY") "Volunteers" else "Jobs") { goTo("JOBS") }
+                if (sells && owner) ManageTile(Icons.Rounded.QrCode2, "Payment QR") { goTo("PAYMENT") }
                 if (l.kind == "DRIVER") ManageTile(Icons.Rounded.TwoWheeler, "Vehicles") { goTo("VEHICLES") }
                 ManageTile(Icons.Rounded.ThumbUp, if (l.status == "PENDING") "Get recommended" else "Recommend code") { goTo("RECOMMEND") }
                 ManageTile(Icons.Rounded.Visibility, "Customer view") { goTo("PROFILE") }
@@ -235,8 +246,11 @@ private fun AboutCard(l: ListingRow, manage: Boolean, onEdit: () -> Unit) = Buck
     if (l.description.isNotBlank()) Text(l.description, style = MaterialTheme.typography.bodyMedium) else Muted("No description yet. A few lines about what you offer helps people choose you.")
     val facts = buildList<Pair<String, String>> {
         when (l.kind) {
-            "BUSINESS" -> { d.str("hours").ifBlank { null }?.let { add("Hours" to it) }; d.int("delivery_radius_km")?.let { add("Delivers within" to "$it km") }
-                add("Delivery" to if (d.bool("free_delivery")) "Free for customers" else "Customer pays"); if (d.bool("cod")) add("Cash on delivery" to "With your own riders") }
+            "BUSINESS" -> { val t = PageTypes.of(l); val shop = t == null || t.isShop
+                d.str("hours").ifBlank { null }?.let { add((if (shop) "Hours" else "Timings") to it) }
+                if (shop) { d.int("delivery_radius_km")?.let { add("Delivers within" to "$it km") }
+                    add("Delivery" to if (d.bool("free_delivery")) "Free for customers" else "Customer pays"); if (d.bool("cod")) add("Cash on delivery" to "With your own riders") }
+                else { d.str("registration").ifBlank { null }?.let { add(pageRegistrationLabel(t) to it) }; d.str("website").ifBlank { null }?.let { add("Website" to it) }; d.str("email").ifBlank { null }?.let { add("Email" to it) } } }
             "SKILL" -> { d.str("rate").ifBlank { null }?.let { add("Rate" to it) }; d.str("level").ifBlank { null }?.let { add("Experience" to it) }; d.strings("languages").takeIf { it.isNotEmpty() }?.let { add("Languages" to it.joinToString(", ")) } }
             "ASSET" -> { add("Listing" to assetPriceLine(d)); d.num("deposit")?.takeIf { it > 0 }?.let { add("Deposit" to rupees(it.toLong())) }
                 d.num("area_sqft")?.takeIf { it > 0 }?.let { add("Size" to "${it.toLong()} sq ft") }; d.int("bedrooms")?.let { add("Bedrooms" to "$it") }
@@ -253,7 +267,7 @@ private fun AboutCard(l: ListingRow, manage: Boolean, onEdit: () -> Unit) = Buck
 
 @Composable
 private fun ItemsTab(m: MyListings, l: ListingRow, onItem: (String, String?) -> Unit) {
-    val service = l.kind == "SKILL"; val noun = if (service) "service" else "product"
+    val itemKind = itemKindOf(l); val noun = itemNoun(itemKind)
     val rows = m.items[l.id]
     var q by rememberSaveable(l.id) { mutableStateOf("") }; var group by rememberSaveable(l.id) { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<ItemRow?>(null) }
@@ -262,10 +276,10 @@ private fun ItemsTab(m: MyListings, l: ListingRow, onItem: (String, String?) -> 
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-                PrimaryButton("Add $noun") { onItem(l.id, null) }
+                PrimaryButton(addItemTitle(noun)) { onItem(l.id, null) }
                 if (rows.orEmpty().size > 6) BucksField(q, { q = it }, placeholder = "Search your ${noun}s", modifier = Modifier.padding(top = 12.dp))
                 if (groups.size > 1) ChipRow(listOf("All") + groups, group ?: "All", Modifier.padding(top = 4.dp)) { group = if (it == "All") null else it }
-                if (rows != null && rows.isNotEmpty()) Muted("${rows.size} ${noun}s · ${rows.count { it.inStock }} ${if (service) "available" else "in stock"}", Modifier.padding(top = 8.dp))
+                if (rows != null && rows.isNotEmpty()) Muted("${rows.size} ${noun}s · ${rows.count { it.inStock }} ${itemOnLabel(itemKind, true).lowercase()}", Modifier.padding(top = 8.dp))
             }
         }
         when {
@@ -273,26 +287,25 @@ private fun ItemsTab(m: MyListings, l: ListingRow, onItem: (String, String?) -> 
             rows.isEmpty() -> item {
                 BucksCard(Modifier.padding(horizontal = Gutter)) {
                     Text("No ${noun}s yet", style = MaterialTheme.typography.titleMedium)
-                    Muted(if (service) "Add each service with its price, like \"Tap repair · ₹300 per visit\" or \"Logo design · ₹4,000\". People request straight from this list."
-                          else "Add what you sell with a price, photos and pack size, like \"Sona masoori rice · ₹62 · 1 kg\". Count stock if you want Bucks to stop orders when you run out.", Modifier.padding(top = 4.dp))
+                    Muted(itemEmptyCopy(itemKind), Modifier.padding(top = 4.dp))
                 }
             }
             shown.isEmpty() -> item { Muted("Nothing matches.", Modifier.padding(Gutter)) }
-            else -> items(shown, key = { it.id ?: it.name }) { row -> ItemManageRow(m, row, service, onEdit = { onItem(l.id, row.id) }, onDelete = { deleting = row }); Divider() }
+            else -> items(shown, key = { it.id ?: it.name }) { row -> ItemManageRow(m, row, onEdit = { onItem(l.id, row.id) }, onDelete = { deleting = row }); Divider() }
         }
     }
     deleting?.let { r -> ConfirmDialog("Remove ${r.name}?", "It disappears from your profile and search. Orders already placed aren't affected.", "Remove", onConfirm = { m.deleteItem(r) {} }, onDismiss = { deleting = null }) }
 }
 
 @Composable
-private fun ItemManageRow(m: MyListings, row: ItemRow, service: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ItemManageRow(m: MyListings, row: ItemRow, onEdit: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(horizontal = Gutter, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        PhotoOrIcon(row.photos.firstOrNull()?.url ?: row.photoUrl, if (service) Icons.Rounded.Handyman else Icons.Rounded.ShoppingBag, size = 56)
+        PhotoOrIcon(row.photos.firstOrNull()?.url ?: row.photoUrl, itemIcon(row.kind), size = 56)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(row.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(rupees(row.price), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                Text(itemPriceLabel(row.kind, row.price), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                 row.mrp?.takeIf { it > row.price }?.let { Text(rupees(it), style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (row.unit.isNotBlank()) Muted(row.unit, maxLines = 1)
             }
@@ -322,13 +335,14 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
         if (picked.isNotEmpty()) m.addGalleryPhotos(l.id, picked)
     }
     var open by remember { mutableStateOf<MediaPhoto?>(null) }
-    val g = l.gallery
+    val g = l.gallery; val type = PageTypes.of(l)
     LazyVerticalGrid(GridCells.Adaptive(112.dp), contentPadding = PaddingValues(Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             Column(Modifier.padding(bottom = 6.dp)) {
-                Text(if (l.kind == "SKILL") "Portfolio" else "Photos", style = MaterialTheme.typography.titleMedium)
-                Muted(when (l.kind) { "SKILL" -> "Photos of work you've done, with a line about each. Customers see them on your profile."
-                    "ASSET" -> "Every room or angle, in daylight. The cover is the first thing people see."
+                Text(if (l.kind == "SKILL") "Portfolio" else type?.let { pagePhotosLabel(it) } ?: "Photos", style = MaterialTheme.typography.titleMedium)
+                Muted(when { l.kind == "SKILL" -> "Photos of work you've done, with a line about each. Customers see them on your profile."
+                    l.kind == "ASSET" -> "Every room or angle, in daylight. The cover is the first thing people see."
+                    type != null && !type.isShop -> "The place, the people, the work. Tap a photo to caption it, reorder it or make it the cover."
                     else -> "The shop front, the inside, your best products. Tap a photo to caption it, reorder it or make it the cover." } + " ${g.size} of 20.")
                 if (m.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
             }
