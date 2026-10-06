@@ -23,6 +23,7 @@ import com.bucks.app.data.RideStatus
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.nav.Routes
+import com.bucks.app.ui.screens.commerce.epochMillis
 
 /** One thing the customer is waiting on: a ride or an order. [route] opens its own screen. */
 data class ActivityItem(val key: String, val icon: ImageVector, val title: String, val status: String, val route: String, val needsYou: Boolean = false)
@@ -52,7 +53,7 @@ fun activityItems(vm: BucksViewModel): List<ActivityItem> {
         }
         if (text != null && route != null) items += ActivityItem("ride", r.kind.icon, "Ride to ${r.dest.name}", text, route, needsYou = r.status == RideStatus.ARRIVED || r.status == RideStatus.COMPLETED)
     }
-    vm.commerce.myOrders.filter { it.status in OPEN_ORDER && (me == null || it.buyerId == me) }.forEach { o ->
+    vm.commerce.myOrders.filter { it.status in OPEN_ORDER && (me == null || it.buyerId == me) && !(it.status == "PLACED" && epochMillis(it.acceptBy) < System.currentTimeMillis()) }.forEach { o ->
         val shop = vm.commerce.titleOf(o.listingId)
         val pickup = o.deliveryMode == "PICKUP"
         val text = when (o.status) {

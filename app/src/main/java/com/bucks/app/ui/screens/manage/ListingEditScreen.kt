@@ -20,6 +20,7 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.BUSINESS_SERVICES
 import com.bucks.app.ui.serviceDef
 import com.bucks.app.ui.serviceForCategory
+import com.bucks.app.ui.knownServiceForCategory
 import com.bucks.app.ui.components.*
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -134,7 +135,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
             if (kind == "BUSINESS" && service != existing.service && !serviceLocked) service else null) { onDone() }
     }
 
-    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && !serviceLocked) service = serviceForCategory(c); pickCategory = false }, onDismiss = { pickCategory = false })
+    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && !serviceLocked) service = knownServiceForCategory(c) ?: service; pickCategory = false }, onDismiss = { pickCategory = false })
 
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
