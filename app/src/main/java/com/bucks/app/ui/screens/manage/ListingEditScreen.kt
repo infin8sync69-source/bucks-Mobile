@@ -58,6 +58,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     val d = existing?.details ?: JsonObject(emptyMap())
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var category by remember { mutableStateOf(existing?.category ?: "") }
+    var pickCategory by remember { mutableStateOf(false) }
     // Which Services tile a business belongs to; it decides the documents it needs. Fixed once the listing is live.
     var service by remember { mutableStateOf(existing?.service?.takeIf { it in BUSINESS_SERVICES } ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: existing?.category?.let { serviceForCategory(it) } ?: "FOOD") }
     val serviceLocked = existing != null && existing.status != "PENDING"
@@ -133,6 +134,8 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
             if (kind == "BUSINESS" && service != existing.service && !serviceLocked) service else null) { onDone() }
     }
 
+    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && !serviceLocked) service = serviceForCategory(c); pickCategory = false }, onDismiss = { pickCategory = false })
+
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
             BucksTopBar(screenTitle, onBack = onBack)
@@ -141,13 +144,9 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                 when (kind) {
                     "BUSINESS" -> {
                         BucksField(title, { title = it.take(80) }, "Business name", "Sri Lakshmi Stores")
-                        Label("Service")
-                        FlowChips(BUSINESS_SERVICES.map { serviceDef(it)!!.label }, setOf(serviceDef(service)!!.label)) { picked ->
-                            if (serviceLocked) vm.toast("A live listing can't move to another service. Ask Bucks support.")
-                            else { service = BUSINESS_SERVICES.first { serviceDef(it)!!.label == picked }; if (category !in serviceDef(service)!!.categories) category = "" }
-                        }
-                        Muted(if (serviceLocked) "Customers find you under ${serviceDef(service)!!.label}. It can't change while you're live." else "Where customers find you in Services. It decides the documents Bucks checks.", Modifier.padding(top = 6.dp, bottom = 12.dp))
-                        Label("Category"); FlowChips(serviceDef(service)!!.categories, setOf(category)) { category = it }
+                        Label("Type of business")
+                        CategoryField(category, "Pick a type, or add your own") { pickCategory = true }
+                        Muted("Shows under ${serviceDef(service)!!.label} in Services." + (if (serviceLocked) " That can't change while you're live, but you can rename your type." else " It decides the documents Bucks checks."), Modifier.padding(top = 6.dp, bottom = 4.dp))
                         Spacer(Modifier.height(14.dp))
                         BucksField(description, { description = it.take(600) }, "About the business", "What you sell, what you're known for", singleLine = false, minLines = 3)
                         BucksField(hours, { hours = it.take(80) }, "Opening hours", "9 am - 9 pm, closed Sundays")
@@ -167,7 +166,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                     }
                     "SKILL" -> {
                         BucksField(title, { title = it.take(80) }, "Skill", "Plumber, Maths tutor, Wedding photographer")
-                        Label("Category"); FlowChips(SKILL_CATEGORIES, setOf(category)) { category = it }
+                        Label("What do you do?"); CategoryField(category, "Pick a field, or add your own") { pickCategory = true }
                         Spacer(Modifier.height(14.dp))
                         Label("Experience"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { LEVELS.forEach { Chip(it, selected = level == it) { level = it } } }
                         Spacer(Modifier.height(14.dp))

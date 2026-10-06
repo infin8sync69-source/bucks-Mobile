@@ -122,3 +122,9 @@ suspend fun Backend.downloadShowcaseFile(path: String): ByteArray = client.stora
 /** "Looks genuine" (1) or "doesn't look right" (-1) after opening a document. A viewer signal only; never Bucks verification. */
 suspend fun Backend.checkShowcaseDoc(docId: String, vote: Int, comment: String) { docDb.rpc("check_showcase_doc", buildJsonObject { put("p_doc", docId); put("p_vote", vote); put("p_comment", comment) }) }
 suspend fun Backend.clearShowcaseCheck(docId: String) { docDb.rpc("clear_showcase_check", buildJsonObject { put("p_doc", docId) }) }
+
+// ---------- categories other owners added (migration: category_suggestions) ----------
+@Serializable data class CategorySuggestion(val category: String, val uses: Int = 1)
+/** Categories used by live or pending listings of this kind (most used first), so a category one owner typed can be picked by the next. */
+suspend fun Backend.categorySuggestions(kind: String, q: String = ""): List<CategorySuggestion> =
+    docDb.rpc("category_suggestions", buildJsonObject { put("p_kind", kind); put("p_q", q) }).decodeList()
