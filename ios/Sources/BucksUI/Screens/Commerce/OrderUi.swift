@@ -238,3 +238,29 @@ struct OrderTimeline: View {
         }
     }
 }
+
+/// A reason sheet that runs one order action: the buyer cancelling, the shop cancelling an accepted order, or the shop rejecting a new one.
+/// `run` starts the action with the chosen code and reports back through `finish` (nil once the server agreed, otherwise its sentence).
+/// The sheet closes only on success; a refusal stays in the sheet with its message and leaves the order where it is.
+struct OrderReasonSheet: View {
+    let title: String
+    let message: String
+    let reasons: [CancelReason]
+    let requireReason: Bool
+    let confirmLabel: String
+    var reasonTitle = "Why are you cancelling?"
+    let run: (_ code: String?, _ finish: @escaping (String?) -> Void) -> Void
+    let onClose: () -> Void
+    @State private var busy = false
+    @State private var error: String?
+
+    var body: some View {
+        CancelSheet(
+            title: title, message: message, reasons: reasons, requireReason: requireReason, confirmLabel: confirmLabel,
+            reasonTitle: reasonTitle, busy: busy, error: error,
+            onConfirm: { code, _ in
+                busy = true; error = nil
+                run(code) { err in busy = false; if let err { error = err } else { onClose() } }
+            }, onDismiss: onClose)
+    }
+}

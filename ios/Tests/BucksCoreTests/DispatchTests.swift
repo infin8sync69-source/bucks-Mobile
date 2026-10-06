@@ -79,8 +79,8 @@ struct TaskState {
             case "/rest/v1/tasks_geo": return (200, [state.row()])
             case "/rest/v1/rpc/task_driver": return (200, [["profile_id": "d1", "name": "Ravi Kumar", "kind": "AUTO", "model": "Bajaj RE", "plate": "KA05AB1234", "up": 12, "down": 1, "listing_id": "L1"]])
             case "/rest/v1/rpc/contact_for_task": return (200, [["phone": "9845012345"]])
-            case "/rest/v1/rpc/advance_task":
-                state.status = params["p_status"] as? String ?? state.status
+            case "/rest/v1/rpc/cancel_task":
+                state.status = "CANCELLED"
                 return (200, state.row())
             default: return (404, ["message": "no stub for \(path)"])
             }
@@ -95,7 +95,7 @@ struct TaskState {
         #expect(d.ride?.status == .matched)
         #expect(d.ride?.driver?.name == "Ravi Kumar"); #expect(d.ride?.driver?.plate == "KA05AB1234"); #expect(d.ride?.driver?.phone == "9845012345")
         #expect((d.ride?.etaMin ?? -1) >= 0)
-        let err = await d.cancelRide()
+        let err = await d.cancelRide(reason: "PLANS_CHANGED")
         #expect(err == nil); #expect(d.ride == nil)
         #expect(state.status == "CANCELLED")
     }
@@ -108,14 +108,14 @@ struct TaskState {
             case "/rest/v1/tasks_geo": return (200, [state.row()])
             case "/rest/v1/rpc/task_driver": return (200, [])
             case "/rest/v1/rpc/contact_for_task": return (200, [])
-            case "/rest/v1/rpc/advance_task": state.status = "IN_PROGRESS"; return (400, ["message": "cannot cancel a trip in progress"])
+            case "/rest/v1/rpc/cancel_task": state.status = "IN_PROGRESS"; return (400, ["message": "this ride can no longer be cancelled (it is in progress)"])
             default: return (404, ["message": "no stub"])
             }
         }
         let d = Dispatch(host: host)
         d.requestRide(kind: .auto, from: host.here, fromLabel: "Jayanagar", dest: Place(name: "MG Road", km: 5.9, at: LatLng(12.9757, 77.6063)), fare: 90)
         #expect(await wait { d.ride != nil })
-        let err = await d.cancelRide()
+        let err = await d.cancelRide(reason: "TOO_LONG")
         #expect(err == "Your trip has already started, so it can't be cancelled here.")
         #expect(d.ride?.status == .inRide)
     }

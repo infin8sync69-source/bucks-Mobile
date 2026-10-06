@@ -180,17 +180,17 @@ private struct TripBody: View {
             DarkButton("Submit", enabled: stars > 0) { session.driverRateCustomer(stars: stars) }
         }
     }
-
 }
 
 /// Handing a ride or delivery back through `release_task`: a reason is required so the customer or shop hears why, and it counts against
-/// the driver's record. A refusal from the server is shown as a toast and leaves the trip and this sheet where they are.
+/// the driver's record. A refusal from the server is shown in the sheet (it covers the toasts) and leaves the trip and the sheet where they are.
 private struct DriverCancelSheet: View {
     let delivery: Bool
     let onClose: () -> Void
     @Environment(AppSession.self) private var session
     @State private var busy = false
     @State private var stats: CancelStats?
+    @State private var error: String?
 
     var body: some View {
         let n = stats?.driverDay ?? 0
@@ -198,10 +198,10 @@ private struct DriverCancelSheet: View {
             title: delivery ? "Hand this delivery back?" : "Hand this ride back?",
             message: "The \(delivery ? "order" : "customer") goes to the next rider. Cancelling after accepting counts against your recommendations.",
             reasons: CancelReasons.driver, requireReason: true, confirmLabel: delivery ? "Cancel delivery" : "Cancel ride", keepLabel: "Keep it",
-            nudge: n >= 2 ? "You've handed back \(n) trips today. Customers and shops rely on riders who finish what they accept." : nil, busy: busy,
+            nudge: n >= 2 ? "You've handed back \(n) trips today. Customers and shops rely on riders who finish what they accept." : nil, busy: busy, error: error,
             onConfirm: { code, note in
-                busy = true
-                Task { let ok = await session.driverHandBack(reason: code, note: note); busy = false; if ok { onClose() } }
+                busy = true; error = nil
+                Task { let err = await session.driverHandBack(reason: code, note: note); busy = false; if let err { error = err } else { onClose() } }
             }, onDismiss: onClose)
         .task { stats = try? await Backend.shared.myCancelStats() }
     }

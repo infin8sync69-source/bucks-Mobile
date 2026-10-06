@@ -539,20 +539,24 @@ public final class Dispatch {
     /// Trip closed on this phone (after rating the customer); ring the next request.
     public func closeTrip() { stopDriverTask(); setDriverRide(nil); nudged = true }
     /// Hands the request back so it rings other drivers, through `release_task`. Allowed from the way to the pick-up and at the pick-up,
-    /// not once the PIN is in. `reason` is a `CancelReasons.driver` code and is required: without one nothing is sent and a toast says why.
-    /// A refusal from the server is shown as a toast and leaves the trip where it is. Returns whether it happened.
-    @discardableResult
-    public func driverCancel(reason: String?, note: String = "") async -> Bool {
-        guard let d = driverRide else { return false }
-        if d.status == .ringing { driverDecline(); return true }
-        guard d.status == .toPickup || d.status == .arrived else { toast("A trip that has started can't be handed back."); return false }
-        guard let code = reason, !code.isEmpty else { toast("Choose why you are handing it back."); return false }
-        if handingBack || busy { return false }
+    /// not once the PIN is in. `reason` is a `CancelReasons.driver` code and is required: without one nothing is sent. Returns nil when it
+    /// happened, otherwise one honest sentence (the server's own for a refusal) and the trip stays where the server says it is.
+    public func driverCancel(reason: String?, note: String = "") async -> String? {
+        guard let d = driverRide else { return nil }
+        if d.status == .ringing { driverDecline(); return nil }
+        guard d.status == .toPickup || d.status == .arrived else { return "A trip that has started can't be handed back." }
+        guard let code = reason, !code.isEmpty else { return "Choose why you are handing it back." }
+        if handingBack || busy { return "Still working on the last step. Try again in a moment." }
         driverGen += 1
         handingBack = true; defer { handingBack = false }
-        do { try await backend.releaseTask(d.id, reason: code, note: String(note.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))); stopDriverTask(); passed.insert(d.id); setDriverRide(nil); nudged = true; return true }
-        catch is CancellationError { return false }
-        catch { await failedDriverAction(d.id, error); return false }
+        do { try await backend.releaseTask(d.id, reason: code, note: String(note.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))); stopDriverTask(); passed.insert(d.id); setDriverRide(nil); nudged = true; return nil }
+        catch is CancellationError { return "Couldn't finish that. Try again." }
+        catch {
+            // Read the trip again and follow it. A trip that is no longer mine (the answer was lost, or the customer cancelled) is gone from the
+            // screen and explained by a toast: the sheet can close. Anything else is a refusal: the server's sentence, and the trip stays.
+            if let t = (try? await backend.taskGeo(d.id)) ?? nil, await applyDriverTruth(d.id, t) { return nil }
+            return friendlyError(error)
+        }
     }
     /// Real position: moves me on the map and updates distance left; the server gets it from the location tracker.
     public func driverMoved(_ p: LatLng) {

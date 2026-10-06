@@ -171,7 +171,7 @@ import Testing
         #expect(await wait { c.orders["o-1"]?.status == "READY" })
         #expect(try #require(call("/rest/v1/rpc/update_order_status").first).body as NSDictionary == ["p_order": "o-1", "p_status": "READY"] as NSDictionary)
         var done = false
-        c.cancelOrder("o-1") { done = true }
+        c.cancelOrder("o-1", done: { err in done = err == nil })
         #expect(await wait { done })
         #expect(try #require(call("/rest/v1/rpc/cancel_order").first).body as NSDictionary == ["p_order": "o-1"] as NSDictionary)
         #expect(c.orders["o-1"]?.status == "CANCELLED")

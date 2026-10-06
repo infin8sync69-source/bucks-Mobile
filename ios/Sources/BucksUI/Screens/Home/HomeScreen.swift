@@ -11,6 +11,7 @@ struct HomeScreen: View {
     @Environment(Router.self) private var router
     @Environment(\.scenePhase) private var scenePhase
     @State private var showOnline = false
+    @State private var showActivity = false
     @Environment(\.openBucksMenu) private var openMenu
 
     private var d: Dispatch { session.dispatch }
@@ -25,6 +26,39 @@ struct HomeScreen: View {
         // The button and the "being checked" note follow the server: reload my vehicles whenever Home comes back on screen.
         .task { await d.refreshVehicles() }
         .onChange(of: scenePhase) { _, p in if p == .active { Task { await d.refreshVehicles() } } }
+        // The activity pill and the online button follow the server: my orders every 20 s while Home is on screen, and my listings once.
+        .task(id: session.me?.id) { await keepFresh() }
+        .sheet(isPresented: $showActivity) {
+            ActivitySheet(items: session.activity) { a in showActivity = false; openActivity(a) }
+        }
+    }
+
+    @MainActor private func keepFresh() async {
+        guard session.me != nil else { return }
+        if !session.listings.loaded { session.listings.refresh() }
+        while !Task.isCancelled {
+            session.commerce.refreshMyOrders()
+            try? await Task.sleep(nanoseconds: 20_000_000_000)
+        }
+    }
+
+    /// One item opens its own screen: the ride screen for its status, or the order page.
+    private func openActivity(_ a: ActivityItem) {
+        switch a.target {
+        case .ride(let status): if let route = Route.ride(for: status) { router.showRide(route) }
+        case .order(let id): router.push(.order(id))
+        }
+    }
+
+    /// A customer with a ride or an order open: what is happening, one tap away (the list when there are several).
+    @ViewBuilder private var activityPill: some View {
+        let items = session.activity
+        if !items.isEmpty {
+            HStack(spacing: 0) {
+                ActivityPill(items: items) { if items.count == 1 { openActivity(items[0]) } else { showActivity = true } }
+                Spacer(minLength: 0)
+            }.padding(.horizontal, Gutter).padding(.bottom, 4)
+        }
     }
 
     private var home: some View {
@@ -37,11 +71,13 @@ struct HomeScreen: View {
             }
             VStack(spacing: 0) {
                 Spacer(minLength: 64)
+                activityPill
                 MapLegend(riders: riderCount).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, Gutter).padding(.vertical, 8)
                 Sheet { panel }
             }
-            if showFab {
-                OnlineFab(live: d.online) { showOnline = true }
+            // Only while I'm online (a driver on duty, or a live shop or pro listing that is switched on); offline, a small chip in the sheet opens the same switches.
+            if session.providerOnline {
+                OnlineFab(live: true) { showOnline = true }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, Gutter - 16).padding(.bottom, 174)
             }
@@ -50,11 +86,8 @@ struct HomeScreen: View {
             d.mapShown(); d.startDriversFeed()
         }
         .onDisappear { d.mapHidden() }
-        .sheet(isPresented: $showOnline) { OnlineSheet(onEarnings: { router.push(.vehicleStats) }) }
+        .sheet(isPresented: $showOnline) { HomeOnlineSheet(onEarnings: { router.push(.vehicleStats) }) }
     }
-
-    /// Drivers with a checked vehicle get the button while offline too (it opens the sheet with their vehicle switch).
-    private var showFab: Bool { d.online || d.cloudVehicle != nil }
 
     private var onlineRiders: [Driver] { d.drivers.filter { $0.online && $0.at != nil } }
     private var riderCount: Int { onlineRiders.count }
@@ -68,7 +101,7 @@ struct HomeScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             if let r = d.ride { ActiveRideCard(ride: r) { if let route = Route.ride(for: r.status) { router.showRide(route) } }.padding(.bottom, 12) }
             // A vehicle the server hasn't activated yet: say why there is no online button, and where to look.
-            if let v = d.waitingVehicle, !showFab {
+            if let v = d.waitingVehicle, !d.online {
                 VStack(alignment: .leading, spacing: 8) {
                     Notice(v.status == "SUSPENDED" ? "Your \(v.model.isEmpty ? "vehicle" : v.model) (\(v.plate)) is suspended, so you can't go online with it. Open Manage listings for details."
                            : "Bucks is still checking your \(v.model.isEmpty ? "vehicle" : v.model) (\(v.plate)). The online button appears here once it's active.")
@@ -81,6 +114,9 @@ struct HomeScreen: View {
                            onPlace: { MapsPick.place = $0; router.push(.maps) })
             } else {
                 SearchBar(hint: "Where to, or what do you need?") { session.startRide(); router.push(.destination) }
+            }
+            if session.canGoOnline {
+                HStack(spacing: 0) { GoOnlineChip { showOnline = true }; Spacer(minLength: 0) }.padding(.top, 6)
             }
             Spacer().frame(height: 24)
         }

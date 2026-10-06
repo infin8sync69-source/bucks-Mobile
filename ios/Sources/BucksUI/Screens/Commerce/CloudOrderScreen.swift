@@ -43,11 +43,19 @@ struct CloudOrderScreen: View {
         .bucksBackground().bucksHideNavigationBar()
         .task(id: "\(id)#\(attempt)") { await poll() }
         .task(id: id) { for await row in Backend.shared.liveOrder(orderId: id) { commerce.receive(row) } }
-        .bucksConfirm(isPresented: $confirmCancel, title: "Cancel this order?", message: cancelMessage, confirmTitle: "Cancel order", cancelTitle: "Keep it", destructive: true) {
-            if shopSide { commerce.updateOrderStatus(id, status: "CANCELLED") } else { commerce.cancelOrder(id) }
+        // Buyer: a reason is optional. Shop cancelling an accepted order or rejecting a new one: a reason is required. The sheets close only once the server agreed.
+        .sheet(isPresented: $confirmCancel) {
+            OrderReasonSheet(title: "Cancel this order?", message: cancelMessage, reasons: shopSide ? CancelReasons.shop : CancelReasons.buyer,
+                             requireReason: shopSide, confirmLabel: "Cancel order", run: { code, finish in
+                if shopSide { commerce.updateOrderStatus(id, status: "CANCELLED", reason: code, done: finish) } else { commerce.cancelOrder(id, reason: code, done: finish) }
+            }, onClose: { confirmCancel = false })
         }
-        .bucksConfirm(isPresented: $confirmReject, title: "Reject this order?", message: "The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.",
-                      confirmTitle: "Reject", cancelTitle: "Keep it", destructive: true) { commerce.respondOrder(id, accept: false) }
+        .sheet(isPresented: $confirmReject) {
+            OrderReasonSheet(title: "Reject this order?", message: "The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.",
+                             reasons: CancelReasons.shopReject, requireReason: true, confirmLabel: "Reject order", reasonTitle: "Why can't you take it?", run: { code, finish in
+                commerce.respondOrder(id, accept: false, reason: code, done: finish)
+            }, onClose: { confirmReject = false })
+        }
         .sheet(isPresented: $showShip) { ShipSheet { c, t, u in showShip = false; commerce.shipOrder(id, carrier: c, tracking: t, url: u) } }
     }
 

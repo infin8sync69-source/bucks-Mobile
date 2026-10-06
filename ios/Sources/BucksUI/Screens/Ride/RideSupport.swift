@@ -126,8 +126,8 @@ struct ShareAction: View {
 func tripShareText(_ r: Ride, _ d: Driver) -> String { "I'm on a Bucks ride to \(r.dest.name) with \(d.name), \(d.model) \(d.plate)." }
 
 /// The reason sheet for cancelling a ride. While nobody has accepted (`driverName` nil) no reason is needed; once a driver did, one is
-/// required and the driver is told why. The sheet stays open until the server has cancelled: a refusal shows its message as a toast and
-/// leaves the ride and this sheet in place. `onCancelled` runs once the ride is gone; `onClose` when the rider keeps it.
+/// required and the driver is told why. The sheet stays open until the server has cancelled: a refusal shows the server's message in the
+/// sheet (it covers the toasts) and leaves the ride where it is. `onCancelled` runs once the ride is gone; `onClose` when the rider keeps it.
 struct RideCancelSheet: View {
     let driverName: String?
     let arrived: Bool
@@ -136,6 +136,7 @@ struct RideCancelSheet: View {
     @Environment(AppSession.self) private var session
     @State private var busy = false
     @State private var stats: CancelStats?
+    @State private var error: String?
 
     private var message: String {
         guard let driverName else { return "No driver has accepted yet, so nothing is charged." }
@@ -148,10 +149,10 @@ struct RideCancelSheet: View {
             title: driverName == nil ? "Cancel the request?" : "Cancel this ride?", message: message,
             reasons: CancelReasons.rider, requireReason: driverName != nil, confirmLabel: driverName == nil ? "Cancel request" : "Cancel ride",
             keepLabel: driverName == nil ? "Keep waiting" : "Keep ride",
-            nudge: n >= 2 ? "You've cancelled \(n) rides after a driver accepted today. Drivers lose time and fuel when that happens." : nil, busy: busy,
+            nudge: n >= 2 ? "You've cancelled \(n) rides after a driver accepted today. Drivers lose time and fuel when that happens." : nil, busy: busy, error: error,
             onConfirm: { code, note in
-                busy = true
-                Task { let ok = await session.cancelRide(reason: code, note: note); busy = false; if ok { onCancelled() } }
+                busy = true; error = nil
+                Task { let err = await session.cancelRide(reason: code, note: note); busy = false; if let err { error = err } else { onCancelled() } }
             }, onDismiss: onClose)
         .task { if driverName != nil { stats = try? await Backend.shared.myCancelStats() } }
     }

@@ -4,8 +4,9 @@ import BucksCore
 /// "Are you sure, and why?" for cancelling a ride or an order (Android `CancelSheet`). One tap on the keep button keeps everything;
 /// cancelling needs a reason when `requireReason` (someone has already accepted), so the other side hears why. The reasons are
 /// `CancelReasons` (BucksCore); "OTHER" opens a short note (200 characters). `nudge` is a gentle reminder, e.g. how often I cancelled today.
-/// `onConfirm` does not close the sheet: the caller closes it once the server has agreed (so a refusal leaves it open), and shows `busy`
-/// while the call is in flight. Present it with `.sheet`; it sizes itself and cannot be swiped away while busy.
+/// `onConfirm` does not close the sheet: the caller closes it once the server has agreed (so a refusal leaves it open), shows `busy`
+/// while the call is in flight, and passes the server's refusal as `error`, which this sheet prints itself (a sheet covers the app's toasts).
+/// Present it with `.sheet`; it cannot be swiped away while busy.
 public struct CancelSheet: View {
     let title: String
     let message: String
@@ -16,6 +17,7 @@ public struct CancelSheet: View {
     var reasonTitle: String
     var nudge: String?
     var busy: Bool
+    var error: String?
     let onConfirm: (_ code: String?, _ note: String) -> Void
     let onDismiss: () -> Void
 
@@ -23,10 +25,10 @@ public struct CancelSheet: View {
     @State private var note = ""
 
     public init(title: String, message: String, reasons: [CancelReason], requireReason: Bool, confirmLabel: String,
-                keepLabel: String = "Keep it", reasonTitle: String = "Why are you cancelling?", nudge: String? = nil, busy: Bool = false,
+                keepLabel: String = "Keep it", reasonTitle: String = "Why are you cancelling?", nudge: String? = nil, busy: Bool = false, error: String? = nil,
                 onConfirm: @escaping (_ code: String?, _ note: String) -> Void, onDismiss: @escaping () -> Void) {
         self.title = title; self.message = message; self.reasons = reasons; self.requireReason = requireReason; self.confirmLabel = confirmLabel
-        self.keepLabel = keepLabel; self.reasonTitle = reasonTitle; self.nudge = nudge; self.busy = busy
+        self.keepLabel = keepLabel; self.reasonTitle = reasonTitle; self.nudge = nudge; self.busy = busy; self.error = error
         self.onConfirm = onConfirm; self.onDismiss = onDismiss
     }
 
@@ -45,6 +47,10 @@ public struct CancelSheet: View {
                     BucksField(Binding(get: { note }, set: { note = String($0.prefix(200)) }), placeholder: "Tell them in a few words (optional)", singleLine: false, minLines: 2)
                         .padding(.top, 8)
                     Muted("\(note.count)/200", align: .trailing).padding(.top, -8).padding(.bottom, 4)
+                }
+                if let error {
+                    Text(error).bucks(.bodySmall).foregroundStyle(BucksColor.error).multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity).padding(.top, 12).accessibilityAddTraits(.updatesFrequently)
                 }
                 PrimaryButton(keepLabel, enabled: !busy) { onDismiss() }.padding(.top, 16)
                 BadButton(busy ? "Cancelling…" : confirmLabel, enabled: canConfirm) { onConfirm(sel, note.trimmingCharacters(in: .whitespacesAndNewlines)) }

@@ -71,19 +71,18 @@ extension Backend {
 }
 
 extension AppSession {
-    /// Rider: cancel before the trip starts, with the reason from the sheet. Shows the server's answer; true means the ride is gone and the
-    /// caller may close its sheet and leave the screen, false leaves the ride (and the sheet) where they are.
-    public func cancelRide(reason: String?, note: String) async -> Bool {
-        guard let r = dispatch.ride else { return true }
-        if dispatch.cancelling { return false }   // a cancel is already on its way; its own call reports the outcome
-        guard [.searching, .noDriver, .matched, .arrived].contains(r.status) else { toast("This trip has already started, so it can't be cancelled here."); return false }
-        if let err = await dispatch.cancelRide(reason: reason, note: note) { toast(err); return false }
-        toast("Ride cancelled. Nothing to pay."); return true
+    /// Rider: cancel before the trip starts, with the reason from the sheet. Returns nil once the ride is gone (the caller may close its sheet
+    /// and leave the screen), otherwise the server's sentence for the sheet to show; the ride and the sheet then stay where they are.
+    public func cancelRide(reason: String?, note: String) async -> String? {
+        guard let r = dispatch.ride else { return nil }
+        if dispatch.cancelling { return "Still cancelling. One moment." }   // a cancel is already on its way
+        guard [.searching, .noDriver, .matched, .arrived].contains(r.status) else { return "This trip has already started, so it can't be cancelled here." }
+        if let err = await dispatch.cancelRide(reason: reason, note: note) { return err }
+        toast("Ride cancelled. Nothing to pay."); return nil
     }
-    /// Driver: hand the trip back with the reason from the sheet. Dispatch shows any refusal as a toast; true means it was handed back.
-    public func driverHandBack(reason: String?, note: String) async -> Bool {
-        let ok = await dispatch.driverCancel(reason: reason, note: note)
-        if ok { toast("Handed back. Other riders will be rung for it.") }
-        return ok
+    /// Driver: hand the trip back with the reason from the sheet. Returns nil once it is handed back, otherwise the sentence for the sheet to show.
+    public func driverHandBack(reason: String?, note: String) async -> String? {
+        if let err = await dispatch.driverCancel(reason: reason, note: note) { return err }
+        toast("Handed back. Other riders will be rung for it."); return nil
     }
 }

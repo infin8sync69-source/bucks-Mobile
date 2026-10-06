@@ -54,11 +54,13 @@ struct VendorOrdersScreen: View {
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .bucksBackground().bucksHideNavigationBar()
-        .bucksConfirm(isPresented: Binding(get: { rejectFor != nil }, set: { if !$0 { rejectFor = nil } }), title: "Reject this order?",
-                      message: rejectFor.map { "\(commerce.nameOf($0.buyerId)) will be told the shop couldn't take it. Rejecting often lowers how high \(title) shows in search." },
-                      confirmTitle: "Reject", cancelTitle: "Keep it", destructive: true) {
-            if let o = rejectFor { commerce.respondOrder(o.id, accept: false) }
-            rejectFor = nil
+        // A reason is required; the sheet closes only once the server agreed to the rejection.
+        .sheet(item: $rejectFor) { o in
+            OrderReasonSheet(title: "Reject this order?",
+                             message: "\(commerce.nameOf(o.buyerId)) will be told the shop couldn't take it. Rejecting often lowers how high \(title) shows in search.",
+                             reasons: CancelReasons.shopReject, requireReason: true, confirmLabel: "Reject order", reasonTitle: "Why can't you take it?", run: { code, finish in
+                commerce.respondOrder(o.id, accept: false, reason: code, done: finish)
+            }, onClose: { rejectFor = nil })
         }
         .sheet(item: $shipFor) { o in ShipSheet { c, t, u in shipFor = nil; commerce.shipOrder(o.id, carrier: c, tracking: t, url: u) } }
         .onAppear { seenTick = commerce.newOrderTick; commerce.ordersFor(listingId) }
