@@ -45,6 +45,8 @@ import com.bucks.app.ui.upiPayLink
 import com.bucks.app.ui.upiPayee
 import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
+import com.bucks.app.ui.screens.manage.onlineLabel
+import com.bucks.app.ui.screens.manage.studioIcon
 import com.bucks.app.ui.theme.status
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
@@ -99,13 +101,16 @@ fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Uni
     // Cloud builds: the vehicle comes from My vehicles on the server (checked ones only); demo builds use the local one.
     val s by vm.state.collectAsState(); val cloud = vm.dispatch.enabled; val v = if (cloud) null else s.pro?.vehicle; val cv = vm.cloudVehicle
     ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-        Text(if (s.receiving) "You're online" else "You're offline", style = MaterialTheme.typography.titleLarge); Muted("Only online listings receive rides, orders and service requests.")
+        Text(if (vm.providerOnline) "You're online" else "You're offline", style = MaterialTheme.typography.titleLarge); Muted("Only online listings receive rides, orders and service requests.")
         Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (v != null) OnlineRow(v.kind.icon, "${v.model} · ${v.plate}", if (s.vehicleOnline) "Receiving ride requests" else "Offline", s.vehicleOnline) { vm.setVehicleOnline(v.id, it) }
             if (cv != null) { val k = runCatching { VehicleKind.valueOf(cv.kind) }.getOrDefault(VehicleKind.AUTO)
                 OnlineRow(k.icon, "${cv.model.ifBlank { k.label }} · ${cv.plate}", when { s.vehicleOnline -> if (k == VehicleKind.BIKE) "Receiving delivery requests" else "Receiving ride requests"; s.online -> "Going online…"; else -> "Offline" }, s.vehicleOnline) { vm.setOnline(it, cv.plate) } }
             s.businesses.forEachIndexed { i, b -> OnlineRow(categoryIcon(b.category), b.name, if (b.online) "Open for orders" else "Closed", b.online) { vm.setBusinessOnline(i, it) } }
             s.pro?.skillListings.orEmpty().forEach { k -> OnlineRow(categoryIcon(k.name), k.name, if (k.online) "Taking service requests" else "Offline", k.online) { vm.setSkillOnline(k.name, it) } }
+            // Cloud builds: my live shops and pro profiles, switched on and off here and in the Studio.
+            vm.myListings.listings.filter { it.status == "LIVE" && (it.kind == "BUSINESS" || it.kind == "SKILL") }.forEach { l ->
+                OnlineRow(studioIcon(l), l.title, onlineLabel(l.kind, l.online), l.online) { vm.myListings.setOnline(l.id, it) } }
         }
         if (s.mockLocation) Notice("Mock location is on. Turn it off to take rides.", Modifier.padding(bottom = 10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -194,7 +199,22 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
             }
         }
     }
-    if (cancel) AlertDialog(onDismissRequest = { cancel = false }, title = { Text(if (delivery) "Cancel this delivery?" else "Cancel this ride?") }, text = { Text("The ${if (delivery) "order" else "customer"} goes to the next rider. Cancelling after accepting counts against your recommendations.") }, confirmButton = { TextButton(onClick = { cancel = false; vm.driverCancel() }) { Text(if (delivery) "Cancel delivery" else "Cancel ride", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { cancel = false }) { Text(if (delivery) "Keep delivery" else "Keep ride") } })
+    if (cancel) DriverCancelSheet(vm, delivery) { cancel = false }
+}
+
+/** Handing a ride or delivery back: a reason is required so the customer or shop hears why, and it counts against the driver's record. */
+@Composable
+private fun DriverCancelSheet(vm: BucksViewModel, delivery: Boolean, onClose: () -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf<CancelStats?>(null) }
+    LaunchedEffect(Unit) { if (vm.cloud) stats = runCatching { Backend.myCancelStats() }.getOrNull() }
+    val n = stats?.driverDay ?: 0
+    CancelSheet(
+        title = if (delivery) "Hand this delivery back?" else "Hand this ride back?",
+        message = "The ${if (delivery) "order" else "customer"} goes to the next rider. Cancelling after accepting counts against your recommendations.",
+        reasons = CancelReasons.driver, requireReason = true, confirmLabel = if (delivery) "Cancel delivery" else "Cancel ride", keepLabel = "Keep it",
+        nudge = if (n >= 2) "You've handed back $n trips today. Customers and shops rely on riders who finish what they accept." else null, busy = busy,
+        onConfirm = { code, note -> busy = true; vm.driverCancel(code, note) { ok -> busy = false; if (ok) onClose() } }, onDismiss = onClose)
 }
 
 @Composable

@@ -185,7 +185,7 @@ object Backend {
         }).decodeAs()
     suspend fun ordersFor(listingId: String): List<OrderRow> = db.from("orders").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
     suspend fun myOrders(me: String): List<OrderRow> = db.from("orders").select { filter { eq("buyer_id", me) }; order("created_at", Order.DESCENDING) }.decodeList()
-    suspend fun respondOrder(id: String, accept: Boolean) { db.rpc("respond_order", buildJsonObject { put("p_order", id); put("p_accept", accept) }) }
+    suspend fun respondOrder(id: String, accept: Boolean, reason: String? = null) { db.rpc("respond_order", buildJsonObject { put("p_order", id); put("p_accept", accept); put("p_reason", reason) }) }
 
     // ---------- reviews ----------
     suspend fun review(listingId: String, taskId: String?, orderId: String?, up: Boolean, comment: String) {

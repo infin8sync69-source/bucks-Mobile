@@ -204,6 +204,7 @@ fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit) {
 @Composable
 fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val r = s.ride ?: return
+    var cancel by remember { mutableStateOf(false) }
     val n = vm.onlineCount(r.kind)
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
@@ -215,13 +216,14 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit) {
         Sheet {
             if (r.status == RideStatus.SEARCHING) {
                 Row(verticalAlignment = Alignment.CenterVertically) { PulseRings(Modifier.size(56.dp)) { Icon(r.kind.icon, null, Modifier.size(26.dp).breathe(amount = 0.08f), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 12.dp)) { Text("Ringing $n rider${if (n > 1) "s" else ""}", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · within 5 km · first to accept gets the ride") } }
-                BadButton("Cancel request", Modifier.padding(top = 14.dp)) { vm.cancelRide("Changed my mind") }
+                BadButton("Cancel request", Modifier.padding(top = 14.dp)) { cancel = true }
             } else {
                 Text("No rider accepted", style = MaterialTheme.typography.titleLarge); Muted(if (n > 0) "All nearby riders were busy. Try again or switch vehicle type." else "Nobody is online nearby.")
                 PrimaryButton("Ring again", Modifier.padding(top = 14.dp)) { vm.requestRide() }; GhostButton("Change ride type", Modifier.padding(top = 10.dp), onClick = onChangeType)
             }
         }
     }
+    if (cancel) RideCancelSheet(vm, null, false) { cancel = false }
 }
 
 @Composable
@@ -255,12 +257,23 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
             GhostButton("Cancel ride") { cancel = true }
         } }
     }
-    if (cancel) Dialog(onDismissRequest = { cancel = false }) { Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surface) { Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("!", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge) }
-        Text("Cancel ride", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)); Muted("${d.name.substringBefore(' ')} is already on the way. Cancel anyway?", Modifier.padding(top = 4.dp), TextAlign.Center)
-        Button({ cancel = false; vm.cancelRide("Cancelled by rider") }, Modifier.fillMaxWidth().padding(top = 16.dp), shape = MaterialTheme.shapes.small) { Text("Cancel ride") }
-        TextButton({ cancel = false }) { Text("Keep ride") }
-    } } }
+    if (cancel) RideCancelSheet(vm, d.name.substringBefore(' '), arrived) { cancel = false }
+}
+
+/** The reason sheet for cancelling a ride. While nobody has accepted no reason is needed; once a driver did, one is required and the driver is told why. */
+@Composable
+private fun RideCancelSheet(vm: BucksViewModel, driverName: String?, arrived: Boolean, onClose: () -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf<CancelStats?>(null) }
+    LaunchedEffect(Unit) { if (vm.cloud && driverName != null) stats = runCatching { Backend.myCancelStats() }.getOrNull() }
+    val n = stats?.riderDay ?: 0
+    CancelSheet(
+        title = if (driverName == null) "Cancel the request?" else "Cancel this ride?",
+        message = when { driverName == null -> "No driver has accepted yet, so nothing is charged."; arrived -> "$driverName is waiting at your pickup. Cancelling wastes their trip."; else -> "$driverName is already on the way to you." },
+        reasons = CancelReasons.rider, requireReason = driverName != null, confirmLabel = if (driverName == null) "Cancel request" else "Cancel ride",
+        keepLabel = if (driverName == null) "Keep waiting" else "Keep ride",
+        nudge = if (n >= 2) "You've cancelled $n rides after a driver accepted today. Drivers lose time and fuel when that happens." else null, busy = busy,
+        onConfirm = { code, note -> busy = true; vm.cancelRide(code, note) { ok -> busy = false; if (ok) onClose() } }, onDismiss = onClose)
 }
 
 @Composable

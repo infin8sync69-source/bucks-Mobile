@@ -58,7 +58,7 @@ private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km"
  * BUSINESS: Products, Jobs, About, Reviews. SKILL: Services, Feed, About, Reviews. DRIVER: About, Reviews, plus Book.
  */
 @Composable
-fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit, onCart: () -> Unit, onJobs: (String) -> Unit, onBook: (VehicleKind) -> Unit, onOpenListing: (String) -> Unit, onMap: () -> Unit = {}) {
+fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit, onCart: () -> Unit, onJobs: (String) -> Unit, onBook: (VehicleKind) -> Unit, onOpenListing: (String) -> Unit, onMap: () -> Unit = {}, onShowcaseDocs: (String) -> Unit = {}) {
     val d = vm.discover; val social = vm.social; val ctx = LocalContext.current
     LaunchedEffect(id) { d.open(id) }
     val p = d.profiles[id]
@@ -107,6 +107,8 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
                 StatsRow(listOfNotNull(Triple(p.syncs, "Synced", null), (Triple(p.products.size, "Products", { tab = "products" })).takeIf { l.kind == "BUSINESS" && p.products.isNotEmpty() }, Triple(l.trustUp, "Recommendations") { tab = "reviews" }, (Triple(p.members, "Team", null)).takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
+                val docCount by rememberShowcaseCount(id)
+                docCount?.takeIf { it > 0 }?.let { n -> Box(Modifier.padding(top = 8.dp)) { Chip(if (n == 1) "1 document" else "$n documents", icon = Icons.Rounded.Description) { tab = "about" } } }
                 if (!p.mine) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RateButton(true, myDirect?.vote == 1, Modifier.weight(1f)) { rateVote = 1 }
                     RateButton(false, myDirect?.vote == -1, Modifier.weight(1f)) { rateVote = -1 }
@@ -142,7 +144,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 "services" -> ServicesTab(vm, p, onOpenChat)
                 "feed" -> FeedTab(vm, p)
                 "photos" -> GalleryTab(l)
-                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); if (l.kind == "BUSINESS" && photos) { SectionTitle("Photos", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); GalleryTab(l) } }
+                "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); ShowcaseDocsSection(vm, id, p.mine, onManage = { onShowcaseDocs(id) }); if (l.kind == "BUSINESS" && photos) { SectionTitle("Photos", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); GalleryTab(l) } }
                 "reviews" -> ReviewsTab(vm, p, myDirect) { rateVote = it }
             }
             Spacer(Modifier.height(24.dp))

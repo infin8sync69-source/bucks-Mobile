@@ -94,6 +94,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Cloud builds: the checked (ACTIVE) vehicle the online switch uses: the one online now, else the first ACTIVE one I own or drive. Null in demo builds. */
     val cloudVehicle: VehicleRow? get() = if (!dispatch.enabled) null
         else dispatch.vehicle?.takeIf { dispatch.online } ?: (if (myListings.loaded) myListings.vehicles else dispatch.vehicles).firstOrNull { it.status == "ACTIVE" }
+    /** True while I'm online as anything that takes work: my vehicle, or a live shop or pro listing. The Home button shows only then. */
+    val providerOnline: Boolean get() = s.vehicleOnline || (!dispatch.enabled && s.receiving) || myListings.listings.any { it.status == "LIVE" && it.online && (it.kind == "BUSINESS" || it.kind == "SKILL") }
+    /** Offline but able to go online (a checked vehicle, a live shop or pro listing): Home offers a small "Go online" chip instead of the button. */
+    val canGoOnline: Boolean get() = !providerOnline && (cloudVehicle != null || myListings.listings.any { it.status == "LIVE" && (it.kind == "BUSINESS" || it.kind == "SKILL") }
+        || (!dispatch.enabled && (s.pro?.vehicle != null || s.businesses.isNotEmpty() || !s.pro?.skillListings.isNullOrEmpty())))
     /** A fresh UiState for sign-out and account deletion; cloud builds keep reading the online state from dispatch. */
     private fun freshState() = UiState(dispatchOnline = if (dispatch.enabled) false else null)
 
@@ -393,10 +398,17 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.ARRIVED)) }; toast("Your rider is here. Share PIN ${s.ride?.pin} to start.")
         }
     }
-    fun cancelRide(reason: String) { if (s.ride?.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) return; ringJob?.cancel(); driveJob?.cancel()
-        s.ride?.let { r -> _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides) } }
-        if (dispatch.enabled) dispatch.cancelRide() else _s.update { it.copy(ride = null) }
-        toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
+    /** [code] is a CancelReasons.rider code (the server keeps it; demo mode keeps its label). [onDone] runs once the cancel went through (false: it was refused and the ride stays). */
+    fun cancelRide(code: String?, note: String = "", onDone: (Boolean) -> Unit = {}) { val r = s.ride
+        if (r == null || r.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) { onDone(false); return }
+        val label = CancelReasons.rider.firstOrNull { it.first == code }?.second ?: "Cancelled by rider"
+        val finish = { ok: Boolean ->
+            if (ok) { ringJob?.cancel(); driveJob?.cancel()
+                _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = label)) + it.rides) }
+                if (!dispatch.enabled) _s.update { it.copy(ride = null) }
+                toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
+            onDone(ok) }
+        if (dispatch.enabled) dispatch.cancelRide(code, note, finish) else finish(true) }
     fun startTrip() {
         if (dispatch.enabled) return  // the driver starts the trip after checking the PIN
         _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.IN_RIDE)) }; navTo(Routes.IN_RIDE)
@@ -487,8 +499,9 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun setUpi(id: String) { val v = id.trim(); if (!Regex("^[\\w.\\-]{2,}@[a-zA-Z]{2,}$").matches(v)) { toast("A UPI ID looks like name@bank. Check it and try again."); return }; _s.update { it.copy(pro = (it.pro ?: ProProfile()).copy(upiId = v)) }; persist() }
     fun driverRateCustomer(stars: Int) { val up = stars >= 3; _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1)) }; persist()
         if (dispatch.enabled) dispatch.closeTrip() else _s.update { it.copy(driverRide = null) }; toast("Trip closed. Fare added to today's earnings.") }
-    fun driverCancel() { _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1)) }; persist()
-        if (dispatch.enabled) dispatch.driverCancel() else _s.update { it.copy(driverRide = null) }; toast("Ride cancelled. This counts against your recommendations.") }
+    fun driverCancel(code: String?, note: String = "", onDone: (Boolean) -> Unit = {}) {
+        val finish = { ok: Boolean -> if (ok) { _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1)) }; persist(); toast("Ride cancelled. This counts against your recommendations.") }; onDone(ok) }
+        if (dispatch.enabled) dispatch.driverCancel(code, note, finish) else { _s.update { it.copy(driverRide = null) }; finish(true) } }
     fun setProKind(k: ProKind) = _s.update { it.copy(proKind = k) }
     fun setProStep(n: Int) = _s.update { it.copy(proStep = n) }
     fun startPro(kind: ProKind?, step: Int) = _s.update { it.copy(proKind = kind, proStep = step, editBiz = null) }

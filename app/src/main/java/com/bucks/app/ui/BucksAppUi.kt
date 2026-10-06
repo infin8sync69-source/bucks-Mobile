@@ -117,7 +117,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             route.startsWith("order/") -> nav.navigate(route) { popUpTo(Routes.CART) { inclusive = true } }
             else -> nav.navigate(route) } } }
         // A tapped notification asked for a screen: open it once the person is signed in, then forget it (Push.safeRoute already vetted it).
-        LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect; runCatching { nav.navigate(r) { launchSingleTop = true } }; onStartRouteHandled() }
+        LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect; runCatching { nav.navigate(if (r.startsWith("doc-requests/")) Routes.showcaseDocs(r.removePrefix("doc-requests/")) else r) { launchSingleTop = true } }; onStartRouteHandled() }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
@@ -271,7 +271,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.EARNINGS) { EarningsScreen(vm, onBack = { nav.popBackStack() }) }
                             // Cloud builds post through social.post (the real feed); the demo screen writes to the local demo store.
                             composable(Routes.CREATE_POST) { if (vm.social.enabled) { Box(Modifier.fillMaxSize()); NewPostSheet(vm) { nav.popBackStack() } } else CreatePostScreen(vm, onClose = { nav.popBackStack() }) }
-                            composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { nav.navigate(if (it == "bucks-id") Routes.BUCKS_ID else if (it.startsWith("studio/")) Routes.studioListing(it.removePrefix("studio/")) else it) } }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
+                            composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { nav.navigate(if (it == "bucks-id") Routes.BUCKS_ID else if (it.startsWith("studio/")) Routes.studioListing(it.removePrefix("studio/")) else if (it.startsWith("doc-requests/")) Routes.showcaseDocs(it.removePrefix("doc-requests/")) else it) } }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
                             composable(Routes.GROUP_NEW) { if (vm.social.enabled) NewGroupScreen(vm, onBack = { nav.popBackStack() }, onCreated = { id -> nav.navigate(Routes.chat(id)) { popUpTo(Routes.MESSAGES) } }) else LaunchedEffect(Unit) { nav.popBackStack() } }
                             composable(Routes.CHAT, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!; if (vm.social.enabled) CloudChatScreen(vm, id, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) else ChatScreen(vm, id, onBack = { nav.popBackStack() }, onCall = call) }
                             composable(Routes.SYNC) { SyncScreen(vm, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
@@ -287,7 +287,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.PAYMENT_QR) { PaymentQrScreen(vm, onBack = { nav.popBackStack() }) }
                             // Discover (cloud-only): the universal listing profile for a business, skill or driver.
                             composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
-                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onMap = { nav.navigate(Routes.MAPS) }) }
+                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onMap = { nav.navigate(Routes.MAPS) }, onShowcaseDocs = { nav.navigate(Routes.showcaseDocs(it)) }) }
                             // Commerce (cloud-only): cart + checkout, order page, my orders and the vendor order inbox.
                             composable(Routes.CLOUD_CART) { CloudCartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { ids -> if (ids.size == 1) nav.navigate(Routes.cloudOrder(ids.first())) { popUpTo(Routes.CLOUD_CART) { inclusive = true } } else nav.navigate(Routes.MY_ORDERS) { popUpTo(Routes.CLOUD_CART) { inclusive = true } } }) }
                             composable(Routes.CLOUD_ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> CloudOrderScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onTrack = { nav.navigate(Routes.deliveryTrack(it)) }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
@@ -307,6 +307,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) },
                                 onItem = { l, i -> nav.navigate(Routes.itemEdit(l, i ?: "new")) },
                                 onDocs = { nav.navigate(Routes.listingDocs(it)) },
+                                onShowcaseDocs = { nav.navigate(Routes.showcaseDocs(it)) },
                                 onMembers = { nav.navigate(Routes.members(it)) },
                                 onRecommend = { nav.navigate(Routes.recommendShow(it)) },
                                 onOrders = { nav.navigate(Routes.vendorOrders(it)) },
@@ -329,6 +330,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                     // A just-created listing opens its dashboard (with the go-live checklist) in place of the empty "Add" form.
                                     onCreated = { id -> nav.navigate(Routes.studioListing(id)) { popUpTo(Routes.LISTING_EDIT) { inclusive = true } } }) }
                             composable(Routes.LISTING_DOCS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ListingDocsScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
+                            composable(Routes.SHOWCASE_DOCS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ShowcaseDocsManageScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
                             composable(Routes.STAFF_REVIEW) { StaffReviewScreen(vm, onBack = { nav.popBackStack() }) }
                             // ITEM_EDIT convention (there is no separate items-list route): item == null -> the list (ItemsScreen); item == "new" -> add; any other id -> edit that item.
                             composable(Routes.ITEM_EDIT, arguments = listOf(navArgument("listing") { type = NavType.StringType }, navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->

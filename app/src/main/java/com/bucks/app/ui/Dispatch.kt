@@ -119,9 +119,19 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         if (st == RideStatus.SEARCHING && prev != null && prev.status != RideStatus.SEARCHING) startNoDriverTimer(t.id)
         if (st in setOf(RideStatus.PAID, RideStatus.CANCELLED, RideStatus.NO_DRIVER)) stopFollowingRide()
     }
-    /** Cancel before the trip starts; the server refuses once the driver has entered the PIN. */
-    fun cancelRide() { val r = _ride.value ?: return; stopFollowingRide(); _ride.value = null
-        go { runCatching { Backend.advanceTask(r.id, "CANCELLED") }.onFailure { if (r.status !in setOf(RideStatus.NO_DRIVER, RideStatus.CANCELLED)) throw it } } }
+    /**
+     * Cancel before the trip starts; the server refuses once the driver has entered the PIN. The ride stays on screen until the server agrees,
+     * so a refusal never leaves the rider without their trip. [reason] is a CancelReasons.rider code (required once a driver accepted).
+     */
+    fun cancelRide(reason: String?, note: String = "", onDone: (Boolean) -> Unit = {}) { val r = _ride.value ?: run { onDone(true); return }
+        scope.launch {
+            try { Backend.cancelTask(r.id, reason, note); stopFollowingRide(); _ride.value = null; onDone(true) }
+            catch (e: Exception) {
+                val m = friendly(e)
+                // Already cancelled elsewhere (the realtime update raced us): same result for the rider.
+                if (m.contains("it is cancelled")) { stopFollowingRide(); _ride.value = null; onDone(true) } else { toast(m); onDone(false) }
+            }
+        } }
     /** The rider confirms they paid (UPI app or cash); the driver's screen picks it up. */
     fun payRide(method: String) { val r = _ride.value ?: return
         go { val t = Backend.advanceTask(r.id, "PAID", paidWith = method); stopFollowingRide(); _ride.value = r.copy(status = RideStatus.PAID, paidWith = t.paidWith ?: method) } }
@@ -258,10 +268,13 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     fun driverPaid(method: String) { val d = _driverRide.value ?: return; _driverRide.value = d.copy(status = DriverRideStatus.RATE, paidWith = method) }
     /** Trip closed on this phone (after rating the customer); ring the next request. */
     fun closeTrip() { stopDriverTask(); _driverRide.value = null; nudges.trySend(Unit) }
-    /** Hands the request back so it rings other drivers. Allowed until the PIN is entered. */
-    fun driverCancel() { val d = _driverRide.value ?: return
-        if (d.status == DriverRideStatus.RINGING) { driverDecline(); return }
-        go { Backend.advanceTask(d.id, "SEARCHING"); stopDriverTask(); passed += d.id; _driverRide.value = null; nudges.trySend(Unit) } }
+    /** Hands the request back so it rings other drivers. Allowed until the PIN is entered; [reason] is a CancelReasons.driver code. */
+    fun driverCancel(reason: String?, note: String = "", onDone: (Boolean) -> Unit = {}) { val d = _driverRide.value ?: run { onDone(true); return }
+        if (d.status == DriverRideStatus.RINGING) { driverDecline(); onDone(true); return }
+        scope.launch {
+            try { Backend.releaseTask(d.id, reason ?: "OTHER", note); stopDriverTask(); passed += d.id; _driverRide.value = null; nudges.trySend(Unit); onDone(true) }
+            catch (e: Exception) { toast(friendly(e)); onDone(false) }
+        } }
     /** Real position: moves me on the map and updates distance left; the server gets it from DriverLocationService. */
     fun driverMoved(p: LatLng) {
         val dr = _driverRide.value?.takeIf { it.status in setOf(DriverRideStatus.TO_PICKUP, DriverRideStatus.ARRIVED, DriverRideStatus.IN_RIDE) } ?: return

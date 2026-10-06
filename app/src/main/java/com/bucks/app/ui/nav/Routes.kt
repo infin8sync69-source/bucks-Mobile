@@ -21,6 +21,8 @@ object Routes {
     fun listingEdit(id: String?, kind: String, service: String? = null) = "edit-listing?kind=$kind" + (id?.let { "&id=${Uri.encode(it)}" } ?: "") + (service?.let { "&service=$it" } ?: "")
     /** The documents a listing's service needs (services.sql). */
     const val LISTING_DOCS = "listing-docs/{id}"; fun listingDocs(id: String) = "listing-docs/${Uri.encode(id)}"
+    /** The documents a profile shows to visitors (showcase_docs.sql); not the compliance documents above. */
+    const val SHOWCASE_DOCS = "showcase-docs/{id}"; fun showcaseDocs(id: String) = "showcase-docs/${Uri.encode(id)}"
     /** Bucks staff: documents waiting for review. */
     const val STAFF_REVIEW = "staff/review"
     const val ITEM_EDIT = "edit-item/{listing}?item={item}"; fun itemEdit(listing: String, item: String?) = "edit-item/${Uri.encode(listing)}" + (item?.let { "?item=${Uri.encode(it)}" } ?: "")

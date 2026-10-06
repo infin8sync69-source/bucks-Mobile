@@ -79,11 +79,11 @@ suspend fun Backend.contactForOrder(orderId: String): OrderContactRow? =
     client.postgrest.rpc("contact_for_order", buildJsonObject { put("p_order", orderId) }).decodeList<OrderContactRow>().firstOrNull()
 
 /** Buyer cancels while the order is still PLACED. */
-suspend fun Backend.cancelOrder(orderId: String) { client.postgrest.rpc("cancel_order", buildJsonObject { put("p_order", orderId) }) }
+suspend fun Backend.cancelOrder(orderId: String, reason: String? = null) { client.postgrest.rpc("cancel_order", buildJsonObject { put("p_order", orderId); put("p_reason", reason) }) }
 
 /** Vendor marks an accepted order READY, a pick-up order DELIVERED once collected, or CANCELLED when no rider has it (or the buyer never came). */
-suspend fun Backend.updateOrderStatus(orderId: String, status: String) {
-    client.postgrest.rpc("update_order_status", buildJsonObject { put("p_order", orderId); put("p_status", status) })
+suspend fun Backend.updateOrderStatus(orderId: String, status: String, reason: String? = null) {
+    client.postgrest.rpc("update_order_status", buildJsonObject { put("p_order", orderId); put("p_status", status); put("p_reason", reason) })
 }
 
 /** Inserts and updates on a shop's orders as they happen (row-level security still applies). Close the channel when the screen goes away. */

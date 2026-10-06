@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.CloudOrderRow
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.data.CancelReasons
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.dial
 import com.bucks.app.ui.nav.Routes
@@ -80,8 +81,14 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
         }
     }
     shipFor?.let { o -> ShipSheet({ shipFor = null }) { c, t, u -> shipFor = null; commerce.shipOrder(o.id, c, t, u) } }
-    rejectFor?.let { o -> AlertDialog(onDismissRequest = { rejectFor = null }, title = { Text("Reject this order?") }, text = { Text("${social.nameOf(o.buyerId)} will be told the shop couldn't take it. Rejecting often lowers how high ${title} shows in search.") },
-        confirmButton = { TextButton({ commerce.respondOrder(o.id, false); rejectFor = null }) { Text("Reject", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ rejectFor = null }) { Text("Keep it") } }) }
+    rejectFor?.let { o ->
+        var busy by remember { mutableStateOf(false) }
+        CancelSheet(
+            title = "Reject this order?", message = "${social.nameOf(o.buyerId)} will be told the shop couldn't take it. Rejecting often lowers how high $title shows in search.",
+            reasons = CancelReasons.shopReject, requireReason = true, confirmLabel = "Reject order", reasonTitle = "Why can't you take it?", busy = busy,
+            onConfirm = { code, _ -> busy = true; commerce.respondOrder(o.id, false, code) { ok -> busy = false; if (ok) rejectFor = null } },
+            onDismiss = { rejectFor = null })
+    }
 }
 
 @Composable

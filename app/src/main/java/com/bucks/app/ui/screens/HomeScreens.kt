@@ -112,6 +112,15 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     // Cloud dispatch polls online drivers every 15 s only while a map is on screen.
     DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
     var showOnline by remember { mutableStateOf(false) }
+    var showActivity by remember { mutableStateOf(false) }
+    val activity = activityItems(vm)
+    // Keep my orders and listings fresh while Home is on screen, so the activity button and the online button follow the server.
+    LaunchedEffect(vm.social.me?.id) {
+        if (vm.social.me != null) {
+            if (!vm.myListings.loaded) vm.myListings.refresh()
+            while (true) { vm.commerce.refreshMyOrders(); kotlinx.coroutines.delay(20_000) }
+        }
+    }
     val wide = windowWidth() != Width.COMPACT
     val unread = vm.unreadCount(chats)
     run {
@@ -133,14 +142,19 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())
-                Sheet { panel(); Spacer(Modifier.height(24.dp)) }
+                Sheet { panel()
+                    if (vm.canGoOnline) Box(Modifier.padding(top = 6.dp)) { Chip("You're offline · Go online", icon = Icons.Rounded.PowerSettingsNew) { showOnline = true } }
+                    Spacer(Modifier.height(24.dp)) }
             }
-            // Cloud drivers with a checked vehicle get the button while offline too: it opens the sheet with their vehicle switch.
-            if (s.receiving || vm.cloudVehicle != null) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
+            // Only while I'm online (a driver switch or a live shop / pro listing); offline, a small chip in the sheet opens the same switches.
+            if (vm.providerOnline) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
+            // A customer with a ride or an order open: what is happening, one tap away.
+            if (activity.isNotEmpty()) ActivityFab(activity, Modifier.align(Alignment.BottomStart).padding(start = Gutter - 4.dp, bottom = 198.dp)) { if (activity.size == 1) vm.open(activity[0].route) else showActivity = true }
             s.driverRide?.takeIf { it.status == DriverRideStatus.RINGING }?.let { dr -> RideRequestCard(dr, onAccept = { vm.driverAccept() }, onDecline = { vm.driverDecline() }, modifier = Modifier.align(Alignment.Center)) }
         }
     }
     if (showOnline) OnlineSheet(vm, onDismiss = { showOnline = false }, onListings = onListings, onEarnings = onEarnings)
+    if (showActivity) ActivitySheet(activity, onOpen = { showActivity = false; vm.open(it.route) }, onDismiss = { showActivity = false })
 }
 
 /**

@@ -146,7 +146,8 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     fun loadOrder(id: String) = go { order(id) }
     suspend fun taskForOrder(orderId: String): TaskRow? = Backend.taskForOrder(orderId)
     suspend fun contactFor(orderId: String): OrderContactRow? = Backend.contactForOrder(orderId)
-    fun cancelOrder(id: String, then: () -> Unit = {}) = go { Backend.cancelOrder(id); toast("Order cancelled. Nothing to pay."); order(id); refreshMyOrders(); then() }
+    /** [reason] is a CancelReasons.buyer code. [done] gets true once the server cancelled it, false when it refused (the reason sheet stays open). */
+    fun cancelOrder(id: String, reason: String? = null, done: (Boolean) -> Unit = {}) = goDone(done) { Backend.cancelOrder(id, reason); toast("Order cancelled. Nothing to pay."); order(id); refreshMyOrders() }
 
     // ---------- vendor inbox ----------
     var vendorOrders by mutableStateOf<List<CloudOrderRow>>(emptyList()); private set
@@ -187,14 +188,14 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         liveListing = null
     }
     /** Owner or admin accepts (which creates the delivery task) or rejects a PLACED order. */
-    fun respondOrder(id: String, accept: Boolean) = go {
-        Backend.respondOrder(id, accept)
+    fun respondOrder(id: String, accept: Boolean, reason: String? = null, done: (Boolean) -> Unit = {}) = goDone(done) {
+        Backend.respondOrder(id, accept, reason)
         toast(if (accept) "Accepted. The customer can see it is on the way." else "Rejected. The customer has been told.")
         refreshVendorOrder(id)
     }
     /** READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came). */
-    fun updateOrderStatus(id: String, status: String) = go {
-        Backend.updateOrderStatus(id, status)
+    fun updateOrderStatus(id: String, status: String, reason: String? = null, done: (Boolean) -> Unit = {}) = goDone(done) {
+        Backend.updateOrderStatus(id, status, reason)
         toast(when (status) { "READY" -> "Marked ready."; "CANCELLED" -> "Order cancelled. The customer has been told."; else -> "Marked as collected. Thanks!" })
         refreshVendorOrder(id)
     }
@@ -204,6 +205,8 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     }
 
     private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: Exception) { toast(friendly(e)) } }
+    /** Like [go], and tells the caller whether it worked, so a reason sheet can stay open on a refusal. */
+    private fun goDone(done: (Boolean) -> Unit, block: suspend () -> Unit) = scope.launch { try { block(); done(true) } catch (e: Exception) { toast(friendly(e)); done(false) } }
     /** Our own database errors come back wrapped; show just the sentence we wrote. */
     private fun friendly(e: Exception): String {
         val m = e.message ?: return "Something went wrong. Try again."

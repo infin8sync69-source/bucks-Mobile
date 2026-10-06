@@ -19,6 +19,7 @@ import com.bucks.app.data.OrderContactRow
 import com.bucks.app.data.TaskRow
 import com.bucks.app.data.liveOrder
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.data.CancelReasons
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.dial
 import com.bucks.app.ui.screens.ago
@@ -148,17 +149,26 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
     // The order as the shop sees it (null for the buyer): decides which cancel the dialog runs.
     val shopOrder = commerce.orders[orderId]?.takeIf { it.buyerId != social.me?.id }
     val shopSide = shopOrder != null
-    if (confirmCancel) AlertDialog(onDismissRequest = { confirmCancel = false }, title = { Text("Cancel this order?") },
-        text = { Text(when {
+    var busy by remember { mutableStateOf(false) }
+    if (confirmCancel) CancelSheet(
+        title = "Cancel this order?",
+        message = when {
             shopOrder == null -> "The shop hasn't accepted it yet, so nothing is charged. Once they accept, it can't be cancelled."
             shopOrder.shipped -> "Use this when you can't fulfil the order. The customer is told it was cancelled and the stock goes back." + (if (shopOrder.payment == "UPI") " If they already paid you by UPI, refund them." else "")
             shopOrder.deliveryMode == "PICKUP" -> "Use this when the customer isn't coming to collect it. They'll be told it was cancelled." + (if (shopOrder.payment == "UPI") " If they already paid you by UPI, refund them." else "")
             else -> "Use this when no rider has taken the delivery; once a rider has it, it can't be cancelled." + (if (shopOrder.payment == "UPI") " If the customer already paid you by UPI, refund them." else "")
-        }) },
-        confirmButton = { TextButton({ confirmCancel = false; if (shopSide) commerce.updateOrderStatus(orderId, "CANCELLED") else commerce.cancelOrder(orderId) }) { Text("Cancel order", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmCancel = false }) { Text("Keep it") } })
+        },
+        reasons = if (shopSide) CancelReasons.shop else CancelReasons.buyer, requireReason = shopSide, confirmLabel = "Cancel order", busy = busy,
+        onConfirm = { code, _ -> busy = true
+            val done = { ok: Boolean -> busy = false; if (ok) confirmCancel = false }
+            if (shopSide) commerce.updateOrderStatus(orderId, "CANCELLED", code, done) else commerce.cancelOrder(orderId, code, done) },
+        onDismiss = { confirmCancel = false })
     if (showShip) ShipSheet({ showShip = false }) { c, t, u -> showShip = false; commerce.shipOrder(orderId, c, t, u) }
-    if (confirmReject) AlertDialog(onDismissRequest = { confirmReject = false }, title = { Text("Reject this order?") }, text = { Text("The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.") },
-        confirmButton = { TextButton({ confirmReject = false; commerce.respondOrder(orderId, false) }) { Text("Reject", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmReject = false }) { Text("Keep it") } })
+    if (confirmReject) CancelSheet(
+        title = "Reject this order?", message = "The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.",
+        reasons = CancelReasons.shopReject, requireReason = true, confirmLabel = "Reject order", reasonTitle = "Why can't you take it?", busy = busy,
+        onConfirm = { code, _ -> busy = true; commerce.respondOrder(orderId, false, code) { ok -> busy = false; if (ok) confirmReject = false } },
+        onDismiss = { confirmReject = false })
 }
 
 /** Contact details are shared while the order is live or delivered, and after the shop cancelled an accepted one (for a refund). */

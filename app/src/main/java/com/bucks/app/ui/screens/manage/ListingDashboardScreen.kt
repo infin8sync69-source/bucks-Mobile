@@ -32,12 +32,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.bucks.app.data.Backend
 import com.bucks.app.data.ItemRow
 import com.bucks.app.data.ListingRow
 import com.bucks.app.data.MediaPhoto
 import com.bucks.app.data.Picked
 import com.bucks.app.data.PostRow
 import com.bucks.app.data.Upload
+import com.bucks.app.data.showcaseDocs
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.MyListings
 import com.bucks.app.ui.components.*
@@ -66,7 +68,7 @@ private fun tabsFor(kind: String, manage: Boolean): List<Pair<DashTab, String>> 
 @Composable
 fun ListingDashboardScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onEdit: (kind: String, id: String) -> Unit, onItem: (listingId: String, itemId: String?) -> Unit,
                            onDocs: (String) -> Unit, onMembers: (String) -> Unit, onRecommend: (String) -> Unit, onOrders: (String) -> Unit, onJobs: (String) -> Unit,
-                           onOpenProfile: (String) -> Unit, onPaymentQr: () -> Unit, onVehicles: () -> Unit) {
+                           onOpenProfile: (String) -> Unit, onPaymentQr: () -> Unit, onVehicles: () -> Unit, onShowcaseDocs: (String) -> Unit = {}) {
     val m = vm.myListings
     LaunchedEffect(id) { if (!m.loaded) m.refresh(); m.loadCounts(id) }
     val l = m.listing(id)
@@ -106,7 +108,7 @@ fun ListingDashboardScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, o
             Box(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
                 when (tab) {
                     DashTab.OVERVIEW -> OverviewTab(vm, l, manage, owner, goTo = { target ->
-                        when (target) { "EDIT" -> onEdit(l.kind, id); "PHOTOS" -> tab = DashTab.PHOTOS; "ITEMS" -> tab = DashTab.ITEMS; "VEHICLES" -> onVehicles(); "DOCS" -> onDocs(id); "RECOMMEND" -> onRecommend(id)
+                        when (target) { "EDIT" -> onEdit(l.kind, id); "PHOTOS" -> tab = DashTab.PHOTOS; "ITEMS" -> tab = DashTab.ITEMS; "VEHICLES" -> onVehicles(); "DOCS" -> onDocs(id); "SHOWCASE" -> onShowcaseDocs(id); "RECOMMEND" -> onRecommend(id)
                             "MEMBERS" -> onMembers(id); "ORDERS" -> onOrders(id); "JOBS" -> onJobs(id); "PAYMENT" -> onPaymentQr(); "PROFILE" -> onOpenProfile(id) } })
                     DashTab.ITEMS -> ItemsTab(m, l, onItem)
                     DashTab.PHOTOS -> PhotosTab(vm, l)
@@ -181,6 +183,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
             }
         }
         item { AboutCard(l, manage) { goTo("EDIT") } }
+        if (manage) item { ShowcaseDocsCard(l.id) { goTo("SHOWCASE") } }
         if (manage) item {
             SectionTitle("Manage", Modifier.padding(bottom = 4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -194,6 +197,20 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 ManageTile(Icons.Rounded.Visibility, "Customer view") { goTo("PROFILE") }
             }
         } else item { Notice("You're a store rider here: you deliver its orders. Only the owner and admins change the listing.") }
+    }
+}
+
+/** Entry to the documents shown on the public profile, with the number of people waiting for an answer. Separate from the documents Bucks checks. */
+@Composable
+private fun ShowcaseDocsCard(listingId: String, onClick: () -> Unit) {
+    var waiting by remember(listingId) { mutableStateOf(0) }
+    LaunchedEffect(listingId) { waiting = runCatching { Backend.showcaseDocs(listingId).sumOf { it.pendingRequests } }.getOrDefault(0) }
+    BucksCard(onClick = onClick, padding = 14) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Documents to show", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (waiting > 0) PillWarn("$waiting waiting")
+        }
+        Muted("Registrations, licences and certificates you show on your profile, and who may open each. Separate from the documents Bucks checks to take you live.", Modifier.padding(top = 4.dp))
     }
 }
 
