@@ -84,6 +84,7 @@ private struct ListingForm: View {
     @State private var moveHere: Bool
     @State private var confirmDelete = false
     @State private var areaSeeded = false
+    @State private var pickCategory = false
 
     init(kind: String, existing: ListingRow?, initialService: String?) {
         self.kind = kind; self.existing = existing
@@ -168,6 +169,14 @@ private struct ListingForm: View {
             }.padding(.horizontal, Gutter).padding(.vertical, 12)
         }
         .onAppear { if !areaSeeded { areaSeeded = true; if area.isEmpty { area = initialArea } } }
+        .sheet(isPresented: $pickCategory) {
+            CategoryPickerSheet(kind: kind, selected: category) { c in
+                category = c
+                // The service follows the type of business, unless the listing is live: then it stays and only the type is renamed.
+                if kind == "BUSINESS" && !serviceLocked { service = serviceForCategory(c) }
+                pickCategory = false
+            }
+        }
         .bucksPhotoPicker(isPresented: $picking, maxCount: 1) { files in
             guard let first = files.first else { return }
             if let ok = StudioPhoto.asListingPhoto(first) { photo = ok } else { session.toast("Couldn't read that image. Try a JPG or PNG photo.") }
@@ -187,16 +196,9 @@ private struct ListingForm: View {
 
     @ViewBuilder private var business: some View {
         BucksField(limited($title, 80), label: "Business name", placeholder: "Sri Lakshmi Stores")
-        FieldLabel("Service")
-        FlowChips(businessServices.compactMap { serviceDef($0)?.label }, selected: [serviceDef(service)?.label ?? ""]) { picked in
-            if serviceLocked { session.toast("A live listing can't move to another service. Ask Bucks support.") }
-            else if let key = businessServices.first(where: { serviceDef($0)?.label == picked }) {
-                service = key
-                if !(serviceDef(key)?.categories.contains(category) ?? false) { category = "" }
-            }
-        }
-        Muted(serviceLocked ? "Customers find you under \(serviceDef(service)?.label ?? ""). It can't change while you're live." : "Where customers find you in Services. It decides the documents Bucks checks.").padding(.top, 6).padding(.bottom, 12)
-        FieldLabel("Category"); FlowChips(serviceDef(service)?.categories ?? [], selected: [category]) { category = $0 }
+        FieldLabel("Type of business")
+        CategoryField(value: category, hint: "Pick a type, or add your own") { pickCategory = true }
+        Muted("Shows under \(serviceDef(service)?.label ?? "") in Services." + (serviceLocked ? " That can't change while you're live, but you can rename your type." : " It decides the documents Bucks checks.")).padding(.top, 6).padding(.bottom, 4)
         Spacer().frame(height: 14)
         BucksField(limited($description, 600), label: "About the business", placeholder: "What you sell, what you're known for", singleLine: false, minLines: 3)
         BucksField(limited($hours, 80), label: "Opening hours", placeholder: "9 am - 9 pm, closed Sundays")
@@ -217,7 +219,7 @@ private struct ListingForm: View {
 
     @ViewBuilder private var skill: some View {
         BucksField(limited($title, 80), label: "Skill", placeholder: "Plumber, Maths tutor, Wedding photographer")
-        FieldLabel("Category"); FlowChips(Studio.skillCategories, selected: [category]) { category = $0 }
+        FieldLabel("What do you do?"); CategoryField(value: category, hint: "Pick a field, or add your own") { pickCategory = true }
         Spacer().frame(height: 14)
         FieldLabel("Experience"); HStack(spacing: 8) { ForEach(Studio.levels, id: \.self) { l in BucksChip(l, selected: level == l) { level = l } } }
         Spacer().frame(height: 14)

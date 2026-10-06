@@ -205,10 +205,12 @@ public final class CommerceStore {
     public func loadOrder(_ id: String) { go { _ = try await self.order(id) } }
     public func taskForOrder(_ orderId: String) async throws -> TaskRow? { try await Backend.shared.taskForOrder(orderId) }
     public func contactFor(_ orderId: String) async throws -> OrderContactRow? { try await Backend.shared.contactForOrder(orderId) }
-    public func cancelOrder(_ id: String, then: @escaping () -> Void = {}) {
-        act(id) {
-            try await Backend.shared.cancelOrder(id); self.toast("Order cancelled. Nothing to pay.")
-            _ = try await self.order(id); self.refreshMyOrders(); then()
+    /// Buyer cancels a PLACED order. `reason` is a `CancelReasons.buyer` code. `done` gets true once the server cancelled it and false when it
+    /// refused or the call failed (the failure is already a toast), so a reason sheet can stay open on a refusal.
+    public func cancelOrder(_ id: String, reason: String? = nil, done: @escaping (Bool) -> Void = { _ in }) {
+        actDone(id, done: done) {
+            try await Backend.shared.cancelOrder(id, reason: reason); self.toast("Order cancelled. Nothing to pay.")
+            _ = try? await self.order(id); self.refreshMyOrders()
         }
     }
 
@@ -253,18 +255,20 @@ public final class CommerceStore {
         vendorOrders = []; vendorLoaded = false; actingOn = []
     }
 
-    /// Owner or admin accepts (which creates the delivery task) or rejects a PLACED order.
-    public func respondOrder(_ id: String, accept: Bool) {
-        act(id) {
-            try await Backend.shared.respondOrder(id, accept: accept)
+    /// Owner or admin accepts (which creates the delivery task) or rejects a PLACED order. `reason` is a `CancelReasons.shopReject` code for a
+    /// rejection. `done` gets true once the server agreed, false when it refused (the reason sheet stays open).
+    public func respondOrder(_ id: String, accept: Bool, reason: String? = nil, done: @escaping (Bool) -> Void = { _ in }) {
+        actDone(id, done: done) {
+            try await Backend.shared.respondOrder(id, accept: accept, reason: reason)
             self.toast(accept ? "Accepted. The customer can see it is on the way." : "Rejected. The customer has been told.")
             await self.refreshVendorOrder(id)
         }
     }
     /// READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came).
-    public func updateOrderStatus(_ id: String, status: String) {
-        act(id) {
-            try await Backend.shared.updateOrderStatus(id, status: status)
+    /// `reason` is a `CancelReasons.shop` code for CANCELLED. `done` gets true once the server agreed, false when it refused.
+    public func updateOrderStatus(_ id: String, status: String, reason: String? = nil, done: @escaping (Bool) -> Void = { _ in }) {
+        actDone(id, done: done) {
+            try await Backend.shared.updateOrderStatus(id, status: status, reason: reason)
             self.toast(status == "READY" ? "Marked ready." : status == "CANCELLED" ? "Order cancelled. The customer has been told." : "Marked as collected. Thanks!")
             await self.refreshVendorOrder(id)
         }
@@ -279,6 +283,22 @@ public final class CommerceStore {
     /// Orders with an action in flight (accept, reject, packed, collected, cancel): their buttons are off, so a second tap can't fire it twice.
     public private(set) var actingOn: Set<String> = []
     public func isActing(_ orderId: String) -> Bool { actingOn.contains(orderId) }
+
+    /// Like `act`, and tells the caller whether it worked (false: refused, failed or already busy), so a reason sheet can stay open on a refusal.
+    private func actDone(_ id: String, done: @escaping (Bool) -> Void, _ block: @escaping @MainActor () async throws -> Void) {
+        Task { @MainActor in
+            if actingOn.contains(id) { done(false); return }
+            actingOn.insert(id)
+            defer { actingOn.remove(id) }
+            do { try await block(); done(true) }
+            catch is CancellationError { done(false) }
+            catch {
+                toast(friendlyError(error))
+                await refreshVendorOrder(id); _ = try? await order(id)
+                done(false)
+            }
+        }
+    }
 
     private func toast(_ m: String) { session.toast(m) }
     private func go(_ block: @escaping @MainActor () async throws -> Void) {

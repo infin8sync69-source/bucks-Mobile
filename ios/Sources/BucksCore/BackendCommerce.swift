@@ -101,7 +101,12 @@ extension Backend {
     public func myOrders(me: String) async throws -> [OrderRow] {
         try await select("orders", filters: [.eq("buyer_id", me)], order: "created_at", ascending: false)
     }
-    public func respondOrder(_ id: String, accept: Bool) async throws { try await rpcVoid("respond_order", ["p_order": id, "p_accept": accept]) }
+    /// The shop accepts or rejects a PLACED order. `reason` (a `CancelReasons.shopReject` code) says why it was rejected; sent only when given.
+    public func respondOrder(_ id: String, accept: Bool, reason: String? = nil) async throws {
+        var p: [String: Any?] = ["p_order": id, "p_accept": accept]
+        if let reason { p["p_reason"] = reason }
+        try await rpcVoid("respond_order", p)
+    }
 
     public func orderDetail(_ id: String) async throws -> CloudOrderRow? { try await selectOne("orders", filters: [.eq("id", id)]) }
     public func vendorOrders(listingId: String) async throws -> [CloudOrderRow] {
@@ -121,10 +126,19 @@ extension Backend {
     public func contactForOrder(_ orderId: String) async throws -> OrderContactRow? {
         (try await rpcList("contact_for_order", ["p_order": orderId]) as [OrderContactRow]).first
     }
-    /// Buyer cancels while the order is still PLACED.
-    public func cancelOrder(_ orderId: String) async throws { try await rpcVoid("cancel_order", ["p_order": orderId]) }
+    /// Buyer cancels while the order is still PLACED. `reason` is a `CancelReasons.buyer` code; sent only when given.
+    public func cancelOrder(_ orderId: String, reason: String? = nil) async throws {
+        var p: [String: Any?] = ["p_order": orderId]
+        if let reason { p["p_reason"] = reason }
+        try await rpcVoid("cancel_order", p)
+    }
     /// Vendor marks an accepted order READY, a pick-up order DELIVERED once collected, or CANCELLED when no rider has it (or the buyer never came).
-    public func updateOrderStatus(_ orderId: String, status: String) async throws { try await rpcVoid("update_order_status", ["p_order": orderId, "p_status": status]) }
+    /// `reason` (a `CancelReasons.shop` code) goes with CANCELLED; sent only when given.
+    public func updateOrderStatus(_ orderId: String, status: String, reason: String? = nil) async throws {
+        var p: [String: Any?] = ["p_order": orderId, "p_status": status]
+        if let reason { p["p_reason"] = reason }
+        try await rpcVoid("update_order_status", p)
+    }
 
     /// Inserts and updates on a shop's orders as they happen (row-level security still applies). Cancel the consuming task to close it.
     public func liveOrders(listingId: String) -> AsyncStream<CloudOrderRow> { liveOrderRows(filter: "listing_id=eq.\(listingId)", events: ["INSERT", "UPDATE"]) }

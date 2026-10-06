@@ -205,22 +205,27 @@ public final class Dispatch {
         if st == .paid || st == .noDriver { stopFollowingRide() }
     }
 
-    /// Cancels before the trip starts, server first: the screen changes only once the server has cancelled. Returns nil on success,
-    /// otherwise one honest sentence; the ride is then re-read and the screens show whatever its real status is (the in-ride screen
-    /// if the driver had already started it). Deals with a lost answer too: a ride found CANCELLED counts as done.
-    public func cancelRide() async -> String? {
+    /// Cancels before the trip starts through `cancel_task`, server first: the screen changes only once the server has cancelled.
+    /// `reason` is a `CancelReasons.rider` code; once a driver has accepted (MATCHED, ARRIVED) one is required and a missing one is
+    /// refused here without calling the server. Returns nil on success, otherwise one honest sentence; the ride is then re-read and the
+    /// screens show whatever its real status is (the in-ride screen if the driver had already started it). Deals with a lost answer
+    /// too: a ride found CANCELLED (or answered "it is cancelled") counts as done.
+    public func cancelRide(reason: String? = nil, note: String = "") async -> String? {
         guard let r = ride, !cancelling else { return nil }
+        let code = reason.flatMap { $0.isEmpty ? nil : $0 }
+        if code == nil, r.status == .matched || r.status == .arrived { return "Choose why you are cancelling." }
         cancelling = true; defer { cancelling = false }
-        do { _ = try await backend.advanceTask(r.id, status: "CANCELLED"); return closedByMe() }
+        do { try await backend.cancelTask(r.id, reason: code, note: String(note.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))); return closedByMe() }
         catch is CancellationError { return nil }
         catch {
+            // Already cancelled elsewhere (the update raced this call): the same result for the rider.
+            if friendlyError(error).lowercased().contains("it is cancelled") { return closedByMe() }
             guard let t = (try? await backend.taskGeo(r.id)) ?? nil else { return friendlyError(error) }   // can't even read it: nothing has changed
             if t.status == "CANCELLED" { return closedByMe() }
             await applyRide(t)
             switch t.status {
             case "IN_PROGRESS": return "Your trip has already started, so it can't be cancelled here."
             case "COMPLETED", "PAID": return "This trip is already finished."
-            case "NO_DRIVER": return "Nobody took this request in time. You can ring again."
             default: return friendlyError(error)
             }
         }
@@ -533,17 +538,19 @@ public final class Dispatch {
     }
     /// Trip closed on this phone (after rating the customer); ring the next request.
     public func closeTrip() { stopDriverTask(); setDriverRide(nil); nudged = true }
-    /// Hands the request back so it rings other drivers. Allowed from the way to the pick-up and at the pick-up, not once the PIN is in.
-    /// Returns whether it happened.
+    /// Hands the request back so it rings other drivers, through `release_task`. Allowed from the way to the pick-up and at the pick-up,
+    /// not once the PIN is in. `reason` is a `CancelReasons.driver` code and is required: without one nothing is sent and a toast says why.
+    /// A refusal from the server is shown as a toast and leaves the trip where it is. Returns whether it happened.
     @discardableResult
-    public func driverCancel() async -> Bool {
+    public func driverCancel(reason: String?, note: String = "") async -> Bool {
         guard let d = driverRide else { return false }
         if d.status == .ringing { driverDecline(); return true }
         guard d.status == .toPickup || d.status == .arrived else { toast("A trip that has started can't be handed back."); return false }
+        guard let code = reason, !code.isEmpty else { toast("Choose why you are handing it back."); return false }
         if handingBack || busy { return false }
         driverGen += 1
         handingBack = true; defer { handingBack = false }
-        do { _ = try await backend.advanceTask(d.id, status: "SEARCHING"); stopDriverTask(); passed.insert(d.id); setDriverRide(nil); nudged = true; return true }
+        do { try await backend.releaseTask(d.id, reason: code, note: String(note.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))); stopDriverTask(); passed.insert(d.id); setDriverRide(nil); nudged = true; return true }
         catch is CancellationError { return false }
         catch { await failedDriverAction(d.id, error); return false }
     }

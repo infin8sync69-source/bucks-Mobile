@@ -34,8 +34,13 @@ public func serviceDef(_ key: String?) -> ServiceDef? { serviceCatalog.first { $
 public let businessServices = ["FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING", "PROPERTIES"]
 /// Same mapping as service_for_category() on the server, for listings saved before a service was chosen.
 public func serviceForCategory(_ category: String?) -> String {
-    let c = category?.trimmingCharacters(in: .whitespaces) ?? ""
-    return businessServices.first { k in serviceDef(k)?.categories.contains { $0.caseInsensitiveCompare(c) == .orderedSame } ?? false } ?? "SHOPPING"
+    let c = (category ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if let k = businessServices.first(where: { k in serviceDef(k)?.categories.contains { $0.lowercased() == c } ?? false }) { return k }
+    switch c {
+    case "catering", "juice bar", "ice cream", "street food", "food truck": return "FOOD"
+    case "kirana", "organic store": return "GROCERY"
+    default: return "SHOPPING"
+    }
 }
 
 /// Service unlocking and listing documents. Same shape as the other stores: observable state plus actions that report every failure as a toast.
