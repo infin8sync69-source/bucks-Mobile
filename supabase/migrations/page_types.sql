@@ -212,3 +212,24 @@ language sql stable security definer set search_path = public, extensions as $$
 $$;
 revoke execute on function public.search_listings(text, double precision, double precision, integer, text[], integer, text[]) from anon, public;
 grant execute on function public.search_listings(text, double precision, double precision, integer, text[], integer, text[]) to authenticated;
+
+-- ---------- every page belongs to a real person ----------
+-- "By <name>" under a page title, with how far the person's identity has been checked. Phone is implicit (OTP sign-in);
+-- id_checked means Bucks staff verified a photo ID on one of their pages. Face / biometric levels come later on the same line.
+create or replace function public.listing_owner(p_listing uuid)
+returns table (id uuid, name text, short_code text, photo_url text, area text, member_since timestamptz, id_checked boolean, pages int)
+language sql stable security definer set search_path = public, extensions as $$
+  select p.id, coalesce(nullif(p.name, ''), 'Bucks member'), p.short_code, p.photo_url, p.area, p.created_at,
+         exists (select 1 from listing_documents d join listings x on x.id = d.listing_id where x.owner_id = p.id and d.doc_type = 'OWNER_ID' and d.status = 'VERIFIED'),
+         (select count(*)::int from listings x where x.owner_id = p.id and x.status = 'LIVE')
+  from listings l join profiles p on p.id = l.owner_id
+  where l.id = p_listing and (l.status = 'LIVE' or public.can_manage_listing(l.id) or l.owner_id = public.me())
+$$;
+revoke execute on function public.listing_owner(uuid) from anon, public;
+grant execute on function public.listing_owner(uuid) to authenticated;
+-- search_listings also returns owner_id and owner_name (and matches the owner's name); applied live as a rename of the previous
+-- version to search_listings_v2 followed by create. The definition above is superseded by this one:
+--   returns table (..., type_key text, group_key text, owner_id uuid, owner_name text)
+--   ... l.type_key, t.group_key, l.owner_id, coalesce(nullif(o.name, ''), 'Bucks member')
+--   from listings l left join listing_types t on t.key = l.type_key join profiles o on o.id = l.owner_id, here, term
+--   ... or o.name ilike '%' || term.t || '%'

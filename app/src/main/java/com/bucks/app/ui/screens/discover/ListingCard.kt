@@ -49,6 +49,7 @@ fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
                 }
                 Muted(listOfNotNull(hit.category.ifBlank { null }, if (ships && hit.distanceM > 25_000) "Ships across India" else formatDistance(hit.distanceM), hit.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) { OnlineDot(hit.online); Spacer(Modifier.width(6.dp)); Muted(onlineText(hit.kind, hit.online), maxLines = 1) }
+                hit.ownerName?.takeIf { it.isNotBlank() }?.let { Muted("by $it", Modifier.padding(top = 2.dp), maxLines = 1) }
             }
         }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {

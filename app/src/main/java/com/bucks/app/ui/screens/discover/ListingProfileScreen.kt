@@ -146,6 +146,8 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     if (l.category.isNotBlank()) Muted(l.category, maxLines = 1)
                     when (l.status) { "PENDING" -> PillWarn("Not live yet"); "SUSPENDED" -> PillBad("Suspended"); else -> {} }
                 }
+                // Every page belongs to a real person: who runs it, and how far their identity has been checked.
+                OwnerLine(vm, l, Modifier.padding(top = 4.dp))
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     OnlineDot(l.online); Spacer(Modifier.width(6.dp))
                     Muted(listOfNotNull(onlineText(l.kind, l.online), distance?.let { "$it away" }, l.area.ifBlank { null }).joinToString(" · "), maxLines = 1)

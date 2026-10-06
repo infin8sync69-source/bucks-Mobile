@@ -118,6 +118,8 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
 
     fun save() {
         val t = if (kind == "DRIVER") driverTitle else title.trim()
+        // Every page is shown "by <name>": a profile without a name cannot run one.
+        if (social.me?.name.isNullOrBlank()) { vm.toast("Add your name to your profile first. Every page shows who runs it."); return }
         if (t.isBlank()) { vm.toast(when { kind == "SKILL" -> "Name the skill, like Plumber or Maths tutor."; kind == "ASSET" -> "Give it a title, like 2BHK flat in 4th Block."; orgPage -> "Name the page."; else -> "Add the business name." }); return }
         if (kind != "DRIVER" && category.isBlank()) { vm.toast(if (kind == "ASSET") "Pick what it is: house, flat, shop, vehicle…" else "Pick a category so people can find you."); return }
         if (kind == "ASSET" && price.isNotBlank() && price.toLongOrNull() == null) { vm.toast("Enter the price in rupees, numbers only."); return }
