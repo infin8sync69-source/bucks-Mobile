@@ -12,8 +12,12 @@ struct SearchingScreen: View {
             .bucksBackground()
             .navigationBarBackButtonHidden(true)
             .bucksHideNavigationBar()
-            .bucksConfirm(isPresented: $ask, title: "Cancel this ride request?", message: "Riders nearby will stop being rung. You can book again any time.",
-                          confirmTitle: "Cancel ride", cancelTitle: "Keep searching", destructive: true, onConfirm: cancel)
+            // No reason is asked while nobody has accepted; the sheet closes only once the server has cancelled (a refusal leaves it open).
+            .sheet(isPresented: $ask) {
+                RideCancelSheet(driverName: nil, arrived: false, onCancelled: { ask = false; router.popToRoot() }, onClose: { ask = false })
+            }
+            // A driver accepting (or the ride ending) while the sheet is open closes it: it asked about a request nobody had taken.
+            .onChange(of: session.dispatch.ride?.status) { _, st in if st != .searching { ask = false } }
             .onAppear { session.dispatch.mapShown() }
             .onDisappear { session.dispatch.mapHidden() }
     }
@@ -38,7 +42,7 @@ struct SearchingScreen: View {
                             Muted("\(r.kind.label) · riders nearby are rung · first to accept gets the ride")
                         }
                     }
-                    BadButton(cancelling ? "Cancelling…" : "Cancel request", enabled: !cancelling, action: cancel).padding(.top, 14)
+                    BadButton(cancelling ? "Cancelling…" : "Cancel request", enabled: !cancelling) { ask = true }.padding(.top, 14)
                 } else {
                     Text("No rider accepted").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
                     Muted(n > 0 ? "All nearby riders were busy. Try again or switch vehicle type." : "Nobody is online nearby.")
@@ -50,8 +54,4 @@ struct SearchingScreen: View {
     }
 
     private func leave() { session.dispatch.dismissEndedRide(); router.popToRoot() }
-
-    private func cancel() {
-        Task { if await session.cancelRide() { router.popToRoot() } }
-    }
 }

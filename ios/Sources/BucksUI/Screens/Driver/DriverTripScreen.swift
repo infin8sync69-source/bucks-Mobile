@@ -50,12 +50,13 @@ private struct TripBody: View {
         .bucksConfirm(isPresented: $endAsk, title: delivery ? "Hand over the order here?" : "End the ride here?",
                       message: delivery ? "Only end the trip once the customer has their order. Then you collect any payment due." : "The customer is asked to pay ₹\(dr.fare) once you end the ride. Only end it at the drop point.",
                       confirmTitle: delivery ? "Yes, delivered" : "End ride", cancelTitle: "Not yet") { d.driverNext() }
-        .alert(cancelTitle, isPresented: $cancel) {
-            Button(delivery ? "Keep delivery" : "Keep ride", role: .cancel) {}
-            Button(cancelConfirm, role: .destructive) { Task { if await d.driverCancel() { session.toast("Handed back. Other riders will be rung for it.") } } }
-        } message: { Text(cancelMessage) }
+        // Handing a trip back needs a reason (the customer or shop hears it); the sheet closes only once the server has agreed.
+        .sheet(isPresented: $cancel) { DriverCancelSheet(delivery: delivery) { cancel = false } }
         // The field clears once the trip has really started, so a wrong PIN stays for a retry.
-        .onChange(of: dr.status) { _, s in if s == .inRide { pin = "" } }
+        .onChange(of: dr.status) { _, s in
+            if s == .inRide { pin = "" }
+            if s != .toPickup && s != .arrived { cancel = false }   // no hand-back once the trip has started
+        }
         .task(id: "\(Int(leg.car.lat * 500)),\(Int(leg.car.lng * 500)),\(Int(leg.to.lat * 500)),\(Int(leg.to.lng * 500)),\(travelling)") {
             await road.load(from: travelling ? leg.car : nil, to: travelling ? leg.to : nil)
         }
@@ -180,13 +181,28 @@ private struct TripBody: View {
         }
     }
 
-    // MARK: dialogs
+}
 
-    private var atPickup: Bool { dr.status == .arrived }
-    private var cancelTitle: String { atPickup ? "Hand this \(delivery ? "delivery" : "ride") back?" : (delivery ? "Cancel this delivery?" : "Cancel this ride?") }
-    private var cancelConfirm: String { atPickup ? "Hand back" : (delivery ? "Cancel delivery" : "Cancel ride") }
-    private var cancelMessage: String {
-        atPickup ? (delivery ? "Use this when you can't collect the order. " : "Use this when the customer isn't there. ") + "It goes to the next rider and you won't be rung for it again."
-                 : "The \(delivery ? "order" : "customer") goes to the next rider."
+/// Handing a ride or delivery back through `release_task`: a reason is required so the customer or shop hears why, and it counts against
+/// the driver's record. A refusal from the server is shown as a toast and leaves the trip and this sheet where they are.
+private struct DriverCancelSheet: View {
+    let delivery: Bool
+    let onClose: () -> Void
+    @Environment(AppSession.self) private var session
+    @State private var busy = false
+    @State private var stats: CancelStats?
+
+    var body: some View {
+        let n = stats?.driverDay ?? 0
+        return CancelSheet(
+            title: delivery ? "Hand this delivery back?" : "Hand this ride back?",
+            message: "The \(delivery ? "order" : "customer") goes to the next rider. Cancelling after accepting counts against your recommendations.",
+            reasons: CancelReasons.driver, requireReason: true, confirmLabel: delivery ? "Cancel delivery" : "Cancel ride", keepLabel: "Keep it",
+            nudge: n >= 2 ? "You've handed back \(n) trips today. Customers and shops rely on riders who finish what they accept." : nil, busy: busy,
+            onConfirm: { code, note in
+                busy = true
+                Task { let ok = await session.driverHandBack(reason: code, note: note); busy = false; if ok { onClose() } }
+            }, onDismiss: onClose)
+        .task { stats = try? await Backend.shared.myCancelStats() }
     }
 }

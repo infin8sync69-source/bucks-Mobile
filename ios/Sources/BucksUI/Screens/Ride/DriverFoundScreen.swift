@@ -13,6 +13,13 @@ struct DriverFoundScreen: View {
             .bucksBackground()
             .navigationBarBackButtonHidden(true)
             .bucksHideNavigationBar()
+            // A driver has accepted, so a reason is required and the driver hears it. The sheet closes only once the server has cancelled.
+            .sheet(isPresented: $cancel) {
+                RideCancelSheet(driverName: session.dispatch.ride?.driver?.name.components(separatedBy: " ")[0] ?? "Your rider",
+                                arrived: session.dispatch.ride?.status == .arrived,
+                                onCancelled: { cancel = false; router.popToRoot() }, onClose: { cancel = false })
+            }
+            .onChange(of: session.dispatch.ride?.id) { _, id in if id == nil { cancel = false } }
     }
 
     private func content(_ r: Ride, _ d: Driver) -> some View {
@@ -65,10 +72,6 @@ struct DriverFoundScreen: View {
                 GhostButton(cancelling ? "Cancelling…" : "Cancel ride", enabled: !cancelling) { cancel = true }
             }
             .frame(maxHeight: 520)
-        }
-        .bucksConfirm(isPresented: $cancel, title: "Cancel ride", message: "\(first) is already on the way. Cancel anyway?",
-                      confirmTitle: "Cancel ride", cancelTitle: "Keep ride", destructive: true) {
-            Task { if await session.cancelRide() { router.popToRoot() } }
         }
         .task(id: RouteKey(car, me)) { await loader.load(from: car, to: me) }
         .onAppear { session.dispatch.mapShown() }
