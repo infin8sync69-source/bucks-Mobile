@@ -115,10 +115,11 @@ object Backend {
         val ids = db.from("listing_members").select { filter { eq("profile_id", me) } }.decodeList<MemberRow>().map { it.listingId }
         return if (ids.isEmpty()) emptyList() else db.from("listings").select { filter { isIn("id", ids) } }.decodeList()
     }
-    suspend fun createListing(me: String, kind: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject = JsonObject(emptyMap()), service: String? = null): ListingRow =
+    /** [typeKey]: the page type of a business (ui/PageTypes.kt); the server derives the service from it and refuses a type that doesn't fit the kind. */
+    suspend fun createListing(me: String, kind: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject = JsonObject(emptyMap()), service: String? = null, typeKey: String? = null): ListingRow =
         db.from("listings").insert(buildJsonObject {
             put("kind", kind); put("owner_id", me); put("title", title); put("category", category); put("description", description); put("area", area)
-            service?.let { put("service", it) }
+            service?.let { put("service", it) }; typeKey?.let { put("type_key", it) }
             at?.let { put("location", point(it)) }; put("details", details)
         }) { select() }.decodeSingle()
     /** [service]: only sent when it changes (the server refuses a change once the listing is live). */
@@ -315,11 +316,14 @@ object Backend {
     @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
     /** FOOD, GROCERY, ... (services.sql); GIGS for skills, null for drivers. */
     val service: String? = null, @SerialName("compliance_hold") val complianceHold: Boolean = false,
+    /** Page type of a business (ui/PageTypes.kt: RETAIL_SHOP, LOCAL_SERVICE, NGO_CHARITY...); null on older rows and on other kinds. */
+    @SerialName("type_key") val typeKey: String? = null,
     /** Up to 20 photos: the shop, a worker's portfolio, the rooms of a flat. The cover stays in [photoUrl]. */
     val gallery: List<MediaPhoto> = emptyList())
 @Serializable data class SearchHit(val id: String, val kind: String, val title: String, val category: String = "", val description: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", val online: Boolean = false, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0, val details: JsonObject = JsonObject(emptyMap()),
-    @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null)
+    @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null,
+    @SerialName("type_key") val typeKey: String? = null, @SerialName("group_key") val groupKey: String? = null)
 /** One line of the Notifications tab (studio: notifications.sql). [route] is where a tap goes, checked by Push.safeRoute. */
 @Serializable data class NotificationRow(val id: String, val kind: String, val title: String, val body: String = "", val route: String? = null,
     @SerialName("created_at") val createdAt: String = "", @SerialName("read_at") val readAt: String? = null)

@@ -138,10 +138,10 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
      * listing-media/<listing id>/ afterwards; the listing exists by then, so a failed upload is reported, not retried
      * through the form, or Save again would create a second listing.
      */
-    fun createListing(kind: String, title: String, category: String, description: String, area: String, at: LatLng, details: JsonObject, photo: Picked?, service: String? = null, onDone: (ListingRow) -> Unit) = go {
+    fun createListing(kind: String, title: String, category: String, description: String, area: String, at: LatLng, details: JsonObject, photo: Picked?, service: String? = null, typeKey: String? = null, onDone: (ListingRow) -> Unit) = go {
         val p = me ?: return@go; busy = true
         try {
-            var row = Backend.createListing(p.id, kind, title, category, description, area, at, details, service)
+            var row = Backend.createListing(p.id, kind, title, category, description, area, at, details, service, typeKey)
             var photoFailed = false
             if (photo != null) try { val url = uploadListingPhoto(row.id, photo); Backend.setListingPhoto(row.id, url); row = row.copy(photoUrl = url) } catch (e: Exception) { photoFailed = true }
             toast(if (photoFailed) "${if (kind == "DRIVER") "Your driver profile" else title} is saved, but the photo didn't upload. Add it from Edit." else savedMessage(kind, title))
