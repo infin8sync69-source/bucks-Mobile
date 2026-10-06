@@ -288,7 +288,7 @@ private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, r
                 Text(rs(item.price), style = MaterialTheme.typography.headlineSmall)
                 item.mrp?.takeIf { it > item.price }?.let { Text(rs(it), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${((it - item.price) * 100.0 / it).toInt()}% off", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.status.good) }
             }
-            rating?.takeIf { it.votes > 0 }?.let { r -> Muted("▲ ${r.up} upvotes · ▼ ${r.down} downvotes", Modifier.padding(top = 2.dp)) }
+            rating?.takeIf { it.votes > 0 }?.let { r -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down) } }
             if (pr.multi) {
                 Label("Choose an option")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -325,7 +325,7 @@ private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product
     val mine = rating?.mine
     HorizontalDivider(Modifier.padding(top = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
     Text("What people say", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
-    Muted(rating?.takeIf { it.votes > 0 }?.let { "▲ ${it.up} upvotes · ▼ ${it.down} downvotes" } ?: "No votes yet. Be the first.", Modifier.padding(top = 2.dp))
+    rating?.takeIf { it.votes > 0 }?.let { r -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down, size = 16) } } ?: Muted("Nobody has rated this yet. Tap an arrow to be the first.", Modifier.padding(top = 2.dp))
     rating?.percent?.let { pct -> Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.status.bad.copy(alpha = 0.35f))) { Box(Modifier.fillMaxWidth(pct / 100f).fillMaxHeight().background(MaterialTheme.status.good)) } }
     if (isOwner) Muted("This is your product. Customers' feedback and comments show here, and you get a notification for each comment.", Modifier.padding(top = 10.dp))
     else {
@@ -335,7 +335,7 @@ private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product
                 val tone = if (v == 1) MaterialTheme.status.good else MaterialTheme.status.bad
                 OutlinedButton({ draft = if (draft == v) 0 else v }, Modifier.weight(1f).heightIn(min = 48.dp).semantics { selected = on }, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (on) tone.copy(alpha = 0.15f) else Color.Transparent, contentColor = if (on) tone else MaterialTheme.colorScheme.onSurface),
                     border = BorderStroke(if (on) 2.dp else 1.dp, if (on) tone else MaterialTheme.colorScheme.outline), contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Icon(lab.second, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(lab.first, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    Icon(lab.second, lab.first, Modifier.size(22.dp))
                 }
             }
         }

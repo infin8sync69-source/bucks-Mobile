@@ -194,7 +194,7 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
                         Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             listOf(5 to true, 1 to false).forEach { (v, up) -> val on = stars == v; val c = if (up) MaterialTheme.status.good else MaterialTheme.status.bad
                                 OutlinedButton({ stars = v }, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (on) c.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent, contentColor = c)) {
-                                    Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp)); Text(if (up) "  Upvote" else "  Downvote") } } }
+                                    Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommend" else "Not recommend", Modifier.size(24.dp)) } } }
                         DarkButton("Submit", enabled = stars > 0) { vm.driverRateCustomer(stars) }
                     }
                     DriverRideStatus.RINGING -> {}

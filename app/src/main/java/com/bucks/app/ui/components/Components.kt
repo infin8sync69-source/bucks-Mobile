@@ -17,6 +17,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -189,11 +192,7 @@ fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null
     // Recommendations read as votes everywhere: an up count and a down count, never stars or thumbs.
     Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
         if (pct == null) Text(if (compact) "New" else "New · no votes yet", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
-        else {
-            Icon(Icons.Rounded.ArrowUpward, "Upvotes", tint = fg, modifier = Modifier.size(13.dp)); Text("${t.up}", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.Rounded.ArrowDownward, "Downvotes", tint = fg, modifier = Modifier.size(13.dp)); Text("${t.down}", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
-        }
+        else VoteMark(t.up, t.down, fg)
     }
 }
 
@@ -302,3 +301,51 @@ private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f
 @Composable fun SectionTitle(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); if (action != null && onAction != null) TextButton(onClick = onAction, contentPadding = PaddingValues(0.dp)) { Text(action, style = MaterialTheme.typography.labelMedium) } }
 @Composable fun Muted(text: String, modifier: Modifier = Modifier, align: TextAlign? = null, maxLines: Int = Int.MAX_VALUE, minLines: Int = 1) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier, textAlign = align, maxLines = maxLines, minLines = minLines, overflow = TextOverflow.Ellipsis)
 @Composable fun Headline(text: String, modifier: Modifier = Modifier) = Text(text, style = MaterialTheme.typography.headlineMedium, modifier = modifier)
+
+/*
+ * Recommendations are arrows everywhere: up = recommended, down = not recommended. No words, no thumbs, no stars.
+ * The one number shown is the larger side: a thing with more downs than ups shows the down arrow and the down count.
+ */
+
+/** The larger side of a vote: the arrow and its count, tinted [tint] (or green / red by the side when null). Ties show up. */
+@Composable
+fun VoteMark(up: Int, down: Int, tint: Color? = null, size: Int = 13) {
+    val upWins = up >= down
+    val c = tint ?: if (upWins) MaterialTheme.status.good else MaterialTheme.status.bad
+    Icon(if (upWins) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (upWins) "Recommended by $up" else "Not recommended by $down", tint = c, modifier = Modifier.size(size.dp))
+    Text(" ${if (upWins) up else down}", style = MaterialTheme.typography.labelMedium, color = c, maxLines = 1)
+}
+
+/** An up or a down arrow on its own, as a 48dp button; [on] fills it with its colour. */
+@Composable
+fun VoteArrow(up: Boolean, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val st = MaterialTheme.status; val c = if (up) st.good else st.bad
+    Box(modifier.minimumInteractiveComponentSize().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).background(if (on) c.copy(alpha = 0.15f) else Color.Transparent)
+        .border(if (on) 2.dp else 1.dp, if (on) c else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+        .clickable(onClickLabel = if (up) "Recommend" else "Not recommend", onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommend" else "Not recommend", Modifier.size(22.dp), tint = if (on) c else MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The box that opens on every arrow tap: the two arrows (the tapped one selected) and a feedback field. [onSubmit] gets the vote
+ * and the trimmed text; the text is optional, so a quick vote is still one more tap.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", busy: Boolean = false, onSubmit: (Int, String) -> Unit, onDismiss: () -> Unit) {
+    var vote by remember { mutableIntStateOf(initial) }; var text by remember { mutableStateOf(initialText) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                VoteArrow(true, vote == 1, Modifier.weight(1f)) { vote = 1 }
+                VoteArrow(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
+            }
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(),
+                placeholder = { Text(if (vote > 0) "What was good about it? (optional)" else "What went wrong? (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            Button({ onSubmit(vote, text.trim()) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy) { Text(if (busy) "Sending…" else "Post") }
+        }
+    }
+}
+

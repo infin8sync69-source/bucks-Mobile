@@ -261,8 +261,7 @@ private fun RateButton(up: Boolean, mine: Boolean, modifier: Modifier, onClick: 
     val st = MaterialTheme.status; val c = if (up) st.good else st.bad
     OutlinedButton(onClick, modifier.heightIn(min = 44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 10.dp),
         colors = ButtonDefaults.outlinedButtonColors(containerColor = if (mine) c.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent, contentColor = c)) {
-        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
-        Text(if (up) "Upvote" else "Downvote", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
+        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommend" else "Not recommend", Modifier.size(22.dp))
     }
 }
 
@@ -594,11 +593,12 @@ private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile, mine: ReviewRow?, 
     val total = l.trustUp + l.trustDown
     Row(verticalAlignment = Alignment.CenterVertically) {
         TrustBadge(Trust(l.trustUp, l.trustDown))
-        if (total > 0) Muted("  $total ${if (total == 1) "vote" else "votes"}")
+        if (total > 0) Muted("  $total ${if (total == 1) "person" else "people"}")
     }
-    if (p.mine) Muted("Upvotes and downvotes come from people who know you. You can't vote on or remove them.", Modifier.padding(top = 8.dp))
-    else PrimaryButton(if (mine != null) "Change my vote" else "Upvote or downvote", Modifier.padding(top = 12.dp)) { onWrite(mine?.vote ?: 1) }
-    if (p.reviews.isEmpty()) Muted(if (p.mine) "No votes yet." else "No votes yet. Be the first to upvote ${l.title}.", Modifier.padding(vertical = 16.dp))
+    if (p.mine) Muted("Recommendations come from people who used your page. You can't vote on or remove them.", Modifier.padding(top = 8.dp))
+    else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        VoteArrow(true, mine?.vote == 1, Modifier.weight(1f)) { onWrite(1) }; VoteArrow(false, mine?.vote == -1, Modifier.weight(1f)) { onWrite(-1) } }
+    if (p.reviews.isEmpty()) Muted(if (p.mine) "No votes yet." else "Nobody has recommended ${l.title} yet. Tap an arrow to be the first.", Modifier.padding(vertical = 16.dp))
     p.reviews.forEach { r ->
         val up = r.vote > 0
         Row(Modifier.padding(vertical = 14.dp), verticalAlignment = Alignment.Top) {
@@ -611,7 +611,7 @@ private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile, mine: ReviewRow?, 
             }
             Column(horizontalAlignment = Alignment.End) {
                 Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", Modifier.size(20.dp), tint = if (up) st.good else st.bad)
-                Spacer(Modifier.height(4.dp)); if (up) PillGood("Upvote") else PillBad("Downvote")
+
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
