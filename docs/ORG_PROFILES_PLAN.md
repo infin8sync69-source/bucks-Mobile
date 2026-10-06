@@ -99,3 +99,18 @@ Events / Volunteer, Team titles, verified review from DONE. P2: Give, RSVP capac
   `supabase/tests/page_types_live_scenario.sql` passes: 14 checks, rolled back.
 - Android: `ui/PageTypes.kt` registry; profile shell, cards, search chips, create wizard, edit, items and dashboard in progress on `pilot-release-fixes`.
 - Not yet: the Request object and inbox (P1), Give, RSVP, listing_categories taxonomy (the free-text category picker covers it), iOS port of the shell.
+
+## Uniform profile tabs (catalogue tab)
+
+Every profile (business of any type, skill, asset, driver) shows the same five tabs in this order:
+**Feed · About · Gallery · <catalogue> · Recommendations**.
+
+- The catalogue tab is named and filled by the owner, in Studio on create or edit ("Catalogue tab" section):
+  `listings.details.catalogue_label` (≤24 chars) and `details.catalogue_kinds` (subset of PRODUCT, SERVICE, PROGRAM, EVENT).
+  Unset, both follow the page type (`listing_types.item_kinds`, `catalogue_label`); a skill defaults to Services,
+  an asset shows Pricing, a driver Rides.
+- Server: `listing_item_kinds(listing)` (migration `catalogue_tab.sql`) gives the effective kinds; `items_kind_guard`
+  and `orders_module_guard` use it. Orders need PRODUCT and a BUSINESS listing.
+- Team and Jobs/Volunteer are sections in About, not tabs.
+- Recommendations are upvotes and downvotes only: arrows and counts, no thumbs or stars (also the driver's customer rating).
+- The user's own profile lists "My pages"; each row opens the public page. The owner sheet's pages open too.
