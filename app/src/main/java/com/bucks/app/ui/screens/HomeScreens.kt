@@ -118,7 +118,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     LaunchedEffect(vm.social.me?.id) {
         if (vm.social.me != null) {
             if (!vm.myListings.loaded) vm.myListings.refresh()
-            while (true) { vm.commerce.refreshMyOrders(); kotlinx.coroutines.delay(20_000) }
+            while (true) { vm.commerce.refreshMyOrders(quiet = true); kotlinx.coroutines.delay(20_000) }
         }
     }
     val wide = windowWidth() != Width.COMPACT

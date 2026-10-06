@@ -24,6 +24,7 @@ import com.bucks.app.ui.screens.discover.ShowcaseDocViewer
 import com.bucks.app.ui.screens.discover.docKindIcon
 import com.bucks.app.ui.screens.discover.humanDate
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -50,6 +51,7 @@ fun ShowcaseDocsManageScreen(vm: BucksViewModel, listingId: String, onBack: () -
     var requests by remember(listingId) { mutableStateOf<List<DocRequest>>(emptyList()) }
     var views by remember(listingId) { mutableStateOf<List<DocView>>(emptyList()) }
     var loadError by remember(listingId) { mutableStateOf<String?>(null) }
+    var sideFailed by remember(listingId) { mutableStateOf(false) }
     var reload by remember(listingId) { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf<ShowcaseDoc?>(null) }
     var adding by remember { mutableStateOf(false) }
@@ -59,8 +61,9 @@ fun ShowcaseDocsManageScreen(vm: BucksViewModel, listingId: String, onBack: () -
     LaunchedEffect(listingId, reload, allowed) {
         if (!allowed) return@LaunchedEffect
         try { docs = Backend.showcaseDocs(listingId); loadError = null } catch (e: CancellationException) { throw e } catch (e: Exception) { loadError = friendly(e) }
-        requests = runCatching { Backend.docRequestsFor(listingId) }.getOrDefault(requests)
-        views = runCatching { Backend.docViewLog(listingId) }.getOrDefault(views)
+        sideFailed = false
+        try { requests = Backend.docRequestsFor(listingId) } catch (e: CancellationException) { throw e } catch (e: Exception) { sideFailed = true }
+        try { views = Backend.docViewLog(listingId) } catch (e: CancellationException) { throw e } catch (e: Exception) { sideFailed = true }
     }
     /** Runs one team action with its button disabled, shows the server's message when it fails, and reloads on success. */
     fun act(key: String, okText: String, block: suspend () -> Unit) { scope.launch {
@@ -97,7 +100,8 @@ fun ShowcaseDocsManageScreen(vm: BucksViewModel, listingId: String, onBack: () -
 
                     SectionTitle("Requests", Modifier.padding(top = 24.dp))
                     Muted("People ask to see documents marked On request. You choose; approving lasts 30 days and you can revoke it any time.", Modifier.padding(top = 2.dp, bottom = 4.dp))
-                    if (requests.isEmpty()) Muted("No requests right now.", Modifier.padding(top = 4.dp))
+                    if (requests.isEmpty() && sideFailed) Muted("Couldn't load requests. Check your connection and pull to retry.", Modifier.padding(top = 4.dp))
+                    else if (requests.isEmpty()) Muted("No requests right now.", Modifier.padding(top = 4.dp))
                     requests.forEach { r ->
                         BucksCard(Modifier.padding(top = 10.dp), padding = 14) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -118,7 +122,8 @@ fun ShowcaseDocsManageScreen(vm: BucksViewModel, listingId: String, onBack: () -
 
                     SectionTitle("Who looked", Modifier.padding(top = 24.dp))
                     Muted("The last 50 people who opened one of your documents. Team members are not listed.", Modifier.padding(top = 2.dp, bottom = 4.dp))
-                    if (views.isEmpty()) Muted("Nobody has opened a document yet.", Modifier.padding(top = 4.dp))
+                    if (views.isEmpty() && sideFailed) Muted("Couldn't load who looked.", Modifier.padding(top = 4.dp))
+                    else if (views.isEmpty()) Muted("Nobody has opened a document yet.", Modifier.padding(top = 4.dp))
                     views.forEach { v ->
                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -180,8 +185,8 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
     var choosing by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            val f = Upload.read(ctx, uri, maxPx = 2400)
+        if (uri != null) scope.launch {
+            val f = withContext(kotlinx.coroutines.Dispatchers.IO) { Upload.read(ctx, uri, maxPx = 2400) }
             when {
                 f == null -> vm.toast("Couldn't read that file. Try a photo of the document.")
                 f.bytes.size > SHOWCASE_MAX_BYTES -> vm.toast("Documents up to 10 MB. Take a smaller photo.")
@@ -212,7 +217,8 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
             vm.toast(friendly(e))
             // The file went up but the server refused the document (for instance a name it rejects): don't leave the file behind.
-            uploaded?.let { Backend.removeShowcaseFile(it) }
+            // A timeout or lost reply says nothing about whether the row was saved, so the file stays then.
+            if (e is io.github.jan.supabase.exceptions.RestException) uploaded?.let { Backend.removeShowcaseFile(it) }
         }
         busy = false
     } }
@@ -268,7 +274,7 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
         }
     }
     if (choosing) {
-        val today = LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val today = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         val state = rememberDatePickerState(selectableDates = object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= today })
         DatePickerDialog(onDismissRequest = { choosing = false },
             confirmButton = { TextButton({ state.selectedDateMillis?.let { expires = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; choosing = false }) { Text("OK") } },

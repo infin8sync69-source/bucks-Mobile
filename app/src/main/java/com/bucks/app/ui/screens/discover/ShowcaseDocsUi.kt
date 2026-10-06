@@ -122,7 +122,7 @@ fun ShowcaseDocsSection(vm: BucksViewModel, listingId: String, mine: Boolean, on
     val list = docs
     if (list == null) {
         // Nothing while loading for a visitor (most profiles have no documents, so no flash); the team always sees the block.
-        if (team) Column(modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 8.dp)) { SkeletonBox(Modifier.width(120.dp).height(18.dp)); Spacer(Modifier.height(10.dp)); SkeletonBox(Modifier.fillMaxWidth().height(96.dp)) }
+        if (team && !failed) Column(modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 8.dp)) { SkeletonBox(Modifier.width(120.dp).height(18.dp)); Spacer(Modifier.height(10.dp)); SkeletonBox(Modifier.fillMaxWidth().height(96.dp)) }
         else if (failed) Row(modifier.fillMaxWidth().padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
             Muted("Couldn't load documents.", Modifier.weight(1f)); TextButton({ failed = false; reload++ }, Modifier.heightIn(min = 48.dp)) { Text("Try again") } }
         return
@@ -209,18 +209,19 @@ fun ShowcaseDocViewer(vm: BucksViewModel, doc: ShowcaseDoc, mine: Boolean, onClo
     var error by remember(doc.id) { mutableStateOf<String?>(null) }
     var opened by remember(doc.id) { mutableStateOf(false) }
     var attempt by remember(doc.id) { mutableIntStateOf(0) }
+    // open_showcase_doc counts a view each call, so a retry reuses the first answer instead of logging another look.
+    var granted by remember(doc.id) { mutableStateOf<Pair<String, String>?>(null) }
     LaunchedEffect(doc.id, attempt) {
         error = null; pages = null
         try {
-            val o = Backend.openShowcaseDoc(doc.id)
-            val bytes = Backend.downloadShowcaseFile(o.path)
-            opened = true
-            val asPdf = o.mime.ifBlank { doc.mime } == "application/pdf"
+            val (path, mime) = granted ?: Backend.openShowcaseDoc(doc.id).let { it.path to it.mime }.also { granted = it }
+            val bytes = Backend.downloadShowcaseFile(path)
+            val asPdf = mime.ifBlank { doc.mime } == "application/pdf"
             val out = withContext(Dispatchers.IO) { if (asPdf) renderPdf(ctx.cacheDir, bytes) else listOfNotNull(decodeImage(bytes)) }
-            if (out.isEmpty()) error = "Couldn't show this file. It may be damaged." else pages = out
+            if (out.isEmpty()) error = "Couldn't show this file. It may be damaged." else { pages = out; opened = true }
         } catch (e: CancellationException) { throw e } catch (e: Throwable) { error = if (e is Exception) friendly(e) else "This file is too large to show on this phone." }
     }
-    val who = vm.social.me?.name?.ifBlank { null } ?: "a Bucks member"
+    val who = (vm.social.me?.name?.ifBlank { null } ?: "a Bucks member") + (vm.social.me?.id?.takeLast(4)?.let { " #$it" } ?: "")
     val mark = "Viewed by $who · ${java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))}"
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {

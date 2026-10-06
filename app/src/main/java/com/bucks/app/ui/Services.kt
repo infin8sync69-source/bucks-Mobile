@@ -42,13 +42,15 @@ fun serviceDef(key: String?): ServiceDef? = SERVICE_CATALOG.firstOrNull { it.key
 /** The services a BUSINESS listing can belong to (skills are always Gigs, drivers have none). */
 val BUSINESS_SERVICES = listOf("FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING", "PROPERTIES")
 /** Same mapping as service_for_category() on the server, for listings saved before a service was chosen. */
-fun serviceForCategory(category: String?): String {
+fun serviceForCategory(category: String?): String = knownServiceForCategory(category) ?: "SHOPPING"
+/** The service a category belongs to, or null for a category we don't know (a typed one), so the caller can keep the owner's choice. */
+fun knownServiceForCategory(category: String?): String? {
     val c = category?.trim()?.lowercase()
     BUSINESS_SERVICES.firstOrNull { k -> serviceDef(k)!!.categories.any { it.equals(c, ignoreCase = true) } }?.let { return it }
     return when (c) {
         "catering", "juice bar", "ice cream", "street food", "food truck" -> "FOOD"
         "kirana", "organic store" -> "GROCERY"
-        else -> "SHOPPING"
+        else -> null
     }
 }
 
