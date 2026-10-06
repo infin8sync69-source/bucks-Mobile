@@ -53,12 +53,12 @@ internal fun pageCategoryLabel(t: PageType): String = when (t.group) {
     else -> "Type of institution"
 }
 
-/** What a page of this type calls its photos tab. */
+/** What a page of this type calls its photos tab; the same words the public profile uses (discover/ListingProfileScreen.kt). */
 internal fun pagePhotosLabel(t: PageType): String = when {
+    t.group == "LOCAL_SERVICES" -> "Gallery"
+    t.group == "COMPANIES" -> "Work"
     t.key == "SCHOOL_COLLEGE" -> "Campus"
-    t.group == "LOCAL_SERVICES" || t.group == "COMPANIES" -> "Work"
-    t.isShop -> "Photos"
-    else -> "Gallery"
+    else -> "Photos"
 }
 
 /** The registration number field's label for a type (institutions quote an affiliation, the rest a registration). */
