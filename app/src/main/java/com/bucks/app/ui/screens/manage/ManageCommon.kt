@@ -22,9 +22,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.bucks.app.data.ListingRow
 import com.bucks.app.data.Picked
 import com.bucks.app.data.Upload
 import com.bucks.app.ui.MyListings
+import com.bucks.app.ui.PageType
+import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.components.*
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -59,13 +62,14 @@ internal fun listingIcon(kind: String, category: String): ImageVector = when (ki
     "ASSET" -> assetIcon(category)
     else -> categoryIcon(category)
 }
-/** What a listing's online switch means to its owner. */
-internal fun onlineLabel(kind: String, on: Boolean) = when (kind) {
-    "BUSINESS" -> if (on) "Open for orders" else "Closed"
+/** What a listing's online switch means to its owner. [type] is the page type of a BUSINESS: shops take orders, every other page takes requests. */
+internal fun onlineLabel(kind: String, on: Boolean, type: PageType? = null) = when (kind) {
+    "BUSINESS" -> if (type != null && !type.isShop) (if (on) "Taking requests" else "Not taking requests") else (if (on) "Open for orders" else "Closed")
     "SKILL" -> if (on) "Taking requests" else "Not taking requests"
     "ASSET" -> if (on) "Available" else "Not available"
     else -> if (on) "Available" else "Unavailable"
 }
+internal fun onlineLabel(l: ListingRow, on: Boolean) = onlineLabel(l.kind, on, PageTypes.of(l))
 internal fun roleLabel(role: String, vehicle: Boolean) = when (role) {
     "OWNER" -> "Owner"
     "ADMIN" -> if (vehicle) "Driver" else "Admin"

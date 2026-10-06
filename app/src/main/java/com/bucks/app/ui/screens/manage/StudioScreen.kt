@@ -25,6 +25,7 @@ import com.bucks.app.data.ListingRow
 import com.bucks.app.data.VehicleRow
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.MyListings
+import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.screens.ListingSwitch
 
@@ -34,7 +35,7 @@ private enum class StudioFilter(val label: String) { ALL("All"), BUSINESS("Busin
 /** What "Create" offers: kind to open, title, one line, icon. */
 internal data class CreateOption(val kind: String, val title: String, val detail: String, val icon: ImageVector)
 internal val CREATE_OPTIONS = listOf(
-    CreateOption("BUSINESS", "Business", "Shop, restaurant, store. Products with prices, orders, delivery.", Icons.Rounded.Storefront),
+    CreateOption("BUSINESS", "Business or organisation", "Shop, service, company, NGO, school, association. Pick what it is, then fill the page.", Icons.Rounded.Storefront),
     CreateOption("SKILL", "Skill profile", "Plumber, tutor, designer. Your services, prices and portfolio.", Icons.Rounded.Handyman),
     CreateOption("ASSET", "Asset to sell, rent or lease", "House, flat, plot, shop, office, vehicle, equipment.", Icons.Rounded.Apartment),
     CreateOption("VEHICLE", "Vehicle", "Bike, auto or cab for rides and deliveries, with its documents.", Icons.Rounded.TwoWheeler),
@@ -43,16 +44,20 @@ internal val CREATE_OPTIONS = listOf(
 
 /**
  * The Studio: everything I run on Bucks in one place, as cards in a grid that grows to 2-3 columns on wide screens.
- * Each card opens its dashboard; live ones switch on and off right from the card. "Create" starts any new listing or vehicle.
+ * Each card opens its dashboard; live ones switch on and off right from the card. "Create" starts any new listing or vehicle;
+ * a business first picks its page type (ui/PageTypes.kt), which [onCreate] gets as [typeKey] (null for every other kind).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: String) -> Unit, onCreate: (kind: String) -> Unit, onVehicle: (id: String) -> Unit,
+fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: String) -> Unit, onCreate: (kind: String, typeKey: String?) -> Unit, onVehicle: (id: String) -> Unit,
                  onVehicles: () -> Unit, onInvites: () -> Unit, onScan: () -> Unit, onBucksId: () -> Unit) {
     val m = vm.myListings
     LaunchedEffect(Unit) { m.refresh() }
     var filter by rememberSaveable { mutableStateOf(StudioFilter.ALL) }
     var creating by remember { mutableStateOf(false) }
+    var pickingType by remember { mutableStateOf(false) }
+    // A business is not created until it has a type; everything else goes straight to its form.
+    val create: (String) -> Unit = { kind -> if (kind == "BUSINESS") pickingType = true else onCreate(kind, null) }
     val listings = m.listings.filter { l -> when (filter) { StudioFilter.ALL -> true; StudioFilter.DRIVING -> l.kind == "DRIVER"; else -> l.kind == filter.name } }
     val vehicles = if (filter == StudioFilter.ALL || filter == StudioFilter.DRIVING) m.vehicles else emptyList()
     val live = m.listings.count { it.status == "LIVE" }; val pending = m.listings.count { it.status == "PENDING" }; val on = m.listings.count { it.status == "LIVE" && it.online }
@@ -94,7 +99,7 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
                     }
                     val err = m.error
                     if (err != null && !m.loaded) full { LoadError(err) { m.refresh() } }
-                    else if (m.loaded && listings.isEmpty() && vehicles.isEmpty()) full { StudioEmpty(filter) { kind -> onCreate(kind) } }
+                    else if (m.loaded && listings.isEmpty() && vehicles.isEmpty()) full { StudioEmpty(filter, create) }
                     items(listings, key = { it.id }) { l -> ListingStreamCard(m, l) { onOpen(l.id) } }
                     items(vehicles, key = { "v-" + it.id }) { v -> VehicleStreamCard(m, v) { onVehicle(v.id) } }
                     if (vehicles.isNotEmpty()) full { GhostButton("Vehicles, drivers and earnings", onClick = onVehicles) }
@@ -117,7 +122,8 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
             containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(Gutter))
     }
-    if (creating) CreateSheet(hasDriver = m.driverProfile() != null, onDismiss = { creating = false }) { kind -> creating = false; onCreate(kind) }
+    if (creating) CreateSheet(hasDriver = m.driverProfile() != null, onDismiss = { creating = false }) { kind -> creating = false; create(kind) }
+    if (pickingType) PageTypePickerSheet(onSkill = { pickingType = false; onCreate("SKILL", null) }, onPick = { t -> pickingType = false; onCreate("BUSINESS", t.key) }, onDismiss = { pickingType = false })
 }
 
 private fun LazyGridScope.full(content: @Composable () -> Unit) = item(span = { GridItemSpan(maxLineSpan) }) { content() }
@@ -125,7 +131,7 @@ private fun LazyGridScope.full(content: @Composable () -> Unit) = item(span = { 
 @Composable
 private fun StudioEmpty(filter: StudioFilter, onCreate: (String) -> Unit) = BucksCard {
     val (title, text, kind) = when (filter) {
-        StudioFilter.BUSINESS -> Triple("No business yet", "Add your shop or restaurant, put in products with prices, and customers nearby can order.", "BUSINESS")
+        StudioFilter.BUSINESS -> Triple("No business or organisation yet", "A shop, a service, a company, an NGO, a school or an association. Pick what it is, fill the page, and people nearby can find it.", "BUSINESS")
         StudioFilter.SKILL -> Triple("No skill profile yet", "Show what you do, what you charge and photos of your work. Neighbours request you directly.", "SKILL")
         StudioFilter.ASSET -> Triple("No assets listed", "Sell, rent or lease a house, flat, plot, shop, vehicle or equipment to people nearby.", "ASSET")
         StudioFilter.DRIVING -> Triple("Not driving yet", "Add your vehicle with its documents, then your driver profile, to take rides and deliveries.", "VEHICLE")
@@ -159,7 +165,7 @@ private fun ListingStreamCard(m: MyListings, l: ListingRow, onClick: () -> Unit)
         Box {
             ListingCover(l, Modifier.fillMaxWidth().height(124.dp))
             Row(Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(kindLabel(l.kind), MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurface)
+                Pill(PageTypes.of(l)?.label ?: kindLabel(l.kind), MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurface)
                 if (role != null && role != "OWNER") Pill(roleLabel(role, false), MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurface)
             }
         }

@@ -44,6 +44,11 @@ suspend fun Backend.recommendationCount(listingId: String): Int =
 suspend fun Backend.listingCounts(listingId: String): ListingCounts? =
     client.postgrest.rpc("listing_counts", buildJsonObject { put("p_listing", listingId) }).decodeList<ListingCounts>().firstOrNull()
 
+// ---------- who runs a listing ----------
+/** The owner, admins and riders of a listing for its public Team tab (listing_members is readable by everyone; Backend.members is the owner's copy). */
+suspend fun Backend.publicMembers(listingId: String): List<MemberRow> =
+    client.postgrest.from("listing_members").select { filter { eq("listing_id", listingId) } }.decodeList()
+
 // ---------- where a listing is ----------
 suspend fun Backend.listingPoint(listingId: String): LatLng? =
     client.postgrest.from("listing_points").select { filter { eq("id", listingId) } }.decodeSingleOrNull<ListingPoint>()?.let { LatLng(it.lat, it.lng) }

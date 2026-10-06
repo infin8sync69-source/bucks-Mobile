@@ -18,6 +18,8 @@ import com.bucks.app.data.ListingRow
 import com.bucks.app.data.Picked
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.BUSINESS_SERVICES
+import com.bucks.app.ui.PageType
+import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.serviceDef
 import com.bucks.app.ui.serviceForCategory
 import com.bucks.app.ui.knownServiceForCategory
@@ -33,9 +35,11 @@ import kotlinx.serialization.json.put
  * Create or edit a BUSINESS, SKILL or DRIVER listing. Fields differ by [kind]; kind-specific
  * values go into listings.details. The location is where the phone is when the listing is
  * created (so create it at the shop); on edit it only moves if the owner asks.
+ * [typeKey]: the page type a new business starts as (ui/PageTypes.kt), from the type picker; the form shows the type and
+ * adapts its fields to it (shops take orders and deliver; every other page takes requests and shows contact details).
  */
 @Composable
-fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () -> Unit, onDone: () -> Unit, service: String? = null, onDocs: (String) -> Unit = {}, onCreated: ((String) -> Unit)? = null) {
+fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () -> Unit, onDone: () -> Unit, service: String? = null, typeKey: String? = null, onDocs: (String) -> Unit = {}, onCreated: ((String) -> Unit)? = null) {
     val m = vm.myListings
     LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
     val existing = id?.let { m.listing(it) }
@@ -47,11 +51,14 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
             else CenteredLoading() }
         return
     }
-    key(existing?.id) { ListingForm(vm, kind, existing, onBack, onDone, service, onDocs, onCreated) }
+    key(existing?.id) { ListingForm(vm, kind, existing, onBack, onDone, service, typeKey, onDocs, onCreated) }
 }
 
+/** A sample name for the page-name field, by group. */
+private fun pageNamePlaceholder(t: PageType) = when (t.group) { "SHOPS" -> "Sri Lakshmi Stores"; "LOCAL_SERVICES" -> "Glow Family Salon"; "COMPANIES" -> "Nimbus Software"; "COMMUNITY" -> "Sunrise Foundation"; else -> "St Mary's School" }
+
 @Composable
-private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit, initialService: String?, onDocs: (String) -> Unit, onCreated: ((String) -> Unit)?) {
+private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit, initialService: String?, initialType: String?, onDocs: (String) -> Unit, onCreated: ((String) -> Unit)?) {
     val m = vm.myListings; val social = vm.social; val st by vm.state.collectAsState()
     // A real location fix, null until one arrives (location denied, GPS off, or not yet). social.here would be the map's
     // default centre in that case, which must never become a listing's position: nobody at the real shop could recommend it.

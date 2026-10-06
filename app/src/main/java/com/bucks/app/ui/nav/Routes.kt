@@ -16,9 +16,12 @@ object Routes {
     const val MY_LISTINGS = "my/listings"; const val MY_VEHICLES = "my/vehicles"; const val VEHICLE_STATS = "my/vehicle-stats"
     /** The Studio's dashboard for one of my listings; BUCKS_ID is my ID card. */
     const val STUDIO_LISTING = "studio/{id}"; fun studioListing(id: String) = "studio/${Uri.encode(id)}"; const val BUCKS_ID = "bucks-id"; const val CONTACTS = "contacts"; const val MAPS = "maps"; const val POST = "post/{id}"; fun post(id: String) = "post/${Uri.encode(id)}"
-    const val LISTING_EDIT = "edit-listing?id={id}&kind={kind}&service={service}"
-    /** [service]: the Services tile a new business starts under (FOOD, GROCERY, ...), from "List it" on a locked tile. */
-    fun listingEdit(id: String?, kind: String, service: String? = null) = "edit-listing?kind=$kind" + (id?.let { "&id=${Uri.encode(it)}" } ?: "") + (service?.let { "&service=$it" } ?: "")
+    const val LISTING_EDIT = "edit-listing?id={id}&kind={kind}&service={service}&type={type}"
+    /**
+     * [service]: the Services tile a new shop starts under (FOOD, GROCERY, ...), from "List it" on a locked tile.
+     * [type]: the page type a new business starts as (ui/PageTypes.kt: LOCAL_SERVICE, NGO_CHARITY, ...), from the type picker.
+     */
+    fun listingEdit(id: String?, kind: String, service: String? = null, type: String? = null) = "edit-listing?kind=$kind" + (id?.let { "&id=${Uri.encode(it)}" } ?: "") + (service?.let { "&service=$it" } ?: "") + (type?.let { "&type=$it" } ?: "")
     /** The documents a listing's service needs (services.sql). */
     const val LISTING_DOCS = "listing-docs/{id}"; fun listingDocs(id: String) = "listing-docs/${Uri.encode(id)}"
     /** The documents a profile shows to visitors (showcase_docs.sql); not the compliance documents above. */

@@ -122,9 +122,9 @@ object Backend {
             service?.let { put("service", it) }; typeKey?.let { put("type_key", it) }
             at?.let { put("location", point(it)) }; put("details", details)
         }) { select() }.decodeSingle()
-    /** [service]: only sent when it changes (the server refuses a change once the listing is live). */
-    suspend fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, service: String? = null) {
-        db.from("listings").update({ set("title", title); set("category", category); set("description", description); set("area", area); at?.let { set("location", point(it)) }; set("details", details); service?.let { set("service", it) } }) { filter { eq("id", id) } }
+    /** [service] and [typeKey]: only sent when they change (the server refuses a change once the listing is live). */
+    suspend fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, service: String? = null, typeKey: String? = null) {
+        db.from("listings").update({ set("title", title); set("category", category); set("description", description); set("area", area); at?.let { set("location", point(it)) }; set("details", details); service?.let { set("service", it) }; typeKey?.let { set("type_key", it) } }) { filter { eq("id", id) } }
     }
     suspend fun setOnline(id: String, online: Boolean) { db.from("listings").update({ set("online", online) }) { filter { eq("id", id) } } }
     suspend fun deleteListing(id: String) { db.from("listings").delete { filter { eq("id", id) } } }

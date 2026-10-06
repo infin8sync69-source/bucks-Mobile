@@ -32,6 +32,8 @@ import coil.compose.AsyncImage
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.ListingProfile
+import com.bucks.app.ui.PageType
+import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.driverKind
 import com.bucks.app.ui.formatDistance
@@ -51,11 +53,48 @@ import kotlinx.serialization.json.JsonPrimitive
 private fun plural(n: Int, one: String, many: String = one + "s") = "$n ${if (n == 1) one else many}"
 /** Details keys the About tab renders with a proper label; everything else gets a generic row. */
 private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
-    "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable")
+    "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable",
+    "registration", "affiliation", "org_type")
+/** Team tab order: the owner first, then admins. Store riders are not shown on the public page. */
+private val TEAM_ORDER = mapOf("OWNER" to 0, "ADMIN" to 1)
+
+/** What a business page's tab is called: the type decides ("Services" or "Catalogue", "Gallery" / "Work" / "Campus", "Volunteer" for an NGO). */
+private fun tabLabel(t: PageType, key: String): String = when (key) {
+    "products" -> "Products"
+    "services" -> t.catalogueLabel ?: "Services"
+    "programs" -> "Programs"
+    "events" -> "Events"
+    "photos" -> when { t.group == "LOCAL_SERVICES" -> "Gallery"; t.group == "COMPANIES" -> "Work"; t.key == "SCHOOL_COLLEGE" -> "Campus"; else -> "Photos" }
+    "team" -> "Team"
+    "jobs" -> if (t.key == "NGO_CHARITY") "Volunteer" else "Jobs"
+    "feed" -> "Feed"
+    "about" -> "About"
+    "reviews" -> "Reviews"
+    else -> key.replaceFirstChar { it.uppercase() }
+}
+/** Whether a tab has anything in it for a visitor; About and Feed-less tabs that always render say true. */
+private fun tabHasContent(p: ListingProfile, key: String): Boolean = when (key) {
+    "products" -> p.products.isNotEmpty()
+    "services" -> p.services.isNotEmpty()
+    "programs" -> p.programs.isNotEmpty()
+    "events" -> p.events.isNotEmpty()
+    "photos" -> p.listing.gallery.isNotEmpty()
+    "jobs" -> p.openJobs > 0
+    "team" -> p.members >= 2
+    "feed" -> p.posts.isNotEmpty()
+    else -> true
+}
+/**
+ * The tabs of a business page, from its type. Reviews only where the type has them, Products only where it sells products,
+ * and for visitors only the tabs with something in them; the owner sees every tab so they know what to fill.
+ */
+private fun businessTabs(t: PageType, p: ListingProfile): List<Pair<String, String>> =
+    t.tabs.filter { k -> (k != "reviews" || t.reviews) && (k != "products" || t.sellsProducts) && (p.mine || tabHasContent(p, k)) }.map { it to tabLabel(t, it) }
 
 /**
  * The universal public profile of a listing: the same header for a shop, a pro and a driver, then tabs by kind.
- * BUSINESS: Products, Jobs, About, Reviews. SKILL: Services, Feed, About, Reviews. DRIVER: About, Reviews, plus Book.
+ * BUSINESS: by page type (ui/PageTypes.kt): a shop has Products, a local service Services, an NGO Programs, a group Events, plus Team, Jobs, Feed, About, Reviews
+ * where the type says so. SKILL: Services, Feed, About, Reviews. DRIVER: About, Reviews, plus Book.
  */
 @Composable
 fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit, onCart: () -> Unit, onJobs: (String) -> Unit, onBook: (VehicleKind) -> Unit, onOpenListing: (String) -> Unit, onMap: () -> Unit = {}, onShowcaseDocs: (String) -> Unit = {}) {
@@ -64,16 +103,22 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val p = d.profiles[id]
     if (p == null) { ProfilePlaceholder(vm, id, onBack); return }
     val l = p.listing
+    /** The page type of a business; null for a pro, an asset or a driver. */
+    val type = PageTypes.of(l)
+    val ships = l.details.str("ships_india") == "true"
+    val sellsProducts = type?.sellsProducts == true
     val photos = l.gallery.isNotEmpty()
-    val tabs = when (l.kind) {
-        // A business reads like a page: what it posts, who it is (photos live in About), what it sells, who it hires, what people say.
-        "BUSINESS" -> listOf("feed" to "Feed", "about" to "About", "products" to "Products", "jobs" to "Jobs", "reviews" to "Reviews")
-        "SKILL" -> listOfNotNull("services" to "Services", ("photos" to "Portfolio").takeIf { photos }, "feed" to "Feed", "about" to "About", "reviews" to "Reviews")
-        "ASSET" -> listOfNotNull("about" to "Details", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
+    val tabs = when {
+        type != null -> businessTabs(type, p)
+        l.kind == "SKILL" -> listOfNotNull("services" to "Services", ("photos" to "Portfolio").takeIf { photos }, "feed" to "Feed", "about" to "About", "reviews" to "Reviews")
+        l.kind == "ASSET" -> listOfNotNull("about" to "Details", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
         else -> listOfNotNull("about" to "About", ("photos" to "Photos").takeIf { photos }, "reviews" to "Reviews")
     }
-    // A shop with products opens on them; the Feed is often still empty.
-    var tab by rememberSaveable(id) { mutableStateOf(if (l.kind == "BUSINESS" && p.products.isNotEmpty()) "products" else tabs.first().first) }
+    // A page opens on its catalogue (products, services, programs, events) when it has one; the Feed is often still empty.
+    val catalogue = type?.catalogueTab?.takeIf { k -> tabHasContent(p, k) && tabs.any { it.first == k } }
+    var tab by rememberSaveable(id) { mutableStateOf(catalogue ?: tabs.first().first) }
+    // A remembered tab the page no longer has (content changed since) falls back to the first one.
+    val tabKey = if (tabs.any { it.first == tab }) tab else tabs.first().first
     val trust = Trust(l.trustUp, l.trustDown)
     val meId = vm.social.me?.id
     val myDirect = p.reviews.firstOrNull { it.authorId == meId && !it.verified }
@@ -86,6 +131,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val synced = d.isSynced(id)
     fun share() = shareText(ctx, "${l.title} on Bucks" + listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) "" else " · $it" } + ". Open Bucks and search \"${l.title}\".")
     fun message() = d.startListingChat(id, onOpenChat)
+    fun directions() { p.at?.let { at -> com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -96,7 +142,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     if (l.status == "LIVE") { Spacer(Modifier.width(6.dp)); Icon(Icons.Rounded.Verified, "Verified by locals", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary) }
                 }
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KindBadge(l.kind)
+                    KindBadge(PageTypes.badge(l.kind, l.typeKey, ships), PageTypes.badgeIcon(l.kind, l.typeKey, ships))
                     if (l.category.isNotBlank()) Muted(l.category, maxLines = 1)
                     when (l.status) { "PENDING" -> PillWarn("Not live yet"); "SUSPENDED" -> PillBad("Suspended"); else -> {} }
                 }
@@ -106,22 +152,31 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 }
                 if (l.kind == "ASSET") Text(assetPrice(l.details), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.padding(top = 10.dp)) { TrustBadge(trust) }
-                StatsRow(listOfNotNull(Triple(p.syncs, "Synced", null), (Triple(p.products.size, "Products", { tab = "products" })).takeIf { l.kind == "BUSINESS" && p.products.isNotEmpty() }, Triple(l.trustUp, "Recommendations") { tab = "reviews" }, (Triple(p.members, "Team", null)).takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
+                // The catalogue count is the type's: products for a shop, services, programs or events for the others.
+                val catalogueStat = type?.catalogueTab?.let { k -> val n = when (k) { "products" -> p.products.size; "services" -> p.services.size; "programs" -> p.programs.size; else -> p.events.size }
+                    if (n > 0) Triple(n, tabLabel(type, k), { tab = k }) else null }
+                StatsRow(listOfNotNull(Triple(p.syncs, "Synced", null), catalogueStat, Triple(l.trustUp, "Recommendations") { tab = "reviews" }, (Triple(p.members, "Team", null)).takeIf { p.members > 1 }), Modifier.padding(top = 10.dp))
                 val docCount by rememberShowcaseCount(id)
                 docCount?.takeIf { it > 0 }?.let { n -> Box(Modifier.padding(top = 8.dp)) { Chip(if (n == 1) "1 document" else "$n documents", icon = Icons.Rounded.Description) { tab = "about" } } }
-                if (!p.mine) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!p.mine && (type == null || type.reviews)) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RateButton(true, myDirect?.vote == 1, Modifier.weight(1f)) { rateVote = 1 }
                     RateButton(false, myDirect?.vote == -1, Modifier.weight(1f)) { rateVote = -1 }
                 }
                 if (!p.mine && l.kind == "BUSINESS") Muted(if (synced) "You're synced: ${l.title}'s posts show in your Feed and you'll get a notification when they post." else "Sync to see ${l.title}'s posts in your Feed and get notified.", Modifier.padding(top = 6.dp))
-                if (p.mine) Notice("This is your listing. Edit it, its products and its team from Menu > Bucks Pro.", Modifier.padding(top = 12.dp))
-                else Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button({ message() }, Modifier.weight(1f).height(44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
-                        Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
-                    SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
-                    HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
-                    p.at?.let { at -> HeaderIcon(Icons.Rounded.Place, "Directions") { com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
-                    if (l.kind == "BUSINESS" && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
+                if (p.mine) Notice("This is your listing. Edit it, its ${type?.itemNoun ?: "product"}s and its team from Menu > Bucks Pro.", Modifier.padding(top = 12.dp))
+                else {
+                    // The page's own action: Book, Get a quote, Volunteer, Join, Directions... A shop has none here; its cart lives in Products.
+                    if (type != null && !type.isShop && type.cta != "CART" && (type.cta != "DIRECTIONS" || p.at != null)) PrimaryButton(type.ctaLabel, Modifier.padding(top = 12.dp)) {
+                        if (type.cta == "DIRECTIONS") directions() else d.startListingChat(id, onOpenChat, PageTypes.ctaMessage(type, l.title))
+                    }
+                    Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button({ message() }, Modifier.weight(1f).height(44.dp), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
+                            Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
+                        SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
+                        HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
+                        if (p.at != null) HeaderIcon(Icons.Rounded.Place, "Directions") { directions() }
+                        if (sellsProducts && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
+                    }
                 }
                 if (l.kind == "ASSET" && !p.mine) PrimaryButton(if (l.details.str("mode") == "SELL") "Enquire about buying" else "Enquire about renting", Modifier.padding(top = 12.dp)) {
                     d.startListingChat(id, onOpenChat, "Hi, I'm interested in ${l.title}. Is it still available?") }

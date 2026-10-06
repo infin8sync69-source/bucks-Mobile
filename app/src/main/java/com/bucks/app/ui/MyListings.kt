@@ -126,8 +126,10 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     private suspend fun uploadListingPhoto(listingId: String, photo: Picked): String {
         val path = "$listingId/${photo.objectName()}"; Backend.upload("listing-media", path, photo.bytes); return Backend.publicUrl("listing-media", path)
     }
-    private fun savedMessage(kind: String, title: String) = when (kind) {
-        "BUSINESS" -> "$title is saved. It goes live once $NEEDED people nearby recommend it."
+    /** [typeKey]: a business page beyond shops (ui/PageTypes.kt) is told to fill its catalogue and share the page. */
+    private fun savedMessage(kind: String, title: String, typeKey: String? = null) = when (kind) {
+        "BUSINESS" -> PageTypes.byKey(typeKey)?.takeIf { !it.isShop }?.let { t -> "$title is set up. Add your ${t.itemNoun}s and share the page." }
+            ?: "$title is saved. It goes live once $NEEDED people nearby recommend it."
         "SKILL" -> "$title is saved. It goes live once $NEEDED people nearby recommend you."
         "ASSET" -> "$title is saved. It goes live once $NEEDED people nearby vouch for it and Bucks checks any documents it needs."
         else -> "Your driver profile is saved. It goes live once $NEEDED people nearby recommend you."
@@ -144,13 +146,13 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
             var row = Backend.createListing(p.id, kind, title, category, description, area, at, details, service, typeKey)
             var photoFailed = false
             if (photo != null) try { val url = uploadListingPhoto(row.id, photo); Backend.setListingPhoto(row.id, url); row = row.copy(photoUrl = url) } catch (e: Exception) { photoFailed = true }
-            toast(if (photoFailed) "${if (kind == "DRIVER") "Your driver profile" else title} is saved, but the photo didn't upload. Add it from Edit." else savedMessage(kind, title))
+            toast(if (photoFailed) "${if (kind == "DRIVER") "Your driver profile" else title} is saved, but the photo didn't upload. Add it from Edit." else savedMessage(kind, title, row.typeKey ?: typeKey))
             refresh(); onDone(row)
         } finally { busy = false } }
-    /** [at] null keeps the saved location. */
-    fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, photo: Picked?, service: String? = null, onDone: () -> Unit) = go { busy = true
+    /** [at] null keeps the saved location. [service] and [typeKey] are sent only when they change (the server refuses a change once the listing is live). */
+    fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, photo: Picked?, service: String? = null, typeKey: String? = null, onDone: () -> Unit) = go { busy = true
         try {
-            Backend.updateListing(id, title, category, description, area, at, details, service)
+            Backend.updateListing(id, title, category, description, area, at, details, service, typeKey)
             if (photo != null) Backend.setListingPhoto(id, uploadListingPhoto(id, photo))
             toast("Saved."); refresh(); onDone()
         } finally { busy = false } }
