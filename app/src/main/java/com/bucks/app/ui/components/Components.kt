@@ -186,10 +186,14 @@ fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tint
 fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null) {
     val pct = t.pct; val st = MaterialTheme.status
     val (fg, bg) = when { pct == null -> MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surfaceContainer; pct >= 85 -> st.good to st.goodTint; pct >= 60 -> st.warn to st.warnTint; else -> st.bad to st.badTint }
-    val text = when { pct == null -> if (compact) "New" else "New · no votes yet"; compact -> "$pct% recommend"; else -> "$pct% recommend · ${t.total} votes" }
+    // Recommendations read as votes everywhere: an up count and a down count, never stars or thumbs.
     Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.ThumbUp, null, tint = fg, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(5.dp))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        if (pct == null) Text(if (compact) "New" else "New · no votes yet", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        else {
+            Icon(Icons.Rounded.ArrowUpward, "Upvotes", tint = fg, modifier = Modifier.size(13.dp)); Text("${t.up}", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Rounded.ArrowDownward, "Downvotes", tint = fg, modifier = Modifier.size(13.dp)); Text("${t.down}", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        }
     }
 }
 

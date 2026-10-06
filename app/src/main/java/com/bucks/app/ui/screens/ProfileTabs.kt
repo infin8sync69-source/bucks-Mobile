@@ -108,7 +108,7 @@ fun MyRecommendationsTab(vm: BucksViewModel, onOpen: (String) -> Unit) {
         SectionTitle("For my listings", Modifier.padding(start = Gutter, end = Gutter, top = 14.dp, bottom = 4.dp))
         if (m.listings.isEmpty()) Muted("When you list a business, skill or asset, the people who recommend it show here.", Modifier.padding(horizontal = Gutter))
         m.listings.forEach { l -> val n = m.counts[l.id]?.recommendations ?: m.recommendations[l.id]
-            ListRow(l.title, listOfNotNull(if (n != null) "$n ${if (n == 1) "person" else "people"} recommended" else null, if (l.status == "LIVE") "Live" else "Not live yet").joinToString(" · "), leading = { Avatar(icon = Icons.Rounded.ThumbUp, size = 40) },
+            ListRow(l.title, listOfNotNull(if (n != null) "$n ${if (n == 1) "person" else "people"} recommended" else null, if (l.status == "LIVE") "Live" else "Not live yet").joinToString(" · "), leading = { Avatar(icon = Icons.Rounded.ArrowUpward, size = 40) },
                 trailing = { TrustBadge(Trust(l.trustUp, l.trustDown), compact = true) }, onClick = { onOpen(Routes.studioListing(l.id)) }); Divider() }
         SectionTitle("Locals I recommended", Modifier.padding(start = Gutter, end = Gutter, top = 18.dp, bottom = 4.dp))
         when {
@@ -124,7 +124,7 @@ fun MyRecommendationsTab(vm: BucksViewModel, onOpen: (String) -> Unit) {
             rv == null -> {}
             rv.isEmpty() -> Muted("After an order, visit or trip you can review it from its page.", Modifier.padding(horizontal = Gutter))
             else -> rv.forEach { (r, l) -> ListRow(l?.title ?: "A listing", listOfNotNull(r.comment.take(70), ago(r.createdAt)).joinToString(" · "),
-                leading = { Icon(if (r.vote > 0) Icons.Rounded.ThumbUp else Icons.Rounded.ArrowDownward, if (r.vote > 0) "Recommended" else "Not recommended", tint = if (r.vote > 0) st.good else st.bad, modifier = Modifier.padding(8.dp)) },
+                leading = { Icon(if (r.vote > 0) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (r.vote > 0) "Recommended" else "Not recommended", tint = if (r.vote > 0) st.good else st.bad, modifier = Modifier.padding(8.dp)) },
                 onClick = l?.let { x -> { onOpen(Routes.listing(x.id)) } }); Divider() }
         }
     }

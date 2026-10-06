@@ -5,12 +5,25 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.bucks.app.data.ListingRow
 import com.bucks.app.data.SearchHit
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 
 /*
  * Page types: what a BUSINESS listing is (shop, local service, company, NGO, school...). The type decides the catalogue tab, the
  * primary button, the tabs and the Home tile. The server holds the same registry (listing_types, migration page_types.sql) and
  * enforces it; this copy is what the app renders with, so screens work offline and old rows (no type) still get a sensible page.
  */
+
+/**
+ * The fourth tab of every profile: the page's catalogue. The owner names it ("Products", "Products & Services", "Courses & Events")
+ * and picks what it holds, in Studio or when creating the page; both live in listings.details (catalogue_label, catalogue_kinds).
+ * The server lets items in only of these kinds (listing_item_kinds, migration catalogue_tab.sql) and orders only when PRODUCT is one.
+ */
+data class Catalogue(val label: String, val kinds: List<String>, val custom: Boolean) {
+    val sellsProducts get() = "PRODUCT" in kinds
+    /** The items.kind a new entry gets by default. */
+    val newItemKind get() = kinds.firstOrNull() ?: "SERVICE"
+}
 
 /** A group of types: one Home tile, one search chip. */
 data class PageGroup(val key: String, val label: String, val icon: ImageVector, val services: List<String>)
@@ -77,6 +90,30 @@ object PageTypes {
     fun of(l: ListingRow): PageType? = if (l.kind != "BUSINESS") null else byKey(l.typeKey) ?: legacyShop(l.details.str("ships_india") == "true")
     fun of(h: SearchHit): PageType? = if (h.kind != "BUSINESS") null else byKey(h.typeKey) ?: legacyShop(h.details.str("ships_india") == "true")
     private fun legacyShop(ships: Boolean) = byKey(if (ships) "D2C_STORE" else "RETAIL_SHOP")!!
+
+    /** The kinds a catalogue can hold, in the order the tab shows them. */
+    val itemKinds = listOf("PRODUCT", "SERVICE", "PROGRAM", "EVENT")
+    fun kindPlural(k: String) = when (k) { "PRODUCT" -> "Products"; "PROGRAM" -> "Programs"; "EVENT" -> "Events"; else -> "Services" }
+    fun kindNoun(k: String) = when (k) { "PRODUCT" -> "product"; "PROGRAM" -> "program"; "EVENT" -> "event"; else -> "service" }
+    const val CATALOGUE_LABEL_MAX = 24
+
+    /** What a page's catalogue holds before the owner changes it: its type's kinds, services for a pro, nothing for an asset or a driver. */
+    fun defaultKinds(kind: String, type: PageType?): List<String> = type?.itemKinds ?: if (kind == "SKILL") listOf("SERVICE") else emptyList()
+    /** The tab's name before the owner renames it. */
+    fun defaultLabel(kind: String, type: PageType?, kinds: List<String>): String = when {
+        kind == "ASSET" -> "Pricing"
+        kind == "DRIVER" -> "Rides"
+        type != null && kinds == type.itemKinds && type.catalogueLabel != null -> type.catalogueLabel
+        kinds.isEmpty() -> "Services"
+        else -> kinds.map { kindPlural(it) }.let { if (it.size <= 2) it.joinToString(" & ") else it.dropLast(1).joinToString(", ") + " & " + it.last() }
+    }
+    fun catalogue(l: ListingRow): Catalogue {
+        val type = of(l)
+        val chosen = (l.details["catalogue_kinds"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }?.filter { it in itemKinds }?.takeIf { it.isNotEmpty() }
+        val kinds = chosen?.let { c -> itemKinds.filter { it in c } } ?: defaultKinds(l.kind, type)
+        val label = l.details.str("catalogue_label")?.take(CATALOGUE_LABEL_MAX)
+        return Catalogue(label ?: defaultLabel(l.kind, type, kinds), kinds, chosen != null || label != null)
+    }
 
     /** Short label for a card or header: the type for a business ("NGO / charity"), else the kind. */
     fun badge(kind: String, typeKey: String?, ships: Boolean = false): String = if (kind == "BUSINESS") (byKey(typeKey) ?: legacyShop(ships)).label else kindLabel(kind)

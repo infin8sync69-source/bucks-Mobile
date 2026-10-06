@@ -46,11 +46,25 @@ import kotlinx.serialization.json.put
  * an item whose kind the type does not hold, so the kind here always comes from the listing, never from the form.
  */
 
-/** The items.kind a new catalogue entry gets: SERVICE for a skill, the page type's kind for a business, PRODUCT for an older shop. */
-internal fun itemKindOf(l: ListingRow?): String = when {
-    l == null -> "PRODUCT"
-    l.kind == "SKILL" -> "SERVICE"
-    else -> PageTypes.of(l)?.newItemKind ?: "PRODUCT"
+/** The items.kind a new catalogue entry gets by default: the first kind the page's catalogue holds (owner's choice, else its type's). */
+internal fun itemKindOf(l: ListingRow?): String = l?.let { PageTypes.catalogue(it).newItemKind } ?: "PRODUCT"
+
+/** The kind the next new entry gets, set by [AddItemButton] when the catalogue holds more than one kind; the item form reads it. */
+internal object NewItemKind { var next: String? = null }
+
+/** "Add a product", or, when the catalogue holds several kinds, a menu: Add a product / Add a service / Add an event. */
+@Composable
+internal fun AddItemButton(l: ListingRow?, modifier: Modifier = Modifier, onAdd: () -> Unit) {
+    val cat = l?.let { PageTypes.catalogue(it) }
+    val kinds = cat?.kinds.orEmpty()
+    var menu by remember { mutableStateOf(false) }
+    if (kinds.size <= 1) PrimaryButton(addItemTitle(itemNoun(itemKindOf(l))), modifier) { NewItemKind.next = null; onAdd() }
+    else Box(modifier) {
+        PrimaryButton("Add to ${cat?.label ?: "catalogue"}") { menu = true }
+        DropdownMenu(menu, { menu = false }) {
+            kinds.forEach { k -> DropdownMenuItem(text = { Text(addItemTitle(itemNoun(k))) }, leadingIcon = { Icon(itemIcon(k), null) }, onClick = { menu = false; NewItemKind.next = k; onAdd() }) }
+        }
+    }
 }
 internal fun itemNoun(kind: String) = when (kind) { "SERVICE" -> "service"; "PROGRAM" -> "program"; "EVENT" -> "event"; else -> "product" }
 internal fun itemIcon(kind: String): ImageVector = when (kind) { "SERVICE" -> Icons.Rounded.Handyman; "PROGRAM" -> Icons.Rounded.Assignment; "EVENT" -> Icons.Rounded.CalendarMonth; else -> Icons.Rounded.ShoppingBag }
@@ -80,7 +94,7 @@ fun ItemsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit, onEdi
     val m = vm.myListings
     LaunchedEffect(listingId) { if (!m.loaded) m.refresh(); m.loadItems(listingId) }
     val l = m.listing(listingId); val itemKind = itemKindOf(l); val noun = itemNoun(itemKind)
-    val title = if (l?.kind == "SKILL") "Services" else l?.let { PageTypes.of(it) }?.catalogueLabel ?: "${noun.replaceFirstChar { it.uppercase() }}s"
+    val title = l?.let { PageTypes.catalogue(it).label } ?: "${noun.replaceFirstChar { it.uppercase() }}s"
     val rows = m.items[listingId]
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
@@ -108,7 +122,7 @@ fun ItemsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit, onEdi
                 }
             }
         }
-        PrimaryButton(addItemTitle(noun), Modifier.padding(horizontal = Gutter, vertical = 12.dp)) { onEdit(listingId, null) }
+        AddItemButton(l, Modifier.padding(horizontal = Gutter, vertical = 12.dp)) { onEdit(listingId, null) }
     }
 }
 
@@ -119,7 +133,8 @@ fun ItemEditScreen(vm: BucksViewModel, listingId: String, itemId: String?, onBac
     LaunchedEffect(listingId) { if (!m.loaded) m.refresh(); if (m.items[listingId] == null) m.loadItems(listingId) }
     val l = m.listing(listingId)
     val existing = itemId?.let { id -> m.items[listingId]?.firstOrNull { it.id == id } }
-    val itemKind = existing?.kind ?: itemKindOf(l); val noun = itemNoun(itemKind)
+    // A new entry takes the kind picked in the Add menu, when it is one this catalogue holds.
+    val itemKind = existing?.kind ?: NewItemKind.next?.takeIf { k -> l == null || k in PageTypes.catalogue(l).kinds } ?: itemKindOf(l); val noun = itemNoun(itemKind)
     if (itemId != null && existing == null) {
         ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Edit $noun", onBack = onBack)
             if (m.items[listingId] != null) Column(Modifier.padding(Gutter)) { Text("Not found", style = MaterialTheme.typography.titleMedium); Muted("This $noun was removed.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }

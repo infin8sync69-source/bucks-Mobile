@@ -288,7 +288,7 @@ private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, r
                 Text(rs(item.price), style = MaterialTheme.typography.headlineSmall)
                 item.mrp?.takeIf { it > item.price }?.let { Text(rs(it), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${((it - item.price) * 100.0 / it).toInt()}% off", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.status.good) }
             }
-            rating?.percent?.let { pct -> Muted("$pct% recommend · ${rating.votes} ${if (rating.votes == 1) "vote" else "votes"}", Modifier.padding(top = 2.dp)) }
+            rating?.takeIf { it.votes > 0 }?.let { r -> Muted("▲ ${r.up} upvotes · ▼ ${r.down} downvotes", Modifier.padding(top = 2.dp)) }
             if (pr.multi) {
                 Label("Choose an option")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -325,7 +325,7 @@ private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product
     val mine = rating?.mine
     HorizontalDivider(Modifier.padding(top = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
     Text("What people say", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
-    Muted(rating?.percent?.let { "$it% recommend this · ${rating.up} recommend, ${rating.down} don't" } ?: "No ratings yet. Be the first.", Modifier.padding(top = 2.dp))
+    Muted(rating?.takeIf { it.votes > 0 }?.let { "▲ ${it.up} upvotes · ▼ ${it.down} downvotes" } ?: "No votes yet. Be the first.", Modifier.padding(top = 2.dp))
     rating?.percent?.let { pct -> Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.status.bad.copy(alpha = 0.35f))) { Box(Modifier.fillMaxWidth(pct / 100f).fillMaxHeight().background(MaterialTheme.status.good)) } }
     if (isOwner) Muted("This is your product. Customers' feedback and comments show here, and you get a notification for each comment.", Modifier.padding(top = 10.dp))
     else {

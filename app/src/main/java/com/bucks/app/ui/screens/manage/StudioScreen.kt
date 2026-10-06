@@ -110,7 +110,7 @@ fun StudioScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (listingId: Str
                                 Text("Your Bucks Pro ID", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Show it so people sync with you.")
                             }
                             BucksCard(Modifier.weight(1f), onClick = onScan) {
-                                Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.ArrowUpward, null, tint = MaterialTheme.colorScheme.primary)
                                 Text("Recommend a local", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)); Muted("Scan their code in person.")
                             }
                         }

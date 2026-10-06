@@ -20,8 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.bucks.app.data.Trust
 import com.bucks.app.data.VerificationLevel
 import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.shareText
@@ -81,6 +83,7 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
                 SoftButton("Edit profile", Icons.Rounded.EditNote, onClick = onEditProfile)
                 SoftButton("Share", Icons.Rounded.IosShare) { shareText(ctx, "$name on Bucks" + (me?.let { " · Bucks ID ${it.shortCode}" } ?: "") + (if (area.isNotBlank()) " · $area" else "")) } }
         }
+        MyPagesSection(vm, onOpen)
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(initials(name), size = 40)
@@ -132,4 +135,24 @@ private fun VerificationCard(vm: BucksViewModel, id: String, levels: Set<Verific
 @Composable private fun StatCard(value: String, label: String, modifier: Modifier) = BucksCard(modifier, padding = 14) { Text(value, style = MaterialTheme.typography.titleLarge); Muted(label) }
 @Composable private fun ProfileRow(icon: ImageVector, title: String, sub: String) = BucksCard(Modifier.padding(bottom = 10.dp), padding = 14) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Column(Modifier.padding(start = 14.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(sub) } } }
 @Composable private fun ListRowCompact(icon: ImageVector, title: String, sub: String, onClick: (() -> Unit)? = null) { Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(icon = icon, size = 36, tinted = false); Column(Modifier.padding(start = 12.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(sub) } }; Divider() }
+
+/**
+ * The businesses, skills and organisations this person runs, under their profile. Each row opens the page itself
+ * (its public profile), the same one people find in search; managing it stays in Menu > Bucks Pro.
+ */
+@Composable
+private fun MyPagesSection(vm: BucksViewModel, onOpen: (String) -> Unit) {
+    val m = vm.myListings
+    LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
+    val pages = m.listings.filter { it.kind != "DRIVER" }
+    if (pages.isEmpty()) return
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    SectionTitle(if (pages.size == 1) "My page" else "My pages", Modifier.padding(start = Gutter, end = Gutter, top = 12.dp, bottom = 4.dp))
+    pages.forEach { l ->
+        val ships = (l.details["ships_india"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+        ListRow(l.title, listOfNotNull(PageTypes.badge(l.kind, l.typeKey, ships), l.category.ifBlank { null }, if (l.status == "LIVE") null else "Not live yet").joinToString(" · "),
+            leading = { Avatar(icon = PageTypes.badgeIcon(l.kind, l.typeKey, ships), size = 40) },
+            trailing = { TrustBadge(Trust(l.trustUp, l.trustDown), compact = true) }, onClick = { onOpen(Routes.listing(l.id)) })
+    }
+}
 

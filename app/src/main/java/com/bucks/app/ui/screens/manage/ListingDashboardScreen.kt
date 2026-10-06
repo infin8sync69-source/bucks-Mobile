@@ -54,18 +54,17 @@ import kotlinx.serialization.json.JsonObject
 /** Tabs of a listing's dashboard. */
 private enum class DashTab { OVERVIEW, ITEMS, PHOTOS, FEED, REVIEWS }
 
-/** A business's tabs follow its page type (ui/PageTypes.kt): the catalogue tab is named for what it holds and left out when the type has none. */
+/**
+ * The dashboard mirrors the public profile's five tabs in the same order (Feed, Gallery, the page's catalogue, Recommendations),
+ * with Overview (edit, documents, team, About) first. The catalogue tab carries the name the owner gave it.
+ */
 private fun tabsFor(l: ListingRow, manage: Boolean): List<Pair<DashTab, String>> {
-    val type = PageTypes.of(l)
-    return when {
-        !manage -> listOf(DashTab.OVERVIEW to "Overview", DashTab.REVIEWS to "Reviews")
-        type != null -> buildList<Pair<DashTab, String>> {
-            add(DashTab.OVERVIEW to "Overview"); type.catalogueLabel?.let { add(DashTab.ITEMS to it) }
-            add(DashTab.PHOTOS to pagePhotosLabel(type)); add(DashTab.FEED to "Feed"); add(DashTab.REVIEWS to "Reviews")
-        }
-        l.kind == "SKILL" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.ITEMS to "Services", DashTab.PHOTOS to "Portfolio", DashTab.FEED to "Feed", DashTab.REVIEWS to "Reviews")
-        l.kind == "ASSET" -> listOf(DashTab.OVERVIEW to "Overview", DashTab.PHOTOS to "Photos", DashTab.REVIEWS to "Reviews")
-        else -> listOf(DashTab.OVERVIEW to "Overview", DashTab.PHOTOS to "Photos", DashTab.REVIEWS to "Reviews")
+    if (!manage) return listOf(DashTab.OVERVIEW to "Overview", DashTab.REVIEWS to "Recommendations")
+    val cat = PageTypes.catalogue(l)
+    return buildList {
+        add(DashTab.OVERVIEW to "Overview"); add(DashTab.FEED to "Feed"); add(DashTab.PHOTOS to "Gallery")
+        if (l.kind == "BUSINESS" || l.kind == "SKILL") add(DashTab.ITEMS to cat.label)
+        add(DashTab.REVIEWS to "Recommendations")
     }
 }
 
@@ -204,7 +203,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 if (l.kind == "BUSINESS") ManageTile(Icons.Rounded.Work, if (type?.key == "NGO_CHARITY") "Volunteers" else "Jobs") { goTo("JOBS") }
                 if (sells && owner) ManageTile(Icons.Rounded.QrCode2, "Payment QR") { goTo("PAYMENT") }
                 if (l.kind == "DRIVER") ManageTile(Icons.Rounded.TwoWheeler, "Vehicles") { goTo("VEHICLES") }
-                ManageTile(Icons.Rounded.ThumbUp, if (l.status == "PENDING") "Get recommended" else "Recommend code") { goTo("RECOMMEND") }
+                ManageTile(Icons.Rounded.ArrowUpward, if (l.status == "PENDING") "Get recommended" else "Recommend code") { goTo("RECOMMEND") }
                 ManageTile(Icons.Rounded.Visibility, "Customer view") { goTo("PROFILE") }
             }
         } else item { Notice("You're a store rider here: you deliver its orders. Only the owner and admins change the listing.") }
@@ -276,7 +275,7 @@ private fun ItemsTab(m: MyListings, l: ListingRow, onItem: (String, String?) -> 
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-                PrimaryButton(addItemTitle(noun)) { onItem(l.id, null) }
+                AddItemButton(l) { onItem(l.id, null) }
                 if (rows.orEmpty().size > 6) BucksField(q, { q = it }, placeholder = "Search your ${noun}s", modifier = Modifier.padding(top = 12.dp))
                 if (groups.size > 1) ChipRow(listOf("All") + groups, group ?: "All", Modifier.padding(top = 4.dp)) { group = if (it == "All") null else it }
                 if (rows != null && rows.isNotEmpty()) Muted("${rows.size} ${noun}s · ${rows.count { it.inStock }} ${itemOnLabel(itemKind, true).lowercase()}", Modifier.padding(top = 8.dp))
@@ -459,7 +458,7 @@ private fun ReviewsManageTab(vm: BucksViewModel, l: ListingRow) {
                         Text(vm.social.nameOf(r.authorId), style = MaterialTheme.typography.titleSmall); Muted(ago(r.createdAt))
                         Text(r.comment, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
                     }
-                    Icon(if (up) Icons.Rounded.ThumbUp else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", tint = if (up) st.good else st.bad)
+                    Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", tint = if (up) st.good else st.bad)
                 }
             }
         }

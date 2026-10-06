@@ -75,7 +75,7 @@ fun OwnerSheet(vm: BucksViewModel, l: ListingRow, owner: OwnerRow?, onDismiss: (
                 list == null -> Muted("Loading…")
                 list.isEmpty() -> Muted("Only this page.")
                 else -> list.forEach { x ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Open ${x.title}") { onDismiss(); vm.open(com.bucks.app.ui.nav.Routes.listing(x.id)) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(PageTypes.badgeIcon(x.kind, x.typeKey, x.details.str("ships_india") == "true"), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(x.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(PageTypes.badge(x.kind, x.typeKey, x.details.str("ships_india") == "true") + (if (x.id == l.id) " · this page" else ""), maxLines = 1) }
                     }

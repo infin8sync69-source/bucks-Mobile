@@ -77,6 +77,12 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     // A page that takes requests (service, company, NGO, institution) rather than orders: no delivery, contact details instead.
     val orgPage = kind == "BUSINESS" && !type.isShop
     var pickType by remember { mutableStateOf(false) }
+    // The catalogue tab (4th of the five on every page): its name and what it holds. Blank name and null kinds follow the type.
+    var catLabel by remember { mutableStateOf(d.str("catalogue_label")) }
+    var catKinds by remember { mutableStateOf(d.strings("catalogue_kinds").filter { it in PageTypes.itemKinds }.toSet().ifEmpty { null }) }
+    val catType = if (kind == "BUSINESS") type else null
+    val catDefault = PageTypes.defaultKinds(kind, catType).toSet()
+    val catEffective = catKinds ?: catDefault
     var registration by remember { mutableStateOf(d.str("registration")) }
     var website by remember { mutableStateOf(d.str("website")) }
     var email by remember { mutableStateOf(d.str("email")) }
@@ -125,8 +131,15 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         if (kind == "ASSET" && price.isNotBlank() && price.toLongOrNull() == null) { vm.toast("Enter the price in rupees, numbers only."); return }
         if (kind == "ASSET" && year.isNotBlank() && (year.toIntOrNull() ?: 0) !in 1950..2100) { vm.toast("Enter the year it was made, like 2019."); return }
         if (kind == "BUSINESS" && !orgPage && (radius.toIntOrNull() ?: 0) !in 1..50) { vm.toast("Delivery radius should be between 1 and 50 km."); return }
+        if ((kind == "BUSINESS" || kind == "SKILL") && catEffective.isEmpty()) { vm.toast("Pick at least one thing your catalogue tab lists."); return }
         val details = buildJsonObject {
             d.forEach { (k, v) -> put(k, v) }   // keep anything other features stored
+            if (kind == "BUSINESS" || kind == "SKILL") {
+                // Saved only when the owner changed them, so a page keeps following its type's defaults until then.
+                if (catLabel.isNotBlank()) put("catalogue_label", catLabel.trim().take(PageTypes.CATALOGUE_LABEL_MAX)) else put("catalogue_label", JsonNull)
+                if (catKinds != null && catEffective != catDefault) put("catalogue_kinds", buildJsonArray { PageTypes.itemKinds.filter { it in catEffective }.forEach { add(JsonPrimitive(it)) } })
+                else put("catalogue_kinds", JsonNull)
+            }
             when (kind) {
                 "BUSINESS" -> { put("hours", hours.trim())
                     if (orgPage) {
@@ -183,6 +196,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         BucksField(description, { description = it.take(600) }, if (orgPage) "About the page" else "About the business", if (orgPage) "What you do, who it's for, what you're known for" else "What you sell, what you're known for", singleLine = false, minLines = 3)
                         BucksField(hours, { hours = it.take(80) }, if (orgPage) "Timings" else "Opening hours", if (orgPage) "Mon - Sat, 9 am - 5 pm" else "9 am - 9 pm, closed Sundays")
                         BucksField(area, { area = it.take(60) }, "Area", "Jayanagar")
+                        CatalogueTabEditor(kind, catType, catLabel, catEffective, onLabel = { catLabel = it }, onKinds = { catKinds = it })
                         if (orgPage) {
                             SectionTitle("Contact and registration", Modifier.padding(top = 6.dp, bottom = 4.dp))
                             BucksField(registration, { registration = it.take(40) }, "${pageRegistrationLabel(type)} (optional)", if (type.key == "SCHOOL_COLLEGE") "Board or university affiliation number" else "Society, trust or company registration number")
@@ -215,6 +229,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         Spacer(Modifier.height(14.dp))
                         BucksField(description, { description = it.take(600) }, "About your work", "Years of experience, what you specialise in", singleLine = false, minLines = 3)
                         BucksField(area, { area = it.take(60) }, "Area you work in", "Jayanagar")
+                        CatalogueTabEditor(kind, null, catLabel, catEffective, onLabel = { catLabel = it }, onKinds = { catKinds = it })
                     }
                     "ASSET" -> {
                         Label("What is it?")
@@ -282,3 +297,23 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
 
 /** Drops keys set to null (facts the owner cleared), so they leave the listing instead of being stored as null. */
 private fun JsonObject.withoutNulls() = JsonObject(filterValues { it !is JsonNull })
+
+/**
+ * The fourth tab of the page: what it is called and what it lists. Every page has Feed, About, Gallery, this tab and
+ * Recommendations, in that order. Only a business can list products (orders need a shop); a skill lists the rest.
+ */
+@Composable
+private fun CatalogueTabEditor(kind: String, type: PageType?, label: String, kinds: Set<String>, onLabel: (String) -> Unit, onKinds: (Set<String>) -> Unit) {
+    val options = if (kind == "BUSINESS") PageTypes.itemKinds else PageTypes.itemKinds - "PRODUCT"
+    val default = PageTypes.defaultLabel(kind, type, PageTypes.itemKinds.filter { it in kinds })
+    SectionTitle("Catalogue tab", Modifier.padding(top = 6.dp, bottom = 4.dp))
+    Muted("Your page shows Feed, About, Gallery, this tab, then Recommendations. Choose what it lists and, if you like, rename it.", Modifier.padding(bottom = 8.dp))
+    FlowChips(options.map { PageTypes.kindPlural(it) }, kinds.map { PageTypes.kindPlural(it) }.toSet()) { picked ->
+        val k = options.first { PageTypes.kindPlural(it) == picked }
+        onKinds(if (k in kinds) kinds - k else kinds + k)
+    }
+    BucksField(label, { onLabel(it.take(PageTypes.CATALOGUE_LABEL_MAX)) }, "Tab name (optional)", default)
+    Muted(listOf("Feed", "About", "Gallery", label.trim().ifBlank { default }, "Recommendations").joinToString(" · ") +
+        (if (kind == "BUSINESS" && "PRODUCT" !in kinds) "\nWithout Products, people can't order from this page." else ""), Modifier.padding(bottom = 10.dp))
+}
+

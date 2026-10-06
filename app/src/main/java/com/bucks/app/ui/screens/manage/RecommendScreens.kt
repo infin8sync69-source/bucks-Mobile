@@ -99,7 +99,7 @@ fun RecommendScanScreen(vm: BucksViewModel, onBack: () -> Unit) {
             PrimaryButton("Open the scanner", Modifier.padding(top = 16.dp), enabled = fix != null) { scan() }
             result?.let { n ->
                 BucksCard(Modifier.padding(top = 14.dp), tint = true) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.onPrimaryContainer); Text("  Thanks, that's $n of $NEEDED", style = MaterialTheme.typography.titleMedium) }
+                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ArrowUpward, null, tint = MaterialTheme.colorScheme.onPrimaryContainer); Text("  Thanks, that's $n of $NEEDED", style = MaterialTheme.typography.titleMedium) }
                     Muted(if (n >= NEEDED) "They're live on Bucks now. Neighbours can find and order from them." else "They need ${NEEDED - n} more. Know someone else nearby who rates them? Tell them.", Modifier.padding(top = 4.dp))
                 }
             }

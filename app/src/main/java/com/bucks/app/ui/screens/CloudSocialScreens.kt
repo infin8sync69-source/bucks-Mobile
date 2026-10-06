@@ -654,11 +654,11 @@ private fun noteIcon(kind: String) = when (kind) {
     "SYNC_REQUEST", "SYNC_ACCEPTED" -> Icons.Rounded.PersonAddAlt
     "INVITE" -> Icons.Rounded.MailOutline
     "ORDER_NEW", "ORDER_UPDATE" -> Icons.Rounded.ShoppingBag
-    "RECOMMENDED" -> Icons.Rounded.ThumbUp
+    "RECOMMENDED" -> Icons.Rounded.ArrowUpward
     "LISTING_LIVE" -> Icons.Rounded.Verified
     "LISTING_PAUSED" -> Icons.Rounded.Block
     "DOCUMENT_VERIFIED", "DOCUMENT_REJECTED" -> Icons.Rounded.Description
-    "REVIEW" -> Icons.Rounded.Star
+    "REVIEW" -> Icons.Rounded.SwapVert
     else -> Icons.Rounded.Notifications
 }
 

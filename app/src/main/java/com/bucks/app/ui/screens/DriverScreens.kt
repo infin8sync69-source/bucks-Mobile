@@ -16,7 +16,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -189,9 +188,13 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
                     }
                     DriverRideStatus.DONE -> PaymentPanel(vm, dr, cash) { cash = it }
                     DriverRideStatus.RATE -> {
-                        Text("Rate your customer", style = MaterialTheme.typography.titleMedium)
+                        Text("Would you recommend this customer?", style = MaterialTheme.typography.titleMedium)
                         Avatar(initials(dr.customer), size = 48); Text(dr.customer, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
-                        Row(Modifier.padding(vertical = 14.dp)) { (1..5).forEach { i -> IconButton({ stars = i }) { Icon(if (i <= stars) Icons.Filled.Star else Icons.Rounded.StarOutline, "$i star${if (i > 1) "s" else ""}", Modifier.size(34.dp), tint = if (i <= stars) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant) } } }
+                        // Recommendations are an upvote or a downvote everywhere; 5 and 1 keep driverRateCustomer's up/down split.
+                        Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            listOf(5 to true, 1 to false).forEach { (v, up) -> val on = stars == v; val c = if (up) MaterialTheme.status.good else MaterialTheme.status.bad
+                                OutlinedButton({ stars = v }, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (on) c.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent, contentColor = c)) {
+                                    Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp)); Text(if (up) "  Upvote" else "  Downvote") } } }
                         DarkButton("Submit", enabled = stars > 0) { vm.driverRateCustomer(stars) }
                     }
                     DriverRideStatus.RINGING -> {}
