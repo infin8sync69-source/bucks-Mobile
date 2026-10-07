@@ -193,6 +193,10 @@ R is used as the prior `m` for any new page by that owner, and it is shown on th
 
 ### Phase 0 (before the pilot, 2–3 days): honesty fixes
 
+**Status: done (October 2026).** Migration `trust_phase0.sql` (live), test `supabase/tests/trust_phase0_live_scenario.sql` (9/9).
+The account-age gate is skipped while `pilot_skip_checks = 1`; it takes effect when that switch is turned off for launch.
+Old function versions are kept as `rate_listing_v0`, `review_v0`, `rate_product_v0` for rollback.
+
 1. Call `review(p_order)` from the delivered-order screen (a "How was it?" arrow prompt) so verified buyers exist.
 2. Store `verified` on `reviews`, and show "Verified customer" on those comments.
 3. Gate `rate_listing` and `rate_product`: account at least 3 days old, and cooldown on edits; stop resetting `created_at`.
