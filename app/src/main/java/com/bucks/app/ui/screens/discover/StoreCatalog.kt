@@ -244,13 +244,7 @@ private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, rati
                 Text(price, style = MaterialTheme.typography.titleSmall, modifier = Modifier.alpha(dim))
                 if (!pr.multi) one.mrp?.takeIf { it > one.price }?.let { Text(rs(it), style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            rating?.percent?.let { pct ->
-                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val tone = if (pct >= 50) MaterialTheme.status.good else MaterialTheme.status.bad
-                    Icon(if (pct >= 50) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(14.dp), tint = tone)
-                    Text(" $pct%", style = MaterialTheme.typography.labelMedium, color = tone); Muted(" (${rating.votes})", maxLines = 1)
-                }
-            }
+            rating?.let { r -> shownVote(r.up, r.down)?.let { side -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down, size = 14, side = side) } } }
             if (pr.multi) Muted("${pr.options.size} options", Modifier.padding(top = 2.dp), maxLines = 1)
             Box(Modifier.padding(top = 8.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                 when {
@@ -288,7 +282,7 @@ private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, r
                 Text(rs(item.price), style = MaterialTheme.typography.headlineSmall)
                 item.mrp?.takeIf { it > item.price }?.let { Text(rs(it), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${((it - item.price) * 100.0 / it).toInt()}% off", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.status.good) }
             }
-            rating?.takeIf { it.votes > 0 }?.let { r -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down) } }
+            rating?.let { r -> shownVote(r.up, r.down)?.let { side -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down, side = side) } } }
             if (pr.multi) {
                 Label("Choose an option")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -325,7 +319,12 @@ private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product
     val mine = rating?.mine
     HorizontalDivider(Modifier.padding(top = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
     Text("What people say", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
-    rating?.takeIf { it.votes > 0 }?.let { r -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down, size = 16) } } ?: Muted("Nobody has rated this yet. Tap an arrow to be the first.", Modifier.padding(top = 2.dp))
+    val side = rating?.let { shownVote(it.up, it.down) }
+    when {
+        rating != null && side != null -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(rating.up, rating.down, size = 16, side = side) }
+        (rating?.votes ?: 0) > 0 -> Muted("New: a few people have rated it so far.", Modifier.padding(top = 2.dp))
+        else -> Muted("Nobody has rated this yet. Tap an arrow to be the first.", Modifier.padding(top = 2.dp))
+    }
     rating?.percent?.let { pct -> Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.status.bad.copy(alpha = 0.35f))) { Box(Modifier.fillMaxWidth(pct / 100f).fillMaxHeight().background(MaterialTheme.status.good)) } }
     if (isOwner) Muted("This is your product. Customers' feedback and comments show here, and you get a notification for each comment.", Modifier.padding(top = 10.dp))
     else {

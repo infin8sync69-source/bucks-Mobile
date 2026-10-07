@@ -14,6 +14,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.Backend
+import com.bucks.app.data.myOrderReview
+import com.bucks.app.ui.theme.status
 import com.bucks.app.data.CloudOrderRow
 import com.bucks.app.data.OrderContactRow
 import com.bucks.app.data.TaskRow
@@ -106,6 +108,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 ShipmentCard(o, Modifier.padding(top = 12.dp))
                 SectionTitle("Progress", Modifier.padding(top = 22.dp, bottom = 10.dp))
                 OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy, carrier = o.carrier)
+                if (!vendor && o.status == "DELIVERED") OrderReviewCard(vm, o.id, o.listingId, commerce.titleOf(o.listingId))
 
                 if (!vendor) {
                     // The shop is paid for what it sells (and its own rider's fee); a Bucks rider's fee goes to the rider at the door.
@@ -232,9 +235,42 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
                 }
                 "READY" -> if (forShop) "Waiting for the customer. Tap Collected when they pick it up." else "Go to the shop and collect it."
                 "PICKED_UP" -> if (forShop) "On the way to the customer." else "On the way to you."
-                else -> if (forShop) "Done." else "Tell others how it went with a review on the shop's page."
+                else -> if (forShop) "Done." else "Tell others how it went: tap an arrow below."
             }
             StatusLine(label, detail, done = idx < at && key != cur, now = key == cur, last = i == steps.lastIndex)
         }
     }
 }
+
+/**
+ * "How was it?" on a delivered order: the arrows open the feedback box, and the vote is saved as a verified review (review with
+ * p_order), the strongest kind there is. A down needs a reason. Once given, the card shows the arrow instead.
+ */
+@Composable
+private fun OrderReviewCard(vm: BucksViewModel, orderId: String, listingId: String, shop: String) {
+    val scope = rememberCoroutineScope()
+    var mine by remember(orderId) { mutableStateOf<Int?>(null) }; var loaded by remember(orderId) { mutableStateOf(false) }
+    var voting by remember { mutableStateOf<Int?>(null) }; var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(orderId) { mine = runCatching { Backend.myOrderReview(orderId) }.getOrNull(); loaded = true }
+    if (!loaded) return
+    BucksCard(Modifier.padding(top = 16.dp)) {
+        val v = mine
+        if (v != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (v > 0) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (v > 0) "You recommended it" else "You didn't recommend it", tint = if (v > 0) MaterialTheme.status.good else MaterialTheme.status.bad)
+            Muted("  Thanks. Your vote counts as a verified customer's.")
+        } else {
+            Text("How was it?", style = MaterialTheme.typography.titleMedium)
+            Muted("Votes from people who actually ordered count the most.", Modifier.padding(top = 2.dp))
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                VoteArrow(true, false, Modifier.weight(1f)) { voting = 1 }; VoteArrow(false, false, Modifier.weight(1f)) { voting = -1 }
+            }
+        }
+    }
+    voting?.let { start -> VoteFeedbackSheet("Your order from $shop", start, busy = busy, askReason = true, onSubmit = { vote, text, reason ->
+        scope.launch { busy = true
+            runCatching { Backend.review(listingId, null, orderId, vote > 0, text, reason) }
+                .onSuccess { mine = vote; voting = null; vm.toast("Thanks. Your vote is posted.") }
+                .onFailure { vm.toast(it.message?.substringAfter("message\":\"")?.substringBefore('"')?.takeIf { m -> m.length in 3..120 } ?: "Couldn't send that. Try again.") }
+            busy = false } }, onDismiss = { voting = null }) }
+}
+

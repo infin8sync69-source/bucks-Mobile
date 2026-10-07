@@ -189,8 +189,9 @@ object Backend {
     suspend fun respondOrder(id: String, accept: Boolean, reason: String? = null) { db.rpc("respond_order", buildJsonObject { put("p_order", id); put("p_accept", accept); put("p_reason", reason) }) }
 
     // ---------- reviews ----------
-    suspend fun review(listingId: String, taskId: String?, orderId: String?, up: Boolean, comment: String) {
-        db.rpc("review", buildJsonObject { put("p_listing", listingId); put("p_task", taskId); put("p_order", orderId); put("p_vote", if (up) 1 else -1); put("p_comment", comment) })
+    /** A verified review after a completed trip or a delivered order; a down needs a reason code (VOTE_REASONS). */
+    suspend fun review(listingId: String, taskId: String?, orderId: String?, up: Boolean, comment: String, reason: String? = null) {
+        db.rpc("review", buildJsonObject { put("p_listing", listingId); put("p_task", taskId); put("p_order", orderId); put("p_vote", if (up) 1 else -1); put("p_comment", comment); put("p_reason", reason) })
     }
     suspend fun reviews(listingId: String): List<ReviewRow> = db.from("reviews").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
 
@@ -355,7 +356,9 @@ object Backend {
     @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String)
 @Serializable data class ReviewRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("author_id") val authorId: String, val vote: Int, val comment: String, @SerialName("created_at") val createdAt: String,
     /** Set when the review came from a completed order or trip (verified); null for a direct recommendation. */
-    @SerialName("order_id") val orderId: String? = null, @SerialName("task_id") val taskId: String? = null) {
+    @SerialName("order_id") val orderId: String? = null, @SerialName("task_id") val taskId: String? = null,
+    /** Why a down was given (VOTE_REASONS code), when the voter picked one. */
+    val reason: String? = null) {
     val verified get() = orderId != null || taskId != null
 }
 @Serializable data class JobRow(val id: String, @SerialName("listing_id") val listingId: String, val title: String, val description: String = "", val pay: String = "", @SerialName("job_type") val jobType: String = "FULL_TIME", val open: Boolean = true)

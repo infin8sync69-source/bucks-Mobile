@@ -341,13 +341,14 @@ private fun CloudPayPanel(vm: BucksViewModel, r: Ride, d: Driver) {
 @Composable
 fun RateRideScreen(vm: BucksViewModel) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
-    var vote by remember { mutableStateOf<Int?>(null) }; var comment by remember { mutableStateOf("") }
+    var vote by remember { mutableStateOf<Int?>(null) }; var comment by remember { mutableStateOf("") }; var reason by remember { mutableStateOf<String?>(null) }
     ContentColumn { BucksTopBar()
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp).padding(top = 24.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Avatar(initials(d.name), size = 76); Headline("How was ${d.name.substringBefore(' ')}?", Modifier.padding(top = 12.dp)); Muted("Paid ₹${r.fare} by ${r.paidWith}. Your review decides who gets the next ride.", align = TextAlign.Center) }
-            Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalArrangement = Arrangement.Center) { VoteButton("Recommend", vote == 1, true) { vote = 1 }; Spacer(Modifier.width(10.dp)); VoteButton("Not recommended", vote == -1, false) { vote = -1 } }
-            BucksField(comment, { comment = it }, "One line on why", "Safe riding, on time", singleLine = false, minLines = 2)
-            PrimaryButton("Post review") { vm.finishRide(vote, comment, false) }
+            Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalArrangement = Arrangement.Center) { VoteArrow(true, vote == 1, Modifier.width(96.dp)) { vote = 1 }; Spacer(Modifier.width(12.dp)); VoteArrow(false, vote == -1, Modifier.width(96.dp)) { vote = -1 } }
+            if (vote == -1) { Text("What went wrong?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 6.dp)); ReasonChips(reason) { reason = it }; Spacer(Modifier.height(10.dp)) }
+            BucksField(comment, { comment = it.take(500) }, "Tell us more (optional)", if (vote == -1) "What happened" else "Safe riding, on time", singleLine = false, minLines = 2)
+            PrimaryButton("Post") { vm.finishRide(vote, comment, false, reason) }
             TextButton(onClick = { vm.finishRide(null, "", true) }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)) { Text("Skip for now") }
         }
     }

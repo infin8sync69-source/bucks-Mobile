@@ -270,7 +270,7 @@ private fun RateButton(up: Boolean, mine: Boolean, modifier: Modifier, onClick: 
 @Composable
 private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, initial: Int, onDone: () -> Unit, onDismiss: () -> Unit) {
     var vote by remember { mutableStateOf(initial) }
-    var text by remember { mutableStateOf(mine?.comment.orEmpty()) }
+    var text by remember { mutableStateOf(mine?.comment.orEmpty()) }; var reason by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope(); val st = MaterialTheme.status
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -281,10 +281,11 @@ private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, 
                 RateButton(true, vote == 1, Modifier.weight(1f)) { vote = 1 }
                 RateButton(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
             }
-            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(), placeholder = { Text(if (vote > 0) "What did you like? (optional)" else "What went wrong? (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            if (vote < 0) { Text("What went wrong? (optional)", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)); ReasonChips(reason) { reason = it } }
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(), placeholder = { Text(if (vote > 0) "What did you like? (optional)" else "Tell us more (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ scope.launch { busy = true
-                    runCatching { Backend.rateListing(l.id, vote, text.trim()) }.onSuccess { vm.toast("Thanks, your review is posted."); onDone() }.onFailure { vm.toast(friendly(it)) }
+                    runCatching { Backend.rateListing(l.id, vote, text.trim(), if (vote < 0) reason else null) }.onSuccess { vm.toast("Thanks, your review is posted."); onDone() }.onFailure { vm.toast(friendly(it)) }
                     busy = false } }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(if (busy) "Sending…" else if (mine != null) "Update" else "Submit") }
                 if (mine != null) TextButton({ scope.launch { busy = true
                     runCatching { Backend.clearListingRating(l.id) }.onSuccess { vm.toast("Your review was removed."); onDone() }.onFailure { vm.toast(friendly(it)) }
@@ -607,7 +608,8 @@ private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile, mine: ReviewRow?, 
                 Row(verticalAlignment = Alignment.CenterVertically) { Text(vm.social.nameOf(r.authorId), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)); Muted("  ${ago(r.createdAt)}") }
                 if (r.comment.isNotBlank()) Text(r.comment, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
                 else Muted(if (up) "Recommended, no comment." else "Not recommended, no comment.", Modifier.padding(top = 2.dp))
-                if (r.verified) Text("Verified ${if (r.orderId != null) "order" else "trip"}", style = MaterialTheme.typography.labelSmall, color = st.good, modifier = Modifier.padding(top = 4.dp))
+                r.reason?.let { code -> VOTE_REASONS.firstOrNull { it.first == code }?.let { Text(it.second, style = MaterialTheme.typography.labelSmall, color = st.bad, modifier = Modifier.padding(top = 4.dp)) } }
+                if (r.verified) Text(if (r.orderId != null) "Verified customer" else "Verified rider", style = MaterialTheme.typography.labelSmall, color = st.good, modifier = Modifier.padding(top = 4.dp))
             }
             Column(horizontalAlignment = Alignment.End) {
                 Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", Modifier.size(20.dp), tint = if (up) st.good else st.bad)

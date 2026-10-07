@@ -418,11 +418,14 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     }
     /** The rider confirms payment. With cloud dispatch the server records it and the rating screen follows once it's saved. */
     fun payRide(method: String) { if (dispatch.enabled) { dispatch.payRide(method); return }; _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.PAID, paidWith = method)) }; navTo(Routes.RATE_RIDE) }
-    fun finishRide(vote: Int?, comment: String, skip: Boolean): Boolean {
+    fun finishRide(vote: Int?, comment: String, skip: Boolean, reason: String? = null): Boolean {
         val r = s.ride ?: return true
-        if (!skip) { if (vote == null || comment.isBlank()) { toast("Choose Recommend or Not recommended, and add a line on why."); return false }; r.driver?.let { repo.voteDriver(it.id, vote > 0) } }
+        if (!skip) {
+            if (vote == null) { toast("Tap an arrow first."); return false }
+            if (vote < 0 && reason == null) { toast("Pick what went wrong."); return false }
+            r.driver?.let { repo.voteDriver(it.id, vote > 0) } }
         _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.COMPLETED)) + it.rides) }
-        if (dispatch.enabled) dispatch.finishRide(if (skip) null else vote, comment) else _s.update { it.copy(ride = null) }
+        if (dispatch.enabled) dispatch.finishRide(if (skip) null else vote, comment, reason) else _s.update { it.copy(ride = null) }
         toast("Trip saved. Find it under Activity."); navTo(Routes.HOME); return true
     }
     /** Cloud ride follow-up: navigate as the task moves along, exactly as the demo simulation does. */
@@ -497,8 +500,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (dispatch.enabled) dispatch.driverPaid(method) else _s.update { it.copy(driverRide = d.copy(status = DriverRideStatus.RATE, paidWith = method)) }
         _s.update { it.copy(earnings = it.earnings + d.fare) }; toast("₹${d.fare} received by $method. Added to today's earnings.") }
     fun setUpi(id: String) { val v = id.trim(); if (!Regex("^[\\w.\\-]{2,}@[a-zA-Z]{2,}$").matches(v)) { toast("A UPI ID looks like name@bank. Check it and try again."); return }; _s.update { it.copy(pro = (it.pro ?: ProProfile()).copy(upiId = v)) }; persist() }
-    fun driverRateCustomer(stars: Int) { val up = stars >= 3; _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1)) }; persist()
-        if (dispatch.enabled) dispatch.closeTrip() else _s.update { it.copy(driverRide = null) }; toast("Trip closed. Fare added to today's earnings.") }
+    /** The driver's arrow on the customer. Cloud: saved on the customer's record (rate_rider). Demo: only the local counters. */
+    fun driverRateCustomer(stars: Int, comment: String = "", reason: String? = null) { val up = stars >= 3
+        if (dispatch.enabled) { dispatch.rateRider(if (up) 1 else -1, comment.trim(), reason); dispatch.closeTrip() }
+        else { _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1), driverRide = null) }; persist() }
+        toast("Trip closed. Fare added to today's earnings.") }
     fun driverCancel(code: String?, note: String = "", onDone: (Boolean) -> Unit = {}) {
         val finish = { ok: Boolean -> if (ok) { _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1)) }; persist(); toast("Ride cancelled. This counts against your recommendations.") }; onDone(ok) }
         if (dispatch.enabled) dispatch.driverCancel(code, note, finish) else { _s.update { it.copy(driverRide = null) }; finish(true) } }

@@ -142,7 +142,7 @@ private fun qr(text: String, size: Int = 512): Bitmap { val m = QRCodeWriter().e
 fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit) {
     val s by vm.state.collectAsState(); val dr = s.driverRide ?: return
     val ctx = LocalContext.current; val cloud = vm.dispatch.enabled
-    var pin by remember(dr.id) { mutableStateOf("") }; var cash by remember(dr.id) { mutableStateOf(false) }; var stars by remember(dr.id) { mutableIntStateOf(0) }; var cancel by remember { mutableStateOf(false) }
+    var pin by remember(dr.id) { mutableStateOf("") }; var cash by remember(dr.id) { mutableStateOf(false) }; var stars by remember(dr.id) { mutableIntStateOf(0) }; var rateNote by remember(dr.id) { mutableStateOf("") }; var rateReason by remember(dr.id) { mutableStateOf<String?>(null) }; var cancel by remember { mutableStateOf(false) }
     // With cloud dispatch the server checks the PIN; the field clears once the trip has really started, so a wrong PIN stays for a retry.
     LaunchedEffect(dr.status) { if (dr.status == DriverRideStatus.IN_RIDE) pin = "" }
     val delivery = dr.kind == VehicleKind.BIKE
@@ -195,7 +195,10 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
                             listOf(5 to true, 1 to false).forEach { (v, up) -> val on = stars == v; val c = if (up) MaterialTheme.status.good else MaterialTheme.status.bad
                                 OutlinedButton({ stars = v }, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (on) c.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent, contentColor = c)) {
                                     Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommend" else "Not recommend", Modifier.size(24.dp)) } } }
-                        DarkButton("Submit", enabled = stars > 0) { vm.driverRateCustomer(stars) }
+                        // A down needs a reason; it goes on the customer's record with Bucks (profile_votes), never shown to them by name.
+                        if (stars == 1) { Text("What went wrong?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 6.dp)); ReasonChips(rateReason) { rateReason = it } }
+                        if (stars > 0) BucksField(rateNote, { rateNote = it.take(500) }, "Tell us more (optional)", if (stars == 5) "Polite, ready on time" else "What happened", singleLine = false, minLines = 2)
+                        DarkButton("Submit", enabled = stars > 0 && (stars == 5 || rateReason != null)) { vm.driverRateCustomer(stars, rateNote, rateReason) }
                     }
                     DriverRideStatus.RINGING -> {}
                 }

@@ -209,7 +209,7 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
         // Tapping an arrow opens the feedback box; tapping the arrow I already chose takes my vote back.
         var voting by remember { mutableStateOf<Int?>(null) }
         fun tap(v: Int) { if (my == v) onVote(v) else voting = v }
-        voting?.let { v -> VoteFeedbackSheet(if (mine) "Your post" else "Recommend this post?", v, onSubmit = { vote, text ->
+        voting?.let { v -> VoteFeedbackSheet(if (mine) "Your post" else "Recommend this post?", v, onSubmit = { vote, text, _ ->
             voting = null; if (vote != my) onVote(vote); if (text.isNotBlank()) vm.social.comment(p.id, text) {} }, onDismiss = { voting = null }) }
         // Only the larger side carries a number: more downs than ups shows the down count.
         val upWins = p.up >= p.down

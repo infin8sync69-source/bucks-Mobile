@@ -136,11 +136,11 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     fun payRide(method: String) { val r = _ride.value ?: return
         go { val t = Backend.advanceTask(r.id, "PAID", paidWith = method); stopFollowingRide(); _ride.value = r.copy(status = RideStatus.PAID, paidWith = t.paidWith ?: method) } }
     /** Posts the review against the driver's DRIVER listing; a driver without one can't be reviewed on the server yet. */
-    fun finishRide(vote: Int?, comment: String) { val r = _ride.value ?: return; stopFollowingRide(); _ride.value = null
+    fun finishRide(vote: Int?, comment: String, reason: String? = null) { val r = _ride.value ?: return; stopFollowingRide(); _ride.value = null
         if (vote == null) return
         val listing = rideDriver?.takeIf { it.profileId == r.driver?.id }?.listingId
         if (listing == null) { toast("${r.driver?.name?.substringBefore(' ') ?: "Your rider"} has no driver profile on Bucks yet, so this review stays on your phone."); return }
-        go { Backend.review(listing, r.id, null, vote > 0, comment.trim()); toast("Thanks. Your review is public.") }
+        go { Backend.review(listing, r.id, null, vote > 0, comment.trim(), if (vote < 0) reason else null); toast("Thanks. Your review is public.") }
     }
     suspend fun contact(taskId: String): ContactRow? = Backend.contactFor(taskId)
     suspend fun task(taskId: String): TaskGeoRow? = Backend.taskGeo(taskId)
@@ -267,6 +267,9 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     /** Cash or UPI collected; the rider marks the task PAID on their side. */
     fun driverPaid(method: String) { val d = _driverRide.value ?: return; _driverRide.value = d.copy(status = DriverRideStatus.RATE, paidWith = method) }
     /** Trip closed on this phone (after rating the customer); ring the next request. */
+    /** The driver's arrow on the customer of the trip on screen (server: rate_rider). Failures only toast; the trip still closes. */
+    fun rateRider(vote: Int, comment: String, reason: String?) { val id = _driverRide.value?.id ?: return
+        go { Backend.rateRider(id, vote, comment, if (vote < 0) reason else null) } }
     fun closeTrip() { stopDriverTask(); _driverRide.value = null; nudges.trySend(Unit) }
     /** Hands the request back so it rings other drivers. Allowed until the PIN is entered; [reason] is a CancelReasons.driver code. */
     fun driverCancel(reason: String?, note: String = "", onDone: (Boolean) -> Unit = {}) { val d = _driverRide.value ?: run { onDone(true); return }

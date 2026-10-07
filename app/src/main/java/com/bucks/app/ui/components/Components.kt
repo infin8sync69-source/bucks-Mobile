@@ -191,8 +191,9 @@ fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null
     val (fg, bg) = when { pct == null -> MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surfaceContainer; pct >= 85 -> st.good to st.goodTint; pct >= 60 -> st.warn to st.warnTint; else -> st.bad to st.badTint }
     // Recommendations read as votes everywhere: an up count and a down count, never stars or thumbs.
     Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (pct == null) Text(if (compact) "New" else "New · no votes yet", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
-        else VoteMark(t.up, t.down, fg)
+        val side = shownVote(t.up, t.down)
+        if (side == null) Text(if (compact || pct == null) "New" else "New · ${t.total} so far", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        else VoteMark(t.up, t.down, fg, side = side)
     }
 }
 
@@ -307,10 +308,22 @@ private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f
  * The one number shown is the larger side: a thing with more downs than ups shows the down arrow and the down count.
  */
 
-/** The larger side of a vote: the arrow and its count, tinted [tint] (or green / red by the side when null). Ties show up. */
+/** Fewer people than this and a business, product or driver shows "New" rather than an arrow. */
+const val VOTES_TO_SHOW = 3
+
+/**
+ * Which side a business, product or driver shows: null ("New") until [VOTES_TO_SHOW] people voted; the down side only once
+ * at least [VOTES_TO_SHOW] different people voted down and they outnumber the ups, so one rival can't turn a new shop red.
+ */
+fun shownVote(up: Int, down: Int): Int? = when { up + down < VOTES_TO_SHOW -> null; down > up && down >= VOTES_TO_SHOW -> -1; else -> 1 }
+
+/** Why a down was given; the server takes the same codes (reviews.reason, profile_votes.reason). */
+val VOTE_REASONS = listOf("LATE" to "Late", "QUALITY" to "Quality", "PRICE" to "Price", "BEHAVIOUR" to "Behaviour", "SAFETY" to "Safety", "OTHER" to "Other")
+
+/** The larger side of a vote (or [side] when given): the arrow and its count, tinted [tint] (or green / red by the side when null). Ties show up. */
 @Composable
-fun VoteMark(up: Int, down: Int, tint: Color? = null, size: Int = 13) {
-    val upWins = up >= down
+fun VoteMark(up: Int, down: Int, tint: Color? = null, size: Int = 13, side: Int? = null) {
+    val upWins = side?.let { it > 0 } ?: (up >= down)
     val c = tint ?: if (upWins) MaterialTheme.status.good else MaterialTheme.status.bad
     Icon(if (upWins) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (upWins) "Recommended by $up" else "Not recommended by $down", tint = c, modifier = Modifier.size(size.dp))
     Text(" ${if (upWins) up else down}", style = MaterialTheme.typography.labelMedium, color = c, maxLines = 1)
@@ -333,8 +346,8 @@ fun VoteArrow(up: Boolean, on: Boolean, modifier: Modifier = Modifier, onClick: 
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", busy: Boolean = false, onSubmit: (Int, String) -> Unit, onDismiss: () -> Unit) {
-    var vote by remember { mutableIntStateOf(initial) }; var text by remember { mutableStateOf(initialText) }
+fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", busy: Boolean = false, askReason: Boolean = false, onSubmit: (Int, String, String?) -> Unit, onDismiss: () -> Unit) {
+    var vote by remember { mutableIntStateOf(initial) }; var text by remember { mutableStateOf(initialText) }; var reason by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
@@ -342,10 +355,18 @@ fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", bus
                 VoteArrow(true, vote == 1, Modifier.weight(1f)) { vote = 1 }
                 VoteArrow(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
             }
+            // After a real order or trip, a down needs a reason: it is what the owner can act on.
+            if (askReason && vote < 0) { Text("What went wrong?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)); ReasonChips(reason) { reason = it } }
             OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(),
-                placeholder = { Text(if (vote > 0) "What was good about it? (optional)" else "What went wrong? (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
-            Button({ onSubmit(vote, text.trim()) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy) { Text(if (busy) "Sending…" else "Post") }
+                placeholder = { Text(if (vote > 0) "What was good about it? (optional)" else "Tell us more (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            Button({ onSubmit(vote, text.trim(), if (vote < 0) reason else null) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy && !(askReason && vote < 0 && reason == null)) { Text(if (busy) "Sending…" else "Post") }
         }
     }
 }
+
+/** One of [VOTE_REASONS], as chips; tapping the chosen one again clears it. */
+@Composable
+fun ReasonChips(selected: String?, onPick: (String?) -> Unit) =
+    FlowChips(VOTE_REASONS.map { it.second }, setOfNotNull(VOTE_REASONS.firstOrNull { it.first == selected }?.second)) { label ->
+        val code = VOTE_REASONS.first { it.second == label }.first; onPick(if (code == selected) null else code) }
 
