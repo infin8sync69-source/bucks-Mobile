@@ -48,7 +48,8 @@ android {
         debug {
             if (pilotKeystore != null) signingConfig = signingConfigs.getByName("pilot")
             // Test builds update themselves from GitHub Releases (data/AppUpdate.kt). Never in a Play build: Play forbids self-updating.
-            buildConfigField("boolean", "SELF_UPDATE", "true")
+            // SELF_UPDATE=false turns it off, e.g. for the screenshots run, where the update dialog would cover every screen.
+            buildConfigField("boolean", "SELF_UPDATE", if (System.getenv("SELF_UPDATE") == "false") "false" else "true")
         }
         release {
             buildConfigField("boolean", "SELF_UPDATE", "false")
