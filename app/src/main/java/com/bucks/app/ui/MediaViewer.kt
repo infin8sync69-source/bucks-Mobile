@@ -194,15 +194,15 @@ private fun ViewerVideo(vm: BucksViewModel, item: ViewerMedia, playing: Boolean,
 
 /**
  * ↑ and ↓ under a post's photo or video, on the dark viewer. Same rules as the feed: arrows only, never thumbs; only the larger side
- * carries its number (ties show the ↑ count); the arrow I chose is filled with its colour.
+ * carries its number until I vote, then both do (postCountsShown); the arrow I chose is filled with its colour.
  */
 @Composable
 private fun ViewerVoteBar(v: ViewerVote, modifier: Modifier = Modifier) {
     val st = com.bucks.app.ui.theme.LocalStatus.current
-    val upWins = v.up >= v.down
+    val (upShown, downShown) = com.bucks.app.ui.components.postCountsShown(v.up, v.down, v.my)
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ViewerArrow(up = true, on = v.my == 1, count = if (upWins && v.up > 0) v.up else null, color = st.good) { v.onVote(1) }
-        ViewerArrow(up = false, on = v.my == -1, count = if (!upWins) v.down else null, color = st.bad) { v.onVote(-1) }
+        ViewerArrow(up = true, on = v.my == 1, count = upShown, color = st.good) { v.onVote(1) }
+        ViewerArrow(up = false, on = v.my == -1, count = downShown, color = st.bad) { v.onVote(-1) }
     }
 }
 

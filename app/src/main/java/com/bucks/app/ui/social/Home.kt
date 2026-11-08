@@ -175,20 +175,20 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
 
 private fun audienceLabel(v: String) = when (v) { "SYNCED" -> "Synced only"; "PUBLIC" -> "Everyone"; else -> "Nearby" }
 
-/** ↑ and ↓ in one pill: arrows, never thumbs; the larger side shows its count. */
+/** ↑ and ↓ in one pill: arrows, never thumbs; the larger side shows its count until I vote, then both do. */
 @Composable
 private fun VotePill(my: Int, up: Int, down: Int, onVote: (Int) -> Unit) {
     val good = MaterialTheme.status.good; val bad = MaterialTheme.status.bad; val idle = MaterialTheme.colorScheme.onSurfaceVariant
+    val (upShown, downShown) = postCountsShown(up, down, my)
     Row(Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == 1) "Remove recommendation" else "Recommend") { onVote(1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Recommend, $up" }, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp), tint = if (my == 1) good else idle)
-            // Only the larger side carries its number (ties show the ups), as everywhere else in Bucks.
-            if (up >= down && up > 0) Text(" $up", style = MaterialTheme.typography.labelLarge, color = if (my == 1) good else idle)
+            upShown?.let { Text(" $it", style = MaterialTheme.typography.labelLarge, color = if (my == 1) good else idle) }
         }
         Box(Modifier.size(1.dp, 20.dp).background(MaterialTheme.colorScheme.outlineVariant))
         Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == -1) "Take back my vote" else "Not recommend") { onVote(-1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Not for me, $down" }, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp), tint = if (my == -1) bad else idle)
-            if (down > up) Text(" $down", style = MaterialTheme.typography.labelLarge, color = if (my == -1) bad else idle)
+            downShown?.let { Text(" $it", style = MaterialTheme.typography.labelLarge, color = if (my == -1) bad else idle) }
         }
     }
 }

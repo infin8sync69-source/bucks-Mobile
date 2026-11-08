@@ -320,6 +320,16 @@ const val VOTES_TO_SHOW = 3
  */
 fun shownVote(up: Int, down: Int): Int? = when { up + down < VOTES_TO_SHOW -> null; down > up && down >= VOTES_TO_SHOW -> -1; else -> 1 }
 
+/**
+ * The counts a post's ↑ and ↓ carry, as (up, down); null hides that number. Before I vote, only the larger side shows (ties show the
+ * ups, nothing while nobody voted). Once I've voted, the whole breakdown shows, both numbers, for every post I've voted on.
+ */
+fun postCountsShown(up: Int, down: Int, my: Int): Pair<Int?, Int?> = when {
+    my != 0 -> up to down
+    up >= down -> up.takeIf { it > 0 } to null
+    else -> null to down
+}
+
 /** Why a down was given; the server takes the same codes (reviews.reason, profile_votes.reason). */
 val VOTE_REASONS = listOf("LATE" to "Late", "QUALITY" to "Quality", "PRICE" to "Price", "BEHAVIOUR" to "Behaviour", "SAFETY" to "Safety", "OTHER" to "Other")
 
