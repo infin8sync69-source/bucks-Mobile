@@ -1,4 +1,5 @@
--- Fixes from the pilot code review (build 81). Safe to run more than once. Apply after showcase_docs.sql, cancellation.sql and dispatch.sql.
+-- Fixes from the pilot code review (build 81). Safe to run more than once. Apply after showcase_docs.sql, cancellation.sql, dispatch.sql and
+-- hardening_dispatch.sql (its advance_task is the base of item 6 here; supabase/apply_all.sh runs them in that order).
 
 -- ---------- 1. Names that could pass for a Bucks check ----------
 -- Folds case, look-alike digits and every non-letter away, so "V3rified", "B u c k s" and "verified-by-bucks" all match.
@@ -77,33 +78,79 @@ $$;
 
 -- ---------- 6. advance_task no longer cancels or hands back without a reason ----------
 -- The app uses cancel_task / release_task for those; the old route skipped the reason, the stats and the order-delivery rule.
+-- This is hardening_dispatch.sql's advance_task (pick-up and drop geofences, PIN attempt cap, minimum trip time, the 30 min / 6 min per km
+-- waiver, the silent-driver cancel) with two routes closed: a rider cancelling before the trip starts (cancel_task) and a driver handing
+-- back (release_task, which now carries the hand-back cap and the new PIN, see 6b). A rider can still cancel a trip under way whose driver
+-- has been silent for 10 minutes: cancel_task does not cover that case.
 create or replace function public.advance_task(p_task uuid, p_status text, p_pin text default null, p_paid_with text default null) returns public.tasks
 language plpgsql security definer set search_path = public, extensions as $$
-declare t tasks;
+declare t tasks; my uuid := public.me();
 begin
   select * into t from tasks where id = p_task for update;
   if not found then raise exception 'task not found'; end if;
-  if p_status = 'CANCELLED' then raise exception 'cancel it from the ride or order screen so a reason is recorded'; end if;
-  if t.driver_id = me() then
-    if p_status = 'ARRIVED' and t.status = 'MATCHED' then null;
-    elsif p_status = 'IN_PROGRESS' and t.status = 'ARRIVED' then if p_pin is distinct from t.pin then raise exception 'that PIN does not match'; end if;
+  if t.driver_id = my then
+    if p_status = 'ARRIVED' and t.status = 'MATCHED' then
+      perform public.driver_near_check(t.pickup, 'arrive_radius_m', 800, 'the pick-up');
+    elsif p_status = 'IN_PROGRESS' and t.status = 'ARRIVED' then
+      if t.pin_attempts >= 5 then raise exception 'too many wrong PIN attempts; hand the trip back'; end if;
+      if p_pin is distinct from t.pin then
+        update tasks set pin_attempts = pin_attempts + 1 where id = t.id returning * into t;
+        t.pin := '';
+        return t;
+      end if;
     elsif p_status = 'COMPLETED' and t.status = 'IN_PROGRESS' then
-      insert into task_events (task_id, driver_id, vehicle_id, event, km, fare) values (t.id, me(), t.vehicle_id, 'COMPLETED', t.km, t.fare);
+      if t.status_at > now() - make_interval(secs => public.dispatch_cfg('min_trip_seconds', 60)::double precision) then
+        raise exception 'the trip has only just started; you can complete it after % seconds', public.dispatch_cfg('min_trip_seconds', 60)::int;
+      end if;
+      if t.status_at > now() - make_interval(mins => greatest(30, ceil(t.km * 6)::int)) then
+        perform public.driver_near_check(t.drop_at, 'complete_radius_m', 2000, 'the drop');
+      end if;
+      insert into task_events (task_id, driver_id, vehicle_id, event, km, fare) values (t.id, my, t.vehicle_id, 'COMPLETED', t.km, t.fare);
       if t.order_id is not null then update orders set status = 'DELIVERED' where id = t.order_id; end if;
+    elsif p_status = 'SEARCHING' then raise exception 'hand it back from the trip screen so a reason is recorded';
     else raise exception 'cannot go from % to %', t.status, p_status; end if;
     if p_status = 'IN_PROGRESS' and t.order_id is not null then update orders set status = 'PICKED_UP' where id = t.order_id; end if;
-  elsif t.requester_id = me() then
-    if p_status = 'NO_DRIVER' and t.status = 'SEARCHING' then null;
+  elsif t.requester_id = my then
+    if p_status = 'CANCELLED' and t.status = 'IN_PROGRESS'
+          and not exists (select 1 from driver_presence p where p.profile_id = t.driver_id and p.updated_at > now() - interval '10 minutes') then
+      insert into task_events (task_id, driver_id, vehicle_id, event) values (t.id, t.driver_id, t.vehicle_id, 'MISSED');
+      if t.order_id is not null then update orders set status = 'CANCELLED', cancelled_by = 'BUYER' where id = t.order_id and status = 'PICKED_UP'; end if;
+    elsif p_status = 'CANCELLED' and t.status in ('SEARCHING', 'MATCHED', 'ARRIVED', 'NO_DRIVER') then
+      raise exception 'cancel it from the ride or order screen so a reason is recorded';
+    elsif p_status = 'NO_DRIVER' and t.status = 'SEARCHING' then null;
     elsif p_status = 'PAID' and t.status = 'COMPLETED' then null;
     else raise exception 'cannot go from % to %', t.status, p_status; end if;
   else raise exception 'not your task'; end if;
-  update tasks set status = p_status, paid_with = coalesce(p_paid_with, paid_with) where id = p_task returning * into t;
-  if t.requester_id is distinct from me() then t.pin := ''; end if;
+  update tasks set status = p_status, paid_with = case when p_status = 'PAID' then coalesce(p_paid_with, paid_with) else paid_with end where id = p_task returning * into t;
+  if t.requester_id is distinct from my then t.pin := ''; end if;
   return t;
 end $$;
 
-revoke execute on function public.showcase_name_ok(text), public.category_suggestions(text, text) from anon, public;
-grant execute on function public.category_suggestions(text, text) to authenticated;
+-- ---------- 6b. release_task carries what advance_task's hand-back enforced (hardening_dispatch.sql) ----------
+-- release_task from cancellation.sql, plus: at most 3 hand-backs an hour (counted the same way claim_task counts them), and the trip rings
+-- again with a new PIN and a fresh PIN-attempt count, so the driver who handed it back can't pass the PIN on.
+create or replace function public.release_task(p_task uuid, p_reason text, p_note text default '') returns public.tasks
+language plpgsql security definer set search_path = public, extensions as $$
+declare t tasks; my uuid := public.me(); k int;
+begin
+  select * into t from tasks where id = p_task for update;
+  if not found or t.driver_id is distinct from my then raise exception 'ride not found'; end if;
+  if t.status not in ('MATCHED', 'ARRIVED') then raise exception 'it can only be handed back before the trip starts (it is %)', lower(replace(t.status, '_', ' ')); end if;
+  if p_reason is null or not cancel_reason_ok('DRIVER', p_reason) then raise exception 'choose why you are handing it back'; end if;
+  if char_length(coalesce(p_note, '')) > 200 then raise exception 'keep the note under 200 characters'; end if;
+  select count(*) into k from task_events where driver_id = my and event = 'CANCELLED' and at > now() - interval '1 hour';
+  if k >= 3 then raise exception 'you have handed back % trips in the last hour; keep the next one or try again later', k; end if;
+  insert into task_events (task_id, driver_id, vehicle_id, event, reason) values (t.id, my, t.vehicle_id, 'CANCELLED', p_reason);
+  update tasks set status = 'SEARCHING', driver_id = null, vehicle_id = null, driver_location = null, pin = public.new_pin(), pin_attempts = 0
+   where id = p_task returning * into t;
+  t.pin := '';
+  return t;
+end $$;
+revoke execute on function public.release_task(uuid, text, text) from public, anon;
+grant execute on function public.release_task(uuid, text, text) to authenticated;
+
+revoke execute on function public.showcase_name_ok(text), public.category_suggestions(text, text), public.clear_showcase_check(uuid) from anon, public;
+grant execute on function public.category_suggestions(text, text), public.clear_showcase_check(uuid) to authenticated;
 
 -- ---------- 7. Opinions: one at a time per document, and only while I can still open it ----------
 create or replace function public.check_showcase_doc(p_doc uuid, p_vote int, p_comment text default '') returns void language plpgsql security definer set search_path = public, extensions as $$
