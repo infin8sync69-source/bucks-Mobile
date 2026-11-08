@@ -71,13 +71,47 @@ enforced (the app only reflects them).
 - Reduced motion respected (already in place); dark mode is first-class.
 - Copy is short, friendly and plain; no jargon ("Sync" is explained the first time it appears).
 
+## Analytics, feedback and growth
+
+- **Analytics:** Firebase Analytics with a fixed event list (`data/Analytics.kt`): sign_up, post_created, moment_created,
+  comment_added, sync_requested, sync_accepted, message_sent, group_created, search, report_filed, feedback_posted, plus screen views
+  by route name. Collection is **off** until the server confirms an adult, and adults can opt out (Settings → Appearance and data).
+  Never for under-18s (DPDP Act §9). No advertising ID (`AD_ID` removed), no user ID, no content in events.
+- **Crash reports:** Crashlytics for everyone, with no identifier; the R8 mapping file is uploaded with release builds.
+- **Feedback board:** Settings → Feedback board (and Help). Ideas and bugs, upvotes, staff status and a public note
+  (`supabase/migrations/feedback_board.sql`).
+- **Email sequence:** `docs/marketing/EMAIL_SEQUENCE_CLOSED_TEST.md` takes testers from opt-in through the 14-day closed test to
+  launch. It goes to adults only, from a sign-up form outside the app.
+
+## Data safety form (answers that match the code)
+
+| Data type | Collected | Shared | Purpose | Optional |
+|---|---|---|---|---|
+| Phone number | Yes | No | Account management | No |
+| Name, user IDs (Bucks ID) | Yes | No | App functionality | No |
+| Date of birth (age) | Yes | No | App functionality, safety | No |
+| Approximate location | Yes | No | App functionality (Nearby) | Yes |
+| Photos, videos | Yes | No | App functionality | Yes |
+| Messages (in-app) | Yes | No | App functionality | Yes |
+| Other user-generated content (posts, comments, feedback) | Yes | No | App functionality | Yes |
+| Contacts | **No** (read on device, never uploaded) | No | — | — |
+| App interactions (analytics) | Yes, adults only | No | Analytics | Yes (opt-out) |
+| Crash logs, diagnostics | Yes | No | App functionality | No |
+| Device ID (push token) | Yes | No | App functionality | No |
+
+Data is encrypted in transit (HTTPS); people can request deletion (in app, and on the web page `legal/delete-account`).
+
 ## Owner checklist (things only you can do)
 
 1. Google Play Console: finish the developer account and identity verification; create the app `com.bucks.app`.
 2. Run `scripts/setup-upload-signing.sh` to create the upload key and add the CI secrets; turn on Play App Signing.
 3. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` as GitHub repository secrets (the release build needs them).
-4. Host the privacy policy, terms of use, child safety standards and account-deletion pages on a website you control, and name a
-   grievance officer (IT Rules 2021). Drafts are in `docs/legal/`; have a lawyer review them.
+4. Legal pages: drafts are in `docs/legal/` (privacy, terms, community guidelines, child safety, account deletion, grievance). Fill
+   every `[bracketed]` item, have a lawyer review them, and publish them: either turn on GitHub Pages for this repo (main branch,
+   `/docs` folder; the app's default `LEGAL_BASE_URL` points there) or host them on your own domain and set `LEGAL_BASE_URL`.
+   Name a grievance officer and a child-safety contact.
+4a. Add repository secrets `SUPPORT_EMAIL` and `GRIEVANCE_OFFICER` (shown in Help) next to `SUPABASE_URL` / `SUPABASE_ANON_KEY`.
+4b. Firebase console: Analytics is already part of the project; turn on Crashlytics, and set Analytics data retention.
 5. Apply the new database migrations to the live Supabase project (`supabase/apply_all.sh`) and run `supabase/launch_checklist.sql`.
 6. Play listing forms: Data safety, content rating (IARC questionnaire), target audience 13+, ads (none), news app (no), and the
    child safety standards declaration (required for social apps).

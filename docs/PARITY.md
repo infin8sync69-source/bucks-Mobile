@@ -48,3 +48,14 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
   Firebase. Until then iPhones get pushes only while Bucks is open.
 - **On-device checks** (camera, speech, Face ID, background location, push) are manual: CI builds and unit-tests the iOS app but does not
   run it on a device.
+
+## Social-first 1.0 (Android first)
+
+| Feature | Android | iOS | Follow-up |
+|---|---|---|---|
+| Social-only shell (Home, Discover, Create, Chats, Profile) | `ui/social/SocialAppUi.kt` | Not yet | iOS port after the Play closed test |
+| Date of birth, age bands, guardian consent | `ui/social/Onboarding.kt` | Not yet | Server already enforces the rules for both apps |
+| Report sheet and staff report queue | `ui/social/Report.kt`, `Settings.kt` | Not yet | Needed before the App Store submission (guideline 1.2) |
+| People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | Not yet | |
+| Feedback board | `ui/social/Feedback.kt` | Not yet | |
+| Analytics (adults only) and Crashlytics | `data/Analytics.kt` | Not yet | |
