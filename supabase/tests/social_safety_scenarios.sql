@@ -92,7 +92,11 @@ select pg_temp.check('reported person cannot see the report', (select count(*) f
 select pg_temp.as_user('adult2');
 select pg_temp.check('staff sees the queue with a preview', (select preview like 'Buy followers%' and reporters = 1 from report_queue() limit 1));
 select review_report((select id from report_queue() limit 1), 'REMOVE');
+reset role;
 select pg_temp.check('post taken down', (select deleted_at is not null from posts where id = current_setting('t.post')::uuid));
+set role authenticated;
+select pg_temp.as_user('adult2');
+select pg_temp.check('removed post hidden from everyone', not exists (select 1 from posts where id = current_setting('t.post')::uuid));
 select pg_temp.check('queue empty after action', (select count(*) from report_queue()) = 0);
 select pg_temp.as_user('teen');
 select pg_temp.check('reporter sees it actioned', (select status = 'ACTIONED' and action = 'REMOVED' from reports limit 1));
