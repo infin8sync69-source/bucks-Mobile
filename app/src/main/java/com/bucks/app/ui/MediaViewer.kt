@@ -76,10 +76,9 @@ sealed interface ViewerMedia {
 
 /**
  * A post's arrows, for the viewer of that post's photos and videos. A vote here is a vote on the post: the same one as the
- * arrows under it in the feed. [canVote] is false on my own posts (the server refuses those, can_vote_post); the counts still show.
- * [onVote] follows the feed's rule: the arrow I already chose takes my vote back.
+ * arrows under it in the feed (my own posts included). [onVote] follows the feed's rule: the arrow I already chose takes my vote back.
  */
-class ViewerVote(val up: Int, val down: Int, val my: Int, val canVote: Boolean, val onVote: (Int) -> Unit)
+class ViewerVote(val up: Int, val down: Int, val my: Int, val onVote: (Int) -> Unit)
 
 /** The link to load [item] from: the public URL as is, a private file's signed URL once it has been fetched (null until then). */
 @Composable
@@ -202,19 +201,18 @@ private fun ViewerVoteBar(v: ViewerVote, modifier: Modifier = Modifier) {
     val st = com.bucks.app.ui.theme.LocalStatus.current
     val upWins = v.up >= v.down
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ViewerArrow(up = true, on = v.my == 1, count = if (upWins && v.up > 0) v.up else null, color = st.good, enabled = v.canVote) { v.onVote(1) }
-        ViewerArrow(up = false, on = v.my == -1, count = if (!upWins) v.down else null, color = st.bad, enabled = v.canVote) { v.onVote(-1) }
-        if (!v.canVote) Text("Your post", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+        ViewerArrow(up = true, on = v.my == 1, count = if (upWins && v.up > 0) v.up else null, color = st.good) { v.onVote(1) }
+        ViewerArrow(up = false, on = v.my == -1, count = if (!upWins) v.down else null, color = st.bad) { v.onVote(-1) }
     }
 }
 
 @Composable
-private fun ViewerArrow(up: Boolean, on: Boolean, count: Int?, color: Color, enabled: Boolean, onClick: () -> Unit) {
-    val label = when { !enabled -> if (up) "Recommended" else "Not recommended"; on -> "Take back my vote"; up -> "Recommend"; else -> "Not recommend" }
+private fun ViewerArrow(up: Boolean, on: Boolean, count: Int?, color: Color, onClick: () -> Unit) {
+    val label = when { on -> "Take back my vote"; up -> "Recommend"; else -> "Not recommend" }
     val tint = if (on) color else Color.White
     Row(Modifier.heightIn(min = 48.dp).clip(androidx.compose.foundation.shape.CircleShape)
         .background(if (on) color.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.12f))
-        .then(if (enabled) Modifier.clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick) else Modifier)
+        .clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
         .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(if (up) androidx.compose.material.icons.Icons.Rounded.ArrowUpward else androidx.compose.material.icons.Icons.Rounded.ArrowDownward, label, Modifier.size(22.dp), tint = tint)
         count?.let { Text(" $it", color = tint, style = MaterialTheme.typography.labelLarge) }

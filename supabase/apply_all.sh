@@ -48,6 +48,7 @@ files=(
   migrations/social_safety.sql
   migrations/feedback_board.sql
   migrations/profile_media.sql
+  migrations/own_post_votes.sql
 )
 
 case "${1:-}" in

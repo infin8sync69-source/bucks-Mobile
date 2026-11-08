@@ -159,9 +159,9 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
                 }
             }
             if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 14.dp).padding(top = 10.dp))
-            Box(Modifier.padding(horizontal = 14.dp)) { PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, canVote = !mine, onVote = onVote)) }
+            Box(Modifier.padding(horizontal = 14.dp)) { PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, onVote = onVote)) }
             Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                VotePill(p.myVote ?: 0, p.up, p.down, enabled = !mine, onVote = onVote)
+                VotePill(p.myVote ?: 0, p.up, p.down, onVote = onVote)
                 Spacer(Modifier.width(6.dp))
                 ActionChip(Icons.Rounded.ChatBubbleOutline, if (p.comments > 0) "${p.comments}" else "Comment", "Comments, ${p.comments}", onComments)
                 Spacer(Modifier.weight(1f))
@@ -177,17 +177,16 @@ private fun audienceLabel(v: String) = when (v) { "SYNCED" -> "Synced only"; "PU
 
 /** ↑ and ↓ in one pill: arrows, never thumbs; the larger side shows its count. */
 @Composable
-/** [enabled] is false on my own posts: the counts show, the arrows don't respond (the server refuses those votes, can_vote_post). */
-private fun VotePill(my: Int, up: Int, down: Int, enabled: Boolean = true, onVote: (Int) -> Unit) {
+private fun VotePill(my: Int, up: Int, down: Int, onVote: (Int) -> Unit) {
     val good = MaterialTheme.status.good; val bad = MaterialTheme.status.bad; val idle = MaterialTheme.colorScheme.onSurfaceVariant
     Row(Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.clip(CircleShape).clickable(enabled = enabled, role = Role.Button, onClickLabel = if (my == 1) "Remove recommendation" else "Recommend") { onVote(1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Recommend, $up" }, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == 1) "Remove recommendation" else "Recommend") { onVote(1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Recommend, $up" }, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp), tint = if (my == 1) good else idle)
             // Only the larger side carries its number (ties show the ups), as everywhere else in Bucks.
             if (up >= down && up > 0) Text(" $up", style = MaterialTheme.typography.labelLarge, color = if (my == 1) good else idle)
         }
         Box(Modifier.size(1.dp, 20.dp).background(MaterialTheme.colorScheme.outlineVariant))
-        Row(Modifier.clip(CircleShape).clickable(enabled = enabled, role = Role.Button, onClickLabel = if (my == -1) "Take back my vote" else "Not recommend") { onVote(-1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Not for me, $down" }, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == -1) "Take back my vote" else "Not recommend") { onVote(-1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Not for me, $down" }, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp), tint = if (my == -1) bad else idle)
             if (down > up) Text(" $down", style = MaterialTheme.typography.labelLarge, color = if (my == -1) bad else idle)
         }

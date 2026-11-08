@@ -204,10 +204,10 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
             if (mine) Box { IconButton({ menu = true }) { Icon(Icons.Rounded.MoreHoriz, "More") }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Delete post") }, { menu = false; onDelete() }) } } }
         if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
         // In the viewer a vote is a direct one (no feedback box); the box stays on the arrows below the post.
-        PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, canVote = !mine, onVote = onVote))
+        PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, onVote = onVote))
         val my = p.myVote ?: 0
         val upColor = if (my == 1) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant; val downColor = if (my == -1) MaterialTheme.status.bad else MaterialTheme.colorScheme.onSurfaceVariant
-        // Tapping an arrow opens the feedback box; tapping the arrow I already chose takes my vote back. My own posts show the counts only.
+        // Tapping an arrow opens the feedback box; tapping the arrow I already chose takes my vote back (my own posts too).
         var voting by remember { mutableStateOf<Int?>(null) }
         fun tap(v: Int) { if (my == v) onVote(v) else voting = v }
         voting?.let { v -> VoteFeedbackSheet("Recommend this post?", v, onSubmit = { vote, text, _ ->
@@ -215,8 +215,8 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
         // Only the larger side carries a number: more downs than ups shows the down count.
         val upWins = p.up >= p.down
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).clickable(enabled = !mine, onClickLabel = "Recommend") { tap(1) }.padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ArrowUpward, "Recommend", Modifier.size(20.dp), tint = upColor); if (upWins && p.up > 0) Text(" ${p.up}", color = upColor, style = MaterialTheme.typography.labelLarge) }
-            Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).clickable(enabled = !mine, onClickLabel = "Not recommend") { tap(-1) }.padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ArrowDownward, "Not recommended", Modifier.size(20.dp), tint = downColor); if (!upWins) Text(" ${p.down}", color = downColor, style = MaterialTheme.typography.labelLarge) }
+            Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Recommend") { tap(1) }.padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ArrowUpward, "Recommend", Modifier.size(20.dp), tint = upColor); if (upWins && p.up > 0) Text(" ${p.up}", color = upColor, style = MaterialTheme.typography.labelLarge) }
+            Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Not recommend") { tap(-1) }.padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ArrowDownward, "Not recommended", Modifier.size(20.dp), tint = downColor); if (!upWins) Text(" ${p.down}", color = downColor, style = MaterialTheme.typography.labelLarge) }
             Spacer(Modifier.weight(1f))
             Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).clickable(onClick = onComments).padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ChatBubbleOutline, "Comments", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(" ${p.comments}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge) }
             IconButton(onClick = onShare) { Icon(Icons.Rounded.IosShare, "Share", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }

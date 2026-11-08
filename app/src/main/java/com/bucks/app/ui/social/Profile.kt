@@ -42,7 +42,7 @@ private class PostsOf(private val vm: BucksViewModel, private val author: String
     var rows by mutableStateOf<List<FeedRow>?>(null)
     suspend fun load() { rows = runCatching { BackendSafety.postsBy(author) }.getOrDefault(emptyList()) }
     suspend fun vote(p: FeedRow, v: Int) {
-        val me = vm.social.me?.id ?: return; if (p.authorId == me) return   // my own post: the server refuses it (can_vote_post)
+        val me = vm.social.me?.id ?: return
         val prev = p.myVote ?: 0; val next = if (prev == v) 0 else v
         runCatching { Backend.vote(p.id, me, next) }.onSuccess {
             rows = rows?.map { if (it.id != p.id) it else it.copy(myVote = next.takeIf { n -> n != 0 }, up = it.up - (if (prev == 1) 1 else 0) + (if (next == 1) 1 else 0), down = it.down - (if (prev == -1) 1 else 0) + (if (next == -1) 1 else 0)) }
