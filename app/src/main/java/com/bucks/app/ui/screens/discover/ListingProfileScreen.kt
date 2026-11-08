@@ -41,6 +41,7 @@ import com.bucks.app.ui.formatDistance
 import com.bucks.app.ui.kindLabel
 import com.bucks.app.ui.list
 import com.bucks.app.ui.proRate
+import com.bucks.app.ui.screens.ProfileMediaHeader
 import com.bucks.app.ui.screens.SignedImage
 import com.bucks.app.ui.screens.ago
 import com.bucks.app.ui.screens.commerce.CartSwitchDialog
@@ -107,7 +108,13 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            ListingCover(l, onBack, onShare = { share() })
+            // The page's cover (until one is set, its first gallery photo) and its round picture; owners and admins change both here.
+            val white = androidx.compose.ui.graphics.Color.White
+            ProfileMediaHeader(vm, l.title, Backend.listingPhoto(l.photoUrl), l.coverUrl ?: l.gallery.firstOrNull()?.url,
+                editable = p.mine, busy = d.mediaBusy?.takeIf { it.first == id }?.second,
+                onPick = { slot, picked -> d.setListingPicture(id, slot, picked) }, onRemove = { d.clearListingPicture(id, it) },
+                coverHeight = 140.dp, topStart = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = white) } },
+                topEnd = { IconButton(onClick = { share() }) { Icon(Icons.Rounded.IosShare, "Share", tint = white) } })
             Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(l.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -172,7 +179,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
             when (tabKey) {
                 "catalogue" -> CatalogueTab(vm, p, type, cat, sellsProducts, vk, onMessage = { message() }, onCart = onCart, onOpenChat = onOpenChat, onBook = onBook)
                 "feed" -> FeedTab(vm, p)
-                "photos" -> GalleryTab(l, p.mine)
+                "photos" -> GalleryTab(vm, l, p.mine)
                 "about" -> { LaunchedEffect(p.listing.id) { vm.services.loadBadges(p.listing.id) }; AboutTab(p, type, vk, distance, onOpenListing, vm.services.badges[p.listing.id].orEmpty()); ShowcaseDocsSection(vm, id, p.mine, onManage = { onShowcaseDocs(id) })
                     // Team and openings sit in About on every page, so the five tabs stay the same everywhere.
                     if (l.kind == "BUSINESS" && (p.members >= 2 || p.mine) && type?.tabs?.contains("team") != false) { SectionTitle("Team", Modifier.padding(start = Gutter, end = Gutter, top = 8.dp)); TeamTab(vm, p) }
@@ -217,25 +224,6 @@ private fun ProfilePlaceholder(vm: BucksViewModel, id: String, onBack: () -> Uni
 }
 
 /** Cover band (primary gradient), back and share on top, the photo or initials overlapping the bottom edge. */
-@Composable
-private fun ListingCover(l: ListingRow, onBack: () -> Unit, onShare: () -> Unit) = Box(Modifier.fillMaxWidth().height(170.dp)) {
-    Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimaryContainer)))) {
-        // The first gallery photo fills the band, darkened at the top so back and share stay readable.
-        l.gallery.firstOrNull()?.let { g -> AsyncImage(g.url, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f), androidx.compose.ui.graphics.Color.Transparent)))) }
-    }
-    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onPrimary) }
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = onShare) { Icon(Icons.Rounded.IosShare, "Share", tint = MaterialTheme.colorScheme.onPrimary) }
-    }
-    Box(Modifier.padding(start = Gutter).align(Alignment.BottomStart).size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface).padding(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-        val url = Backend.listingPhoto(l.photoUrl)
-        if (url != null) AsyncImage(url, l.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Text(initials(l.title).ifBlank { "?" }, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-    }
-}
-
 @Composable
 private fun SyncButton(synced: Boolean, busy: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) =
     Row(modifier.minimumInteractiveComponentSize().height(44.dp).clip(MaterialTheme.shapes.small).background(if (synced) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer).clickable(enabled = !busy, onClick = onClick).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -639,7 +627,7 @@ private fun servicePrice(s: ItemRow): String {
 
 /** A listing's photos (portfolio for a pro, gallery or campus for a page) in a grid; tap for full size with the caption. Owners see a hint when it is empty. */
 @Composable
-private fun GalleryTab(l: ListingRow, mine: Boolean = false) {
+private fun GalleryTab(vm: BucksViewModel, l: ListingRow, mine: Boolean = false) {
     var open by remember { mutableStateOf<Int?>(null) }
     val g = l.gallery
     Column(Modifier.padding(Gutter)) {
@@ -653,20 +641,5 @@ private fun GalleryTab(l: ListingRow, mine: Boolean = false) {
             }
         }
     }
-    open?.let { i -> val ph = g.getOrNull(i) ?: return@let
-        androidx.compose.ui.window.Dialog(onDismissRequest = { open = null }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
-            Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black).systemBarsPadding()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { open = null }) { Icon(Icons.Rounded.Close, "Close", tint = androidx.compose.ui.graphics.Color.White) }
-                    Text("${i + 1} of ${g.size}", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.labelLarge)
-                }
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    AsyncImage(ph.url, ph.caption.ifBlank { null }, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                    if (i > 0) IconButton(onClick = { open = i - 1 }, modifier = Modifier.align(Alignment.CenterStart)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Previous", tint = androidx.compose.ui.graphics.Color.White) }
-                    if (i < g.lastIndex) IconButton(onClick = { open = i + 1 }, modifier = Modifier.align(Alignment.CenterEnd)) { Icon(Icons.Rounded.ChevronRight, "Next", tint = androidx.compose.ui.graphics.Color.White) }
-                }
-                if (ph.caption.isNotBlank()) Text(ph.caption, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Gutter))
-            }
-        }
-    }
+    open?.let { i -> com.bucks.app.ui.MediaViewer(vm, g.map { com.bucks.app.ui.ViewerMedia.Url(it.url, caption = it.caption) }, start = i, title = l.title) { open = null } }
 }

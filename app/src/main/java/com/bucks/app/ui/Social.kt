@@ -49,6 +49,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     var busy by mutableStateOf(false); private set
     /** Profile id -> display name, filled as rows arrive. */
     val names: SnapshotStateMap<String, String> = mutableStateMapOf()
+    /** Profile picture links of the people in [names] (null: no picture), for avatars on posts, comments and chats. */
+    val photos: SnapshotStateMap<String, String?> = mutableStateMapOf()
     var here: LatLng = Geo.CENTER
     /** True once a real fix has set [here]; until then it is only the map's default centre and must not be sent as my position. */
     var hereKnown = false
@@ -64,7 +66,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         // Right after the first sign-in the Supabase role claim may still be on its way: try again before giving up.
         var tries = 0
         val p = run { while (true) { try { return@run Backend.ensureProfile(name, phone) } catch (e: Exception) { if (++tries >= 3) throw e; kotlinx.coroutines.delay(2_000L * tries) } }; error("unreachable") }
-        me = p; names[p.id] = p.name
+        me = p; names[p.id] = p.name; photos[p.id] = p.photoUrl
         settings = Backend.mySettings(p.id)
         Push.registerIfSignedIn()
         repo.clearDemoSocial()
@@ -72,14 +74,37 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         // The badge on the messages icon stays fresh while the app is open: one small check a minute.
         poller?.cancel(); poller = scope.launch { while (true) { kotlinx.coroutines.delay(60_000); runCatching { inbox = Backend.inbox(); notes = Backend.notifications() } } }
     }
+    /** Which of my pictures is uploading (the header shows a spinner on it), or null. */
+    var mediaBusy by mutableStateOf<com.bucks.app.data.ProfileMedia.Slot?>(null); private set
+    /** Replaces my profile picture or cover with [picked]; the old file is removed once the new link is saved. */
+    fun setMyPicture(slot: com.bucks.app.data.ProfileMedia.Slot, picked: com.bucks.app.data.Picked) = go {
+        val p = me ?: return@go; if (mediaBusy != null) return@go; mediaBusy = slot
+        try {
+            val photo = slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO
+            val url = com.bucks.app.data.ProfileMedia.setMine(p.id, slot, picked, if (photo) p.photoUrl else p.coverUrl)
+            me = (me ?: p).let { if (photo) it.copy(photoUrl = url) else it.copy(coverUrl = url) }
+            toast(if (photo) "Profile picture updated." else "Cover photo updated.")
+        } finally { mediaBusy = null }
+    }
+    fun clearMyPicture(slot: com.bucks.app.data.ProfileMedia.Slot) = go {
+        val p = me ?: return@go; if (mediaBusy != null) return@go; mediaBusy = slot
+        try {
+            val photo = slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO
+            com.bucks.app.data.ProfileMedia.clearMine(p.id, slot, if (photo) p.photoUrl else p.coverUrl)
+            me = (me ?: p).let { if (photo) it.copy(photoUrl = null) else it.copy(coverUrl = null) }
+            toast(if (photo) "Profile picture removed." else "Cover photo removed.")
+        } finally { mediaBusy = null }
+    }
     /** Starts a new year on my Bucks ID card (allowed in its last 30 days or after it lapsed). */
     fun renewBucksId() = go { val t = Backend.renewBucksId(); me = me?.copy(idIssuedAt = t); toast("Your Bucks ID is renewed for a year.") }
     fun signedOut() { poller?.cancel(); poller = null; notes = emptyList(); links = emptyMap(); me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
     /** [home] null leaves the saved home point alone; it is never guessed from the map's default centre. */
     fun profileSaved(name: String, area: String, bio: String, home: LatLng? = null) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, home); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
 
-    suspend fun namesFor(ids: Collection<String>) { val missing = ids.filter { it !in names }.distinct(); if (missing.isNotEmpty()) Backend.profiles(missing).forEach { names[it.id] = it.name } }
+    suspend fun namesFor(ids: Collection<String>) { val missing = ids.filter { it !in names || !photos.containsKey(it) }.distinct(); if (missing.isNotEmpty()) Backend.profiles(missing).forEach { names[it.id] = it.name; photos[it.id] = it.photoUrl } }
     fun nameOf(id: String) = names[id] ?: "…"
+    /** My own picture comes from [me], so a change shows at once; anyone else's from the last profiles read. */
+    fun photoOf(id: String): String? = if (id == me?.id) me?.photoUrl else photos[id]
 
     // ---------- sync ----------
     fun refreshSyncs() = go { val p = me ?: return@go
@@ -140,8 +165,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun leaveConversation(conv: String, then: () -> Unit = {}) = go { val p = me ?: return@go; Backend.leaveConversation(conv, p.id); inbox = inbox.filterNot { it.conversationId == conv }; toast("You left the group."); then() }
 
     // ---------- feed ----------
-    fun refreshFeed() = go { feed = Backend.feed(here); feedEnd = feed.size < 30; refreshTray() }
-    fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feed(here, last.createdAt); feed = feed + more; feedEnd = more.size < 30 }
+    fun refreshFeed() = go { feed = Backend.feed(here); feedEnd = feed.size < 30; refreshTray(); runCatching { namesFor(feed.map { it.authorId }) } }
+    fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feed(here, last.createdAt); feed = feed + more; feedEnd = more.size < 30; runCatching { namesFor(more.map { it.authorId }) } }
     fun post(body: String, media: List<Picked>, visibility: String, area: String) = go { val p = me ?: return@go; busy = true
         try { val paths = media.map { f -> "${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime }
               Backend.post(p.id, body, paths, visibility, here, area); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_CREATED, "visibility" to visibility, "media" to paths.size); toast("Posted."); refreshFeed() } finally { busy = false } }

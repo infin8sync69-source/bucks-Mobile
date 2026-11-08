@@ -140,6 +140,22 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
      * a fetch that throws (offline, server error) goes to [failed] so the screen shows "Try again" rather than an endless spinner.
      * Only the listing row itself is required; every other part degrades to empty when its own call fails.
      */
+    /** The page whose picture is uploading and which one, for the spinner on its header. */
+    var mediaBusy by mutableStateOf<Pair<String, com.bucks.app.data.ProfileMedia.Slot>?>(null); private set
+    /** Replaces a page's picture or cover (owners and admins), then reloads the page. */
+    fun setListingPicture(id: String, slot: com.bucks.app.data.ProfileMedia.Slot, picked: com.bucks.app.data.Picked) = go {
+        val l = profiles[id]?.listing ?: return@go; if (mediaBusy != null) return@go; mediaBusy = id to slot
+        try {
+            com.bucks.app.data.ProfileMedia.setListing(id, slot, picked, if (slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO) l.photoUrl else l.coverUrl)
+            toast(if (slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO) "Page picture updated." else "Cover photo updated.")
+        } finally { mediaBusy = null }
+        open(id)
+    }
+    fun clearListingPicture(id: String, slot: com.bucks.app.data.ProfileMedia.Slot) = go {
+        val l = profiles[id]?.listing ?: return@go; if (mediaBusy != null) return@go; mediaBusy = id to slot
+        try { com.bucks.app.data.ProfileMedia.clearListing(id, slot, if (slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO) l.photoUrl else l.coverUrl) } finally { mediaBusy = null }
+        open(id)
+    }
     fun open(id: String) = go {
         if (id in loading) return@go
         loading = loading + id

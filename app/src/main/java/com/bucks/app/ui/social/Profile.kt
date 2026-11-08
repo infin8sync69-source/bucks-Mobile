@@ -31,6 +31,7 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.screens.MyFilesTab
 import com.bucks.app.ui.screens.MyMediaTab
+import com.bucks.app.ui.screens.ProfileMediaHeader
 import com.bucks.app.ui.shareText
 import com.bucks.app.ui.theme.Purple
 import com.bucks.app.ui.theme.PurpleDeep
@@ -60,8 +61,8 @@ fun MeScreen(vm: BucksViewModel, onEditProfile: () -> Unit, onSettings: () -> Un
     val name = me?.name?.ifBlank { null } ?: s.user?.name.orEmpty()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            ProfileHeader(name = name, code = me?.shortCode, area = me?.area ?: s.user?.area.orEmpty(), bio = me?.bio ?: s.user?.bio.orEmpty(),
-                synced = social.synced.size, postCount = posts?.rows?.size, onSynced = onSynced,
+            ProfileHeader(vm, name = name, code = me?.shortCode, area = me?.area ?: s.user?.area.orEmpty(), bio = me?.bio ?: s.user?.bio.orEmpty(),
+                synced = social.synced.size, postCount = posts?.rows?.size, onSynced = onSynced, photoUrl = me?.photoUrl, coverUrl = me?.coverUrl, editable = me != null,
                 topEnd = { IconButton(onSettings) { Icon(Icons.Rounded.Settings, "Settings", tint = androidx.compose.ui.graphics.Color.White) } })
             Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 FilledTonalButton(onEditProfile, Modifier.weight(1f), shape = MaterialTheme.shapes.large) { Icon(Icons.Rounded.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Edit profile") }
@@ -109,7 +110,8 @@ fun PersonScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat:
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item {
-                ProfileHeader(name = p?.name ?: "", code = p?.shortCode, area = p?.area.orEmpty(), bio = p?.bio.orEmpty(), synced = null, postCount = posts.rows?.size, onSynced = {},
+                ProfileHeader(vm, name = p?.name ?: "", code = p?.shortCode, area = p?.area.orEmpty(), bio = p?.bio.orEmpty(), synced = null, postCount = posts.rows?.size, onSynced = {},
+                    photoUrl = p?.photoUrl, coverUrl = p?.coverUrl,
                     topStart = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = androidx.compose.ui.graphics.Color.White) } },
                     topEnd = {
                         Box {
@@ -150,17 +152,13 @@ fun PersonScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat:
 
 /** Gradient cover, avatar overlapping it, name, Bucks ID, area, bio and the counts. */
 @Composable
-private fun ProfileHeader(name: String, code: String?, area: String, bio: String, synced: Int?, postCount: Int?, onSynced: () -> Unit,
+private fun ProfileHeader(vm: BucksViewModel, name: String, code: String?, area: String, bio: String, synced: Int?, postCount: Int?, onSynced: () -> Unit,
+                          photoUrl: String? = null, coverUrl: String? = null, editable: Boolean = false,
                           topStart: @Composable () -> Unit = {}, topEnd: @Composable () -> Unit = {}) {
-    Box(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.linearGradient(listOf(Purple, PurpleDeep, androidx.compose.ui.graphics.Color(0xFFFF4D8D)))))
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp)) { topStart(); Spacer(Modifier.weight(1f)); topEnd() }
-        Box(Modifier.padding(start = Gutter, top = 104.dp).size(92.dp).clip(CircleShape).background(MaterialTheme.colorScheme.background).padding(4.dp)) {
-            Box(Modifier.fillMaxSize().clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                Text(initials(name.ifBlank { "?" }), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-        }
-    }
+    // My own header lets me change both pictures; anyone's opens them full screen.
+    ProfileMediaHeader(vm, name, photoUrl, coverUrl, editable = editable, busy = if (editable) vm.social.mediaBusy else null,
+        onPick = { slot, picked -> vm.social.setMyPicture(slot, picked) }, onRemove = { vm.social.clearMyPicture(it) },
+        avatarSize = 92.dp, topStart = topStart, topEnd = topEnd)
     Column(Modifier.padding(horizontal = Gutter).padding(top = 8.dp)) {
         Text(name.ifBlank { " " }, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), modifier = Modifier.semantics { heading() })
         val meta = listOfNotNull(code?.let { "Bucks ID $it" }, area.ifBlank { null }).joinToString(" · ")

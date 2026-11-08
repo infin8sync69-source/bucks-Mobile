@@ -44,7 +44,7 @@ fun MyMediaTab(vm: BucksViewModel) {
     var posts by remember { mutableStateOf<List<PostRow>?>(null) }; var failed by remember { mutableStateOf(false) }
     LaunchedEffect(me.id) { posts = runCatching { Backend.myPosts(me.id) }.onFailure { failed = true }.getOrNull() }
     val items = posts.orEmpty().flatMap { p -> p.media.mapNotNull { m -> (m as? JsonObject)?.let { o -> o.text("path").takeIf { it.isNotBlank() }?.let { path -> path to o.text("mime") } } } }
-    var open by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var open by remember { mutableStateOf<Int?>(null) }
     when {
         posts == null && !failed -> CenteredLoading()
         failed -> Muted("Couldn't load your media. Check your connection and open this tab again.", Modifier.padding(Gutter))
@@ -54,7 +54,7 @@ fun MyMediaTab(vm: BucksViewModel) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     row.forEach { (path, mime) ->
                         val video = mime.startsWith("video/") || path.endsWith(".mp4", true)
-                        Box(Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.small).clickable { open = path to (if (video) "video/mp4" else "image/jpeg") }, contentAlignment = Alignment.Center) {
+                        Box(Modifier.weight(1f).aspectRatio(1f).clip(MaterialTheme.shapes.small).clickable { open = items.indexOf(path to mime) }, contentAlignment = Alignment.Center) {
                             if (video) { Box(Modifier.fillMaxSize().background(Color.Black)); Icon(Icons.Rounded.PlayArrow, "Video", Modifier.size(36.dp), tint = Color.White) }
                             else SignedImage(vm, "posts", path, Modifier.fillMaxSize())
                         }
@@ -64,7 +64,8 @@ fun MyMediaTab(vm: BucksViewModel) {
             }
         }
     }
-    open?.let { (path, mime) -> com.bucks.app.ui.AttachmentViewer(vm, "posts", path, mime) { open = null } }
+    // All my post photos and videos in one swipeable viewer, opened on the one tapped.
+    open?.let { i -> com.bucks.app.ui.MediaViewer(vm, items.map { (path, mime) -> com.bucks.app.ui.ViewerMedia.Stored("posts", path, if (mime.startsWith("video/") || path.endsWith(".mp4", true)) "video/mp4" else mime.ifBlank { "image/jpeg" }) }, start = i) { open = null } }
 }
 
 /** Files and photos shared in my chats, sent or received; tap opens it. */

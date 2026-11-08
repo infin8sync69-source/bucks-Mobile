@@ -71,7 +71,8 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
     val name = me?.name?.ifBlank { null } ?: u.name; val area = me?.area?.ifBlank { null } ?: u.area; val bio = me?.bio?.ifBlank { null } ?: u.bio
     val mine = social.feed.filter { it.authorId == me?.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        ProfileCover(initials(name))
+        ProfileMediaHeader(vm, name, me?.photoUrl, me?.coverUrl, editable = me != null, busy = social.mediaBusy,
+            onPick = { slot, picked -> social.setMyPicture(slot, picked) }, onRemove = { social.clearMyPicture(it) })
         Column(Modifier.padding(horizontal = Gutter, vertical = 10.dp)) {
             Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)); Muted(me?.let { "Bucks ID ${it.shortCode}" } ?: handleOf(name))
             if (area.isNotBlank()) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" $area") }
@@ -86,7 +87,7 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
         MyPagesSection(vm, onOpen)
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(initials(name), size = 40)
+            Avatar(initials(name), size = 40, photoUrl = me?.photoUrl)
             Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable { compose = true }.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted("Share with people nearby") }
             IconButton(onClick = { compose = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, "Create a post", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

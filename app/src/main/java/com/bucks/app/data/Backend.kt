@@ -118,7 +118,7 @@ object Backend {
         db.from("profiles").update({ set("name", name); set("bio", bio); set("area", area); home?.let { set("home", point(it)) } }) { filter { eq("id", id) } }
     }
     /** The columns the API may read from profiles; `home` is withheld (manage.sql), so `select *` would be refused. */
-    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "trust_up", "trust_down", "id_issued_at")
+    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "cover_url", "trust_up", "trust_down", "id_issued_at")
     suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select(PROFILE_COLUMNS) { filter { isIn("id", ids.toList()) } }.decodeList()
     suspend fun profileByCode(code: String): ProfileRow? =
         db.from("profiles").select(PROFILE_COLUMNS) { filter { eq("short_code", code.trim().uppercase()) } }.decodeSingleOrNull()
@@ -338,7 +338,9 @@ object Backend {
 @Serializable data class ProfileRow(val id: String, @SerialName("short_code") val shortCode: String, val name: String = "", val bio: String = "", val area: String = "",
     @SerialName("photo_url") val photoUrl: String? = null, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
     /** When the current Bucks ID card was issued; it is valid for a year (studio.sql renew_bucks_id). */
-    @SerialName("id_issued_at") val idIssuedAt: String? = null)
+    @SerialName("id_issued_at") val idIssuedAt: String? = null,
+    /** The band behind the profile (profile_media.sql); a public URL in avatars/<id>/, like [photoUrl]. */
+    @SerialName("cover_url") val coverUrl: String? = null)
 /** A photo in a listing's gallery or a product's photos: a public listing-media URL and an optional caption (studio.sql). */
 @Serializable data class MediaPhoto(val url: String, val caption: String = "")
 @Serializable data class SyncRow(@SerialName("requester_id") val requesterId: String, @SerialName("addressee_id") val addresseeId: String, val status: String)
@@ -350,7 +352,9 @@ object Backend {
     /** Page type of a business (ui/PageTypes.kt: RETAIL_SHOP, LOCAL_SERVICE, NGO_CHARITY...); null on older rows and on other kinds. */
     @SerialName("type_key") val typeKey: String? = null,
     /** Up to 20 photos: the shop, a worker's portfolio, the rooms of a flat. The cover stays in [photoUrl]. */
-    val gallery: List<MediaPhoto> = emptyList())
+    val gallery: List<MediaPhoto> = emptyList(),
+    /** The band behind the page (profile_media.sql), a public URL in listing-media/<id>/; [photoUrl] stays the round page picture. */
+    @SerialName("cover_url") val coverUrl: String? = null)
 @Serializable data class SearchHit(val id: String, val kind: String, val title: String, val category: String = "", val description: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", val online: Boolean = false, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0, val details: JsonObject = JsonObject(emptyMap()),
     @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null,

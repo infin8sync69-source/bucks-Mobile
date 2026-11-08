@@ -198,7 +198,7 @@ fun MutedMomentsSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
 fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComments: () -> Unit, onShare: () -> Unit, onDelete: () -> Unit) {
     val mine = p.authorId == vm.social.me?.id; var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = { if (mine) menu = true }).padding(horizontal = Gutter, vertical = 14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(p.authorName), size = 40)
+        Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(p.authorName), size = 40, photoUrl = vm.social.photoOf(p.authorId))
             Column(Modifier.padding(start = 10.dp).weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(p.listingTitle ?: p.authorName, style = MaterialTheme.typography.titleMedium); if (mine) Muted("  ·  You") else if (p.synced) Muted("  ·  Synced") }
                 Muted(listOfNotNull(ago(p.createdAt), p.area.ifBlank { null }, when (p.visibility) { "SYNCED" -> "Synced only"; "PUBLIC" -> "Public"; else -> null }).joinToString(" · ")) }
             if (mine) Box { IconButton({ menu = true }) { Icon(Icons.Rounded.MoreHoriz, "More") }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Delete post") }, { menu = false; onDelete() }) } } }
@@ -303,7 +303,7 @@ fun MomentViewerScreen(vm: BucksViewModel, author: String, onClose: () -> Unit, 
                 Box(Modifier.weight(2f).fillMaxHeight().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { next() }) }
             Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { slides.forEachIndexed { i, _ -> LinearProgressIndicator(progress = { when { i < index -> 1f; i == index -> progress; else -> 0f } }, modifier = Modifier.weight(1f).height(3.dp).clip(CircleShape), color = Color.White, trackColor = Color.White.copy(alpha = .35f)) } }
-                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(social.nameOf(m.authorId).ifBlank { "?" }), size = 32)
+                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(social.nameOf(m.authorId).ifBlank { "?" }), size = 32, photoUrl = social.photoOf(m.authorId))
                     Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(social.nameOf(m.authorId), color = Color.White, style = MaterialTheme.typography.titleSmall); Text(listOfNotNull(ago(m.createdAt), if (isVideo) "Video" else null).joinToString(" · "), color = Color.White.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall) }
                     if (mine) IconButton({ social.deleteMoment(m.id); if (slides.size == 1) onClose() else { slides = slides.filterNot { it.first.id == m.id }; index = index.coerceAtMost(slides.lastIndex) } }) { Icon(Icons.Rounded.DeleteOutline, "Delete", tint = Color.White) }
                     if (!mine) com.bucks.app.ui.social.LocalReporter.current?.let { rep -> IconButton({ val t = com.bucks.app.ui.social.ReportTarget("MOMENT", m.id, m.authorId, social.nameOf(m.authorId)); onClose(); rep(t) }) { Icon(Icons.Rounded.OutlinedFlag, "Report this moment", tint = Color.White) } }
@@ -637,12 +637,20 @@ fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, m
     if (items.isEmpty()) return
     val width = if (items.size == 1) Modifier.fillMaxWidth() else Modifier.width(280.dp)
     val scroll = rememberScrollState()
+    // Tapping a photo opens all of the post's photos and videos full screen, on that one.
+    var open by remember { mutableStateOf<Int?>(null) }
     Row(modifier.padding(top = 10.dp).then(if (items.size > 1) Modifier.horizontalScroll(scroll) else Modifier), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.forEach { (path, mime) ->
+        items.forEachIndexed { i, (path, mime) ->
             val shape = Modifier.then(width).height(260.dp).clip(MaterialTheme.shapes.medium)
-            if (mime.startsWith("video/") || path.endsWith(".mp4", true)) PostVideo(vm, path, shape) else SignedImage(vm, "posts", path, shape)
+            if (mime.startsWith("video/") || path.endsWith(".mp4", true)) Box(shape) {
+                PostVideo(vm, path, Modifier.fillMaxSize())
+                IconButton({ open = i }, Modifier.align(Alignment.TopEnd).padding(4.dp).size(36.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f))) {
+                    Icon(Icons.Rounded.Fullscreen, "Full screen", tint = Color.White) }
+            }
+            else SignedImage(vm, "posts", path, shape.clickable(onClickLabel = "View full screen") { open = i })
         }
     }
+    open?.let { i -> com.bucks.app.ui.MediaViewer(vm, com.bucks.app.ui.ViewerMedia.ofPost(media), start = i) { open = null } }
 }
 
 @Composable

@@ -178,10 +178,12 @@ fun Sheet(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @
 @Composable fun Divider() = HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
 @Composable
-fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tinted: Boolean = true) {
+fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tinted: Boolean = true, photoUrl: String? = null) {
     Box(Modifier.size(size.dp).clip(CircleShape).background(if (tinted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+        // The initials stay underneath while the photo loads (and if it can't), so the circle is never blank.
         if (icon != null) Icon(icon, null, tint = if (tinted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size((size * 0.5).dp))
         else Text(text ?: "?", color = if (tinted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, style = if (size >= 64) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleSmall)
+        if (!photoUrl.isNullOrBlank()) coil.compose.AsyncImage(photoUrl, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
     }
 }
 

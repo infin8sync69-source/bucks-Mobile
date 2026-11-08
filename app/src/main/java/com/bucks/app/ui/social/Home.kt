@@ -137,7 +137,7 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
         Column(Modifier.padding(vertical = 12.dp)) {
             Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f).clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "Open ${p.authorName}'s profile") { openPerson(p.authorId) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(initials(p.authorName.ifBlank { "?" }), size = 42)
+                    Avatar(initials(p.authorName.ifBlank { "?" }), size = 42, photoUrl = vm.social.photoOf(p.authorId))
                     Column(Modifier.padding(start = 10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(p.listingTitle ?: p.authorName, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
