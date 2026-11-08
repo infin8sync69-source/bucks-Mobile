@@ -1,6 +1,7 @@
 -- Grants for the functions and policies of the pilot files (trust_phase0.sql, page_types.sql), which were created without the usual revokes:
 -- every function was executable by PUBLIC (so by signed-out callers), trigger bodies were callable from the API, and two policies applied to
--- every role. catalog_assertions.sql flagged all three. Safe to run more than once. Apply after the pilot files (supabase/apply_all.sh does).
+-- every role. catalog_assertions.sql flagged all three. Safe to run more than once. Apply after the pilot files,
+-- hardening_dispatch.sql (it re-creates the 5-argument review()) and review_fixes.sql: supabase/apply_all.sh does.
 set search_path = public, extensions;
 
 -- What the app calls, and what a policy runs as the signed-in person (can_vote_post, in votes_self on post_votes): signed-in callers only.
