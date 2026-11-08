@@ -172,7 +172,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
               Backend.post(p.id, body, paths, visibility, here, area); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_CREATED, "visibility" to visibility, "media" to paths.size); toast("Posted."); refreshFeed() } finally { busy = false } }
     fun deletePost(id: String) = go { Backend.deletePost(id); feed = feed.filterNot { it.id == id } }
     fun vote(postId: String, v: Int) = go { val p = me ?: return@go
-        val cur = feed.firstOrNull { it.id == postId } ?: return@go; val prev = cur.myVote ?: 0; val next = if (prev == v) 0 else v
+        val cur = feed.firstOrNull { it.id == postId } ?: return@go; if (cur.authorId == p.id) return@go   // my own post: the server refuses it (can_vote_post)
+        val prev = cur.myVote ?: 0; val next = if (prev == v) 0 else v
         Backend.vote(postId, p.id, next)
         feed = feed.map { if (it.id != postId) it else it.copy(myVote = next.takeIf { n -> n != 0 }, up = it.up - (prev == 1).toInt() + (next == 1).toInt(), down = it.down - (prev == -1).toInt() + (next == -1).toInt()) } }
     suspend fun comments(postId: String): List<CommentRow> { val rows = Backend.comments(postId); namesFor(rows.map { it.authorId }); return rows }
