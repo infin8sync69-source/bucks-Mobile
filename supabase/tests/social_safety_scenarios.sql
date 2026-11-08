@@ -51,9 +51,9 @@ select 'adult records consent -> ' || pg_temp.expect_fail($$select record_guardi
 
 \echo '== 4. Teens: private defaults, only syncs can message, location blurred'
 select pg_temp.as_user('teen');
-select pg_temp.check('teen not open to messages from everyone', (select who_can_message = 'SYNCED' from settings_of(me())));
+select pg_temp.check('teen not open to messages from everyone', (select who_can_message = 'SYNCED' from user_settings where profile_id = me()));
 insert into user_settings (profile_id, who_can_message) values (me(), 'EVERYONE') on conflict (profile_id) do update set who_can_message = 'EVERYONE';
-select pg_temp.check('teen cannot open messages to everyone', (select who_can_message = 'SYNCED' from settings_of(me())));
+select pg_temp.check('teen cannot open messages to everyone', (select who_can_message = 'SYNCED' from user_settings where profile_id = me()));
 select pg_temp.as_user('adult');
 select 'adult DMs a teen they are not synced with -> ' || pg_temp.expect_fail(format('select start_direct(%L)', pg_temp.pid('teen')), 'synced');
 select pg_temp.as_user('teen');
