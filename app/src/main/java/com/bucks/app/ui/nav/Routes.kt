@@ -48,6 +48,8 @@ object Routes {
     // ---- social screens (ui/social/*), hosted by the one app shell in ui/BucksAppUi.kt ----
     const val DISCOVER = "discover"; const val CHATS = "chats"; const val ME = "me"; const val NOTIFICATIONS = "notifications"
     const val PERSON = "person/{id}"; fun person(id: String) = "person/${Uri.encode(id)}"
+    /** Installed build and every published test build; switch to a newer one (ui/screens/AppVersionsScreen.kt). */
+    const val APP_VERSIONS = "settings/app-versions"
     const val AGE = "onboarding/age"; const val GUARDIAN = "onboarding/guardian"
     const val SETTINGS = "settings"; const val HELP = "help"; const val SAFETY_CENTER = "settings/safety"; const val STAFF_REPORTS = "staff/reports"; const val FEEDBACK = "feedback"
 }

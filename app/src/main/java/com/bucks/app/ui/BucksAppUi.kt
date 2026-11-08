@@ -238,6 +238,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         DrawerItem(Icons.Rounded.PersonSearch, "Find people", current == Routes.DISCOVER) { closeMenu(); nav.navigate(Routes.DISCOVER) }
                         DrawerItem(Icons.Rounded.Settings, "Settings", current == Routes.SETTINGS) { closeMenu(); nav.navigate(Routes.SETTINGS) }
                         DrawerItem(Icons.Rounded.HelpOutline, "Help", current == Routes.HELP) { closeMenu(); nav.navigate(Routes.HELP) }
+                        // Test builds: switch to the newest build of any branch from here (Play builds update through the Play Store).
+                        if (com.bucks.app.data.AppUpdate.enabled) DrawerItem(Icons.Rounded.SystemUpdate, if (vm.updates.available != null) "App versions · update ready" else "App versions", current == Routes.APP_VERSIONS) { closeMenu(); nav.navigate(Routes.APP_VERSIONS) }
                         DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
                     }
                 }
@@ -412,6 +414,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.SETTINGS) { com.bucks.app.ui.social.SocialSettingsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }) }
                             composable(Routes.SAFETY_CENTER) { com.bucks.app.ui.social.SafetyCenterScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }) }
                             composable(Routes.HELP) { com.bucks.app.ui.social.HelpScreen(vm, onBack = { nav.popBackStack() }, onFeedback = { nav.navigate(Routes.FEEDBACK) }) }
+                            composable(Routes.APP_VERSIONS) { AppVersionsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.FEEDBACK) { com.bucks.app.ui.social.FeedbackBoardScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.STAFF_REPORTS) { com.bucks.app.ui.social.StaffReportsScreen(vm, onBack = { nav.popBackStack() }, onOpenPerson = openPerson) }
                             composable(Routes.JOBS_NEAR) { if (vm.social.enabled) JobsNearScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onMyApplications = { nav.navigate(Routes.MY_APPLICATIONS) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }

@@ -26,7 +26,8 @@ import java.net.URL
  * Updates only install over the running app when both carry the same signature: see scripts/setup-pilot-signing.sh.
  */
 object AppUpdate {
-    data class Release(val build: Int, val notes: String, val apkUrl: String, val size: Long, val page: String)
+    /** One published test build. [branch] is the branch it was built from ("" when the release name doesn't say). */
+    data class Release(val build: Int, val notes: String, val apkUrl: String, val size: Long, val page: String, val branch: String = "", val publishedAt: String = "")
 
     val enabled: Boolean get() = BuildConfig.SELF_UPDATE
     val currentBuild: Int get() = BuildConfig.BUILD_NUMBER
@@ -36,27 +37,30 @@ object AppUpdate {
     suspend fun latest(): Release? = releases().filter { it.build > currentBuild }.maxByOrNull { it.build }
     /** The newest published build of this branch, installed or not (what an invite link points to). Throws on network errors. */
     suspend fun newest(): Release? = releases().maxByOrNull { it.build }
-    private suspend fun releases(): List<Release> = withContext(Dispatchers.IO) {
+    /** Every recent build of every branch, newest first: the App versions screen lets the person switch to any newer one. */
+    suspend fun all(): List<Release> = releases(anyBranch = true).sortedByDescending { it.build }
+    private suspend fun releases(anyBranch: Boolean = false): List<Release> = withContext(Dispatchers.IO) {
         val c = URL("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases?per_page=30").openConnection() as HttpURLConnection
         c.connectTimeout = 10_000; c.readTimeout = 15_000
         c.setRequestProperty("Accept", "application/vnd.github+json"); c.setRequestProperty("User-Agent", "Bucks-Android")
         try {
             if (c.responseCode != 200) throw IOException("GitHub answered ${c.responseCode}")
             val all = json.parseToJsonElement(c.inputStream.bufferedReader().use { it.readText() }) as JsonArray
-            all.mapNotNull { e -> (e as? JsonObject)?.let(::parse) }
+            all.mapNotNull { e -> (e as? JsonObject)?.let { parse(it, anyBranch) } }
         } finally { c.disconnect() }
     }
 
-    private fun parse(r: JsonObject): Release? {
+    private fun parse(r: JsonObject, anyBranch: Boolean): Release? {
         fun s(k: String) = r[k]?.jsonPrimitive?.contentOrNull
         if (r["draft"]?.jsonPrimitive?.booleanOrNull == true) return null
         val build = s("tag_name")?.removePrefix("build-")?.toIntOrNull() ?: return null
         // CI names releases "Test build N (branch)": only offer builds of the branch this one came from.
         val branch = BuildConfig.BUILD_BRANCH
-        if (branch.isNotBlank() && s("name")?.endsWith("($branch)") != true) return null
+        if (!anyBranch && branch.isNotBlank() && s("name")?.endsWith("($branch)") != true) return null
+        val from = s("name")?.let { Regex("""\(([^()]+)\)$""").find(it)?.groupValues?.get(1) }.orEmpty()
         val apk = (r["assets"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.firstOrNull { it["name"]?.jsonPrimitive?.contentOrNull?.endsWith(".apk") == true } ?: return null
         return Release(build, s("body").orEmpty().trim(), apk["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: return null,
-            apk["size"]?.jsonPrimitive?.longOrNull ?: 0L, s("html_url").orEmpty())
+            apk["size"]?.jsonPrimitive?.longOrNull ?: 0L, s("html_url").orEmpty(), from, s("published_at").orEmpty())
     }
 
     /** Downloads the APK into cache/updates (older downloads are removed), reporting 0..1. Checks the size GitHub announced. */

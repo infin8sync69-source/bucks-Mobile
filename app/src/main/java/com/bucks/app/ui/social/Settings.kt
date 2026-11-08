@@ -47,6 +47,10 @@ fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
             Group("App")
             Item(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { onOpen(Routes.SETTINGS_NOTIFS) }
             Item(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
+            Item(Icons.Rounded.SystemUpdate, "App versions", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + when {
+                !com.bucks.app.data.AppUpdate.enabled -> " · updates through the Play Store"
+                vm.updates.available != null -> " · build ${vm.updates.available?.build} is ready"
+                else -> " · switch to the latest build" }) { onOpen(Routes.APP_VERSIONS) }
             Group("Help and legal")
             Item(Icons.Rounded.HelpOutline, "Help and support", "Questions, contact us, grievance officer") { onOpen(Routes.HELP) }
             Item(Icons.Rounded.Lightbulb, "Feedback board", "Suggest ideas, report bugs, vote on what's next") { onOpen(Routes.FEEDBACK) }

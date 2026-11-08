@@ -35,6 +35,22 @@ class Updates(private val scope: CoroutineScope, private val toast: (String) -> 
     /** The build the person said "Later" to. */
     var dismissed by mutableIntStateOf(-1); private set
     private var downloaded: File? = null
+    /** All recent builds of every branch, newest first (App versions screen); null until loaded. */
+    var versions by mutableStateOf<List<AppUpdate.Release>?>(null); private set
+    var versionsFailed by mutableStateOf(false); private set
+    /** The build being downloaded, so its row shows the progress. */
+    var installing by mutableStateOf<Int?>(null); private set
+
+    fun loadVersions() {
+        if (!AppUpdate.enabled || checking) return
+        scope.launch {
+            checking = true; versionsFailed = false
+            try { versions = AppUpdate.all() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { versionsFailed = true }
+            finally { checking = false }
+        }
+    }
     private var loaded = false
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("updates", Context.MODE_PRIVATE)
@@ -62,19 +78,25 @@ class Updates(private val scope: CoroutineScope, private val toast: (String) -> 
     fun later(ctx: Context) { val b = available?.build ?: return; dismissed = b; prefs(ctx).edit().putInt("dismissed_build", b).apply() }
 
     /** Download (once) and open the system installer. The first time, Android asks to allow installs from Bucks. */
-    fun update(ctx: Context) {
-        val r = available ?: return
+    fun update(ctx: Context) { available?.let { install(ctx, it) } }
+
+    /**
+     * Switches to build [r] (any branch): downloads it once and opens the system installer. Only a newer build than the one
+     * installed can go on top; Android refuses an older one unless the app is uninstalled first.
+     */
+    fun install(ctx: Context, r: AppUpdate.Release) {
         if (progress != null) return
+        if (r.build <= AppUpdate.currentBuild) { toast("Build ${r.build} is older than the one you have. Android only installs newer builds over this one."); return }
         if (!AppUpdate.canInstall(ctx)) { toast("Allow Bucks to install updates, then come back and tap Update."); AppUpdate.openInstallPermission(ctx); return }
         scope.launch {
             try {
-                progress = 0f
+                progress = 0f; installing = r.build
                 val f = downloaded?.takeIf { it.exists() && it.name == "bucks-${r.build}.apk" } ?: AppUpdate.download(ctx.applicationContext, r) { progress = it }
                 downloaded = f
                 AppUpdate.install(ctx, f)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { toast(e.message?.takeIf { it.length < 120 } ?: "The update didn't download. Try again.") }
-            finally { progress = null }
+            finally { progress = null; installing = null }
         }
     }
 }
