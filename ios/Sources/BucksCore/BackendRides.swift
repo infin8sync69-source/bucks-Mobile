@@ -43,6 +43,16 @@ extension Backend {
     public func advanceTask(_ id: String, status: String, pin: String? = nil, paidWith: String? = nil) async throws -> TaskRow {
         try await rpc("advance_task", ["p_task": id, "p_status": status, "p_pin": pin, "p_paid_with": paidWith])
     }
+    /// Rider cancels a ride (cancellation.sql). [reason] is a `CancelReasons.rider` code, required once a driver has accepted.
+    /// `advance_task` no longer cancels (review_fixes.sql): this is the only way, so the reason and the stats are recorded.
+    public func cancelTask(_ id: String, reason: String?, note: String = "") async throws {
+        try await rpcVoid("cancel_task", ["p_task": id, "p_reason": reason, "p_note": note])
+    }
+    /// Driver hands an accepted ride back so it rings other drivers. [reason] is a `CancelReasons.driver` code (required).
+    /// The server caps hand-backs at 3 an hour and gives the trip a new PIN.
+    public func releaseTask(_ id: String, reason: String, note: String = "") async throws {
+        try await rpcVoid("release_task", ["p_task": id, "p_reason": reason, "p_note": note])
+    }
     /// Through the `tasks_geo` view: `tasks.pin` is withheld from the API, so `select *` on the table is refused.
     public func taskGeo(_ id: String) async throws -> TaskGeoRow? { try await selectOne("tasks_geo", filters: [.eq("id", id)]) }
     /// The caller's active task as requester or driver, or nil.

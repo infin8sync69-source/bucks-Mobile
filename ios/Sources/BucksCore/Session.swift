@@ -294,12 +294,14 @@ public final class AppSession: DispatchHost {
         dispatch.requestRide(kind: rideKind, from: from, fromLabel: ridePickup?.name ?? hereLabel ?? "Current location", dest: d, fare: fare(rideKind, km: d.km))
     }
 
-    /// Rider: cancel before the trip starts. Shows the server's answer; success returns home.
-    public func cancelRide() async -> Bool {
+    /// Rider: cancel before the trip starts. [reason] is a `CancelReasons.rider` code, required once a driver has accepted (the
+    /// server refuses without one then). Shows the server's answer; success returns home.
+    public func cancelRide(reason: String? = nil, note: String = "") async -> Bool {
         guard let r = dispatch.ride else { return true }
         if dispatch.cancelling { return false }   // a cancel is already on its way; its own call reports the outcome
         guard [.searching, .noDriver, .matched, .arrived].contains(r.status) else { toast("This trip has already started, so it can't be cancelled here."); return false }
-        if let err = await dispatch.cancelRide() { toast(err); return false }
+        if r.status == .matched || r.status == .arrived, reason == nil { toast("Choose why you're cancelling."); return false }
+        if let err = await dispatch.cancelRide(reason: reason, note: note) { toast(err); return false }
         toast("Ride cancelled. Nothing to pay."); return true
     }
     /// Rider: review the driver (or skip) and clear the ride.
