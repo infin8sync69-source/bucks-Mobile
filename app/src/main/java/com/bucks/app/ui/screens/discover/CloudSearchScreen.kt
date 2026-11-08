@@ -36,7 +36,8 @@ private val RIDE_WORDS = Regex("\\b(auto|cab|taxi|ride|rickshaw)\\b", RegexOptio
 
 /**
  * Cloud search over live listings near me. Typing searches after a 300 ms pause; an empty query browses
- * everything nearby. Kind chips (All / Shops / Pros / Drivers) and radius chips (3 / 10 / 25 km) search at once.
+ * everything nearby. Group chips (All / Shops / Local services / Companies / NGOs and groups / Institutions / Pros / Buy & rent / Drivers)
+ * and radius chips (3 / 10 / 25 km) search at once.
  */
 @Composable
 fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (String) -> Unit, onRide: (VehicleKind) -> Unit, onPlace: () -> Unit = {}) {
@@ -63,13 +64,13 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
             Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)); Spacer(Modifier.width(14.dp))
             BasicTextField(d.query, { d.query = it }, Modifier.weight(1f).focusRequester(focus), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { d.search() }),
-                decorationBox = { inner -> Box { if (d.query.isEmpty()) Text("Shops, pros, drivers or an item, like sugar", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
+                decorationBox = { inner -> Box { if (d.query.isEmpty()) Text("Shops, services, pros or an item, like sugar", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
             if (d.query.isNotEmpty()) IconButton({ d.clear() }) { Icon(Icons.Rounded.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Opened from a Services tile: that service is the first chip; tapping it widens the search to everything.
             d.service?.let { key -> com.bucks.app.ui.serviceDef(key)?.let { def -> Chip("${def.label} ✕", selected = true, icon = def.icon) { d.useService(null); d.search() } } }
-            KindFilter.entries.forEach { k -> Chip(k.label, selected = d.kind == k && d.service == null, icon = k.kinds?.firstOrNull()?.let { kindIcon(it) }) { d.useService(null); d.selectKind(k); d.search() } }
+            KindFilter.entries.forEach { k -> Chip(k.label, selected = d.kind == k && d.service == null, icon = k.icon) { d.useService(null); d.selectKind(k); d.search() } }
         }
         d.service?.let { vm.services.state(it) }?.takeIf { it.delivery && !it.deliveryNow }?.let {
             Notice("No Bucks riders are online near you right now. Order for pickup, or from shops with their own riders.", Modifier.padding(start = Gutter, end = Gutter, top = 10.dp))
@@ -121,10 +122,10 @@ private fun EmptyResults(vm: BucksViewModel) {
         Text(if (q.isBlank()) "Nothing listed within ${d.radiusKm} km yet" else "No results for “$q” within ${d.radiusKm} km", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
         Muted(when {
             wider != null -> "Widen the search to see more."
-            q.isBlank() -> "Be the first: list your shop, skill or vehicle from Menu > Bucks Pro."
-            else -> "Try another word, like the item you need (sugar, tap repair), or a category (grocery, electrician)."
+            q.isBlank() -> "Be the first: set up your shop, service, organisation, skill or vehicle from Menu > Bucks Pro."
+            else -> "Try another word, like the item you need (sugar, tap repair), or a category (grocery, electrician, salon)."
         }, Modifier.padding(top = 6.dp), align = TextAlign.Center)
         if (wider != null) SmallButton("Search within $wider km", Modifier.padding(top = 14.dp)) { d.setRadius(wider) }
-        if (d.kind != KindFilter.ALL) TextButton({ d.selectKind(KindFilter.ALL) }) { Text("Show shops, pros and drivers") }
+        if (d.kind != KindFilter.ALL) TextButton({ d.selectKind(KindFilter.ALL) }, Modifier.heightIn(min = 48.dp)) { Text("Show everything") }
     }
 }

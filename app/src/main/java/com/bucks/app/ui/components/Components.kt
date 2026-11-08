@@ -18,6 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -187,10 +190,11 @@ fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tint
 fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null) {
     val pct = t.pct; val st = MaterialTheme.status
     val (fg, bg) = when { pct == null -> MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surfaceContainer; pct >= 85 -> st.good to st.goodTint; pct >= 60 -> st.warn to st.warnTint; else -> st.bad to st.badTint }
-    val text = when { pct == null -> if (compact) "New" else "New · no votes yet"; compact -> "$pct% recommend"; else -> "$pct% recommend · ${t.total} votes" }
+    // Recommendations read as votes everywhere: an up count and a down count, never stars or thumbs.
     Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.ThumbUp, null, tint = fg, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(5.dp))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        val side = shownVote(t.up, t.down)
+        if (side == null) Text(if (compact || pct == null) "New" else "New · ${t.total} so far", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        else VoteMark(t.up, t.down, fg, side = side)
     }
 }
 
@@ -299,3 +303,71 @@ private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f
 @Composable fun SectionTitle(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); if (action != null && onAction != null) TextButton(onClick = onAction, contentPadding = PaddingValues(0.dp)) { Text(action, style = MaterialTheme.typography.labelMedium) } }
 @Composable fun Muted(text: String, modifier: Modifier = Modifier, align: TextAlign? = null, maxLines: Int = Int.MAX_VALUE, minLines: Int = 1) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier, textAlign = align, maxLines = maxLines, minLines = minLines, overflow = TextOverflow.Ellipsis)
 @Composable fun Headline(text: String, modifier: Modifier = Modifier) = Text(text, style = MaterialTheme.typography.headlineMedium, modifier = modifier)
+
+/*
+ * Recommendations are arrows everywhere: up = recommended, down = not recommended. No words, no thumbs, no stars.
+ * The one number shown is the larger side: a thing with more downs than ups shows the down arrow and the down count.
+ */
+
+/** Fewer people than this and a business, product or driver shows "New" rather than an arrow. */
+const val VOTES_TO_SHOW = 3
+
+/**
+ * Which side a business, product or driver shows: null ("New") until [VOTES_TO_SHOW] people voted; the down side only once
+ * at least [VOTES_TO_SHOW] different people voted down and they outnumber the ups, so one rival can't turn a new shop red.
+ */
+fun shownVote(up: Int, down: Int): Int? = when { up + down < VOTES_TO_SHOW -> null; down > up && down >= VOTES_TO_SHOW -> -1; else -> 1 }
+
+/** Why a down was given; the server takes the same codes (reviews.reason, profile_votes.reason). */
+val VOTE_REASONS = listOf("LATE" to "Late", "QUALITY" to "Quality", "PRICE" to "Price", "BEHAVIOUR" to "Behaviour", "SAFETY" to "Safety", "OTHER" to "Other")
+
+/** The larger side of a vote (or [side] when given): the arrow and its count, tinted [tint] (or green / red by the side when null). Ties show up. */
+@Composable
+fun VoteMark(up: Int, down: Int, tint: Color? = null, size: Int = 13, side: Int? = null) {
+    val upWins = side?.let { it > 0 } ?: (up >= down)
+    val c = tint ?: if (upWins) MaterialTheme.status.good else MaterialTheme.status.bad
+    Icon(if (upWins) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (upWins) "Recommended by $up" else "Not recommended by $down", tint = c, modifier = Modifier.size(size.dp))
+    Text(" ${if (upWins) up else down}", style = MaterialTheme.typography.labelMedium, color = c, maxLines = 1)
+}
+
+/** An up or a down arrow on its own, as a 48dp button; [on] fills it with its colour. */
+@Composable
+fun VoteArrow(up: Boolean, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val st = MaterialTheme.status; val c = if (up) st.good else st.bad
+    Box(modifier.minimumInteractiveComponentSize().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).background(if (on) c.copy(alpha = 0.15f) else Color.Transparent)
+        .border(if (on) 2.dp else 1.dp, if (on) c else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+        .clickable(onClickLabel = if (up) "Recommend" else "Not recommend", onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommend" else "Not recommend", Modifier.size(22.dp), tint = if (on) c else MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The box that opens on every arrow tap: the two arrows (the tapped one selected) and a feedback field. [onSubmit] gets the vote
+ * and the trimmed text; the text is optional, so a quick vote is still one more tap.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", busy: Boolean = false, askReason: Boolean = false, onSubmit: (Int, String, String?) -> Unit, onDismiss: () -> Unit) {
+    var vote by remember { mutableIntStateOf(initial) }; var text by remember { mutableStateOf(initialText) }; var reason by remember { mutableStateOf<String?>(null) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                VoteArrow(true, vote == 1, Modifier.weight(1f)) { vote = 1 }
+                VoteArrow(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
+            }
+            // After a real order or trip, a down needs a reason: it is what the owner can act on.
+            if (askReason && vote < 0) { Text("What went wrong?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)); ReasonChips(reason) { reason = it } }
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(),
+                placeholder = { Text(if (vote > 0) "What was good about it? (optional)" else "Tell us more (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            Button({ onSubmit(vote, text.trim(), if (vote < 0) reason else null) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy && !(askReason && vote < 0 && reason == null)) { Text(if (busy) "Sending…" else "Post") }
+        }
+    }
+}
+
+/** One of [VOTE_REASONS], as chips; tapping the chosen one again clears it. */
+@Composable
+fun ReasonChips(selected: String?, onPick: (String?) -> Unit) =
+    FlowChips(VOTE_REASONS.map { it.second }, setOfNotNull(VOTE_REASONS.firstOrNull { it.first == selected }?.second)) { label ->
+        val code = VOTE_REASONS.first { it.second == label }.first; onPick(if (code == selected) null else code) }
+

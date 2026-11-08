@@ -18,6 +18,7 @@ import coil.compose.AsyncImage
 import com.bucks.app.data.ComplianceRow
 import com.bucks.app.data.ItemRow
 import com.bucks.app.data.ListingRow
+import com.bucks.app.ui.PageType
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 import kotlinx.serialization.json.JsonObject
@@ -79,7 +80,7 @@ internal fun studioIcon(l: ListingRow): ImageVector = if (l.kind == "ASSET") ass
 /** Status pill used on cards and the dashboard. */
 @Composable
 internal fun ListingStatusPill(l: ListingRow, recs: Int) = when (l.status) {
-    "LIVE" -> if (l.online) PillGood(if (l.kind == "ASSET") "Live · available" else "Live · ${onlineLabel(l.kind, true).lowercase()}") else PillGrey("Live · ${onlineLabel(l.kind, false).lowercase()}")
+    "LIVE" -> if (l.online) PillGood(if (l.kind == "ASSET") "Live · available" else "Live · ${onlineLabel(l, true).lowercase()}") else PillGrey("Live · ${onlineLabel(l, false).lowercase()}")
     "SUSPENDED" -> PillBad(if (l.complianceHold) "Paused: documents" else "Suspended")
     else -> PillWarn("Not live · $recs of $NEEDED recommendations")
 }
@@ -89,16 +90,23 @@ internal data class GoLiveStep(val title: String, val detail: String, val done: 
 
 /**
  * The go-live checklist for [l]. Targets: EDIT, PHOTOS, ITEMS, VEHICLES, DOCS, RECOMMEND.
- * [items] and [compliance] are null while loading (the step shows as not done yet).
+ * [items] and [compliance] are null while loading (the step shows as not done yet). [type] is the page type of a business,
+ * which words the catalogue step (products, services, programs or events).
  */
-internal fun goLiveSteps(l: ListingRow, items: List<ItemRow>?, compliance: List<ComplianceRow>?, recs: Int, hasVehicle: Boolean): List<GoLiveStep> {
+internal fun goLiveSteps(l: ListingRow, items: List<ItemRow>?, compliance: List<ComplianceRow>?, recs: Int, hasVehicle: Boolean, type: PageType? = null): List<GoLiveStep> {
     val steps = ArrayList<GoLiveStep>()
     val detailsDone = l.description.trim().length >= 20 && (l.kind != "ASSET" || (l.details.num("price") ?: 0.0) > 0)
     steps += GoLiveStep("Describe it", if (l.kind == "ASSET") "A few lines and the price, so people know what they're looking at." else "A few lines about what you do, so people pick you.", detailsDone, false, action = "Edit", target = "EDIT")
     val photos = !l.photoUrl.isNullOrBlank() || l.gallery.isNotEmpty()
     steps += GoLiveStep(if (l.kind == "SKILL") "Show your work" else "Add photos", when (l.kind) { "SKILL" -> "Photos of jobs you've done build trust fast."; "ASSET" -> "Listings with 4+ photos get far more enquiries."; else -> "A cover photo and a few of the place or products." }, photos, false, action = "Add", target = "PHOTOS")
     when (l.kind) {
-        "BUSINESS" -> steps += GoLiveStep("Add products", "Put in what you sell with prices, so customers can order.", !items.isNullOrEmpty(), false, action = "Add", target = "ITEMS")
+        "BUSINESS" -> { val noun = type?.itemNoun ?: "product"
+            steps += GoLiveStep("Add ${noun}s", when (noun) {
+                "service" -> "\"Haircut · ₹200\". People book or ask from this list."
+                "program" -> "Courses, classes or programs people can join, each with a price or free."
+                "event" -> "Upcoming events with the date and time, so people can turn up."
+                else -> "Put in what you sell with prices, so customers can order."
+            }, !items.isNullOrEmpty(), false, action = "Add", target = "ITEMS") }
         "SKILL" -> steps += GoLiveStep("Add services and prices", "\"Tap repair · ₹300 per visit\". People request from this list.", !items.isNullOrEmpty(), false, action = "Add", target = "ITEMS")
         "DRIVER" -> steps += GoLiveStep("Add your vehicle", "With its RC, insurance and your licence. Bucks checks them before you can go online.", hasVehicle, true, action = "Open", target = "VEHICLES")
     }

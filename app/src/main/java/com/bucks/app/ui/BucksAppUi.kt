@@ -134,7 +134,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             else -> nav.navigate(route) } } }
         // A tapped notification asked for a screen: open it once the person is signed in, then forget it (Push.safeRoute already vetted it).
         LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect
-            runCatching { nav.navigate(r) { launchSingleTop = true; if (r == Routes.HOME) popUpTo(Routes.HOME) } }; onStartRouteHandled() }
+            runCatching { nav.navigate(if (r.startsWith("doc-requests/")) Routes.showcaseDocs(r.removePrefix("doc-requests/")) else r) { launchSingleTop = true; if (r == Routes.HOME) popUpTo(Routes.HOME) } }; onStartRouteHandled() }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
@@ -195,7 +195,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 PhotoOrIcon(l.photoUrl ?: l.gallery.firstOrNull()?.url, studioIcon(l), size = 40)
                                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                     Text(l.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(when (l.status) { "LIVE" -> onlineLabel(l.kind, l.online); "SUSPENDED" -> "Suspended"; else -> "${kindLabel(l.kind)} · not live yet" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                    Text(when (l.status) { "LIVE" -> onlineLabel(l, l.online); "SUSPENDED" -> "Suspended"; else -> "${PageTypes.of(l)?.label ?: kindLabel(l.kind)} · not live yet" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                 }
                                 if (l.status == "LIVE" && m.canManage(l.id)) ListingSwitch(l.online) { on -> m.setOnline(l.id, on) }
                             }
@@ -243,7 +243,11 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.OTP) { OtpScreen(vm, s.tempPhone, onBack = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.PROFILE) }, showToast = toast) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call, onPlace = { nav.navigate(Routes.MAPS) }, onReturnToRide = returnToRide) }
-                            composable(Routes.SERVICES) { ServicesScreen(vm, openMenu, messages, onSearch = { vm.discover.useService(null); nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onRecommend = { nav.navigate(Routes.RECOMMEND_SCAN) },
+                            composable(Routes.SERVICES) {
+                                // "Set up your page" on a locked tile of a page-type group (local services, companies, NGOs, institutions) opens the type picker on that group.
+                                var pickGroup by remember { mutableStateOf<String?>(null) }
+                                pickGroup?.let { g -> PageTypePickerSheet(initialGroup = g, onPick = { t -> pickGroup = null; nav.navigate(Routes.listingEdit(null, "BUSINESS", type = t.key)) }, onDismiss = { pickGroup = null }) }
+                                ServicesScreen(vm, openMenu, messages, onSearch = { vm.discover.useService(null); nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onRecommend = { nav.navigate(Routes.RECOMMEND_SCAN) },
                                 // An open (or quiet) tile: taxi and auto book a ride of that kind, jobs open jobs near me, the rest search that service.
                                 onOpenService = { key -> when (key) {
                                     "TAXI" -> { vm.setRideKind(com.bucks.app.data.VehicleKind.CAB); ride() }
@@ -256,7 +260,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                     key in setOf("TAXI", "AUTO", "PARCEL") -> nav.navigate(Routes.MY_VEHICLES)
                                     key == "GIGS" -> nav.navigate(Routes.listingEdit(null, "SKILL"))
                                     key == "JOBS" -> nav.navigate(Routes.MY_LISTINGS)
-                                    else -> nav.navigate(Routes.listingEdit(null, "BUSINESS", key)) } }) }
+                                    else -> { val group = PageTypes.groups.firstOrNull { it.key != "SHOPS" && key in it.services }
+                                        if (group != null) pickGroup = group.key else nav.navigate(Routes.listingEdit(null, "BUSINESS", key)) } } }) }
                             composable(Routes.FEED) { if (vm.social.enabled) CloudFeedScreen(vm, openMenu, messages, onOpenMoments = { nav.navigate(Routes.moments(it)) }, onNewMoment = { nav.navigate(Routes.MOMENT_NEW) }) else FeedScreen(vm, openMenu, messages, toast) }
                             composable(Routes.RECOMMENDED) { RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith, onListing = { nav.navigate(Routes.listing(it)) }) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
@@ -296,7 +301,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.EARNINGS) { EarningsScreen(vm, onBack = { nav.popBackStack() }) }
                             // Cloud builds post through social.post (the real feed); the demo screen writes to the local demo store.
                             composable(Routes.CREATE_POST) { if (vm.social.enabled) { Box(Modifier.fillMaxSize()); NewPostSheet(vm) { nav.popBackStack() } } else CreatePostScreen(vm, onClose = { nav.popBackStack() }) }
-                            composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { nav.navigate(if (it == "bucks-id") Routes.BUCKS_ID else if (it.startsWith("studio/")) Routes.studioListing(it.removePrefix("studio/")) else it) } }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
+                            composable(Routes.MESSAGES) { if (vm.social.enabled) CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { nav.navigate(if (it == "bucks-id") Routes.BUCKS_ID else if (it.startsWith("studio/")) Routes.studioListing(it.removePrefix("studio/")) else if (it.startsWith("doc-requests/")) Routes.showcaseDocs(it.removePrefix("doc-requests/")) else it) } }) else MessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onCall = call) }
                             composable(Routes.GROUP_NEW) { if (vm.social.enabled) NewGroupScreen(vm, onBack = { nav.popBackStack() }, onCreated = { id -> nav.navigate(Routes.chat(id)) { popUpTo(Routes.MESSAGES) } }) else LaunchedEffect(Unit) { nav.popBackStack() } }
                             composable(Routes.CHAT, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!; if (vm.social.enabled) CloudChatScreen(vm, id, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }) else ChatScreen(vm, id, onBack = { nav.popBackStack() }, onCall = call) }
                             composable(Routes.SYNC) { SyncScreen(vm, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
@@ -312,7 +317,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.PAYMENT_QR) { PaymentQrScreen(vm, onBack = { nav.popBackStack() }) }
                             // Discover (cloud-only): the universal listing profile for a business, skill or driver.
                             composable(Routes.LISTING, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> val id = e.arguments!!.getString("id")!!
-                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onMap = { nav.navigate(Routes.MAPS) }) }
+                                ListingProfileScreen(vm, id, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onCart = { nav.navigate(Routes.CLOUD_CART) }, onJobs = { nav.navigate(Routes.listingJobs(it)) }, onBook = { k -> vm.setRideKind(k); ride() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onMap = { nav.navigate(Routes.MAPS) }, onShowcaseDocs = { nav.navigate(Routes.showcaseDocs(it)) }) }
                             // Commerce (cloud-only): cart + checkout, order page, my orders and the vendor order inbox.
                             composable(Routes.CLOUD_CART) { CloudCartScreen(vm, onBack = { nav.popBackStack() }, onPlaced = { ids -> if (ids.size == 1) nav.navigate(Routes.cloudOrder(ids.first())) { popUpTo(Routes.CLOUD_CART) { inclusive = true } } else nav.navigate(Routes.MY_ORDERS) { popUpTo(Routes.CLOUD_CART) { inclusive = true } } }) }
                             composable(Routes.CLOUD_ORDER, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> CloudOrderScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onTrack = { nav.navigate(Routes.deliveryTrack(it)) }, onOpenListing = { nav.navigate(Routes.listing(it)) }) }
@@ -322,7 +327,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             // Studio (cloud-only): the professional space. The hub lists everything I run; each listing has a dashboard.
                             composable(Routes.MY_LISTINGS) { StudioScreen(vm, onBack = { nav.popBackStack() },
                                 onOpen = { nav.navigate(Routes.studioListing(it)) },
-                                onCreate = { kind -> when (kind) { "VEHICLE" -> nav.navigate(Routes.vehicleEdit(null)); else -> nav.navigate(Routes.listingEdit(null, kind)) } },
+                                onCreate = { kind, typeKey -> when (kind) { "VEHICLE" -> nav.navigate(Routes.vehicleEdit(null)); else -> nav.navigate(Routes.listingEdit(null, kind, type = typeKey)) } },
                                 onVehicle = { nav.navigate(Routes.vehicleEdit(it)) },
                                 onVehicles = { nav.navigate(Routes.MY_VEHICLES) },
                                 onInvites = { nav.navigate(Routes.INVITES) },
@@ -332,6 +337,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onEdit = { kind, id -> nav.navigate(Routes.listingEdit(id, kind)) },
                                 onItem = { l, i -> nav.navigate(Routes.itemEdit(l, i ?: "new")) },
                                 onDocs = { nav.navigate(Routes.listingDocs(it)) },
+                                onShowcaseDocs = { nav.navigate(Routes.showcaseDocs(it)) },
                                 onMembers = { nav.navigate(Routes.members(it)) },
                                 onRecommend = { nav.navigate(Routes.recommendShow(it)) },
                                 onOrders = { nav.navigate(Routes.vendorOrders(it)) },
@@ -346,14 +352,16 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.MY_VEHICLES) { VehiclesScreen(vm, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.vehicleEdit(it)) }, onStats = { nav.navigate(Routes.VEHICLE_STATS) }, onMembers = { nav.navigate(Routes.members("v:$it")) }) }
                             composable(Routes.VEHICLE_STATS) { VehicleStatsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.LISTING_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("kind") { type = NavType.StringType; defaultValue = "BUSINESS" },
-                                    navArgument("service") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
+                                    navArgument("service") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("type") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
                                 val editingId = e.arguments?.getString("id")
                                 ListingEditScreen(vm, kind = e.arguments?.getString("kind") ?: "BUSINESS", id = editingId, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() },
-                                    service = e.arguments?.getString("service"),
+                                    service = e.arguments?.getString("service"), typeKey = e.arguments?.getString("type"),
                                     onDocs = { id -> nav.navigate(Routes.listingDocs(id)) },
                                     // A just-created listing opens its dashboard (with the go-live checklist) in place of the empty "Add" form.
                                     onCreated = { id -> nav.navigate(Routes.studioListing(id)) { popUpTo(Routes.LISTING_EDIT) { inclusive = true } } }) }
                             composable(Routes.LISTING_DOCS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ListingDocsScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
+                            composable(Routes.SHOWCASE_DOCS, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> ShowcaseDocsManageScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
                             composable(Routes.STAFF_REVIEW) { StaffReviewScreen(vm, onBack = { nav.popBackStack() }) }
                             // ITEM_EDIT convention (there is no separate items-list route): item == null -> the list (ItemsScreen); item == "new" -> add; any other id -> edit that item.
                             composable(Routes.ITEM_EDIT, arguments = listOf(navArgument("listing") { type = NavType.StringType }, navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->

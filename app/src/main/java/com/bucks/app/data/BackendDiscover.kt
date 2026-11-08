@@ -44,6 +44,11 @@ suspend fun Backend.recommendationCount(listingId: String): Int =
 suspend fun Backend.listingCounts(listingId: String): ListingCounts? =
     client.postgrest.rpc("listing_counts", buildJsonObject { put("p_listing", listingId) }).decodeList<ListingCounts>().firstOrNull()
 
+// ---------- who runs a listing ----------
+/** The owner, admins and riders of a listing for its public Team tab (listing_members is readable by everyone; Backend.members is the owner's copy). */
+suspend fun Backend.publicMembers(listingId: String): List<MemberRow> =
+    client.postgrest.from("listing_members").select { filter { eq("listing_id", listingId) } }.decodeList()
+
 // ---------- where a listing is ----------
 suspend fun Backend.listingPoint(listingId: String): LatLng? =
     client.postgrest.from("listing_points").select { filter { eq("id", listingId) } }.decodeSingleOrNull<ListingPoint>()?.let { LatLng(it.lat, it.lng) }
@@ -52,3 +57,15 @@ suspend fun Backend.listingPoint(listingId: String): LatLng? =
 /** A listing or product photo: photo_url is either a full URL or a path inside the public listing-media bucket. */
 fun Backend.listingPhoto(photoUrl: String?): String? =
     photoUrl?.trim()?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("http://") || it.startsWith("https://")) it else publicUrl("listing-media", it) }
+
+/** The human behind a page (server function listing_owner): who they are, how long they have been on Bucks, and how far their identity has been checked. */
+@Serializable data class OwnerRow(val id: String, val name: String = "Bucks member", @SerialName("short_code") val shortCode: String = "", @SerialName("photo_url") val photoUrl: String? = null,
+    val area: String = "", @SerialName("member_since") val memberSince: String = "",
+    /** Bucks staff have checked a photo ID of this person on one of their pages. Phone verification is implicit: every account signs in by OTP. */
+    @SerialName("id_checked") val idChecked: Boolean = false, val pages: Int = 0) {
+    /** The identity level shown next to the name. Face / biometric checks are a later level on this same line. */
+    val identityLabel get() = if (idChecked) "ID checked by Bucks" else "Phone-verified"
+}
+suspend fun Backend.listingOwner(listingId: String): OwnerRow? = client.postgrest.rpc("listing_owner", buildJsonObject { put("p_listing", listingId) }).decodeList<OwnerRow>().firstOrNull()
+/** The other live pages this person runs, for the owner sheet. */
+suspend fun Backend.livePagesOf(ownerId: String): List<ListingRow> = client.postgrest.from("listings").select { filter { eq("owner_id", ownerId); eq("status", "LIVE") } }.decodeList()

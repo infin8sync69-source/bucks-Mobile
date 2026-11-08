@@ -256,9 +256,9 @@ fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit, onEnableLocation
 fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit, onBack: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val r = s.ride ?: return
     val n = vm.onlineCount(r.kind); val cancelling = vm.dispatch.cancelling
-    var ask by remember { mutableStateOf(false) }
+    var cancel by remember { mutableStateOf(false) }
     // Back while searching asks first (leaving would leave the request ringing); once nobody took it, Back just leaves.
-    BackHandler(enabled = r.status == RideStatus.SEARCHING) { ask = true }
+    BackHandler(enabled = r.status == RideStatus.SEARCHING) { cancel = true }
     BackHandler(enabled = r.status == RideStatus.NO_DRIVER) { vm.dismissEndedRide(); onBack() }
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
@@ -270,15 +270,14 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit, onBack: () -> 
         Sheet {
             if (r.status == RideStatus.SEARCHING) {
                 Row(verticalAlignment = Alignment.CenterVertically) { PulseRings(Modifier.size(56.dp)) { Icon(r.kind.icon, null, Modifier.size(26.dp).breathe(amount = 0.08f), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 12.dp)) { Text("Looking for nearby ${r.kind.label.lowercase()} riders", style = MaterialTheme.typography.titleLarge); Muted("${r.kind.label} · riders nearby are rung · first to accept gets the ride") } }
-                BadButton(if (cancelling) "Cancelling…" else "Cancel request", Modifier.padding(top = 14.dp), enabled = !cancelling) { vm.cancelRide("Changed my mind") }
+                BadButton(if (cancelling) "Cancelling…" else "Cancel request", Modifier.padding(top = 14.dp), enabled = !cancelling) { cancel = true }
             } else {
                 Text("No rider accepted", style = MaterialTheme.typography.titleLarge); Muted(if (n > 0) "All nearby riders were busy. Try again or switch vehicle type." else "Nobody is online nearby.")
                 PrimaryButton("Ring again", Modifier.padding(top = 14.dp)) { vm.requestRide() }; GhostButton("Change ride type", Modifier.padding(top = 10.dp), onClick = onChangeType)
             }
         }
     }
-    if (ask) AlertDialog(onDismissRequest = { ask = false }, title = { Text("Cancel this ride request?") }, text = { Text("Riders nearby will stop being rung. You can book again any time.") },
-        confirmButton = { TextButton({ ask = false; vm.cancelRide("Changed my mind") }, enabled = !cancelling) { Text("Cancel ride", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ ask = false }) { Text("Keep searching") } })
+    if (cancel) RideCancelSheet(vm, null, false) { cancel = false }
 }
 
 @Composable
@@ -312,12 +311,23 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
             GhostButton(if (cancelling) "Cancelling…" else "Cancel ride", enabled = !cancelling) { cancel = true }
         } }
     }
-    if (cancel) Dialog(onDismissRequest = { cancel = false }) { Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surface) { Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("!", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge) }
-        Text("Cancel ride", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)); Muted("${d.name.substringBefore(' ')} is already on the way. Cancel anyway?", Modifier.padding(top = 4.dp), TextAlign.Center)
-        Button({ cancel = false; vm.cancelRide("Cancelled by rider") }, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = !cancelling, shape = MaterialTheme.shapes.small) { Text("Cancel ride") }
-        TextButton({ cancel = false }) { Text("Keep ride") }
-    } } }
+    if (cancel) RideCancelSheet(vm, d.name.substringBefore(' '), arrived) { cancel = false }
+}
+
+/** The reason sheet for cancelling a ride. While nobody has accepted no reason is needed; once a driver did, one is required and the driver is told why. */
+@Composable
+private fun RideCancelSheet(vm: BucksViewModel, driverName: String?, arrived: Boolean, onClose: () -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf<CancelStats?>(null) }
+    LaunchedEffect(Unit) { if (vm.cloud && driverName != null) stats = runCatching { Backend.myCancelStats() }.getOrNull() }
+    val n = stats?.riderDay ?: 0
+    CancelSheet(
+        title = if (driverName == null) "Cancel the request?" else "Cancel this ride?",
+        message = when { driverName == null -> "Riders nearby will stop being rung. Nothing is charged, and you can book again any time."; arrived -> "$driverName is waiting at your pickup. Cancelling wastes their trip."; else -> "$driverName is already on the way to you." },
+        reasons = CancelReasons.rider, requireReason = driverName != null, confirmLabel = if (driverName == null) "Cancel request" else "Cancel ride",
+        keepLabel = if (driverName == null) "Keep searching" else "Keep ride",
+        nudge = if (n >= 2) "You've cancelled $n rides after a driver accepted today. Drivers lose time and fuel when that happens." else null, busy = busy || vm.dispatch.cancelling,
+        onConfirm = { code, note -> busy = true; vm.cancelRide(code, note) { ok -> busy = false; if (ok) onClose() } }, onDismiss = onClose)
 }
 
 @Composable
@@ -395,13 +405,14 @@ private fun CloudPayPanel(vm: BucksViewModel, r: Ride, d: Driver) {
 @Composable
 fun RateRideScreen(vm: BucksViewModel) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
-    var vote by remember { mutableStateOf<Int?>(null) }; var comment by remember { mutableStateOf("") }
+    var vote by remember { mutableStateOf<Int?>(null) }; var comment by remember { mutableStateOf("") }; var reason by remember { mutableStateOf<String?>(null) }
     ContentColumn { BucksTopBar()
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(20.dp).padding(top = 24.dp)) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Avatar(initials(d.name), size = 76); Headline("How was ${d.name.substringBefore(' ')}?", Modifier.padding(top = 12.dp)); Muted("Paid ₹${r.fare} by ${payWord(r.paidWith)}.", align = TextAlign.Center) }
-            Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalArrangement = Arrangement.Center) { VoteButton("Recommend", vote == 1, true) { vote = 1 }; Spacer(Modifier.width(10.dp)); VoteButton("Not recommended", vote == -1, false) { vote = -1 } }
-            BucksField(comment, { comment = it }, "One line on why", "Safe riding, on time", singleLine = false, minLines = 2)
-            PrimaryButton("Post review") { vm.finishRide(vote, comment, false) }
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Avatar(initials(d.name), size = 76); Headline("How was ${d.name.substringBefore(' ')}?", Modifier.padding(top = 12.dp)); Muted("Paid ₹${r.fare} by ${payWord(r.paidWith)}. Your review decides who gets the next ride.", align = TextAlign.Center) }
+            Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalArrangement = Arrangement.Center) { VoteArrow(true, vote == 1, Modifier.width(96.dp)) { vote = 1 }; Spacer(Modifier.width(12.dp)); VoteArrow(false, vote == -1, Modifier.width(96.dp)) { vote = -1 } }
+            if (vote == -1) { Text("What went wrong?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 6.dp)); ReasonChips(reason) { reason = it }; Spacer(Modifier.height(10.dp)) }
+            BucksField(comment, { comment = it.take(500) }, "Tell us more (optional)", if (vote == -1) "What happened" else "Safe riding, on time", singleLine = false, minLines = 2)
+            PrimaryButton("Post") { vm.finishRide(vote, comment, false, reason) }
             TextButton(onClick = { vm.finishRide(null, "", true) }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)) { Text("Skip for now") }
         }
     }

@@ -13,8 +13,10 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Order matters: services.sql before studio.sql (studio replaces listing_service_rules and place_order), ecommerce.sql after studio.sql
-# (it replaces place_order again), the two hardening files next (they carry the latest version of every function they redefine), then social_safety.sql (which
-# carries the hardening versions of the two functions it redefines).
+# (it replaces place_order again), then the pilot files in the order they went live (catalogue_tab.sql replaces two guards from page_types.sql;
+# review_fixes.sql after showcase_docs.sql and cancellation.sql), the two hardening files next (they carry the latest version of every function
+# they redefine; hardening_platform.sql carries page_types' search_listings), then social_safety.sql (which carries the hardening versions of the
+# two functions it redefines).
 files=(
   schema.sql
   migrations/manage.sql
@@ -34,6 +36,12 @@ files=(
   migrations/aspire_media.sql
   migrations/product_feedback.sql
   migrations/ecommerce.sql
+  migrations/trust_phase0.sql
+  migrations/page_types.sql
+  migrations/catalogue_tab.sql
+  migrations/showcase_docs.sql
+  migrations/cancellation.sql
+  migrations/review_fixes.sql
   migrations/hardening_dispatch.sql
   migrations/hardening_platform.sql
   migrations/social_safety.sql

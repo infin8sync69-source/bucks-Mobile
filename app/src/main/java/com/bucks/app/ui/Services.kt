@@ -37,13 +37,27 @@ val SERVICE_CATALOG = listOf(
     ServiceDef("GIGS", "Gigs", Icons.Rounded.Handyman, "Have a skill?", "Offer it"),
     ServiceDef("JOBS", "Jobs", Icons.Rounded.Work, "Hiring?", "Post a job from your business"),
     ServiceDef("PROPERTIES", "Properties", Icons.Rounded.Apartment, "Have a place to rent or sell?", "List it", listOf("Property owner", "Real estate agent", "Builder")),
+    // Page types beyond shops (ui/PageTypes.kt, migration page_types.sql): the tile opens search filtered to that service.
+    ServiceDef("LOCAL_SERVICES", "Local services", Icons.Rounded.ContentCut, "Run a salon, clinic or repair service?", "Set up your page"),
+    ServiceDef("BIZ_PRO", "Companies", Icons.Rounded.Code, "Run a company or a firm?", "Set up your page"),
+    ServiceDef("COMMUNITY", "NGOs and groups", Icons.Rounded.Groups, "Run an NGO or a community group?", "Set up your page"),
+    ServiceDef("INSTITUTIONS", "Institutions", Icons.Rounded.Apartment, "Run a school, college or association?", "Set up your page"),
 )
 fun serviceDef(key: String?): ServiceDef? = SERVICE_CATALOG.firstOrNull { it.key == key }
 /** The services a BUSINESS listing can belong to (skills are always Gigs, drivers have none). */
 val BUSINESS_SERVICES = listOf("FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING", "PROPERTIES")
 /** Same mapping as service_for_category() on the server, for listings saved before a service was chosen. */
-fun serviceForCategory(category: String?): String =
-    BUSINESS_SERVICES.firstOrNull { k -> serviceDef(k)!!.categories.any { it.equals(category?.trim(), ignoreCase = true) } } ?: "SHOPPING"
+fun serviceForCategory(category: String?): String = knownServiceForCategory(category) ?: "SHOPPING"
+/** The service a category belongs to, or null for a category we don't know (a typed one), so the caller can keep the owner's choice. */
+fun knownServiceForCategory(category: String?): String? {
+    val c = category?.trim()?.lowercase()
+    BUSINESS_SERVICES.firstOrNull { k -> serviceDef(k)!!.categories.any { it.equals(c, ignoreCase = true) } }?.let { return it }
+    return when (c) {
+        "catering", "juice bar", "ice cream", "street food", "food truck" -> "FOOD"
+        "kirana", "organic store" -> "GROCERY"
+        else -> null
+    }
+}
 
 /** Demo builds (no backend): the pilot's services open, everything else "coming soon". */
 private val DEMO_OPEN = setOf("TAXI", "AUTO", "JOBS")

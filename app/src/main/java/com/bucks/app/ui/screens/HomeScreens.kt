@@ -145,8 +145,8 @@ private fun ActiveRideCard(r: Ride, onReturn: () -> Unit) {
 fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }, onPlace: () -> Unit = {}, onReturnToRide: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
     // Back on Home while on duty or with a trip open puts Bucks in the background instead of closing it (closing would take the driver off the map).
-    val activity = LocalContext.current.findActivity()
-    BackHandler(enabled = activity != null && (s.vehicleOnline || s.driverRide != null || s.ride != null)) { activity?.moveTaskToBack(true) }
+    val hostActivity = LocalContext.current.findActivity()
+    BackHandler(enabled = hostActivity != null && (s.vehicleOnline || s.driverRide != null || s.ride != null)) { hostActivity?.moveTaskToBack(true) }
     // The button and the "being checked" note follow the server: reload my vehicles whenever Home comes back on screen.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (vm.dispatch.enabled && s.user != null) vm.dispatch.reloadVehicles() }
     // An accepted ride takes over Home until it's closed.
@@ -154,6 +154,15 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     // Cloud dispatch polls online drivers every 15 s only while a map is on screen.
     DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
     var showOnline by remember { mutableStateOf(false) }
+    var showActivity by remember { mutableStateOf(false) }
+    val activity = activityItems(vm)
+    // Keep my orders and listings fresh while Home is on screen, so the activity button and the online button follow the server.
+    LaunchedEffect(vm.social.me?.id) {
+        if (vm.social.me != null) {
+            if (!vm.myListings.loaded) vm.myListings.refresh()
+            while (true) { vm.commerce.refreshMyOrders(quiet = true); kotlinx.coroutines.delay(20_000) }
+        }
+    }
     val wide = windowWidth() != Width.COMPACT
     val unread = vm.unreadCount(chats)
     // Drivers with a checked vehicle get the button while offline too (it opens the sheet with their vehicle switch), on every layout.
@@ -187,13 +196,19 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
             // Kept clear of the top bar; a panel taller than the space left (large text, ride card and notes together) scrolls instead of pushing off screen.
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(top = 64.dp)) {
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())
-                Sheet(Modifier.weight(1f, fill = false), scrollable = true) { panel(); Spacer(Modifier.height(24.dp)) }
+                Sheet(Modifier.weight(1f, fill = false), scrollable = true) { panel()
+                    if (vm.canGoOnline) Box(Modifier.padding(top = 6.dp)) { Chip("You're offline · Go online", icon = Icons.Rounded.PowerSettingsNew) { showOnline = true } }
+                    Spacer(Modifier.height(24.dp)) }
             }
-            if (showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
+            // Only while I'm online (a driver switch or a live shop / pro listing); offline, a small chip in the sheet opens the same switches.
+            if (vm.providerOnline) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
+            // A customer with a ride or an order open: what is happening, one tap away.
+            if (activity.isNotEmpty()) ActivityFab(activity, Modifier.align(Alignment.BottomStart).padding(start = Gutter - 4.dp, bottom = 198.dp)) { if (activity.size == 1) vm.open(activity[0].route) else showActivity = true }
         }
     }
     // A ringing request is a card over whichever screen is showing (BucksAppUi), so nothing rings here.
     if (showOnline) OnlineSheet(vm, onDismiss = { showOnline = false }, onListings = onListings, onEarnings = onEarnings)
+    if (showActivity) ActivitySheet(activity, onOpen = { showActivity = false; vm.open(it.route) }, onDismiss = { showActivity = false })
 }
 
 /**

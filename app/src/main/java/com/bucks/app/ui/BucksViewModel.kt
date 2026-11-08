@@ -105,6 +105,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val waitingVehicle: VehicleRow? get() = cloudVehicles.takeIf { v -> v.isNotEmpty() && v.none { it.status == "ACTIVE" } }?.firstOrNull()
     /** The simulated parts (fake ring, "Simulate a ride request", the PIN shown on screen, auto-accepting riders) exist only in debug builds without the cloud. */
     val demoTools get() = BuildConfig.DEBUG && !dispatch.enabled
+    /** True while I'm online as anything that takes work: my vehicle, or a live shop or pro listing. The Home button shows only then. */
+    val providerOnline: Boolean get() = s.vehicleOnline || (!dispatch.enabled && s.receiving) || myListings.listings.any { it.status == "LIVE" && it.online && (it.kind == "BUSINESS" || it.kind == "SKILL") }
+    /** Offline but able to go online (a checked vehicle, a live shop or pro listing): Home offers a small "Go online" chip instead of the button. */
+    val canGoOnline: Boolean get() = !providerOnline && (cloudVehicle != null || myListings.listings.any { it.status == "LIVE" && (it.kind == "BUSINESS" || it.kind == "SKILL") }
+        || (!dispatch.enabled && (s.pro?.vehicle != null || s.businesses.isNotEmpty() || !s.pro?.skillListings.isNullOrEmpty())))
     /** A fresh UiState for sign-out and account deletion; cloud builds keep reading the online state from dispatch. */
     private fun freshState() = UiState(dispatchOnline = if (dispatch.enabled) false else null)
 
@@ -424,11 +429,15 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.ARRIVED)) }; toast("Your rider is here. Share PIN ${s.ride?.pin} to start.")
         }
     }
-    /** Cloud: the server cancels first and the screen follows its answer; only then "Nothing to pay". A refusal shows the ride's real status instead. */
-    fun cancelRide(reason: String) { val r = s.ride ?: return
-        if (r.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) { toast("This trip has already started, so it can't be cancelled here."); return }
-        fun cancelled() { _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = reason)) + it.rides) }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME) }
-        if (dispatch.enabled) { dispatch.cancelRide { err -> if (err == null) cancelled() else toast(err) }; return }
+    /**
+     * [code] is a CancelReasons.rider code (the server keeps it; demo mode keeps its label). Cloud: the server cancels first and the screen follows
+     * its answer; only then "Nothing to pay". A refusal shows the ride's real status instead. [onDone] gets false when it was refused and the ride stays.
+     */
+    fun cancelRide(code: String?, note: String = "", onDone: (Boolean) -> Unit = {}) { val r = s.ride ?: run { onDone(true); return }
+        if (r.status !in setOf(RideStatus.SEARCHING, RideStatus.NO_DRIVER, RideStatus.MATCHED, RideStatus.ARRIVED)) { toast("This trip has already started, so it can't be cancelled here."); onDone(false); return }
+        val label = CancelReasons.rider.firstOrNull { it.first == code }?.second ?: "Cancelled by rider"
+        fun cancelled() { _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.CANCELLED, reason = label)) + it.rides) }; toast("Ride cancelled. Nothing to pay."); navTo(Routes.HOME); onDone(true) }
+        if (dispatch.enabled) { dispatch.cancelRide(code, note) { err -> if (err == null) cancelled() else { toast(err); onDone(false) } }; return }
         ringJob?.cancel(); driveJob?.cancel(); _s.update { it.copy(ride = null) }; cancelled() }
     /** Back out of a request nobody took: forget it so the screens and the driver ring are free again. */
     fun dismissEndedRide() { if (dispatch.enabled) dispatch.dismissEndedRide() else _s.update { if (it.ride?.status == RideStatus.NO_DRIVER) it.copy(ride = null) else it } }
@@ -441,11 +450,14 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     }
     /** The rider confirms payment. With cloud dispatch the server records it and the rating screen follows once it's saved. */
     fun payRide(method: String) { if (dispatch.enabled) { dispatch.payRide(method); return }; _s.update { it.copy(ride = it.ride?.copy(status = RideStatus.PAID, paidWith = method)) }; navTo(Routes.RATE_RIDE) }
-    fun finishRide(vote: Int?, comment: String, skip: Boolean): Boolean {
+    fun finishRide(vote: Int?, comment: String, skip: Boolean, reason: String? = null): Boolean {
         val r = s.ride ?: return true
-        if (!skip) { if (vote == null || comment.isBlank()) { toast("Choose Recommend or Not recommended, and add a line on why."); return false }; r.driver?.let { repo.voteDriver(it.id, vote > 0) } }
+        if (!skip) {
+            if (vote == null) { toast("Tap an arrow first."); return false }
+            if (vote < 0 && reason == null) { toast("Pick what went wrong."); return false }
+            r.driver?.let { repo.voteDriver(it.id, vote > 0) } }
         _s.update { it.copy(rides = listOf(r.copy(status = RideStatus.COMPLETED)) + it.rides) }
-        if (dispatch.enabled) dispatch.finishRide(if (skip) null else vote, comment) else _s.update { it.copy(ride = null) }
+        if (dispatch.enabled) dispatch.finishRide(if (skip) null else vote, comment, reason) else _s.update { it.copy(ride = null) }
         toast("Trip saved. Find it under Activity."); navTo(Routes.HOME); return true
     }
     /** Cloud ride follow-up: navigate as the task moves along, exactly as the demo simulation does. */
@@ -522,12 +534,15 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         _s.update { it.copy(earnings = it.earnings + d.fare) }
         toast(if (method == "shop") "Delivery done. ₹${d.fare} comes from the shop." else "₹${d.fare} received by ${payWord(method)}. Added to today's earnings.") }
     fun setUpi(id: String) { val v = id.trim(); if (!Regex("^[\\w.\\-]{2,}@[a-zA-Z]{2,}$").matches(v)) { toast("A UPI ID looks like name@bank. Check it and try again."); return }; _s.update { it.copy(pro = (it.pro ?: ProProfile()).copy(upiId = v)) }; persist() }
-    fun driverRateCustomer(stars: Int) { val up = stars >= 3; _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1)) }; persist()
-        if (dispatch.enabled) dispatch.closeTrip() else _s.update { it.copy(driverRide = null) }; toast("Trip closed. Fare added to today's earnings.") }
-    /** Hands the trip back. Cloud: only once the server has done it (a refusal shows where the trip really is). */
-    fun driverCancel() {
-        if (dispatch.enabled) { val ringing = s.driverRide?.status == DriverRideStatus.RINGING; dispatch.driverCancel { ok -> if (ok && !ringing) toast("Handed back. Other riders will be rung for it.") }; return }
-        _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1), driverRide = null) }; persist(); toast("Ride cancelled. This counts against your recommendations.") }
+    /** The driver's arrow on the customer. Cloud: saved on the customer's record (rate_rider). Demo: only the local counters. */
+    fun driverRateCustomer(stars: Int, comment: String = "", reason: String? = null) { val up = stars >= 3
+        if (dispatch.enabled) { dispatch.rateRider(if (up) 1 else -1, comment.trim(), reason); dispatch.closeTrip() }
+        else { _s.update { it.copy(user = it.user?.copy(up = it.user.up + if (up) 1 else 0, down = it.user.down + if (up) 0 else 1), driverRide = null) }; persist() }
+        toast("Trip closed. Fare added to today's earnings.") }
+    /** Hands the trip back; [code] is a CancelReasons.driver code. Cloud: only once the server has done it (a refusal shows where the trip really is). */
+    fun driverCancel(code: String?, note: String = "", onDone: (Boolean) -> Unit = {}) {
+        if (dispatch.enabled) { val ringing = s.driverRide?.status == DriverRideStatus.RINGING; dispatch.driverCancel(code, note) { ok -> if (ok && !ringing) toast("Handed back. Other riders will be rung for it."); onDone(ok) }; return }
+        _s.update { it.copy(user = it.user?.copy(down = it.user.down + 1), driverRide = null) }; persist(); toast("Ride cancelled. This counts against your recommendations."); onDone(true) }
     fun setProKind(k: ProKind) = _s.update { it.copy(proKind = k) }
     fun setProStep(n: Int) = _s.update { it.copy(proStep = n) }
     fun startPro(kind: ProKind?, step: Int) = _s.update { it.copy(proKind = kind, proStep = step, editBiz = null) }

@@ -168,16 +168,17 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         if (st in setOf(RideStatus.PAID, RideStatus.NO_DRIVER)) stopFollowingRide()
     }
     /**
-     * Cancels before the trip starts, server first: the screen changes only once the server has cancelled. [done] gets null on
-     * success, otherwise one honest sentence; the ride is then re-read and the screens show whatever its real status is
-     * (the in-ride screen if the driver had already started it). Deals with a lost answer too: a ride found CANCELLED counts as done.
+     * Cancels before the trip starts, server first: the screen changes only once the server has cancelled. [reason] is a CancelReasons.rider
+     * code (required once a driver accepted). [done] gets null on success, otherwise one honest sentence; the ride is then re-read and the
+     * screens show whatever its real status is (the in-ride screen if the driver had already started it). Deals with a lost answer too: a ride
+     * found CANCELLED counts as done.
      */
-    fun cancelRide(done: (String?) -> Unit) { val r = _ride.value ?: return; if (cancelling) return
+    fun cancelRide(reason: String?, note: String = "", done: (String?) -> Unit) { val r = _ride.value ?: run { done(null); return }; if (cancelling) return
         scope.launch { cancelling = true
-            val msg = try { cancelNow(r) } finally { cancelling = false }
+            val msg = try { cancelNow(r, reason, note) } finally { cancelling = false }
             done(msg) } }
-    private suspend fun cancelNow(r: Ride): String? {
-        try { Backend.advanceTask(r.id, "CANCELLED"); return closedByMe() }
+    private suspend fun cancelNow(r: Ride, reason: String?, note: String): String? {
+        try { Backend.cancelTask(r.id, reason, note); return closedByMe() }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) {
             val t = runCatching { Backend.taskGeo(r.id) }.getOrNull() ?: return friendlyError(e)   // can't even read it: nothing has changed
@@ -200,11 +201,11 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
                 stopFollowingRide(); _ride.value = (_ride.value ?: r).copy(status = RideStatus.PAID, paidWith = paid ?: method)
             } catch (e: CancellationException) { throw e } catch (e: Exception) { toast(friendlyError(e)) } finally { paying = false } } }
     /** Posts the review against the driver's DRIVER listing; a driver without one can't be reviewed on the server yet. */
-    fun finishRide(vote: Int?, comment: String) { val r = _ride.value ?: return; stopFollowingRide(); _ride.value = null
+    fun finishRide(vote: Int?, comment: String, reason: String? = null) { val r = _ride.value ?: return; stopFollowingRide(); _ride.value = null
         if (vote == null) return
         val listing = rideDriver?.takeIf { it.profileId == r.driver?.id }?.listingId
         if (listing == null) { toast("${r.driver?.name?.substringBefore(' ') ?: "Your rider"} has no driver profile on Bucks yet, so your review wasn't posted."); return }
-        go { Backend.review(listing, r.id, null, vote > 0, comment.trim()); toast("Thanks. Your review is public.") }
+        go { Backend.review(listing, r.id, null, vote > 0, comment.trim(), if (vote < 0) reason else null); toast("Thanks. Your review is public.") }
     }
     suspend fun contact(taskId: String): ContactRow? = Backend.contactFor(taskId)
     suspend fun task(taskId: String): TaskGeoRow? = Backend.taskGeo(taskId)
@@ -410,15 +411,18 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     fun driverPaid(method: String): Boolean { val d = _driverRide.value ?: return false; if (d.status != DriverRideStatus.DONE) return false
         driverGen++; _driverRide.value = d.copy(status = DriverRideStatus.RATE, paidWith = method); return true }
     /** Trip closed on this phone (after rating the customer); ring the next request. */
+    /** The driver's arrow on the customer of the trip on screen (server: rate_rider). Failures only toast; the trip still closes. */
+    fun rateRider(vote: Int, comment: String, reason: String?) { val id = _driverRide.value?.id ?: return
+        go { Backend.rateRider(id, vote, comment, if (vote < 0) reason else null) } }
     fun closeTrip() { stopDriverTask(); _driverRide.value = null; nudges.trySend(Unit) }
-    /** Hands the request back so it rings other drivers. Allowed from the way to the pick-up and at the pick-up, not once the PIN is in. [done] says whether it happened. */
-    fun driverCancel(done: (Boolean) -> Unit = {}) { val d = _driverRide.value ?: return
+    /** Hands the request back so it rings other drivers. Allowed from the way to the pick-up and at the pick-up, not once the PIN is in. [reason] is a CancelReasons.driver code; [done] says whether it happened. */
+    fun driverCancel(reason: String?, note: String = "", done: (Boolean) -> Unit = {}) { val d = _driverRide.value ?: run { done(true); return }
         if (d.status == DriverRideStatus.RINGING) { driverDecline(); done(true); return }
         if (d.status != DriverRideStatus.TO_PICKUP && d.status != DriverRideStatus.ARRIVED) { toast("A trip that has started can't be handed back."); done(false); return }
         if (handingBack || busy) return
         driverGen++
         scope.launch { handingBack = true
-            try { Backend.advanceTask(d.id, "SEARCHING"); stopDriverTask(); passed += d.id; _driverRide.value = null; nudges.trySend(Unit); done(true) }
+            try { Backend.releaseTask(d.id, reason ?: "OTHER", note); stopDriverTask(); passed += d.id; _driverRide.value = null; nudges.trySend(Unit); done(true) }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { failedDriverAction(d.id, e); done(false) }
             finally { handingBack = false } } }

@@ -337,6 +337,12 @@ begin
   delete from staff where profile_id = my;
   if to_regclass('public.addresses') is not null then delete from addresses where profile_id = my; end if;
   if to_regclass('public.product_ratings') is not null then delete from product_ratings where profile_id = my; end if;
+  -- The pilot tables (trust_phase0.sql, showcase_docs.sql) also reference the kept profile row: votes I gave or got as a rider/driver,
+  -- my document access requests, the documents I opened and the checks I made. Deleting my votes recounts the other person's trust.
+  if to_regclass('public.profile_votes') is not null then delete from profile_votes where my in (voter_id, subject_id); end if;
+  if to_regclass('public.doc_access_requests') is not null then delete from doc_access_requests where requester_id = my; end if;
+  if to_regclass('public.doc_views') is not null then delete from doc_views where viewer_id = my; end if;
+  if to_regclass('public.doc_checks') is not null then delete from doc_checks where profile_id = my; end if;
   delete from reports where reporter_id = my;
   delete from guardian_consents where profile_id = my;
   delete from profile_safety where profile_id = my;

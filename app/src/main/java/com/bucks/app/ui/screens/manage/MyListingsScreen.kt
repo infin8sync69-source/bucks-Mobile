@@ -114,7 +114,7 @@ private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, 
             }
             "LIVE" -> Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(onlineLabel(l.kind, l.online), style = MaterialTheme.typography.titleSmall)
+                    Text(onlineLabel(l, l.online), style = MaterialTheme.typography.titleSmall)
                     Muted(if (l.online) "Shown first in search; customers can reach you now." else "Hidden until you switch it on.")
                 }
                 if (manage) ListingSwitch(l.online) { m.setOnline(l.id, it) }

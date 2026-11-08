@@ -38,7 +38,7 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 
-private val PROFILE_TABS = listOf("feed" to "Feed", "about" to "About", "items" to "Products", "votes" to "Reviews")
+private val PROFILE_TABS = listOf("feed" to "Feed", "about" to "About", "items" to "Products", "votes" to "Recommendations")
 private fun plural(n: Int, one: String, many: String = one + "s") = "$n ${if (n == 1) one else many}"
 
 @OptIn(ExperimentalMaterial3Api::class)

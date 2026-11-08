@@ -134,8 +134,9 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Order id -> the latest full row seen, shared by the order page and the lists. */
     val orders: SnapshotStateMap<String, CloudOrderRow> = mutableStateMapOf()
 
-    fun refreshMyOrders() = go { val me = social.me ?: return@go; val rows = Backend.myOrders(me.id); if (social.me?.id != me.id) return@go
-        myOrders = rows; myOrdersLoaded = true; titlesFor(rows.map { it.listingId }) }
+    /** [quiet] is for background polling: a failed refresh keeps what's on screen instead of toasting every few seconds. */
+    fun refreshMyOrders(quiet: Boolean = false) = scope.launch { try { val me = social.me ?: return@launch; val rows = Backend.myOrders(me.id); if (social.me?.id != me.id) return@launch
+        myOrders = rows; myOrdersLoaded = true; titlesFor(rows.map { it.listingId }) } catch (e: Exception) { if (!quiet) toast(friendlyError(e)) } }
     suspend fun titlesFor(ids: Collection<String>) { val missing = ids.distinct().filter { it !in listingTitles }; if (missing.isNotEmpty()) Backend.listingsByIds(missing).forEach { listingTitles[it.id] = it.title } }
     fun titleOf(listingId: String) = listingTitles[listingId] ?: "Shop"
 
@@ -147,7 +148,8 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     fun loadOrder(id: String) = go { order(id) }
     suspend fun taskForOrder(orderId: String): TaskRow? = Backend.taskForOrder(orderId)
     suspend fun contactFor(orderId: String): OrderContactRow? = Backend.contactForOrder(orderId)
-    fun cancelOrder(id: String, then: () -> Unit = {}) = act(id) { Backend.cancelOrder(id); toast("Order cancelled. Nothing to pay."); order(id); refreshMyOrders(); then() }
+    /** [reason] is a CancelReasons.buyer code. [done] gets true once the server cancelled it, false when it refused (the reason sheet stays open). */
+    fun cancelOrder(id: String, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) { Backend.cancelOrder(id, reason); toast("Order cancelled. Nothing to pay."); runCatching { order(id) }; refreshMyOrders(quiet = true) }
 
     // ---------- vendor inbox ----------
     var vendorOrders by mutableStateOf<List<CloudOrderRow>>(emptyList()); private set
@@ -188,16 +190,16 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         liveListing = null
     }
     /** Owner or admin accepts (which creates the delivery task) or rejects a PLACED order. */
-    fun respondOrder(id: String, accept: Boolean) = act(id) {
-        Backend.respondOrder(id, accept)
+    fun respondOrder(id: String, accept: Boolean, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) {
+        Backend.respondOrder(id, accept, reason)
         toast(if (accept) "Accepted. The customer can see it is on the way." else "Rejected. The customer has been told.")
-        refreshVendorOrder(id)
+        runCatching { refreshVendorOrder(id) }
     }
     /** READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came). */
-    fun updateOrderStatus(id: String, status: String) = act(id) {
-        Backend.updateOrderStatus(id, status)
+    fun updateOrderStatus(id: String, status: String, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) {
+        Backend.updateOrderStatus(id, status, reason)
         toast(when (status) { "READY" -> "Marked ready."; "CANCELLED" -> "Order cancelled. The customer has been told."; else -> "Marked as collected. Thanks!" })
-        refreshVendorOrder(id)
+        runCatching { refreshVendorOrder(id) }
     }
     private suspend fun refreshVendorOrder(id: String) {
         val o = Backend.orderDetail(id) ?: return
@@ -209,13 +211,16 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Orders with an action in flight (accept, reject, packed, collected, cancel): their buttons are off, so a second tap can't fire it twice. */
     var actingOn by mutableStateOf<Set<String>>(emptySet()); private set
     fun isActing(orderId: String) = orderId in actingOn
-    /** One action per order at a time. Whatever went wrong (a lost answer, "cannot go from X to Y"), the order is read again so the screen shows its real status. */
-    private fun act(id: String, block: suspend () -> Unit) = scope.launch {
+    /**
+     * One action per order at a time. Whatever went wrong (a lost answer, "cannot go from X to Y"), the order is read again so the screen shows its real status.
+     * [done] gets true once the server did it, false when it refused (a reason sheet stays open then).
+     */
+    private fun act(id: String, done: (Boolean) -> Unit = {}, block: suspend () -> Unit) = scope.launch {
         if (id in actingOn) return@launch
         actingOn = actingOn + id
-        try { block() }
+        try { block(); done(true) }
         catch (e: CancellationException) { throw e }
-        catch (e: Exception) { toast(friendlyError(e)); runCatching { refreshVendorOrder(id); order(id) } }
+        catch (e: Exception) { toast(friendlyError(e)); runCatching { refreshVendorOrder(id); order(id) }; done(false) }
         finally { actingOn = actingOn - id }
     }
 }
