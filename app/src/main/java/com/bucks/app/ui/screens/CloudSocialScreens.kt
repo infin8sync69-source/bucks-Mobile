@@ -299,6 +299,7 @@ fun MomentViewerScreen(vm: BucksViewModel, author: String, onClose: () -> Unit, 
                 Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(social.nameOf(m.authorId).ifBlank { "?" }), size = 32)
                     Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(social.nameOf(m.authorId), color = Color.White, style = MaterialTheme.typography.titleSmall); Text(listOfNotNull(ago(m.createdAt), if (isVideo) "Video" else null).joinToString(" · "), color = Color.White.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall) }
                     if (mine) IconButton({ social.deleteMoment(m.id); if (slides.size == 1) onClose() else { slides = slides.filterNot { it.first.id == m.id }; index = index.coerceAtMost(slides.lastIndex) } }) { Icon(Icons.Rounded.DeleteOutline, "Delete", tint = Color.White) }
+                    if (!mine) com.bucks.app.ui.social.LocalReporter.current?.let { rep -> IconButton({ val t = com.bucks.app.ui.social.ReportTarget("MOMENT", m.id, m.authorId, social.nameOf(m.authorId)); onClose(); rep(t) }) { Icon(Icons.Rounded.OutlinedFlag, "Report this moment", tint = Color.White) } }
                     IconButton(onClose) { Icon(Icons.Rounded.Close, "Close", tint = Color.White) } }
             }
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .7f)))).navigationBarsPadding().imePadding().padding(16.dp)) {
@@ -389,9 +390,10 @@ private fun MediaChoice(icon: androidx.compose.ui.graphics.vector.ImageVector, t
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit, onSync: () -> Unit, onNewGroup: () -> Unit, onRoute: (String) -> Unit = {}) {
+fun CloudMessagesScreen(vm: BucksViewModel, onBack: (() -> Unit)?, onOpen: (String) -> Unit, onSync: () -> Unit, onNewGroup: () -> Unit, onRoute: (String) -> Unit = {}, initialTab: Int = 0) {
     val social = vm.social; var menuFor by remember { mutableStateOf<InboxRow?>(null) }; var leaveFor by remember { mutableStateOf<InboxRow?>(null) }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(initialTab) }
+    val report = com.bucks.app.ui.social.LocalReporter.current
     LaunchedEffect(Unit) { while (true) { social.refreshInbox(); delay(20_000) } }
     val chatUnread = social.inbox.sumOf { it.unread }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(if (tab == 0) "Messages" else "Notifications", onBack = onBack, actions = {
@@ -420,6 +422,7 @@ fun CloudMessagesScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String)
         TextButton({ social.mute(c.conversationId, !c.muted); menuFor = null }) { Text(if (c.muted) "Unmute" else "Mute notifications") }
         if (c.kind == "GROUP") TextButton({ leaveFor = c; menuFor = null }) { Text("Leave group", color = MaterialTheme.colorScheme.error) }
         c.otherId?.let { o -> TextButton({ social.block(o); menuFor = null }) { Text("Block ${c.otherName ?: ""}", color = MaterialTheme.colorScheme.error) } }
+        if (report != null) c.otherId?.let { o -> TextButton({ report(com.bucks.app.ui.social.ReportTarget("PROFILE", o, o, c.otherName ?: "")); menuFor = null }) { Text("Report ${c.otherName ?: ""}", color = MaterialTheme.colorScheme.error) } }
     } }, confirmButton = { TextButton({ menuFor = null }) { Text("Close") } }) }
     leaveFor?.let { c -> LeaveGroupDialog(c.title ?: "this group", onConfirm = { social.leaveConversation(c.conversationId); leaveFor = null }, onDismiss = { leaveFor = null }) }
 }
@@ -493,6 +496,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
     var viewing by remember { mutableStateOf<Triple<String, String, String>?>(null) }   // attachment open in the viewer: path, mime, name
     var conv by remember { mutableStateOf<ConversationRow?>(null) }; var members by remember { mutableStateOf<List<ConversationMemberRow>>(emptyList()) }; var showMembers by remember { mutableStateOf(false) }
     val listState = rememberLazyListState(); val meId = social.me?.id
+    val reportMsg = com.bucks.app.ui.social.LocalReporter.current
     val inboxRow = social.inbox.firstOrNull { it.conversationId == id }
     // The conversation row is the source of truth for kind and title; the inbox row fills in until it loads (and names the other person in a DM).
     val kind = conv?.kind ?: inboxRow?.kind ?: "DIRECT"
@@ -529,7 +533,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
         LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp), state = listState, contentPadding = PaddingValues(vertical = 12.dp)) {
             items(msgs, key = { it.id }) { m -> val mine = m.senderId == meId
                 Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
-                    Column(Modifier.widthIn(max = 320.dp).clip(MaterialTheme.shapes.large).background(if (mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer).combinedClickable(onClick = {}, onLongClick = { if (mine && m.deletedAt == null) menuFor = m }).padding(4.dp)) {
+                    Column(Modifier.widthIn(max = 320.dp).clip(MaterialTheme.shapes.large).background(if (mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer).combinedClickable(onClick = {}, onLongClickLabel = if (mine) "Edit or delete" else if (reportMsg != null) "Report" else null, onLongClick = { if (m.deletedAt != null) Unit else if (mine) menuFor = m else reportMsg?.invoke(com.bucks.app.ui.social.ReportTarget("MESSAGE", m.id, m.senderId, social.nameOf(m.senderId))) }).padding(4.dp)) {
                         val fg = if (mine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         // Groups and listing inboxes have several people on the other side, so every bubble that isn't mine carries its sender.
                         if (!mine && kind != "DIRECT") Text(social.nameOf(m.senderId), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 10.dp, top = 6.dp))

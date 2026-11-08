@@ -25,6 +25,7 @@ object Prefs {
         reduceMotion = sp.getBoolean("reduceMotion", false)
         dataSaver = sp.getBoolean("dataSaver", false)
         language = sp.getString("language", "en") ?: "en"
+        askedLocationFlag = sp.getBoolean("askedLocation", false)
     }
 
     var theme by mutableStateOf(Theme.SYSTEM); private set
@@ -39,6 +40,9 @@ object Prefs {
     fun chooseMediaDownload(m: MediaDownload) { mediaDownload = m; sp.edit().putString("media", m.name).apply() }
     fun enableReduceMotion(v: Boolean) { reduceMotion = v; sp.edit().putBoolean("reduceMotion", v).apply() }
     fun enableDataSaver(v: Boolean) { dataSaver = v; sp.edit().putBoolean("dataSaver", v).apply() }
+    /** The location explainer was shown once (Continue or Not now); after that the system prompt or Settings decides. */
+    private var askedLocationFlag = false
+    var askedLocation: Boolean get() = askedLocationFlag; set(v) { askedLocationFlag = v; sp.edit().putBoolean("askedLocation", v).apply() }
     fun chooseLanguage(tag: String) { language = tag; sp.edit().putString("language", tag).apply() }
 
     val LANGUAGES = listOf("en" to "English", "kn" to "ಕನ್ನಡ", "hi" to "हिन्दी", "ta" to "தமிழ்", "te" to "తెలుగు", "ml" to "മലയാളം")

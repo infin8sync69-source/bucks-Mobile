@@ -78,6 +78,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val cloud get() = Cloud.enabled
     /** Cloud social features (Sync, chat, feed, Moments, settings); active when Supabase and Firebase are configured. */
     val social = Social(viewModelScope, repo, ::toast)
+    /** Age band, guardian consent and reports (social_safety.sql); the social shell reads it to gate onboarding and offer Report. */
+    val safety = Safety(viewModelScope, ::toast)
     /** Cloud rides and deliveries on Supabase tasks (presence, ringing, PIN, payment). In demo builds the simulation below runs instead. */
     val dispatch = Dispatch(viewModelScope, social, ::toast) { msg -> toast(msg); navTo(Routes.HOME) }
     /** Cloud commerce: cart over live items, checkout, my orders, order page and the vendor inbox. */
@@ -197,10 +199,10 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         if (saved != null && saved.user.email == e) { _s.update { it.copy(user = saved.user.copy(id = saved.user.id.ifBlank { safeId() }), pro = saved.pro, businesses = saved.businesses) }; publishOwnListings(); return true }
         _s.update { it.copy(tempEmail = e) }; return true
     }
-    fun logout() { if (s.online) setOnline(false); val off = dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
+    fun logout() { if (s.online) setOnline(false); val off = dispatch.signedOut(); social.signedOut(); safety.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
         // Take presence off and remove this phone from my profile while the Firebase user can still sign those requests, then sign out (each gives up after a few seconds offline).
         viewModelScope.launch { try { withTimeoutOrNull(4_000) { off?.join() }; Push.unregister() } finally { Cloud.signOut() } } }
-    fun deleteAccount() { val meId = social.me?.id; autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); jobs.signedOut(); signedOutCloud()
+    fun deleteAccount() { val meId = social.me?.id; autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); safety.signedOut(); jobs.signedOut(); signedOutCloud()
         // Server first, while the Firebase user still exists to sign the request: this phone's push token, then presence, open tasks,
         // phone, UPI link and profile (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
         viewModelScope.launch {

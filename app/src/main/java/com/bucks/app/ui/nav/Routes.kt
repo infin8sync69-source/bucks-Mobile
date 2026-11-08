@@ -40,4 +40,9 @@ object Routes {
     fun request(id: String) = "request/${Uri.encode(id)}"
     fun requestStatus(id: String) = "requestStatus/${Uri.encode(id)}"
     fun chat(id: String) = "chat/${Uri.encode(id)}"
+    // ---- social shell (Bucks 1.0 on Play, ui/social/SocialAppUi.kt) ----
+    const val DISCOVER = "discover"; const val CHATS = "chats"; const val ME = "me"; const val NOTIFICATIONS = "notifications"
+    const val PERSON = "person/{id}"; fun person(id: String) = "person/${Uri.encode(id)}"
+    const val AGE = "onboarding/age"; const val GUARDIAN = "onboarding/guardian"
+    const val SETTINGS = "settings"; const val HELP = "help"; const val SAFETY_CENTER = "settings/safety"; const val STAFF_REPORTS = "staff/reports"
 }

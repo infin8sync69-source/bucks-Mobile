@@ -1,0 +1,72 @@
+package com.bucks.app.ui
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.bucks.app.data.Backend
+import com.bucks.app.data.BackendSafety
+import com.bucks.app.data.ReportQueueRow
+import com.bucks.app.data.SafetyRow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
+/**
+ * Age band, guardian consent and reporting (supabase/migrations/social_safety.sql). The server enforces every rule; this class
+ * only knows enough to show the right screens: whether the person still has to give a date of birth or a guardian's consent,
+ * and which band they're in so the app can explain what's different for them.
+ */
+class Safety(private val scope: CoroutineScope, private val toast: (String) -> Unit) {
+    /** Null until loaded (or in demo builds). */
+    var state by mutableStateOf<SafetyRow?>(null); private set
+    var busy by mutableStateOf(false); private set
+    var queue by mutableStateOf<List<ReportQueueRow>>(emptyList()); private set
+
+    val band get() = state?.ageBand ?: "UNKNOWN"
+    val isMinor get() = band == "TEEN" || band == "CHILD"
+    val isChild get() = band == "CHILD"
+    /** The next onboarding step the server still needs, or null when the person can use the app. */
+    val pendingStep: String? get() = state?.let { s -> when { !s.birthDateSet -> STEP_BIRTH; s.guardianConsent == false -> STEP_GUARDIAN; else -> null } }
+
+    fun refresh(then: () -> Unit = {}) = scope.launch {
+        if (!Backend.enabled) { then(); return@launch }
+        runCatching { BackendSafety.mySafety() }.onSuccess { state = it }
+        then()
+    }
+    fun signedOut() { state = null; queue = emptyList() }
+
+    /** [isoDate]: yyyy-MM-dd. [onDone] gets the band (CHILD, TEEN, ADULT); on failure the server's sentence is shown. */
+    fun setBirthDate(isoDate: String, onDone: (String) -> Unit) = scope.launch {
+        busy = true
+        try { val band = BackendSafety.setBirthDate(isoDate); state = (state ?: SafetyRow()).copy(ageBand = band, birthDateSet = true, guardianConsent = if (band == "ADULT") null else false); onDone(band) }
+        catch (e: Exception) { toast(friendly(e)) }
+        finally { busy = false }
+    }
+
+    fun recordConsent(name: String, phone: String, relation: String, onDone: () -> Unit) = scope.launch {
+        busy = true
+        try { BackendSafety.recordGuardianConsent(name, phone, relation); state = state?.copy(guardianConsent = true); onDone() }
+        catch (e: Exception) { toast(friendly(e)) }
+        finally { busy = false }
+    }
+
+    fun report(kind: String, targetId: String, reason: String, detail: String, onDone: () -> Unit = {}) = scope.launch {
+        busy = true
+        try { BackendSafety.report(kind, targetId, reason, detail); toast("Thanks for telling us. Our team will review it, and you'll see what happened in Help."); onDone() }
+        catch (e: Exception) { toast(friendly(e)) }
+        finally { busy = false }
+    }
+
+    fun refreshQueue() = scope.launch { runCatching { BackendSafety.reportQueue() }.onSuccess { queue = it }.onFailure { toast(friendly(it)) } }
+    fun review(id: String, action: String) = scope.launch {
+        try { BackendSafety.reviewReport(id, action); queue = queue.filterNot { it.id == id }; toast(when (action) { "REMOVE" -> "Removed."; "BAN" -> "Removed and the account is suspended."; else -> "Dismissed." }) }
+        catch (e: Exception) { toast(friendly(e)) }
+    }
+
+    private fun friendly(e: Throwable): String {
+        val m = e.message ?: return "Something went wrong. Try again."
+        return Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(m)?.groupValues?.get(1)?.replaceFirstChar { it.uppercase() }
+            ?: "Couldn't reach Bucks. Check your connection and try again."
+    }
+
+    companion object { const val STEP_BIRTH = "birth"; const val STEP_GUARDIAN = "guardian" }
+}
