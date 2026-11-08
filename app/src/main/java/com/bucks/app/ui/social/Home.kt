@@ -159,7 +159,7 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
                 }
             }
             if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 14.dp).padding(top = 10.dp))
-            Box(Modifier.padding(horizontal = 14.dp)) { PostMedia(vm, p.media) }
+            Box(Modifier.padding(horizontal = 14.dp)) { PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, canVote = !mine, onVote = onVote)) }
             Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VotePill(p.myVote ?: 0, p.up, p.down, onVote)
                 Spacer(Modifier.width(6.dp))
@@ -175,19 +175,20 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
 
 private fun audienceLabel(v: String) = when (v) { "SYNCED" -> "Synced only"; "PUBLIC" -> "Everyone"; else -> "Nearby" }
 
-/** Up and down in one pill: the recommendation logic from before, in less space. */
+/** ↑ and ↓ in one pill: arrows, never thumbs; the larger side shows its count. */
 @Composable
 private fun VotePill(my: Int, up: Int, down: Int, onVote: (Int) -> Unit) {
     val good = MaterialTheme.status.good; val bad = MaterialTheme.status.bad; val idle = MaterialTheme.colorScheme.onSurfaceVariant
     Row(Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == 1) "Remove recommendation" else "Recommend") { onVote(1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Recommend, $up" }, verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (my == 1) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, null, Modifier.size(18.dp), tint = if (my == 1) good else idle)
-            Text(" $up", style = MaterialTheme.typography.labelLarge, color = if (my == 1) good else idle)
+            Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp), tint = if (my == 1) good else idle)
+            // Only the larger side carries its number (ties show the ups), as everywhere else in Bucks.
+            if (up >= down && up > 0) Text(" $up", style = MaterialTheme.typography.labelLarge, color = if (my == 1) good else idle)
         }
         Box(Modifier.size(1.dp, 20.dp).background(MaterialTheme.colorScheme.outlineVariant))
-        Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == -1) "Remove" else "Not for me") { onVote(-1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Not for me, $down" }, verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (my == -1) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt, null, Modifier.size(18.dp), tint = if (my == -1) bad else idle)
-            if (down > 0) Text(" $down", style = MaterialTheme.typography.labelLarge, color = if (my == -1) bad else idle)
+        Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == -1) "Take back my vote" else "Not recommend") { onVote(-1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = "Not for me, $down" }, verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp), tint = if (my == -1) bad else idle)
+            if (down > up) Text(" $down", style = MaterialTheme.typography.labelLarge, color = if (my == -1) bad else idle)
         }
     }
 }

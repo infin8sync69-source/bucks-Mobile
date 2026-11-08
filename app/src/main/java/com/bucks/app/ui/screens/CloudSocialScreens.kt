@@ -203,7 +203,8 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
                 Muted(listOfNotNull(ago(p.createdAt), p.area.ifBlank { null }, when (p.visibility) { "SYNCED" -> "Synced only"; "PUBLIC" -> "Public"; else -> null }).joinToString(" · ")) }
             if (mine) Box { IconButton({ menu = true }) { Icon(Icons.Rounded.MoreHoriz, "More") }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Delete post") }, { menu = false; onDelete() }) } } }
         if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
-        PostMedia(vm, p.media)
+        // In the viewer a vote is a direct one (no feedback box); the box stays on the arrows below the post.
+        PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, canVote = !mine, onVote = onVote))
         val my = p.myVote ?: 0
         val upColor = if (my == 1) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant; val downColor = if (my == -1) MaterialTheme.status.bad else MaterialTheme.colorScheme.onSurfaceVariant
         // Tapping an arrow opens the feedback box; tapping the arrow I already chose takes my vote back.
@@ -632,7 +633,8 @@ private fun humanSize(b: Long) = when { b >= 1_048_576 -> "%.1f MB".format(b / 1
 
 /** A post's photos and video: one fills the width, several scroll sideways. A video shows a play button and streams when tapped. */
 @Composable
-fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, modifier: Modifier = Modifier) {
+/** [vote]: the post's arrows, shown in the full-screen viewer so people can recommend a photo or video where they see it. */
+fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, modifier: Modifier = Modifier, vote: com.bucks.app.ui.ViewerVote? = null) {
     val items = media.mapNotNull { (it as? JsonObject)?.let { o -> o.s("path").takeIf { p -> p.isNotBlank() }?.let { p -> p to o.s("mime") } } }
     if (items.isEmpty()) return
     val width = if (items.size == 1) Modifier.fillMaxWidth() else Modifier.width(280.dp)
@@ -650,7 +652,7 @@ fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, m
             else SignedImage(vm, "posts", path, shape.clickable(onClickLabel = "View full screen") { open = i })
         }
     }
-    open?.let { i -> com.bucks.app.ui.MediaViewer(vm, com.bucks.app.ui.ViewerMedia.ofPost(media), start = i) { open = null } }
+    open?.let { i -> com.bucks.app.ui.MediaViewer(vm, com.bucks.app.ui.ViewerMedia.ofPost(media), start = i, vote = vote) { open = null } }
 }
 
 @Composable

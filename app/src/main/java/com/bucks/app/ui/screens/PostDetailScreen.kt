@@ -31,7 +31,7 @@ fun PostDetailScreen(vm: BucksViewModel, postId: String, onBack: () -> Unit) {
         when {
             p != null -> Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(initials(vm.social.nameOf(p.authorId)), size = 40)
+                    Avatar(initials(vm.social.nameOf(p.authorId)), size = 40, photoUrl = vm.social.photoOf(p.authorId))
                     Column(Modifier.padding(start = 10.dp)) { Text(vm.social.nameOf(p.authorId), style = MaterialTheme.typography.titleMedium); Muted(ago(p.createdAt)) }
                 }
                 if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 12.dp))
