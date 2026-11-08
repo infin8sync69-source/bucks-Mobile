@@ -59,6 +59,7 @@ select 'adult DMs a teen they are not synced with -> ' || pg_temp.expect_fail(fo
 select pg_temp.as_user('teen');
 insert into posts (author_id, body, visibility, location) values (me(), 'Hello from school', 'LOCAL', geo(12.906312, 77.585731));
 reset role;
+set search_path = public, extensions;
 select pg_temp.check('teen post location blurred to the 2 km grid',
   (select st_equals(location::geometry, st_snaptogrid(geo(12.906312, 77.585731)::geometry, 0.02)) from posts where body = 'Hello from school'));
 set role authenticated;
