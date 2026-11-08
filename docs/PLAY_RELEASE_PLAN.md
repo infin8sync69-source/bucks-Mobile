@@ -22,18 +22,19 @@ Decided with the product owner on 8 November 2026:
 
 ## Information architecture
 
-Five tabs, the pattern young people already know:
+One app shell, the super-app layout (`ui/BucksAppUi.kt`); the social-only shell (Home · Discover · Create · Chats · Profile) was retired.
 
 | Tab | Content |
 |---|---|
-| **Home** | Moments row, then the feed with two lenses: *Synced* (people you synced with) and *Nearby* (local and public posts). Hidden for under-13s: *Nearby*. |
-| **Discover** | Search people by name or Bucks ID, suggestions, people you may know from contacts, trending local posts. |
-| **Create** (centre) | One sheet: Post or Moment. |
-| **Chats** | Direct and group conversations, sync requests at the top. |
-| **Profile** | Your profile, posts, Moments archive, Bucks ID card, settings. |
+| **Home** | The map with search ("Where to, or what do you need?"), rides and an open trip or order. |
+| **Feed** | Moments row and the feed (Synced and Nearby posts); create a post or Moment from here. |
+| **Services** | The service tiles: book a ride, shops, local services, jobs; locked tiles invite people to list. |
+| **For you** | Recommended near you, ranked by recommendations. |
+| **Profile** | Your profile, posts, media, files and recommendations; Activity and Settings tabs. |
 
-Notifications live behind the bell on Home. The drawer is removed from the social build, and everything in it moves to Profile
-or Settings.
+The **menu** (top left) holds Bucks Pro: your pages and vehicles, invites, orders, jobs, Recommend a local, Find people, Settings,
+Help and Logout. Messages and the cart are in the top bar. The onboarding gate (date of birth, guardian consent), reporting, person
+profiles, notifications, the safety centre, help and the feedback board come from the social screens in `ui/social/`.
 
 ## Key user flows
 

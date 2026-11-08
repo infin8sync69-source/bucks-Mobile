@@ -35,9 +35,6 @@ android {
         fun cfg(k: String) = props.getProperty(k) ?: System.getenv(k) ?: ""
         buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("SUPABASE_ANON_KEY")}\"")
-        // Bucks 1.0 on Play is the social app only (docs/PLAY_RELEASE_PLAN.md): rides, shops, jobs and listings stay in the code but are
-        // unreachable. SOCIAL_ONLY=false (local.properties or CI) builds the full super-app shell for development.
-        buildConfigField("boolean", "SOCIAL_ONLY", (cfg("SOCIAL_ONLY").ifBlank { "true" } != "false").toString())
         // Help, grievance and legal pages (IT Rules 2021, DPDP Act, Play policy). Override per environment; the defaults are the public
         // pages published from docs/legal by GitHub Pages.
         buildConfigField("String", "SUPPORT_EMAIL", "\"${cfg("SUPPORT_EMAIL")}\"")

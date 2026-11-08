@@ -45,7 +45,7 @@ object Routes {
     fun request(id: String) = "request/${Uri.encode(id)}"
     fun requestStatus(id: String) = "requestStatus/${Uri.encode(id)}"
     fun chat(id: String) = "chat/${Uri.encode(id)}"
-    // ---- social shell (Bucks 1.0 on Play, ui/social/SocialAppUi.kt) ----
+    // ---- social screens (ui/social/*), hosted by the one app shell in ui/BucksAppUi.kt ----
     const val DISCOVER = "discover"; const val CHATS = "chats"; const val ME = "me"; const val NOTIFICATIONS = "notifications"
     const val PERSON = "person/{id}"; fun person(id: String) = "person/${Uri.encode(id)}"
     const val AGE = "onboarding/age"; const val GUARDIAN = "onboarding/guardian"

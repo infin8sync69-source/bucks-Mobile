@@ -75,7 +75,11 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val nav = rememberNavController(); val snack = remember { SnackbarHostState() }; val scope = rememberCoroutineScope()
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()
-        CompositionLocalProvider(LocalCartAction provides (if (vm.social.enabled) CartAction(vm.commerce.count) { nav.navigate(Routes.CLOUD_CART) { launchSingleTop = true } } else null)) {
+        // Report (posts, comments, Moments, messages, people) and open someone's profile, from any screen that offers it.
+        var reporting by remember { mutableStateOf<com.bucks.app.ui.social.ReportTarget?>(null) }
+        val openPerson: (String) -> Unit = { id -> if (id == vm.social.me?.id) nav.navigate("account") { popUpTo(Routes.HOME); launchSingleTop = true } else nav.navigate(Routes.person(id)) }
+        CompositionLocalProvider(LocalCartAction provides (if (vm.social.enabled) CartAction(vm.commerce.count) { nav.navigate(Routes.CLOUD_CART) { launchSingleTop = true } } else null),
+            com.bucks.app.ui.social.LocalReporter provides { t -> reporting = t }, com.bucks.app.ui.social.LocalOpenPerson provides openPerson) {
         val width = windowWidth()
         // Cold start for someone already signed in: the purple system splash hands over to the wordmark intro, which fades up
         // into Home. Skipped when a notification tap opened the app (get them to the screen straight away) and after a rotation.
@@ -136,6 +140,20 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect
             runCatching { nav.navigate(if (r.startsWith("doc-requests/")) Routes.showcaseDocs(r.removePrefix("doc-requests/")) else r) { launchSingleTop = true; if (r == Routes.HOME) popUpTo(Routes.HOME) } }; onStartRouteHandled() }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
+        // Onboarding gate: the server says what it still needs (date of birth, a guardian's consent for under-18s) before the app opens up.
+        val safety = vm.safety
+        LaunchedEffect(vm.social.me?.id) { if (vm.social.me != null) safety.refresh() }
+        // Analytics only for adults who haven't opted out; screen names are route patterns (no ids).
+        LaunchedEffect(Prefs.shareUsage, safety.band) { safety.applyAnalytics() }
+        LaunchedEffect(current) { com.bucks.app.data.Analytics.screen(current.substringBefore('/').substringBefore('?')) }
+        LaunchedEffect(safety.pendingStep, current) {
+            val step = safety.pendingStep ?: return@LaunchedEffect
+            if (current in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL)) return@LaunchedEffect
+            val target = if (step == Safety.STEP_BIRTH) Routes.AGE else Routes.GUARDIAN
+            if (current != target) nav.navigate(target) { popUpTo(0); launchSingleTop = true }
+        }
+        /** Where onboarding goes once the server is satisfied: profile setup for a new person, else Home. */
+        val afterGate: () -> Unit = { if (!vm.isLoggedIn) nav.navigate(Routes.PROFILE) { popUpTo(0) } else nav.navigate(Routes.HOME) { popUpTo(0) } }
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
         // A driver trip in progress is full-screen, like the design (no bottom navigation).
@@ -217,7 +235,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.Settings, "Account settings", false) { closeMenu(); nav.navigate("account?tab=settings") }
+                        DrawerItem(Icons.Rounded.PersonSearch, "Find people", current == Routes.DISCOVER) { closeMenu(); nav.navigate(Routes.DISCOVER) }
+                        DrawerItem(Icons.Rounded.Settings, "Settings", current == Routes.SETTINGS) { closeMenu(); nav.navigate(Routes.SETTINGS) }
+                        DrawerItem(Icons.Rounded.HelpOutline, "Help", current == Routes.HELP) { closeMenu(); nav.navigate(Routes.HELP) }
                         DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
                     }
                 }
@@ -383,6 +403,17 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.JOB, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e ->
                                 if (vm.social.enabled) JobScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.MY_APPLICATIONS) { if (vm.social.enabled) MyApplicationsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onNear = { nav.navigate(Routes.JOBS_NEAR) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
+                            // ---- onboarding, people, notifications, settings, safety and help (from the social build) ----
+                            composable(Routes.AGE) { com.bucks.app.ui.social.AgeScreen(vm, onDone = { band -> if (band == "ADULT") afterGate() else nav.navigate(Routes.GUARDIAN) { popUpTo(0); launchSingleTop = true } }, onSignOut = logout) }
+                            composable(Routes.GUARDIAN) { com.bucks.app.ui.social.GuardianScreen(vm, onDone = afterGate, onSignOut = logout) }
+                            composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> com.bucks.app.ui.social.PersonScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
+                            composable(Routes.DISCOVER) { com.bucks.app.ui.social.DiscoverScreen(vm, onOpenPerson = openPerson, onContacts = { nav.navigate(Routes.CONTACTS) }, onBucksId = { nav.navigate(Routes.SYNC) }) }
+                            composable(Routes.NOTIFICATIONS) { CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, initialTab = 1, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { runCatching { nav.navigate(it) } } }) }
+                            composable(Routes.SETTINGS) { com.bucks.app.ui.social.SocialSettingsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }) }
+                            composable(Routes.SAFETY_CENTER) { com.bucks.app.ui.social.SafetyCenterScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }) }
+                            composable(Routes.HELP) { com.bucks.app.ui.social.HelpScreen(vm, onBack = { nav.popBackStack() }, onFeedback = { nav.navigate(Routes.FEEDBACK) }) }
+                            composable(Routes.FEEDBACK) { com.bucks.app.ui.social.FeedbackBoardScreen(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.STAFF_REPORTS) { com.bucks.app.ui.social.StaffReportsScreen(vm, onBack = { nav.popBackStack() }, onOpenPerson = openPerson) }
                             composable(Routes.JOBS_NEAR) { if (vm.social.enabled) JobsNearScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onMyApplications = { nav.navigate(Routes.MY_APPLICATIONS) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                         }
                         // A driver's ringing request shows over whichever screen they're on; it never moves them away from what they're doing.
@@ -400,6 +431,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         // Test builds: a newer build on GitHub shows a one-tap update once the intro is out of the way.
         LaunchedEffect(showIntro) { if (!showIntro) vm.updates.check(ctx, manual = false) }
         if (!showIntro) UpdatePrompt(vm.updates)
+        reporting?.let { t -> com.bucks.app.ui.social.ReportSheet(vm, t) { reporting = null } }
         }
         }
     }

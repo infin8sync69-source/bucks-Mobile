@@ -28,11 +28,8 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         // Only a fresh launch takes the route from the intent; after a rotation the screen is already where it should be.
         if (savedInstanceState == null) startRoute = Push.routeFrom(intent)
-        // Play 1.0 is the social app (SOCIAL_ONLY, on by default); the full super-app shell stays available for development.
-        setContent {
-            if (com.bucks.app.BuildConfig.SOCIAL_ONLY) com.bucks.app.ui.social.SocialAppUi(vm, startRoute = startRoute, onStartRouteHandled = { startRoute = null })
-            else BucksAppUi(vm, startRoute = startRoute, onStartRouteHandled = { startRoute = null })
-        }
+        // One app shell, the super-app layout: Home (map, search) · Feed · Services · For you · Profile, with the Bucks Pro menu.
+        setContent { BucksAppUi(vm, startRoute = startRoute, onStartRouteHandled = { startRoute = null }) }
     }
 
     /** A notification tapped while the app is already open (the tap intent carries FLAG_ACTIVITY_SINGLE_TOP). */

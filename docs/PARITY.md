@@ -53,7 +53,7 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 
 | Feature | Android | iOS | Follow-up |
 |---|---|---|---|
-| Social-only shell (Home, Discover, Create, Chats, Profile) | `ui/social/SocialAppUi.kt` | Not yet | iOS port after the Play closed test |
+| Social screens in the one shell (the social-only shell is retired; the app uses the super-app layout) | `ui/BucksAppUi.kt` hosting `ui/social/*` | iOS already has the super-app layout | Port the social screens below |
 | Date of birth, age bands, guardian consent | `ui/social/Onboarding.kt` | Not yet | Server already enforces the rules for both apps |
 | Report sheet and staff report queue | `ui/social/Report.kt`, `Settings.kt` | Not yet | Needed before the App Store submission (guideline 1.2) |
 | People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | Not yet | |
