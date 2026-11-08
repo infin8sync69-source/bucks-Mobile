@@ -42,6 +42,7 @@ files=(
   migrations/showcase_docs.sql
   migrations/cancellation.sql
   migrations/review_fixes.sql
+  migrations/pilot_grants.sql
   migrations/hardening_dispatch.sql
   migrations/hardening_platform.sql
   migrations/social_safety.sql
