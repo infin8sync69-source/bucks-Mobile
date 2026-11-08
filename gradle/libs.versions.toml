@@ -11,6 +11,7 @@ supabase = "3.0.3"
 ktor = "3.0.2"
 firebaseBom = "33.7.0"
 googleServices = "4.4.2"
+crashlytics = "3.0.2"
 media3 = "1.4.1"
 
 [libraries]
@@ -39,6 +40,8 @@ osmdroid = { group = "org.osmdroid", name = "osmdroid-android", version = "6.1.2
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
 supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
 supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }
@@ -55,3 +58,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "crashlytics" }

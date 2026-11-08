@@ -125,6 +125,7 @@ fun AppearanceScreen(onBack: () -> Unit) {
             ToggleRow("Reduce motion", "Turns off pulses and other looping animations.", Prefs.reduceMotion) { Prefs.enableReduceMotion(it) }
             ChoiceGroup("Download photos and files", "Applies to chats and Moments on mobile data.", Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }
             ToggleRow("Data saver", "Lighter maps and smaller images.", Prefs.dataSaver) { Prefs.enableDataSaver(it) }
+            ToggleRow("Help improve Bucks", "Share anonymous usage statistics (which features are used, where people get stuck). Never your posts, messages or contacts. Always off for people under 18.", Prefs.shareUsage) { Prefs.enableShareUsage(it) }
             ChoiceGroup("App language", "Menus and buttons. Translations are being added; English is complete.", Prefs.LANGUAGES, Prefs.language) { Prefs.chooseLanguage(it) }
         }
     }

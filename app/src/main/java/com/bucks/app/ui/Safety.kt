@@ -22,6 +22,8 @@ class Safety(private val scope: CoroutineScope, private val toast: (String) -> U
     var queue by mutableStateOf<List<ReportQueueRow>>(emptyList()); private set
 
     val band get() = state?.ageBand ?: "UNKNOWN"
+    /** Analytics follows the band and the person's choice (see data/Analytics.kt). */
+    fun applyAnalytics() = com.bucks.app.data.Analytics.configure(band, com.bucks.app.data.Prefs.shareUsage)
     val isMinor get() = band == "TEEN" || band == "CHILD"
     val isChild get() = band == "CHILD"
     /** The next onboarding step the server still needs, or null when the person can use the app. */
@@ -30,14 +32,15 @@ class Safety(private val scope: CoroutineScope, private val toast: (String) -> U
     fun refresh(then: () -> Unit = {}) = scope.launch {
         if (!Backend.enabled) { then(); return@launch }
         runCatching { BackendSafety.mySafety() }.onSuccess { state = it }
+        applyAnalytics()
         then()
     }
-    fun signedOut() { state = null; queue = emptyList() }
+    fun signedOut() { state = null; queue = emptyList(); applyAnalytics() }
 
     /** [isoDate]: yyyy-MM-dd. [onDone] gets the band (CHILD, TEEN, ADULT); on failure the server's sentence is shown. */
     fun setBirthDate(isoDate: String, onDone: (String) -> Unit) = scope.launch {
         busy = true
-        try { val band = BackendSafety.setBirthDate(isoDate); state = (state ?: SafetyRow()).copy(ageBand = band, birthDateSet = true, guardianConsent = if (band == "ADULT") null else false); onDone(band) }
+        try { val band = BackendSafety.setBirthDate(isoDate); state = (state ?: SafetyRow()).copy(ageBand = band, birthDateSet = true, guardianConsent = if (band == "ADULT") null else false); applyAnalytics(); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.SIGN_UP); onDone(band) }
         catch (e: Exception) { toast(friendly(e)) }
         finally { busy = false }
     }
@@ -51,7 +54,7 @@ class Safety(private val scope: CoroutineScope, private val toast: (String) -> U
 
     fun report(kind: String, targetId: String, reason: String, detail: String, onDone: () -> Unit = {}) = scope.launch {
         busy = true
-        try { BackendSafety.report(kind, targetId, reason, detail); toast("Thanks for telling us. Our team will review it, and you'll see what happened in Help."); onDone() }
+        try { BackendSafety.report(kind, targetId, reason, detail); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.REPORT, "kind" to kind, "reason" to reason); toast("Thanks for telling us. Our team will review it."); onDone() }
         catch (e: Exception) { toast(friendly(e)) }
         finally { busy = false }
     }

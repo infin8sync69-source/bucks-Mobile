@@ -49,6 +49,7 @@ fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
             Item(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
             Group("Help and legal")
             Item(Icons.Rounded.HelpOutline, "Help and support", "Questions, contact us, grievance officer") { onOpen(Routes.HELP) }
+            Item(Icons.Rounded.Lightbulb, "Feedback board", "Suggest ideas, report bugs, vote on what's next") { onOpen(Routes.FEEDBACK) }
             Item(Icons.Rounded.Gavel, "Community guidelines", null) { Legal.open(ctx, Legal.GUIDELINES) }
             Item(Icons.Rounded.PrivacyTip, "Privacy policy", null) { Legal.open(ctx, Legal.PRIVACY) }
             Item(Icons.Rounded.Description, "Terms of use", null) { Legal.open(ctx, Legal.TERMS) }
@@ -125,7 +126,7 @@ private val FAQ = listOf(
 
 /** Help: common questions, how to reach us, and the grievance officer required by the IT Rules 2021. */
 @Composable
-fun HelpScreen(vm: BucksViewModel, onBack: () -> Unit) {
+fun HelpScreen(vm: BucksViewModel, onBack: () -> Unit, onFeedback: () -> Unit = {}) {
     val ctx = LocalContext.current
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Help and support", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
@@ -136,6 +137,7 @@ fun HelpScreen(vm: BucksViewModel, onBack: () -> Unit) {
                 Item(Icons.Rounded.Email, "Email support", Legal.supportEmail) { Legal.emailSupport(ctx, "Help with Bucks") }
                 Item(Icons.Rounded.BugReport, "Report a problem with the app", "Tell us what went wrong") { Legal.emailSupport(ctx, "Problem report") }
             } else Muted("Use Report on any post, message or profile, and our team will see it.", Modifier.padding(top = 8.dp))
+            Item(Icons.Rounded.Lightbulb, "Feedback board", "Ideas and bugs, voted on by everyone", onClick = onFeedback)
             Text("Grievance officer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp).semantics { heading() })
             Muted("Under the Information Technology (Intermediary Guidelines) Rules, 2021, you can raise a complaint with our grievance officer. We acknowledge complaints within 24 hours and resolve them within 15 days.", Modifier.padding(top = 6.dp))
             if (Legal.grievanceOfficer.isNotBlank()) Text(Legal.grievanceOfficer, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))

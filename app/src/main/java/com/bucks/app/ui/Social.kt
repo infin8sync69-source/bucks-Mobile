@@ -97,8 +97,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         // An ID card lapses a year after issue; the owner renews it in one tap from Menu > Bucks Pro.
         BucksIdCardInfo.of(p.idIssuedAt)?.takeIf { it.expired }?.let { toast("${p.name.ifBlank { "Their" }}'s Bucks ID expired on ${it.validTill}. Ask them to renew it from Menu > Bucks Pro."); return@go }
         syncWith(p.id, p.name) }
-    fun syncWith(id: String, name: String) = go { val r = Backend.sync(id); toast(if (r == "ACCEPTED") "You and $name are now synced." else "Sync request sent to $name."); refreshSyncs(); refreshSuggestions() }
-    fun acceptSync(requester: String) = go { val p = me ?: return@go; Backend.acceptSync(requester, p.id); toast("Synced."); refreshSyncs() }
+    fun syncWith(id: String, name: String) = go { val r = Backend.sync(id); com.bucks.app.data.Analytics.log(if (r == "ACCEPTED") com.bucks.app.data.Analytics.SYNC_ACCEPTED else com.bucks.app.data.Analytics.SYNC_REQUESTED); toast(if (r == "ACCEPTED") "You and $name are now synced." else "Sync request sent to $name."); refreshSyncs(); refreshSuggestions() }
+    fun acceptSync(requester: String) = go { val p = me ?: return@go; Backend.acceptSync(requester, p.id); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.SYNC_ACCEPTED); toast("Synced."); refreshSyncs() }
     fun unsync(other: String) = go { val p = me ?: return@go; Backend.unsync(p.id, other); refreshSyncs() }
     fun block(other: String) = go { val p = me ?: return@go; Backend.block(p.id, other); toast("Blocked. They can't message you, sync with you or see your posts."); refreshSyncs(); refreshBlocked(); refreshInbox() }
     fun unblock(other: String) = go { val p = me ?: return@go; Backend.unblock(p.id, other); refreshBlocked() }
@@ -113,7 +113,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun deleteNote(id: String) = go { notes = notes.filterNot { it.id == id }; Backend.deleteNotification(id) }
     fun openDirect(other: String, onOpen: (String) -> Unit) = go { onOpen(Backend.startDirect(other)) }
     suspend fun messages(conv: String): List<MessageRow> { val rows = Backend.messages(conv); namesFor(rows.map { it.senderId }); return rows }
-    fun send(conv: String, body: String) = go { val p = me ?: return@go; Backend.send(conv, p.id, body) }
+    fun send(conv: String, body: String) = go { val p = me ?: return@go; Backend.send(conv, p.id, body); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.MESSAGE_SENT) }
     fun sendFile(conv: String, f: Picked) = go { val p = me ?: return@go; busy = true
         try { val path = "$conv/${f.objectName()}"; Backend.upload("chat", path, f.bytes); Backend.send(conv, p.id, "", FileRef(path, f.name, f.mime, f.bytes.size.toLong())) } finally { busy = false } }
     fun markRead(conv: String) = go { Backend.markRead(conv); inbox = inbox.map { if (it.conversationId == conv) it.copy(unread = 0) else it } }
@@ -130,7 +130,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     suspend fun members(conv: String): List<ConversationMemberRow> { val rows = Backend.conversationMembers(conv); namesFor(rows.map { it.profileId }); return rows }
     /** Only synced people can be in a group (the database drops anyone else). */
     fun createGroup(title: String, members: List<String>, onCreated: (String) -> Unit, onFailed: () -> Unit = {}) = scope.launch {
-        try { val id = Backend.createGroup(title.trim(), members); refreshInbox(); toast("Group created."); onCreated(id) } catch (e: Exception) { toast(friendly(e)); onFailed() } }
+        try { val id = Backend.createGroup(title.trim(), members); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.GROUP_CREATED, "members" to members.size); refreshInbox(); toast("Group created."); onCreated(id) } catch (e: Exception) { toast(friendly(e)); onFailed() } }
     fun renameGroup(conv: String, title: String, then: () -> Unit = {}) = go { Backend.renameGroup(conv, title.trim()); refreshInbox(); toast("Group renamed."); then() }
     fun addToGroup(conv: String, members: List<String>, then: () -> Unit = {}) = go {
         val n = Backend.addGroupMembers(conv, members)
@@ -144,14 +144,14 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feed(here, last.createdAt); feed = feed + more; feedEnd = more.size < 30 }
     fun post(body: String, media: List<Picked>, visibility: String, area: String) = go { val p = me ?: return@go; busy = true
         try { val paths = media.map { f -> "${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime }
-              Backend.post(p.id, body, paths, visibility, here, area); toast("Posted."); refreshFeed() } finally { busy = false } }
+              Backend.post(p.id, body, paths, visibility, here, area); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_CREATED, "visibility" to visibility, "media" to paths.size); toast("Posted."); refreshFeed() } finally { busy = false } }
     fun deletePost(id: String) = go { Backend.deletePost(id); feed = feed.filterNot { it.id == id } }
     fun vote(postId: String, v: Int) = go { val p = me ?: return@go
         val cur = feed.firstOrNull { it.id == postId } ?: return@go; val prev = cur.myVote ?: 0; val next = if (prev == v) 0 else v
         Backend.vote(postId, p.id, next)
         feed = feed.map { if (it.id != postId) it else it.copy(myVote = next.takeIf { n -> n != 0 }, up = it.up - (prev == 1).toInt() + (next == 1).toInt(), down = it.down - (prev == -1).toInt() + (next == -1).toInt()) } }
     suspend fun comments(postId: String): List<CommentRow> { val rows = Backend.comments(postId); namesFor(rows.map { it.authorId }); return rows }
-    fun comment(postId: String, body: String, then: () -> Unit) = go { val p = me ?: return@go; Backend.comment(postId, p.id, body); feed = feed.map { if (it.id == postId) it.copy(comments = it.comments + 1) else it }; then() }
+    fun comment(postId: String, body: String, then: () -> Unit) = go { val p = me ?: return@go; Backend.comment(postId, p.id, body); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.COMMENT); feed = feed.map { if (it.id == postId) it.copy(comments = it.comments + 1) else it }; then() }
 
     // ---------- moments ----------
     fun refreshTray() = go { tray = Backend.momentsTray(here) }
@@ -160,7 +160,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         if (f.isVideo && f.bytes.size > MAX_VIDEO_BYTES) { toast("Videos up to 30 MB. Pick a shorter one."); return@go }
         if (f.isVideo && f.mime != "video/mp4") { toast("Only MP4 videos can be shared."); return@go }
         busy = true
-        try { val path = "${p.id}/${f.objectName()}"; Backend.upload("moments", path, f.bytes); Backend.postMoment(p.id, path, if (f.isVideo) "VIDEO" else "IMAGE", caption, audience, here); toast("Your moment is up for 24 hours."); refreshTray() } finally { busy = false } }
+        try { val path = "${p.id}/${f.objectName()}"; Backend.upload("moments", path, f.bytes); Backend.postMoment(p.id, path, if (f.isVideo) "VIDEO" else "IMAGE", caption, audience, here); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.MOMENT_CREATED, "video" to f.isVideo); toast("Your moment is up for 24 hours."); refreshTray() } finally { busy = false } }
     /** Opening (not just listing) grants access to nearby moments from people I'm not synced with, so their media can be signed. */
     suspend fun momentsOf(author: String): List<Pair<MomentRow, String>> = Backend.openMoments(author, here).map { it to Backend.signedUrl("moments", it.mediaPath) }
     fun viewMoment(id: String, reaction: String? = null) = go { Backend.viewMoment(id, reaction); if (reaction != null) toast("Sent $reaction") }

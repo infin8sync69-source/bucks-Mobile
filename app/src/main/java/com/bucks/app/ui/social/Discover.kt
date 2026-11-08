@@ -46,6 +46,7 @@ fun DiscoverScreen(vm: BucksViewModel, onOpenPerson: (String) -> Unit, onContact
         val t = q.trim(); if (t.length < 2) { hits = null; return@LaunchedEffect }
         delay(300); searching = true
         hits = runCatching { BackendSafety.searchPeople(t) }.getOrElse { emptyList() }; searching = false
+        com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.SEARCH, "results" to (hits?.size ?: 0))
     }
     val pending = remember(social.synced, social.incoming) { mutableStateMapOf<String, Boolean>() }
     fun syncState(id: String) = when { social.synced.any { it.id == id } -> "SYNCED"; social.incoming.any { it.id == id } -> "INCOMING"; pending[id] == true -> "SENT"; else -> "NONE" }

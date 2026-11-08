@@ -340,6 +340,8 @@ begin
   delete from reports where reporter_id = my;
   delete from guardian_consents where profile_id = my;
   delete from profile_safety where profile_id = my;
+  -- Feedback board (feedback_board.sql runs after this file, so the tables may not exist yet on the first install).
+  if to_regclass('public.feedback_posts') is not null then delete from feedback_votes where profile_id = my; delete from feedback_posts where author_id = my; end if;
   update profiles set name = '', bio = '', area = '', photo_url = null, home = null, status = 'DELETED', auth_uid = 'deleted:' || id::text where id = my;
 end $$;
 

@@ -82,6 +82,9 @@ fun SocialAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHand
         // ---- onboarding gate: the server says what it still needs (date of birth, a guardian's consent) before the app opens up ----
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
         LaunchedEffect(social.me?.id) { if (social.me != null) safety.refresh() }
+        // Analytics only for adults who haven't opted out; screen names are route patterns (no ids).
+        LaunchedEffect(Prefs.shareUsage, safety.band) { safety.applyAnalytics() }
+        LaunchedEffect(current) { com.bucks.app.data.Analytics.screen(current.substringBefore('/').substringBefore('?')) }
         LaunchedEffect(safety.pendingStep, current) {
             val step = safety.pendingStep ?: return@LaunchedEffect
             if (current in SIGNED_OUT) return@LaunchedEffect
@@ -159,7 +162,8 @@ fun SocialAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHand
                 // ---- settings, safety, help ----
                 composable(Routes.SETTINGS) { SocialSettingsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }) }
                 composable(Routes.SAFETY_CENTER) { SafetyCenterScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }) }
-                composable(Routes.HELP) { HelpScreen(vm, onBack = { nav.popBackStack() }) }
+                composable(Routes.HELP) { HelpScreen(vm, onBack = { nav.popBackStack() }, onFeedback = { nav.navigate(Routes.FEEDBACK) }) }
+                composable(Routes.FEEDBACK) { FeedbackBoardScreen(vm, onBack = { nav.popBackStack() }) }
                 composable(Routes.STAFF_REPORTS) { StaffReportsScreen(vm, onBack = { nav.popBackStack() }, onOpenPerson = openPerson) }
                 composable(Routes.SETTINGS_PRIVACY) { PrivacyScreen(vm, onBack = { nav.popBackStack() }) }
                 composable(Routes.SETTINGS_NOTIFS) { NotificationsScreen(vm, onBack = { nav.popBackStack() }) }

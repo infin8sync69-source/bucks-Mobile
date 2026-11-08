@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Play (release) builds are the social app (SOCIAL_ONLY). Rides, deliveries and voice search are not reachable there, so their
+  permissions and the driver location service are removed: no background-location, foreground-service or battery-exemption
+  declarations for Play review, and only approximate location (Nearby feed uses a ~2 km area).
+  Remove an entry here when the feature it belongs to comes back to Play.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <application>
+        <service android:name=".data.DriverLocationService" tools:node="remove" />
+    </application>
+</manifest>

@@ -37,6 +37,7 @@ files=(
   migrations/hardening_dispatch.sql
   migrations/hardening_platform.sql
   migrations/social_safety.sql
+  migrations/feedback_board.sql
 )
 
 case "${1:-}" in

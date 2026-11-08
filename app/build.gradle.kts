@@ -7,7 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 // Firebase (phone sign-in, live rides) switches on when app/google-services.json exists; without it the app runs its on-device demo.
-if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+// Crashlytics rides along: it uploads the R8 mapping file with release builds so crash stacks are readable.
+if (file("google-services.json").exists()) { apply(plugin = "com.google.gms.google-services"); apply(plugin = "com.google.firebase.crashlytics") }
 
 android {
     namespace = "com.bucks.app"
@@ -110,6 +111,8 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.realtime)
