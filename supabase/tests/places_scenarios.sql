@@ -24,6 +24,7 @@ reset role; update listings set status = 'LIVE' where title = 'Kotnur Kirana'; s
 select pg_temp.check('pincode lists its localities', (select count(*) from search_places('515201', 13.83, 77.49) where source = 'POST') = 2);
 select pg_temp.check('by name, the nearest Kotnur first', (select name from search_places('kotnur', 13.83, 77.49) where source = 'POST' limit 1) = 'Kotnur');
 select pg_temp.check('a typo still finds it', 'POST:Hindupur Bazar' in (select pg_temp.hits('hindupr bazar')));
+select pg_temp.check('a typo doesn''t bring look-alikes from far away', 'POST:Kotnuru' not in (select pg_temp.hits('kotnru')) and 'POST:Kotnur' in (select pg_temp.hits('kotnru')));
 select pg_temp.check('the detail names the district, state and pincode', (select detail from search_places('peddakotla', 13.83, 77.49) limit 1) = 'Anantapur, Andhra Pradesh 515631');
 
 \echo '== Bucks first: live pages and the areas they are in'

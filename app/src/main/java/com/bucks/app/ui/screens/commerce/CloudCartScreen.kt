@@ -177,6 +177,16 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
         }
         Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp)) {
+                // What went wrong last time stays here, next to the button, until the next try (a toast is easy to miss).
+                if (commerce.checkoutErrors.isNotEmpty()) Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(if (stores.isEmpty()) "Some orders didn't go through" else "Not placed yet", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        commerce.checkoutErrors.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = 4.dp)) }
+                        Muted("Fix it above if needed, then tap Place order to try again.", Modifier.padding(top = 6.dp))
+                    }
+                }
+                // Several shops are several orders, each with its own delivery: say so before the button.
+                if (stores.size > 1) Muted("${stores.size} shops: ${stores.size} separate orders" + stores.count { modeOf(it) != "PICKUP" }.let { n -> if (n > 0) ", $n ${if (n == 1) "delivery" else "deliveries"}" else "" }, Modifier.padding(bottom = 6.dp))
                 // The total includes delivery; "about" while the drop point or the fee rule isn't known yet.
                 val total = (if (feeUnknown && needsDrop) "about " else "") + rupees(grand)
                 PrimaryButton(if (commerce.placing) "Placing…" else if (stores.size == 1) "Place order · $total" else "Place ${stores.size} orders · $total",

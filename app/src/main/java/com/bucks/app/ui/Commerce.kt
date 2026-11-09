@@ -79,8 +79,13 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** What place_order will charge for a local delivery over [straightKm]: the road is taken as 1.3x the straight line, to 0.1 km. */
     fun deliveryFee(straightKm: Double): Int? = feeRule?.let { (base, perKm) -> (base + perKm * (Math.round(straightKm * 1.3 * 10) / 10.0)).toInt() }
 
+    /** Why the last checkout left something unplaced, shop by shop; stays on the cart screen (with Retry) until the next try. */
+    var checkoutErrors by mutableStateOf<List<String>>(emptyList()); private set
+    fun clearCheckoutErrors() { checkoutErrors = emptyList() }
+
     fun checkoutAll(choices: Map<String, Choice>, drop: LatLng?, onDone: (List<String>) -> Unit) = go {
         if (placing) return@go
+        checkoutErrors = emptyList(); val errors = mutableListOf<String>()
         // Next time this shop's order starts on the same delivery and payment.
         choices.forEach { (id, c) -> Prefs.rememberCheckout(id, c.mode, c.payment) }
         val todo = stores.toList()
@@ -95,17 +100,17 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
                 try {
                     val id = if (c.mode == "SHIP") {
                         val a = c.address
-                        if (a == null) { failed++; toast("Add a delivery address for ${st.listing.title}'s order."); continue }
+                        if (a == null) { failed++; errors += "Add a delivery address for ${st.listing.title}'s order."; continue }
                         Backend.placeShipOrder(st.listing.id, ls, a.json(), c.payment).also { shipped++ }
                     } else {
                         val at = drop ?: if (c.mode == "PICKUP") social.here else null
-                        if (at == null) { failed++; toast("Turn on location to get ${st.listing.title}'s order delivered, or choose pick-up."); continue }
+                        if (at == null) { failed++; errors += "Turn on location to get ${st.listing.title}'s order delivered, or choose pick-up."; continue }
                         Backend.placeOrder(st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
                     }
                     placed += id; clearStore(st.listing.id)
-                } catch (e: CancellationException) { throw e } catch (e: Exception) { failed++; toast("${st.listing.title}: ${friendlyError(e)}") }
+                } catch (e: CancellationException) { throw e } catch (e: Exception) { failed++; errors += "${st.listing.title}: ${friendlyError(e)}" }
             }
-        } finally { placing = false }
+        } finally { placing = false; checkoutErrors = errors }
         if (placed.isNotEmpty()) {
             toast(when {
                 placed.size == 1 && shipped == 1 -> "Order placed. The shop has 24 hours to accept and ship it."

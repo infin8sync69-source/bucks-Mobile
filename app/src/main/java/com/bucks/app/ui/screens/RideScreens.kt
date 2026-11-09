@@ -230,7 +230,12 @@ fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit, onEnableLocation
                 Text(if (waiting && !moved) "Finding where you are…" else label, style = MaterialTheme.typography.titleMedium, maxLines = 2)
                 Muted(if (movedM > 50) "${com.bucks.app.ui.formatDistance(movedM)} from where you are. The rider comes to the pin. Riders within 5 km of it are rung." else "Drag the map to move the pin. Riders within 5 km are rung; the first to accept comes here.", Modifier.padding(vertical = 8.dp))
                 if (noFix || (waiting && !moved)) LocationNotice(onEnableLocation, Modifier.padding(bottom = 12.dp))
-                DarkButton(if (busy) "Checking the route…" else "Confirm pick-up", enabled = !busy && !vm.dispatch.busy) {
+                vm.dispatch.bookError?.let { err ->
+                    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                        Text("Couldn't book: $err", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(12.dp))
+                    }
+                }
+                DarkButton(if (busy) "Checking the route…" else if (vm.dispatch.bookError != null) "Try again" else "Confirm pick-up", enabled = !busy && !vm.dispatch.busy) {
                     // ensureActive: leaving the screen during a lookup must not pop the booking sheet up over wherever the rider went.
                     scope.launch { busy = true
                         try {

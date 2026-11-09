@@ -179,8 +179,8 @@ private fun OnboardingFrame(step: Int, icon: ImageVector, title: String, body: S
     ContentColumn(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         Column(Modifier.fillMaxSize().then(if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(horizontal = 24.dp, vertical = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // The age check (and a guardian, for minors) is the first of the four sign-up steps; the profile is the other three.
-                SetupProgress(1, 4, Modifier.weight(1f))
+                // The age check (and a guardian, for minors) is the first of the three sign-up steps; name and area are the other two.
+                SetupProgress(1, 3, Modifier.weight(1f))
                 TextButton(onSignOut) { Text("Sign out") }
             }
             Box(Modifier.padding(top = 28.dp).size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {

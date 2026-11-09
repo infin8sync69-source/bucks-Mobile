@@ -92,7 +92,10 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     private var rideDriver: TaskDriverRow? = null; private var ridePhone: String? = null
 
     /** Books an auto or cab: creates the task, then follows it. Bikes carry goods only. The fare and distance shown afterwards are the server's (contract C3). */
+    /** Why the last booking didn't go through; shown on the pick-up screen with the button to try again, until the next try. */
+    var bookError by androidx.compose.runtime.mutableStateOf<String?>(null); private set
     fun requestRide(kind: VehicleKind, from: LatLng, fromLabel: String, dest: Place, to: LatLng, fare: Int) {
+        bookError = null
         if (!kind.carriesPassengers) { toast("Bikes carry goods only. Choose an auto or a cab."); return }
         if (dest.km < MIN_TRIP_KM) { toast("That's too close for a ride. Pick a destination at least 200 m away."); return }
         if (dest.km > MAX_TRIP_KM) { toast("That trip is too far for Bucks. Rides go up to ${MAX_TRIP_KM.toInt()} km."); return }
@@ -102,7 +105,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
                 val t = try { Backend.requestRide(kind, from, fromLabel, to, dest.name, dest.km, fare) } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     // The request may have reached the server before the answer was lost, or a ride of mine is already open: follow that one.
                     val open = runCatching { Backend.myOpenTask() }.getOrNull()?.takeIf { it.requesterId == social.me?.id && it.type == "RIDE" }
-                    if (open == null) throw e
+                    if (open == null) { bookError = friendlyError(e); return@go }
                     toast("You already have a ride in progress."); restoreRide(open); return@go }
                 rideDriver = null; ridePhone = null
                 _ride.value = Ride(t.id, kind, dest.copy(km = t.km), t.fare, RideStatus.SEARCHING, t.pin, pickupLabel = fromLabel)

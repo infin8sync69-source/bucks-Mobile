@@ -108,6 +108,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 ShipToCard(o, Modifier.padding(top = 12.dp))
                 ShipmentCard(o, Modifier.padding(top = 12.dp))
                 SectionTitle("Progress", Modifier.padding(top = 22.dp, bottom = 10.dp))
+                if (o.status == "PLACED" && !vendor) AcceptCountdown(o.acceptBy)
                 OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy, carrier = o.carrier, ringWindowS = vm.dispatch.ringWindowS)
                 if (!vendor && o.status == "DELIVERED") OrderReviewCard(vm, o.id, o.listingId, commerce.titleOf(o.listingId))
 
@@ -277,3 +278,18 @@ private fun OrderReviewCard(vm: BucksViewModel, orderId: String, listingId: Stri
             busy = false } }, onDismiss = { voting = null }) }
 }
 
+
+/** While the shop decides: a live "Shop has 3:42 to accept" so waiting doesn't feel like nothing is happening. */
+@Composable
+private fun AcceptCountdown(acceptBy: String) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(acceptBy) { while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
+    val left = epochMillis(acceptBy) - now
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.HourglassTop, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            Text(if (left <= 0) "The shop didn't answer in time, so the order will be cancelled." else "Shop has ${if (left > 3_600_000) "${left / 3_600_000}h ${left / 60_000 % 60}m" else mmss(left)} to accept",
+                style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(start = 10.dp))
+        }
+    }
+}

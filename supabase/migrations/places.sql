@@ -103,7 +103,9 @@ language sql stable security definer set search_path = public, extensions as $$
     select x.*, (lower(x.name) like p.t || '%') prefix from localities x, p where p.t ~ '^[1-9][0-9]{5}$' and x.pincode = p.t
     union all
     select x.*, (lower(x.name) like p.t || '%') from localities x, p
-    where length(p.t) >= 3 and p.t !~ '^[0-9]+$' and (lower(x.name) like p.t || '%' or lower(x.name) % p.t)),
+    -- Names that start with the query: anywhere. Close spellings (typos): only within 100 km, so "hindupr" doesn't bring far-off look-alikes.
+    where length(p.t) >= 3 and p.t !~ '^[0-9]+$'
+      and (lower(x.name) like p.t || '%' or (lower(x.name) % p.t and st_dwithin(geo(x.lat, x.lng), p.here, 100000)))),
   post as (
     select 'POST'::text source, x.id::text id, x.name, concat_ws(', ', nullif(x.district, ''), nullif(x.state, '')) || ' ' || x.pincode detail,
            x.lat, x.lng, st_distance(geo(x.lat, x.lng), p.here) d, x.prefix

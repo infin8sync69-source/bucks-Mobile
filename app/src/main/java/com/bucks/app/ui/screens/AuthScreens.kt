@@ -157,7 +157,7 @@ fun CreateProfileScreen(vm: BucksViewModel, onDone: () -> Unit, showToast: (Stri
     ContentColumn { BucksTopBar(onBack = if (step > 1) ({ step -= 1 }) else null)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
             // Signing up, this continues the bar the age check started (step 1 of 4); editing, it's just these three.
-            if (u == null) SetupProgress(step + 1, 4, Modifier.padding(bottom = 20.dp)) else SetupProgress(step, 3, Modifier.padding(bottom = 20.dp))
+            if (u == null) SetupProgress(step + 1, 3, Modifier.padding(bottom = 20.dp)) else SetupProgress(step, 3, Modifier.padding(bottom = 20.dp))
             when (step) {
                 1 -> {
                     Headline(if (u == null) "What should we call you?" else "Edit your profile"); Muted("This is what people and providers nearby see.", Modifier.padding(top = 8.dp, bottom = 24.dp))
@@ -169,7 +169,14 @@ fun CreateProfileScreen(vm: BucksViewModel, onDone: () -> Unit, showToast: (Stri
                     Headline("Where are you based?"); Muted("Used for distance, ride pick-ups and who can recommend you. Only your area is shown, never your address.", Modifier.padding(top = 8.dp, bottom = 24.dp))
                     LocationPicker(area, s.me, s.hereLabel) { label, at -> area = label; homeAt = at }
                     Spacer(Modifier.height(20.dp)); Label("Gender (optional)"); ChipRow(listOf("Woman", "Man", "Non-binary", "Prefer not to say"), gender.ifBlank { null }) { gender = it }
-                    PrimaryButton("Continue", Modifier.padding(top = 24.dp)) { if (area.isBlank()) showToast("Choose where you're based") else step = 3 }
+                    // Signing up ends here: a line about you and interests can wait for Edit profile (fewer steps before the app).
+                    PrimaryButton(if (u == null) "Finish" else "Continue", Modifier.padding(top = 24.dp)) {
+                        when {
+                            area.isBlank() -> showToast("Choose where you're based")
+                            u == null -> { vm.createProfile(name.trim(), area, "", gender, emptyList(), homeAt ?: s.me); onDone() }
+                            else -> step = 3
+                        }
+                    }
                 }
                 else -> {
                     Headline("A little about you"); Muted("Your reputation starts at zero and grows with reviews. Interests only shape what you see in Discover.", Modifier.padding(top = 8.dp, bottom = 24.dp))
