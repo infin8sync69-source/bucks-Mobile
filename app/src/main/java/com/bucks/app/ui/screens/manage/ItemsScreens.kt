@@ -50,7 +50,9 @@ import kotlinx.serialization.json.put
 internal fun itemKindOf(l: ListingRow?): String = l?.let { PageTypes.catalogue(it).newItemKind } ?: "PRODUCT"
 
 /** The kind the next new entry gets, set by [AddItemButton] when the catalogue holds more than one kind; the item form reads it. */
-internal object NewItemKind { var next: String? = null }
+internal object NewItemKind { var next: String? = null
+    /** "Add another option": the product a new item becomes an option (size, colour) of; taken once by the new form. */
+    var optionOf: ItemRow? = null }
 
 /** "Add a product", or, when the catalogue holds several kinds, a menu: Add a product / Add a service / Add an event. */
 @Composable
@@ -128,7 +130,7 @@ fun ItemsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit, onEdi
 
 /** Add or edit one catalogue entry; its kind comes from the listing (an existing item keeps its own). */
 @Composable
-fun ItemEditScreen(vm: BucksViewModel, listingId: String, itemId: String?, onBack: () -> Unit) {
+fun ItemEditScreen(vm: BucksViewModel, listingId: String, itemId: String?, onBack: () -> Unit, onAddOption: () -> Unit = {}) {
     val m = vm.myListings
     LaunchedEffect(listingId) { if (!m.loaded) m.refresh(); if (m.items[listingId] == null) m.loadItems(listingId) }
     val l = m.listing(listingId)
@@ -141,30 +143,36 @@ fun ItemEditScreen(vm: BucksViewModel, listingId: String, itemId: String?, onBac
             else CenteredLoading() }
         return
     }
-    key(existing?.id) { ItemForm(vm, listingId, itemKind, existing, onBack) }
+    key(existing?.id) { ItemForm(vm, listingId, itemKind, existing, onBack, onAddOption) }
 }
 
 /** How a service is priced; stored in items.details.pricing and shown next to the price. */
 internal val SERVICE_PRICING = listOf("FIXED" to "Fixed price", "HOURLY" to "Per hour", "VISIT" to "Per visit", "FROM" to "Starting from", "QUOTE" to "On quote")
 
 @Composable
-private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, existing: ItemRow?, onBack: () -> Unit) {
+private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, existing: ItemRow?, onBack: () -> Unit, onAddOption: () -> Unit) {
     val m = vm.myListings; val ctx = LocalContext.current
     val service = itemKind == "SERVICE"; val product = itemKind == "PRODUCT"; val program = itemKind == "PROGRAM"; val event = itemKind == "EVENT"
     val noun = itemNoun(itemKind)
+    // A new option of a product starts as a copy of it (name, price, group, brand, description), with its own option label left blank.
+    val template = remember { if (existing == null && product) NewItemKind.optionOf.also { NewItemKind.optionOf = null } else null }
+    val src = existing ?: template
     val d = existing?.details ?: JsonObject(emptyMap())
-    var name by remember { mutableStateOf(existing?.name ?: "") }
-    var description by remember { mutableStateOf(existing?.description ?: "") }
-    var price by remember { mutableStateOf(existing?.price?.toString() ?: "") }
-    var mrp by remember { mutableStateOf(existing?.mrp?.toString() ?: "") }
+    val td = src?.details ?: JsonObject(emptyMap())
+    var name by remember { mutableStateOf(src?.name ?: "") }
+    var description by remember { mutableStateOf(src?.description ?: "") }
+    var price by remember { mutableStateOf(src?.price?.toString() ?: "") }
+    var mrp by remember { mutableStateOf(src?.mrp?.toString() ?: "") }
     var unit by remember { mutableStateOf(existing?.unit ?: "") }
-    var group by remember { mutableStateOf(existing?.group ?: "") }
+    var group by remember { mutableStateOf(src?.group ?: "") }
+    // The option this row is (Small, Red, 500 g); options of one product share details.product_id and show as one card.
+    var variant by remember { mutableStateOf(d.str("variant")) }
     var inStock by remember { mutableStateOf(existing?.inStock ?: true) }
     var countStock by remember { mutableStateOf(existing?.stock != null) }
     var stock by remember { mutableStateOf(existing?.stock?.toString() ?: "") }
     var pricing by remember { mutableStateOf(d.str("pricing").ifBlank { "FIXED" }) }
     var duration by remember { mutableStateOf(d.str("duration")) }
-    var brand by remember { mutableStateOf(d.str("brand")) }
+    var brand by remember { mutableStateOf(td.str("brand")) }
     // Photos it already has (older items only have photo_url) and new ones picked here; the first is the main photo.
     val keep = remember { mutableStateListOf<MediaPhoto>().apply { addAll(existing?.photos?.ifEmpty { null } ?: listOfNotNull(existing?.photoUrl?.takeIf { it.isNotBlank() }?.let { MediaPhoto(it) })) } }
     val added = remember { mutableStateListOf<Pair<Picked, Uri>>() }
@@ -177,7 +185,7 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
     }
     val existingGroups = m.items[listingId].orEmpty().map { it.group.trim() }.filter { it.isNotBlank() }.distinct()
 
-    fun save() {
+    fun save(after: () -> Unit = onBack) {
         // A program or an event may be free: an empty price is 0 and shows as "Free".
         val n = name.trim(); val p = price.toIntOrNull() ?: if (program || event) 0 else null; val mp = if (product) mrp.toIntOrNull() else null; val st = stock.toIntOrNull()
         if (n.isBlank()) { vm.toast("Give the $noun a name."); return }
@@ -185,14 +193,20 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
         if (mp != null && p != null && mp < p) { vm.toast("MRP should be the same as or more than the selling price."); return }
         if (product && countStock && st == null) { vm.toast("Enter how many you have, or switch off stock counting."); return }
         val details = buildJsonObject {
-            d.forEach { (k, v) -> if (k !in setOf("pricing", "duration", "brand")) put(k, v) }
+            d.forEach { (k, v) -> if (k !in setOf("pricing", "duration", "brand", "variant", "product_id", "product")) put(k, v) }
+            if (product) {
+                // Same key as the server's item_product_key: product_id, else the first row's own id, so that row needs no change.
+                val pid = d.str("product_id").ifBlank { null } ?: template?.let { t -> t.details.str("product_id").ifBlank { null } ?: t.id }
+                if (pid != null) { put("product_id", pid); put("product", (d.str("product").ifBlank { null } ?: template?.let { t -> t.details.str("product").ifBlank { null } ?: t.name } ?: n)) }
+                if (variant.isNotBlank()) put("variant", variant.trim())
+            }
             if (service) { put("pricing", pricing); if (duration.isNotBlank()) put("duration", duration.trim()) }
             else if (product && brand.isNotBlank()) put("brand", brand.trim())
         }
         val row = ItemRow(id = existing?.id, listingId = listingId, kind = itemKind, name = n, price = p ?: 0, mrp = mp, unit = unit.trim(), group = group.trim(),
             photoUrl = existing?.photoUrl, inStock = inStock, sort = existing?.sort ?: m.items[listingId].orEmpty().size,
             description = description.trim(), stock = if (product && countStock) st else null, photos = existing?.photos.orEmpty(), details = details)
-        m.saveItem(row, keep.toList(), added.map { it.first }) { onBack() }
+        m.saveItem(row, keep.toList(), added.map { it.first }) { after() }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -227,7 +241,10 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
                 val unitChips = when (itemKind) { "SERVICE" -> UNITS.filter { it.startsWith("per") }; "PROGRAM" -> PROGRAM_UNITS; "EVENT" -> emptyList(); else -> UNITS.filter { !it.startsWith("per") } }
                 if (unitChips.isNotEmpty()) ChipRow(unitChips, unit.ifBlank { null }, Modifier.padding(bottom = 14.dp)) { unit = it } else Spacer(Modifier.height(6.dp))
                 if (service) BucksField(duration, { duration = it.take(40) }, "Takes about (optional)", "1 hour, 2 days")
-                else if (product) BucksField(brand, { brand = it.take(40) }, "Brand (optional)", "Aashirvaad, Nandini")
+                else if (product) {
+                    BucksField(variant, { variant = it.take(30) }, if (template != null || d.str("product_id").isNotBlank()) "This option" else "Option (optional)", "Small, Red, 500 g")
+                    BucksField(brand, { brand = it.take(40) }, "Brand (optional)", "Aashirvaad, Nandini")
+                }
                 BucksField(group, { group = it.take(40) }, when (itemKind) { "SERVICE" -> "Group (optional)"; "PROGRAM", "EVENT" -> "Section (optional)"; else -> "Group or section (optional)" },
                     when (itemKind) { "SERVICE" -> "Repairs"; "PROGRAM" -> "Classes"; "EVENT" -> "This month"; else -> "Rice and grains" })
                 if (existingGroups.isNotEmpty()) ChipRow(existingGroups, group.trim().ifBlank { null }, Modifier.padding(bottom = 14.dp)) { group = it }
@@ -242,6 +259,10 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
         }
         Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
             PrimaryButton(if (m.busy) "Saving…" else if (existing == null) addItemTitle(noun) else "Save changes", enabled = !m.busy) { save() }
+            // Sizes, colours, weights: each option is its own row (price, stock) shown together on one product card.
+            if (product && existing != null) SmallButton("Add another option (size, colour…)", Modifier.padding(bottom = 6.dp), tonal = true) {
+                if (variant.isBlank()) vm.toast("Name this option first (e.g. Small), then add the next.") else save { NewItemKind.next = "PRODUCT"; NewItemKind.optionOf = existing; onBack(); onAddOption() }
+            }
             if (existing != null) BadButton("Remove this $noun", Modifier.padding(top = 4.dp)) { confirmDelete = true }
         }
     }

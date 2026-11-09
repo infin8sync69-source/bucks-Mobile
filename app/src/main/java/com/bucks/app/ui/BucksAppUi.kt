@@ -399,7 +399,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.ITEM_EDIT, arguments = listOf(navArgument("listing") { type = NavType.StringType }, navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
                                 val listing = e.arguments!!.getString("listing")!!; val item = e.arguments?.getString("item")
                                 if (item == null) ItemsScreen(vm, listing, onBack = { nav.popBackStack() }, onEdit = { l, i -> nav.navigate(Routes.itemEdit(l, i ?: "new")) })
-                                else ItemEditScreen(vm, listing, item.takeUnless { it == "new" }, onBack = { nav.popBackStack() }) }
+                                else ItemEditScreen(vm, listing, item.takeUnless { it == "new" }, onBack = { nav.popBackStack() }, onAddOption = { nav.navigate(Routes.itemEdit(listing, "new")) }) }
                             composable(Routes.VEHICLE_EDIT, arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true; defaultValue = null })) { e -> VehicleEditScreen(vm, e.arguments?.getString("id"), onBack = { nav.popBackStack() }) }
                             composable(Routes.RECOMMEND_SHOW, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> RecommendShowScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
                             composable(Routes.RECOMMEND_SCAN) { RecommendScanScreen(vm, onBack = { nav.popBackStack() }) }

@@ -53,6 +53,7 @@ files=(
   migrations/pro_profile.sql
   migrations/delivery_assignment.sql
   migrations/search_quality.sql
+  migrations/address_pin.sql
 )
 
 case "${1:-}" in

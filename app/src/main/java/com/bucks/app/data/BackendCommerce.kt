@@ -107,15 +107,18 @@ fun Backend.liveOrder(orderId: String): Pair<RealtimeChannel, Flow<CloudOrderRow
 // ---------- shipping: orders to an address anywhere, the address book (migration ecommerce.sql) ----------
 /** A saved delivery address; the server checks the mobile number (10 digits) and the pincode (6 digits) again at checkout. */
 @Serializable data class AddressRow(val id: String? = null, val label: String = "", val name: String, val phone: String, val line1: String, val line2: String = "",
-    val city: String, val state: String, val pincode: String, @SerialName("is_default") val isDefault: Boolean = false) {
+    val city: String, val state: String, val pincode: String, @SerialName("is_default") val isDefault: Boolean = false,
+    /** The drop point pinned for local delivery (address_pin.sql); null when not pinned. */
+    val lat: Double? = null, val lng: Double? = null) {
+    val pin: LatLng? get() = if (lat != null && lng != null) LatLng(lat, lng) else null
     val oneLine: String get() = listOf(line1, line2, "$city, $state $pincode").filter { it.isNotBlank() }.joinToString(", ")
     fun json(): JsonObject = buildJsonObject { put("name", name); put("phone", phone); put("line1", line1); put("line2", line2); put("city", city); put("state", state); put("pincode", pincode) }
 }
 
 suspend fun Backend.addresses(): List<AddressRow> = client.postgrest.from("addresses").select { order("created_at", Order.DESCENDING) }.decodeList()
 suspend fun Backend.saveAddress(me: String, a: AddressRow): AddressRow =
-    if (a.id == null) client.postgrest.from("addresses").insert(buildJsonObject { put("profile_id", me); put("label", a.label); put("name", a.name); put("phone", a.phone); put("line1", a.line1); put("line2", a.line2); put("city", a.city); put("state", a.state); put("pincode", a.pincode); put("is_default", a.isDefault) }) { select() }.decodeSingle()
-    else client.postgrest.from("addresses").update({ set("label", a.label); set("name", a.name); set("phone", a.phone); set("line1", a.line1); set("line2", a.line2); set("city", a.city); set("state", a.state); set("pincode", a.pincode); set("is_default", a.isDefault) }) { select(); filter { eq("id", a.id) } }.decodeSingle()
+    if (a.id == null) client.postgrest.from("addresses").insert(buildJsonObject { put("profile_id", me); put("label", a.label); put("name", a.name); put("phone", a.phone); put("line1", a.line1); put("line2", a.line2); put("city", a.city); put("state", a.state); put("pincode", a.pincode); put("is_default", a.isDefault); if (a.lat != null) { put("lat", a.lat); put("lng", a.lng) } }) { select() }.decodeSingle()
+    else client.postgrest.from("addresses").update({ set("label", a.label); set("name", a.name); set("phone", a.phone); set("line1", a.line1); set("line2", a.line2); set("city", a.city); set("state", a.state); set("pincode", a.pincode); set("is_default", a.isDefault); if (a.lat != null) { set("lat", a.lat); set("lng", a.lng) } }) { select(); filter { eq("id", a.id) } }.decodeSingle()
 suspend fun Backend.deleteAddress(id: String) { client.postgrest.from("addresses").delete { filter { eq("id", id) } } }
 
 /** Orders from a shop that ships: the address is checked on the server, the shipping fee comes from the shop's own rule. */

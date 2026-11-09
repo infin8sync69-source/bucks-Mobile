@@ -2,6 +2,7 @@ package com.bucks.app.ui.screens.commerce
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -47,7 +48,11 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
         ids.filter { it !in points }.forEach { id -> runCatching { Backend.listingPoint(id) }.getOrNull()?.let { points[id] = it } }
         commerce.loadAddresses(); commerce.loadFeeRule()
     }
-    val here = s.me
+    // The drop point: where the phone is, or a saved address pinned for deliveries (order home from the office).
+    var dropAddrId by rememberSaveable { mutableStateOf<String?>(null) }
+    val pinned = commerce.addresses.filter { it.pin != null }
+    val dropAddr = pinned.firstOrNull { it.id == dropAddrId } ?: if (s.me == null) pinned.firstOrNull { it.isDefault } ?: pinned.firstOrNull() else null
+    val here = dropAddr?.pin ?: s.me
     // A shop is "near" when it is inside its own delivery radius (5 km when it hasn't set one); farther away only shipping works.
     // Until the position or the shop's location is known, treat it as near so the usual options show.
     fun near(st: Commerce.StoreCart): Boolean { val at = points[st.listing.id]; if (here == null || at == null) return true
@@ -160,9 +165,13 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
             }
             // Delivery needs the phone's real position: it is the rider's drop pin and what each fee is worked out from.
             if (needsDrop) {
+                if (pinned.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (s.me != null) Chip("Where I am", selected = dropAddr == null, icon = Icons.Rounded.MyLocation) { dropAddrId = null; dropLabel = social.me?.area ?: "" }
+                    pinned.forEach { a -> Chip(a.label.ifBlank { a.line1.take(18) }, selected = dropAddr?.id == a.id, icon = Icons.Rounded.Home) { dropAddrId = a.id; dropLabel = listOf(a.line1, a.line2).filter { it.isNotBlank() }.joinToString(", ").take(120) } }
+                }
                 BucksField(dropLabel, { dropLabel = it.take(120) }, "Deliver to", "e.g. 4th block, near the park, 2nd floor")
                 if (here == null) Notice("Turn on location to get it delivered. The rider needs your exact drop point, and the fee is worked out from it. You can still choose \"I'll pick up\".", Modifier.padding(top = 8.dp, bottom = 14.dp))
-                else Muted("Your current location is used as the drop point for every delivery. The label helps the rider find the door.", Modifier.padding(top = 6.dp, bottom = 14.dp))
+                else Muted(if (dropAddr != null) "Riders come to the spot pinned for ${dropAddr.label.ifBlank { "this address" }}. The label helps them find the door." else "Your current location is the drop point. The label helps the rider find the door. Pin your home under Addresses to order there from anywhere.", Modifier.padding(top = 6.dp, bottom = 14.dp))
             }
             Spacer(Modifier.height(12.dp))
         }

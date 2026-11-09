@@ -1,7 +1,7 @@
 # Bucks core feature flows
 
 The step-by-step flow of every core feature in the Android app (branch `feat/play-social-v1`), as the code and the end-to-end audit of
-2026-11-09 found it. ⚠️ marks a known gap; 🆕 marks what was added on 2026-11-08/09 and still needs a check on a phone.
+2026-11-09 found it. ⚠️ marks a known gap, ✅ a fixed one, 🔶 a policy decision left to you; 🆕 marks what was added on 2026-11-08/09 and still needs a check on a phone.
 
 Shell: bottom bar **Home (map, search) · Feed · Services · For you · Profile**; the ☰ menu holds Bucks Pro (Pro profile, pages, vehicles,
 invites, orders, jobs, Find people, Settings, Help, App versions).
@@ -14,7 +14,8 @@ invites, orders, jobs, Find people, Settings, Help, App versions).
 5. Allow location and notifications.
 6. Home: map with "Where to, or what do you need?".
 
-⚠️ Two progress bars contradict each other ("1/3" on the age screen, "1/3" on the profile). Email sign-up is hidden in cloud builds.
+✅ One sign-up bar: age check is step 1 of 4, the profile steps 2–4.
+🔶 Decision for you: email sign-up is hidden in cloud builds (phone only).
 
 ## 1. Booking a taxi (rider)
 1. Home search → pick a destination (or on the map).
@@ -36,7 +37,7 @@ invites, orders, jobs, Find people, Settings, Help, App versions).
 6. End at the drop → collect payment (your UPI QR shows) → rate the customer.
 7. Handing back before the PIN needs a reason; at most 3 an hour.
 
-⚠️ Copy still promises autos and cabs "deliveries"; only bikes get them.
+✅ Copy now says bikes deliver, autos and cabs take rides.
 
 ## 3. Quick commerce: local shops and food (buyer)
 1. Find a shop: Home search ("biryani", "milk"), Services tile (Food, Grocery, Vegetables, Meat, Shopping) or For you.
@@ -50,8 +51,8 @@ invites, orders, jobs, Find people, Settings, Help, App versions).
 6. Order page: Accepted → Packed → Picked up → Delivered, with Track delivery.
 7. Rate the order (↑/↓) once delivered.
 
-⚠️ The delivery fee isn't in the "Place order ₹X" total; the cart is lost if the app closes; payment and delivery choices aren't
-remembered; a saved address can't be the drop point for local delivery.
+✅ "Place order ₹X" includes the delivery fee (server formula); the cart survives closing the app; delivery and payment are
+remembered per shop; a saved address can be pinned and chosen as the drop point (needs address_pin.sql applied).
 
 ## 4. Running a shop (seller)
 1. ☰ → Create → Business → shop type → name, category, delivery radius (3 km preselected). 🆕 Non-food categories no longer default to
@@ -67,7 +68,8 @@ remembered; a saved address can't be the drop point for local delivery.
    card. Ring again or Send my rider if nobody takes it. Call your own rider.
 6. Mark Packed → the rider picks up and delivers; a cash order is collected by the rider.
 
-⚠️ No product variants (size, colour). The Cash on delivery switch does nothing without store riders or courier shipping.
+✅ Products have options (size, colour): "Add another option" on a product. The business form warns when Cash on delivery
+can't be offered (no store riders, no shipping).
 
 ## 5. E-commerce: shipping across India
 1. Seller turns on courier shipping on the business form; the page is found from anywhere.
@@ -83,8 +85,9 @@ remembered; a saved address can't be the drop point for local delivery.
 3. Open a profile: Feed, About (documents, team, jobs), Gallery, Services with prices, Recommendations.
 4. Message, or Request/Book a service (opens chat with a first line), Sync, Recommend / Not recommend, Share, Directions.
 
-⚠️ No call button; search uses GPS only (no area picker); no plural, typo or vernacular matching; pros are listed only when LIVE
-(7 in-person recommendations).
+✅ Opt-in Call button (owner's verified number, never across a block); search in any chosen area; plurals, typos and everyday
+words ("bijli wala", "kirana", "darzi"); products match on every word with their own price (needs search_quality.sql applied).
+🔶 Decision for you: pros are listed only when LIVE (7 in-person recommendations).
 
 ## 7. Offering a skill (pro)
 1. ☰ → Create → Skill profile: skill, category (required), experience (Intermediate preselected), rate, languages, description;

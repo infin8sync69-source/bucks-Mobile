@@ -46,7 +46,7 @@ fun AddressSheet(vm: BucksViewModel, selectedId: String?, startNew: Boolean = fa
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             if (adding || editing != null) {
-                AddressForm(editing, first = commerce.addresses.isEmpty(), onCancel = { adding = false; editing = null }) { saved ->
+                AddressForm(editing, first = commerce.addresses.isEmpty(), here = vm.state.value.me, onCancel = { adding = false; editing = null }) { saved ->
                     commerce.saveAddress(saved) { r -> adding = false; editing = null; onPick?.invoke(r); if (onPick != null) onDismiss() }
                 }
             } else {
@@ -76,11 +76,13 @@ fun AddressSheet(vm: BucksViewModel, selectedId: String?, startNew: Boolean = fa
 /** Add or edit one address. Checks what the server checks (10-digit mobile, 6-digit pincode) and says what is wrong next to the field. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AddressForm(existing: AddressRow?, first: Boolean, onCancel: () -> Unit, onSave: (AddressRow) -> Unit) {
+private fun AddressForm(existing: AddressRow?, first: Boolean, here: com.bucks.app.data.LatLng?, onCancel: () -> Unit, onSave: (AddressRow) -> Unit) {
     var label by remember { mutableStateOf(existing?.label ?: "") }; var name by remember { mutableStateOf(existing?.name ?: "") }; var phone by remember { mutableStateOf(existing?.phone ?: "") }
     var pin by remember { mutableStateOf(existing?.pincode ?: "") }; var line1 by remember { mutableStateOf(existing?.line1 ?: "") }; var line2 by remember { mutableStateOf(existing?.line2 ?: "") }
     var city by remember { mutableStateOf(existing?.city ?: "") }; var state by remember { mutableStateOf(existing?.state ?: "") }; var default by remember { mutableStateOf(existing?.isDefault ?: first) }
     var tried by remember { mutableStateOf(false) }; var looking by remember { mutableStateOf(false) }
+    // Pin this spot as the drop point, so riders can deliver here from wherever I order. Only when the phone knows where it is.
+    var pinHere by remember { mutableStateOf(false) }
     // A full pincode fills the city and state (the person can still change them).
     LaunchedEffect(pin) { if (pin.length == 6 && existing?.pincode != pin) { looking = true; Pincode.lookup(pin)?.let { (c, s) -> city = c; state = s }; looking = false } }
     val phoneOk = Regex("[6-9][0-9]{9}").matches(phone); val pinOk = Regex("[1-9][0-9]{5}").matches(pin)
@@ -105,8 +107,16 @@ private fun AddressForm(existing: AddressRow?, first: Boolean, onCancel: () -> U
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(default, role = Role.Switch, onClick = { default = !default }), verticalAlignment = Alignment.CenterVertically) {
         Text("Make this my default address", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge); Switch(default, null)
     }
+    if (here != null) Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(pinHere, role = Role.Switch, onClick = { pinHere = !pinHere }), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(if (existing?.pin != null) "Move the drop point to where I am" else "I'm here now: pin it for deliveries", style = MaterialTheme.typography.bodyLarge)
+            Muted(if (existing?.pin != null) "Riders already have a drop point for this address." else "Riders come to this exact spot when you order to this address from anywhere.")
+        }
+        Switch(pinHere, null)
+    }
     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         OutlinedButton(onCancel, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Cancel") }
-        Button({ tried = true; if (valid) onSave(AddressRow(existing?.id, label, name.trim(), phone, line1.trim(), line2.trim(), city.trim(), state.trim(), pin, default)) }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Save address") }
+        Button({ tried = true; if (valid) onSave(AddressRow(existing?.id, label, name.trim(), phone, line1.trim(), line2.trim(), city.trim(), state.trim(), pin, default,
+            lat = if (pinHere && here != null) here.lat else existing?.lat, lng = if (pinHere && here != null) here.lng else existing?.lng)) }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Save address") }
     }
 }
