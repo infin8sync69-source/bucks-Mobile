@@ -56,6 +56,7 @@ files=(
   migrations/address_pin.sql
   migrations/places.sql
   migrations/map_guardrails.sql
+  migrations/social_lenses.sql
 )
 
 case "${1:-}" in
