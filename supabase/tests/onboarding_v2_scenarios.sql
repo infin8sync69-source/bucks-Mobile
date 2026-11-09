@@ -25,13 +25,13 @@ select pg_temp.check('nothing stored for an under-13', (select not birth_date_se
 \echo '== 2. Terms version'
 select pg_temp.as_user('ana');
 select record_terms('2026-11-09');
-select pg_temp.check('terms recorded', (select terms_version = '2026-11-09' and terms_accepted_at is not null from profiles where id = me()));
+reset role; select pg_temp.check('terms recorded', (select terms_version = '2026-11-09' and terms_accepted_at is not null from profiles where id = me())); set role authenticated;
 
 \echo '== 3. Country and language on the profile'
 select set_my_locale('es', 'es');
-select pg_temp.check('country and language saved', (select country = 'ES' and language = 'es' from profiles where id = me()));
+reset role; select pg_temp.check('country and language saved', (select country = 'ES' and language = 'es' from profiles where id = me())); set role authenticated;
 select set_my_locale(null, 'pt-BR');
-select pg_temp.check('null keeps the country', (select country = 'ES' and language = 'pt-BR' from profiles where id = me()));
+reset role; select pg_temp.check('null keeps the country', (select country = 'ES' and language = 'pt-BR' from profiles where id = me())); set role authenticated;
 select 'bad country -> ' || pg_temp.expect_fail($$select set_my_locale('Spain', 'es')$$, 'check');
 
 \echo '== 4. Signed out: refused'

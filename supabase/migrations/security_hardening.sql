@@ -56,8 +56,13 @@ end $$;
 -- BEFORE INSERT trigger; TG_ARGV[0] is the bucket. Ride requests only count rides the caller asks for (deliveries a shop creates don't).
 create or replace function public.rate_guard() returns trigger
 language plpgsql security definer set search_path = public, extensions as $$
+declare j jsonb;
 begin
-  if tg_table_name = 'tasks' and (new.type <> 'RIDE' or new.requester_id is distinct from me()) then return new; end if;
+  -- Fields read through jsonb: PL/pgSQL resolves new.<field> even in a branch that doesn't run, and only tasks has these columns.
+  if tg_table_name = 'tasks' then
+    j := to_jsonb(new);
+    if j->>'type' is distinct from 'RIDE' or (j->>'requester_id')::uuid is distinct from me() then return new; end if;
+  end if;
   perform rate_hit(tg_argv[0]);
   return new;
 end $$;
