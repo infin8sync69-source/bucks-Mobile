@@ -163,7 +163,10 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Loads a shop's orders (newest first) and follows them live until [stopOrders]. */
     fun ordersFor(listingId: String) {
         if (liveListing != listingId) { stopOrders(); vendorOrders = emptyList(); vendorLoaded = false }
-        go { val rows = Backend.vendorOrders(listingId); vendorOrders = rows; vendorLoaded = true; social.namesFor(rows.map { it.buyerId }); rows.forEach { orders[it.id] = it } }
+        go { val rows = Backend.vendorOrders(listingId); vendorOrders = rows; vendorLoaded = true; social.namesFor(rows.map { it.buyerId }); rows.forEach { orders[it.id] = it }
+            // Each local delivery in progress: who has it, or that nobody does yet (the shop can ring again or send its rider).
+            rows.filter { it.status in setOf("ACCEPTED", "READY", "PICKED_UP") && it.deliveryMode !in setOf("PICKUP", "SHIP") }.forEach { runCatching { refreshDelivery(it.id) } }
+            runCatching { riders[listingId] = DeliveryBackend.storeRiders(listingId) } }
         if (liveListing == listingId && liveJob?.isActive == true) return
         stopOrders()   // a channel whose collector died is closed before a new one opens
         liveListing = listingId
@@ -190,10 +193,26 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         liveListing = null
     }
     /** Owner or admin accepts (which creates the delivery task) or rejects a PLACED order. */
-    fun respondOrder(id: String, accept: Boolean, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) {
-        Backend.respondOrder(id, accept, reason)
-        toast(if (accept) "Accepted. The customer can see it is on the way." else "Rejected. The customer has been told.")
-        runCatching { refreshVendorOrder(id) }
+    /**
+     * Owner or admin accepts or rejects a PLACED order. Accepting creates the delivery: [rider] null lets Bucks pick (the shop's riders for
+     * a cash order, nearby Bucks bikes otherwise); a store rider's id rings them alone first, then the usual riders.
+     */
+    fun respondOrder(id: String, accept: Boolean, reason: String? = null, rider: StoreRider? = null, done: (Boolean) -> Unit = {}) = act(id, done) {
+        DeliveryBackend.respond(id, accept, reason, rider?.profileId)
+        toast(when { !accept -> "Rejected. The customer has been told."; rider != null -> "Accepted. ${rider.name.substringBefore(' ')} is being rung first."; else -> "Accepted. A rider is being rung." })
+        runCatching { refreshVendorOrder(id) }; runCatching { refreshDelivery(id) }
+    }
+    /** Where each accepted order's delivery stands, for the shop (order id -> delivery). */
+    val deliveries = androidx.compose.runtime.mutableStateMapOf<String, OrderDelivery>()
+    /** A shop's store riders (listing id -> riders, online first). */
+    val riders = androidx.compose.runtime.mutableStateMapOf<String, List<StoreRider>>()
+    suspend fun refreshDelivery(orderId: String) { DeliveryBackend.orderDelivery(orderId)?.let { deliveries[orderId] = it } ?: deliveries.remove(orderId) }
+    fun loadRiders(listingId: String) = go { riders[listingId] = DeliveryBackend.storeRiders(listingId) }
+    /** Ring again, or send one of the shop's riders, while nobody has taken the delivery. */
+    fun reassignDelivery(orderId: String, rider: StoreRider?, done: (Boolean) -> Unit = {}) = act(orderId, done) {
+        DeliveryBackend.reassign(orderId, rider?.profileId)
+        toast(if (rider != null) "${rider.name.substringBefore(' ')} is being rung." else "Ringing riders again.")
+        refreshDelivery(orderId)
     }
     /** READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came). */
     fun updateOrderStatus(id: String, status: String, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) {

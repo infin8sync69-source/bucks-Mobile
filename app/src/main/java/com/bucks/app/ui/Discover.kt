@@ -69,11 +69,13 @@ data class ListingProfile(
  * Cloud discovery: search over live listings near me and the universal profile of a shop, pro or driver.
  * Screens read the state and call the actions; every action reports a failure as a toast.
  */
+private const val DEFAULT_RADIUS_KM = 10
+
 class Discover(private val scope: CoroutineScope, private val social: Social, private val toast: (String) -> Unit) {
     var query by mutableStateOf("")
     /** The selected kind chip; change it through [selectKind], which also re-runs the search. */
     var kind by mutableStateOf(KindFilter.ALL); private set
-    var radiusKm by mutableIntStateOf(10)
+    var radiusKm by mutableIntStateOf(DEFAULT_RADIUS_KM)
     /** A service tile (FOOD, GROCERY, ...) the search is limited to, or null. Set through [useService]. */
     var service by mutableStateOf<String?>(null); private set
     var results by mutableStateOf<List<SearchHit>>(emptyList()); private set
@@ -131,6 +133,8 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
      */
     fun useService(key: String?, radiusM: Int? = null) {
         service = key
+        // A new typed search starts clean: a "Drivers" chip or a 3 km radius left from last time would quietly hide a plumber.
+        if (key == null) { kind = KindFilter.ALL; radiusKm = DEFAULT_RADIUS_KM }
         if (key != null) { query = ""; kind = KindFilter.ALL; radiusM?.let { m -> radiusKm = RADIUS_CHOICES.firstOrNull { it * 1000 >= m } ?: RADIUS_CHOICES.last() } }
     }
 

@@ -60,6 +60,7 @@ fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
             if (vm.services.isStaff) {
                 Group("Bucks team")
                 Item(Icons.Rounded.FactCheck, "Review reports", "Reported posts, messages and accounts") { onOpen(Routes.STAFF_REPORTS) }
+                Item(Icons.Rounded.VerifiedUser, "Review documents and vehicles", "Shop and pro documents, and vehicles waiting to go online") { onOpen(Routes.STAFF_REVIEW) }
             }
             Group("Account actions")
             Item(Icons.AutoMirrored.Rounded.Logout, "Log out", null) { logoutDialog = true }

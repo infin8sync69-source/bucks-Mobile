@@ -1,5 +1,9 @@
 package com.bucks.app.ui.screens.commerce
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.CloudOrderRow
+import com.bucks.app.data.OrderDelivery
+import com.bucks.app.data.Prefs
+import com.bucks.app.data.StoreRider
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.data.CancelReasons
 import com.bucks.app.ui.components.*
@@ -34,6 +41,8 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
     var filter by rememberSaveable { mutableStateOf("New") }
     var rejectFor by remember { mutableStateOf<CloudOrderRow?>(null) }
     var shipFor by remember { mutableStateOf<CloudOrderRow?>(null) }
+    /** Choosing a rider: to accept with ([Choosing.accept]) or to send while nobody has the delivery. */
+    var choosing by remember { mutableStateOf<Choosing?>(null) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val title = commerce.titleOf(listingId)
     DisposableEffect(listingId) { commerce.ordersFor(listingId); onDispose { commerce.stopOrders() } }
@@ -71,13 +80,25 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
             }
             else -> LazyColumn(contentPadding = PaddingValues(horizontal = Gutter, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(shown, key = { it.id }) { o ->
+                    val riders = commerce.riders[listingId].orEmpty()
                     VendorOrderCard(o, buyer = social.nameOf(o.buyerId), now = now, busy = commerce.isActing(o.id), onOpen = { onOpen(o.id) },
-                        onAccept = { commerce.respondOrder(o.id, true) }, onReject = { rejectFor = o },
+                        delivery = commerce.deliveries[o.id], hasRiders = riders.isNotEmpty(),
+                        onAccept = { commerce.respondOrder(o.id, true) }, onChooseRider = { choosing = Choosing(o, accept = true) },
+                        onRingAgain = { commerce.reassignDelivery(o.id, null) }, onSendRider = { choosing = Choosing(o, accept = false) },
+                        onCallRider = { p -> dial(ctx, p) }, onReject = { rejectFor = o },
                         onReady = { commerce.updateOrderStatus(o.id, "READY") }, onCollected = { commerce.updateOrderStatus(o.id, "DELIVERED") }, onShip = { shipFor = o }, onDelivered = { commerce.markDelivered(o.id) },
                         onCall = { scope.launch { val c = runCatching { commerce.contactFor(o.id) }.getOrNull(); val p = c?.phone; if (p.isNullOrBlank()) vm.toast("This customer hasn't shared a phone number.") else dial(ctx, p) } })
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
+        }
+    }
+    choosing?.let { c ->
+        RiderSheet(commerce.riders[listingId].orEmpty(), preselect = Prefs.lastRider(listingId), accept = c.accept, busy = commerce.isActing(c.order.id),
+            onDismiss = { choosing = null }) { r ->
+            Prefs.rememberRider(listingId, r.profileId)
+            if (c.accept) commerce.respondOrder(c.order.id, true, rider = r) { ok -> if (ok) choosing = null }
+            else commerce.reassignDelivery(c.order.id, r) { ok -> if (ok) choosing = null }
         }
     }
     shipFor?.let { o -> ShipSheet({ shipFor = null }) { c, t, u -> shipFor = null; commerce.shipOrder(o.id, c, t, u) } }
@@ -92,7 +113,8 @@ fun VendorOrdersScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit
 }
 
 @Composable
-private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, busy: Boolean, onOpen: () -> Unit, onAccept: () -> Unit, onReject: () -> Unit, onReady: () -> Unit, onCollected: () -> Unit, onShip: () -> Unit, onDelivered: () -> Unit, onCall: () -> Unit) {
+private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, busy: Boolean, onOpen: () -> Unit, delivery: OrderDelivery?, hasRiders: Boolean,
+                            onAccept: () -> Unit, onChooseRider: () -> Unit, onRingAgain: () -> Unit, onSendRider: () -> Unit, onCallRider: (String) -> Unit, onReject: () -> Unit, onReady: () -> Unit, onCollected: () -> Unit, onShip: () -> Unit, onDelivered: () -> Unit, onCall: () -> Unit) {
     val st = MaterialTheme.status
     BucksCard(onClick = onOpen) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -118,9 +140,14 @@ private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, busy: Bo
             if (o.shipped && o.carrier.isNotBlank()) Muted(" · ${o.carrier}" + (if (o.trackingNo.isNotBlank()) " ${o.trackingNo}" else ""), maxLines = 1)
         }
         when (o.status) {
-            "PLACED" -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton(if (busy) "Working…" else "Accept", Modifier.weight(1f), enabled = !busy, onClick = onAccept)
-                SmallButton("Reject", Modifier.weight(1f), tonal = true, enabled = !busy, onClick = onReject)
+            "PLACED" -> Column(Modifier.padding(top = 12.dp)) {
+                val byRider = o.deliveryMode !in setOf("PICKUP", "SHIP")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // One tap does the common thing: accept, and Bucks rings the right riders.
+                    SmallButton(if (busy) "Working…" else if (byRider) "Accept · auto rider" else "Accept", Modifier.weight(1.4f), enabled = !busy, onClick = onAccept)
+                    SmallButton("Reject", Modifier.weight(1f), tonal = true, enabled = !busy, onClick = onReject)
+                }
+                if (byRider && hasRiders) TextButton(onChooseRider, enabled = !busy) { Icon(Icons.Rounded.TwoWheeler, null, Modifier.size(18.dp)); Text("  Accept and choose my rider") }
             }
             "ACCEPTED", "READY", "PICKED_UP", "SHIPPED" -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallButton("Call customer", Modifier.weight(1f), tonal = true, onClick = onCall)
@@ -132,7 +159,66 @@ private fun VendorOrderCard(o: CloudOrderRow, buyer: String, now: Long, busy: Bo
         }
         val payRider = if (o.deliveryMode == "MARKETPLACE" && o.feePaidBy == "VENDOR") " Free delivery: pay the rider ${rupees(o.deliveryFee)} when they collect it." else ""
         if (o.shipped && o.status == "ACCEPTED") Muted("Pack it, then tap Mark shipped with the carrier and tracking number.", Modifier.padding(top = 8.dp))
-        if (o.status == "ACCEPTED" && o.deliveryMode !in setOf("PICKUP", "SHIP")) Muted("A rider is being rung. Mark it packed when it's ready to hand over.$payRider", Modifier.padding(top = 8.dp))
-        if (o.status == "READY" && o.deliveryMode !in setOf("PICKUP", "SHIP")) Muted("Hand it to the rider. They enter the customer's PIN when collecting.$payRider", Modifier.padding(top = 8.dp))
+        if (o.status in setOf("ACCEPTED", "READY", "PICKED_UP") && o.deliveryMode !in setOf("PICKUP", "SHIP"))
+            DeliveryLine(delivery, busy, hasRiders, onRingAgain, onSendRider, onCallRider, Modifier.padding(top = 10.dp))
+        if (o.status in setOf("ACCEPTED", "READY") && payRider.isNotBlank()) Muted(payRider.trim(), Modifier.padding(top = 6.dp))
+    }
+}
+
+internal data class Choosing(val order: CloudOrderRow, val accept: Boolean)
+
+/** Where the delivery stands, with what the shop can do about it: ring again or send its rider while nobody has it, call its rider. */
+@Composable
+private fun DeliveryLine(d: OrderDelivery?, busy: Boolean, hasRiders: Boolean, onRingAgain: () -> Unit, onSendRider: () -> Unit, onCallRider: (String) -> Unit, modifier: Modifier) {
+    val rider = d?.riderName?.substringBefore(' ') ?: "The rider"
+    val (icon, text) = when (d?.status) {
+        null -> Icons.Rounded.HourglassTop to "Finding a rider…"
+        "SEARCHING" -> Icons.Rounded.NotificationsActive to (if (d.exclusiveUntil != null) "Ringing your rider first…" else if (d.onlyStoreRiders) "Ringing your riders…" else "Ringing riders nearby…")
+        "NO_DRIVER" -> Icons.Rounded.ErrorOutline to "No rider took it."
+        "MATCHED" -> Icons.Rounded.TwoWheeler to "$rider is coming to collect it" + (d.plate?.let { " · $it" } ?: "")
+        "ARRIVED" -> Icons.Rounded.Storefront to "$rider is at the shop"
+        "IN_PROGRESS" -> Icons.Rounded.LocalShipping to "$rider is taking it to the customer"
+        "COMPLETED" -> Icons.Rounded.Done to "Delivered"
+        else -> Icons.Rounded.Info to "Delivery ${d.status.lowercase()}"
+    }
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, Modifier.size(18.dp), tint = if (d?.status == "NO_DRIVER") MaterialTheme.status.bad else MaterialTheme.colorScheme.primary)
+            Text(" $text", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        }
+        // The pickup PIN goes with the parcel: the rider enters it when they collect.
+        if (d != null && d.status in setOf("MATCHED", "ARRIVED") && !d.pin.isNullOrBlank()) Muted("Hand it over with pickup PIN ${d.pin}", Modifier.padding(top = 4.dp))
+        if (d != null && (d.waiting || d.riderPhone != null)) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (d.waiting) SmallButton(if (busy) "Working…" else "Ring again", Modifier.weight(1f), tonal = true, enabled = !busy, onClick = onRingAgain)
+            if (d.waiting && hasRiders) SmallButton("Send my rider", Modifier.weight(1f), enabled = !busy, onClick = onSendRider)
+            d.riderPhone?.takeIf { !d.waiting }?.let { p -> SmallButton("Call $rider", Modifier.weight(1f), tonal = true) { onCallRider(p) } }
+        }
+    }
+}
+
+/** The shop's riders, online first, the last one used preselected; one tap on Send confirms. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RiderSheet(riders: List<StoreRider>, preselect: String?, accept: Boolean, busy: Boolean, onDismiss: () -> Unit, onPick: (StoreRider) -> Unit) {
+    var picked by remember { mutableStateOf(riders.firstOrNull { it.profileId == preselect } ?: riders.firstOrNull { it.online } ?: riders.firstOrNull()) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
+            Text(if (accept) "Accept and send your rider" else "Send your rider", style = MaterialTheme.typography.titleLarge)
+            Muted("They get it alone for a minute. If they don't take it, Bucks rings your other riders${if (accept) " (or riders nearby)" else ""}.", Modifier.padding(top = 4.dp, bottom = 8.dp))
+            if (riders.isEmpty()) Muted("You have no store riders yet. Add one under Team.")
+            riders.forEach { r ->
+                Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { picked = r }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(picked?.profileId == r.profileId, { picked = r })
+                    Avatar(initials(r.name), size = 36, photoUrl = r.photoUrl)
+                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                        Text(r.name, style = MaterialTheme.typography.bodyLarge)
+                        Muted(when { r.online -> "Online now"; !r.hasBike -> "No approved bike yet: can't take deliveries"; else -> "Offline: rung when they come online" })
+                    }
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(if (r.online) MaterialTheme.status.good else MaterialTheme.colorScheme.outline))
+                }
+            }
+            PrimaryButton(if (busy) "Working…" else picked?.let { "${if (accept) "Accept and send" else "Send"} ${it.name.substringBefore(' ')}" } ?: "Choose a rider",
+                Modifier.padding(top = 14.dp), enabled = !busy && picked != null) { picked?.let(onPick) }
+        }
     }
 }

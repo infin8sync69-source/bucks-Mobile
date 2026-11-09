@@ -68,7 +68,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var pickCategory by remember { mutableStateOf(false) }
     // Which Services tile a business belongs to; it decides the documents it needs. Fixed once the listing is live.
-    var service by remember { mutableStateOf(existing?.service?.takeIf { it in BUSINESS_SERVICES } ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: existing?.category?.let { serviceForCategory(it) } ?: "FOOD") }
+    var service by remember { mutableStateOf(existing?.service?.takeIf { it in BUSINESS_SERVICES } ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: existing?.category?.let { serviceForCategory(it) } ?: "SHOPPING") }   // never Food by default: Food asks for an FSSAI licence
     val serviceLocked = existing != null && existing.status != "PENDING"
     // What the business is (ui/PageTypes.kt). Shops derive their service from the category above; every other type gets it from
     // the server, which also fixes the type once the page is live (same rule as the service).
@@ -176,7 +176,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
             if (kind == "BUSINESS" && !serviceLocked && typeKey != PageTypes.of(existing)?.key) typeKey else null) { onDone() }
     }
 
-    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && type.isShop && !serviceLocked) service = knownServiceForCategory(c) ?: service; pickCategory = false }, onDismiss = { pickCategory = false })
+    if (pickCategory) CategoryPickerSheet(kind, category, onPick = { c -> category = c; if (kind == "BUSINESS" && type.isShop && !serviceLocked) service = knownServiceForCategory(c) ?: initialService?.takeIf { it in BUSINESS_SERVICES } ?: "SHOPPING"; pickCategory = false }, onDismiss = { pickCategory = false })
     if (pickType) PageTypePickerSheet(initialGroup = type.group, selected = typeKey, onPick = { picked -> typeKey = picked.key; if (picked.isShop && !serviceLocked) service = knownServiceForCategory(category) ?: service; pickType = false }, onDismiss = { pickType = false })
 
     Column(Modifier.fillMaxSize()) {

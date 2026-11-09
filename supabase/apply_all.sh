@@ -51,6 +51,7 @@ files=(
   migrations/profile_media.sql
   migrations/own_post_votes.sql
   migrations/pro_profile.sql
+  migrations/delivery_assignment.sql
 )
 
 case "${1:-}" in

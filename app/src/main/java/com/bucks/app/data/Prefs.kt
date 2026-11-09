@@ -36,6 +36,9 @@ object Prefs {
     var dataSaver by mutableStateOf(false); private set
     var language by mutableStateOf("en"); private set
 
+    /** The store rider a shop last sent, preselected the next time it chooses one (per listing, on this phone). */
+    fun lastRider(listingId: String): String? = if (::sp.isInitialized) sp.getString("rider_$listingId", null) else null
+    fun rememberRider(listingId: String, riderId: String) { if (::sp.isInitialized) sp.edit().putString("rider_$listingId", riderId).apply() }
     fun chooseTheme(t: Theme) { theme = t; sp.edit().putString("theme", t.name).apply() }
     fun chooseTextSize(t: TextSize) { textSize = t; sp.edit().putString("text", t.name).apply() }
     fun chooseMediaDownload(m: MediaDownload) { mediaDownload = m; sp.edit().putString("media", m.name).apply() }

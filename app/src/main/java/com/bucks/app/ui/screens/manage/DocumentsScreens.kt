@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -157,13 +158,52 @@ fun StaffReviewScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val sv = vm.services; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { sv.loadReviewQueue() }
     var rejecting by remember { mutableStateOf<ReviewItem?>(null) }
+    // Vehicles waiting for a check: approving one lets its owner and drivers go online (nothing else can).
+    var vehicles by remember { mutableStateOf<List<com.bucks.app.data.VehicleToReview>?>(null) }
+    var rejectingVehicle by remember { mutableStateOf<com.bucks.app.data.VehicleToReview?>(null) }
+    var vBusy by remember { mutableStateOf(false) }
+    fun loadVehicles() = scope.launch { vehicles = runCatching { com.bucks.app.data.DeliveryBackend.vehiclesToReview() }.getOrElse { vm.toast(com.bucks.app.data.friendlyError(it)); emptyList() } }
+    fun decide(v: com.bucks.app.data.VehicleToReview, approve: Boolean, note: String) = scope.launch {
+        vBusy = true
+        runCatching { com.bucks.app.data.DeliveryBackend.reviewVehicle(v.id, approve, note) }
+            .onSuccess { vm.toast(if (approve) "${v.plate} approved. The owner can go online." else "${v.plate} sent back to the owner."); vehicles = vehicles?.filterNot { it.id == v.id } }
+            .onFailure { vm.toast(com.bucks.app.data.friendlyError(it)) }
+        vBusy = false
+    }
+    LaunchedEffect(Unit) { loadVehicles() }
+    fun openPath(path: String) = scope.launch {
+        runCatching { Backend.signedUrl("docs", path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast("No app on this phone can open that file.") } }
+            .onFailure { vm.toast("Couldn't open the file. Check your connection.") }
+    }
     fun open(item: ReviewItem) = scope.launch {
         runCatching { Backend.signedUrl("docs", item.path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast("No app on this phone can open that file.") } }
             .onFailure { vm.toast("Couldn't open the file. Check your connection.") }
     }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Review documents", onBack = onBack)
+        BucksTopBar("Review documents and vehicles", onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
+            SectionTitle("Vehicles", Modifier.padding(top = 8.dp, bottom = 6.dp))
+            val vs = vehicles
+            when {
+                vs == null -> Box(Modifier.fillMaxWidth().padding(24.dp)) { BucksLoader() }
+                vs.isEmpty() -> Muted("No vehicles waiting.", Modifier.padding(bottom = 12.dp))
+                else -> vs.forEach { v ->
+                    BucksCard(Modifier.padding(bottom = 10.dp), padding = 14) {
+                        Text("${v.plate} · ${when (v.kind) { "BIKE" -> "Bike (deliveries)"; "AUTO" -> "Auto"; else -> "Cab" }}", style = MaterialTheme.typography.titleSmall)
+                        Muted(listOfNotNull(v.model.ifBlank { null }, v.ownerName, "added ${humanDate(v.createdAt)}").joinToString(" · "))
+                        val files = v.files
+                        if (files.isEmpty()) Text("No documents uploaded: reject and ask for the RC, insurance and licence.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                        else Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            files.forEachIndexed { i, (kind, path) -> SmallButton(kind.ifBlank { "Document ${i + 1}" }, tonal = true) { openPath(path) } } }
+                        Muted("Check the plate on the RC matches, and the insurance is in date.", Modifier.padding(top = 6.dp))
+                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SmallButton("Approve", enabled = !vBusy && files.isNotEmpty()) { decide(v, true, "") }
+                            SmallButton("Reject", tonal = true, enabled = !vBusy) { rejectingVehicle = v }
+                        }
+                    }
+                }
+            }
+            SectionTitle("Documents", Modifier.padding(top = 8.dp, bottom = 6.dp))
             when {
                 !sv.reviewLoaded -> Box(Modifier.fillMaxWidth().padding(40.dp)) { BucksLoader() }
                 sv.reviewQueue.isEmpty() -> Muted("Nothing to review. New uploads show up here.")
@@ -183,6 +223,13 @@ fun StaffReviewScreen(vm: BucksViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
+    rejectingVehicle?.let { v ->
+        var reason by remember(v.id) { mutableStateOf("") }
+        AlertDialog(onDismissRequest = { rejectingVehicle = null }, title = { Text("Send ${v.plate} back?") },
+            text = { OutlinedTextField(reason, { reason = it.take(300) }, label = { Text("What the owner needs to fix") }, placeholder = { Text("The insurance has expired; upload the new one") }, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = { TextButton(enabled = reason.isNotBlank() && !vBusy, onClick = { decide(v, false, reason.trim()); rejectingVehicle = null }) { Text("Send back") } },
+            dismissButton = { TextButton({ rejectingVehicle = null }) { Text("Cancel") } })
     }
     rejecting?.let { item ->
         var reason by remember(item.id) { mutableStateOf("") }
