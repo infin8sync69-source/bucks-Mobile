@@ -70,7 +70,7 @@ create or replace function public.nearest_locality(at geography) returns public.
 $$;
 
 create or replace function public.post_map_place() returns trigger language plpgsql security definer set search_path = public, extensions as $$
-declare l listings; x localities; staff_write boolean := current_setting('bucks.map_write', true) = 'on';
+declare l listings; x localities; staff_write boolean := coalesce(current_setting('bucks.map_write', true) = 'on', false);
 begin
   -- Only Bucks' own functions (which set bucks.map_write) change map_off_by; anything a client sends for these columns is ignored.
   if tg_op = 'UPDATE' then
