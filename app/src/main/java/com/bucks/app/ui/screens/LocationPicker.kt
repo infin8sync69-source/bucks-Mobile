@@ -30,6 +30,8 @@ internal fun areaOf(label: String?): String? = label?.substringAfterLast(", ")?.
 @Composable
 fun LocationPicker(current: String, fix: LatLng?, fixLabel: String?, onPick: (label: String, at: LatLng) -> Unit) {
     var q by remember { mutableStateOf("") }; var hits by remember { mutableStateOf<List<MapServices.PlaceHit>>(emptyList()) }; var searching by remember { mutableStateOf(false) }
+    var dropPin by remember { mutableStateOf(false) }
+    if (dropPin) PinDropDialog(hits.firstOrNull()?.at ?: fix ?: Geo.CENTER, q, onPick = { label, at -> dropPin = false; onPick(label, at); q = ""; hits = emptyList() }) { dropPin = false }
     // Search after a short pause in typing, biased to where the phone is (else the middle of Bengaluru, only used to order results).
     LaunchedEffect(q) {
         if (q.trim().length < 3) { hits = emptyList(); searching = false; return@LaunchedEffect }
@@ -44,13 +46,24 @@ fun LocationPicker(current: String, fix: LatLng?, fixLabel: String?, onPick: (la
         else Muted("Turn on location to use where you are now, or search for a place below.", Modifier.padding(bottom = 8.dp))
         BucksField(q, { q = it }, placeholder = "Search any area, landmark or town", singleLine = true)
         if (searching) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
-        else if (q.trim().length >= 3 && hits.isEmpty()) Muted("No places found for \"${q.trim()}\". Try a nearby landmark or the town's name.", Modifier.padding(top = 6.dp))
+        else if (q.trim().length >= 3 && hits.isEmpty()) Muted("No places found for \"${q.trim()}\". Try the pincode, a nearby landmark or the town's name, or drop a pin.", Modifier.padding(top = 6.dp))
         hits.forEach { h ->
             Row(Modifier.fillMaxWidth().clickable { onPick(placeLabel(h), h.at); q = ""; hits = emptyList() }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Place, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(Modifier.padding(start = 12.dp)) { Text(h.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1); if (h.detail.isNotBlank()) Muted(h.detail, maxLines = 1) }
+                Column(Modifier.padding(start = 12.dp)) { Text(h.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1); placeDetail(h).takeIf { it.isNotBlank() }?.let { Muted(it, maxLines = 1) } }
             }
             Divider()
         }
+        // Maps miss many lanes, colonies and landmarks in smaller towns: put it on the map yourself (saved for everyone).
+        if (q.trim().length >= 3 && !searching) TextButton({ dropPin = true }, Modifier.padding(top = 4.dp)) { Icon(Icons.Rounded.Place, null); Text("Can't find it? Drop a pin on the map", Modifier.padding(start = 6.dp)) }
+        Muted("Places from Bucks, India Post (data.gov.in) and OpenStreetMap.", Modifier.padding(top = 6.dp))
     }
+}
+
+/** The second line of a place: where it is, and where it came from when it's Bucks' own. */
+internal fun placeDetail(h: MapServices.PlaceHit): String = when (h.source) {
+    "POST" -> "${h.detail} · Post office area"
+    "PEOPLE" -> "${h.detail} · Pinned on Bucks"
+    "BUCKS" -> "${h.detail} · On Bucks".trimStart(' ', '·')
+    else -> h.detail
 }

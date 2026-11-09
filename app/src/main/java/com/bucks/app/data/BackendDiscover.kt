@@ -75,3 +75,16 @@ fun Backend.listingPhoto(photoUrl: String?): String? =
 suspend fun Backend.listingOwner(listingId: String): OwnerRow? = client.postgrest.rpc("listing_owner", buildJsonObject { put("p_listing", listingId) }).decodeList<OwnerRow>().firstOrNull()
 /** The other live pages this person runs, for the owner sheet. */
 suspend fun Backend.livePagesOf(ownerId: String): List<ListingRow> = client.postgrest.from("listings").select { filter { eq("owner_id", ownerId); eq("status", "LIVE") } }.decodeList()
+
+// ---------- places maps miss (places.sql) ----------
+@Serializable private data class PlaceRow(val source: String, val id: String? = null, val name: String, val detail: String = "", val lat: Double, val lng: Double)
+
+/** Bucks pages and areas, dropped pins and India Post localities matching [q], nearest to [near] first within each kind. */
+suspend fun Backend.searchPlaces(q: String, near: LatLng): List<MapServices.PlaceHit> =
+    client.postgrest.rpc("search_places", buildJsonObject { put("q", q); put("lat", near.lat); put("lng", near.lng); put("lim", 10) })
+        .decodeList<PlaceRow>().map { MapServices.PlaceHit(it.name, it.detail, LatLng(it.lat, it.lng), it.source) }
+
+/** Save a place the maps don't know; the same name within 150 m returns the existing one. */
+suspend fun Backend.addPlace(name: String, at: LatLng, area: String) {
+    client.postgrest.rpc("add_place", buildJsonObject { put("p_name", name); put("p_lat", at.lat); put("p_lng", at.lng); put("p_area", area) })
+}

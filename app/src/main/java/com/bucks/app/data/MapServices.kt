@@ -24,7 +24,9 @@ import java.net.URLEncoder
  * Every call fails soft (null / empty), so the app falls back to straight lines and the built-in place list.
  */
 object MapServices {
-    data class PlaceHit(val name: String, val detail: String, val at: LatLng)
+    /** [source]: MAP (OpenStreetMap / Mapbox), or from Bucks (places.sql): BUCKS a live page, AREA an area pages are in,
+     *  PEOPLE a pin someone dropped, POST an India Post locality. */
+    data class PlaceHit(val name: String, val detail: String, val at: LatLng, val source: String = "MAP")
     data class Step(val text: String, val metres: Double, val at: LatLng, val type: String, val modifier: String)
     data class RoadRoute(val km: Double, val minutes: Int, val points: List<LatLng>, val steps: List<Step> = emptyList())
 
@@ -75,6 +77,14 @@ object MapServices {
     /** Places matching [query], nearest to [near] first. Null when no search server could be reached (so "offline" isn't shown as "no places"). */
     suspend fun searchOrNull(query: String, near: LatLng): List<PlaceHit>? {
         val q = query.trim(); if (q.length < 3) return emptyList()
+        // Bucks' own places first (pages, areas, dropped pins, India Post localities: what maps miss in small towns), then the map's.
+        val ours = runCatching { Backend.searchPlaces(q, near) }.getOrNull()
+        val theirs = mapSearch(q, near)
+        if (ours == null) return theirs
+        return (ours + theirs.orEmpty()).distinctBy { it.name.lowercase() + "@" + Math.round(it.at.lat * 500) + "," + Math.round(it.at.lng * 500) }
+    }
+
+    private suspend fun mapSearch(q: String, near: LatLng): List<PlaceHit>? {
         if (token.isNotBlank()) {
             val m = get("https://api.mapbox.com/search/geocode/v6/forward?q=${enc(q)}&proximity=${near.lng},${near.lat}&limit=8&language=en&access_token=$token") as? JsonObject
             val hits = m?.let { o -> (o["features"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::mapboxHit) } }

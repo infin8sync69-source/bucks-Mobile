@@ -54,6 +54,7 @@ files=(
   migrations/delivery_assignment.sql
   migrations/search_quality.sql
   migrations/address_pin.sql
+  migrations/places.sql
 )
 
 case "${1:-}" in

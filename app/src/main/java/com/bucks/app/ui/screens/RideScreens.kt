@@ -138,7 +138,7 @@ private fun PlaceRow(name: String, km: Double, saved: Boolean, selected: Boolean
 private fun HitRow(h: MapServices.PlaceHit, km: Double, selected: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent).clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.LocationOn, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) { Text(h.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(listOf(h.detail, "${"%.1f".format(km)} km away").filter { it.isNotBlank() }.joinToString(" · "), maxLines = 1) }
+        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) { Text(h.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(listOf(placeDetail(h), "${"%.1f".format(km)} km away").filter { it.isNotBlank() }.joinToString(" · "), maxLines = 1) }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 }
