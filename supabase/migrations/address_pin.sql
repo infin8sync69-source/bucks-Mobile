@@ -9,4 +9,4 @@ alter table public.addresses add column if not exists lng double precision;
 alter table public.addresses drop constraint if exists addresses_pin_shape;
 -- Both or neither, and inside India (the only place Bucks delivers).
 alter table public.addresses add constraint addresses_pin_shape check (
-  (lat is null and lng is null) or (lat between 6 and 38 and lng between 68 and 98));
+  (lat is null and lng is null) or (lat is not null and lng is not null and lat between 6 and 38 and lng between 68 and 98));

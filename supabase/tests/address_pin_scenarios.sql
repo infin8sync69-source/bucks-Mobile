@@ -14,6 +14,7 @@ insert into addresses (profile_id, label, name, phone, line1, city, state, pinco
 select pg_temp.check('pinned', (select lat = 12.30 and lng = 76.65 from addresses where label = 'Home'));
 select 'half a pin -> ' || pg_temp.expect_fail($$update addresses set lng = null where label = 'Home'$$, 'addresses_pin_shape');
 select 'outside India -> ' || pg_temp.expect_fail($$update addresses set lat = 51.5, lng = -0.1 where label = 'Home'$$, 'addresses_pin_shape');
-select pg_temp.check('unpinned is fine', (with u as (update addresses set lat = null, lng = null where label = 'Home' returning 1) select count(*) = 1 from u));
+update addresses set lat = null, lng = null where label = 'Home';
+select pg_temp.check('unpinned is fine', (select lat is null and lng is null from addresses where label = 'Home'));
 select pg_temp.as_user('ax'); select (public.ensure_profile('Other Om', '9000000602')).id is not null;
 select pg_temp.check('nobody else sees it', (select count(*) from addresses where label = 'Home') = 0);
