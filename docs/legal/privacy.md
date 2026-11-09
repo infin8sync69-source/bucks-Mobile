@@ -30,6 +30,7 @@ Bucks is an app for people, local services and shops near you, run by **Bucks Te
 
 | Data | Why | Shared with |
 |---|---|---|
+| **Precise location** (only while you book or are on a ride or delivery) | Setting your pickup point and showing the trip on the map | The driver or rider who takes it, during that trip |
 | **Pickup and drop points, trip details and fares** | Booking and completing a ride or delivery | The driver or rider who takes it |
 | **Delivery and saved addresses** (name, mobile number, address, pincode) | Delivering your orders | The shop and the rider or courier delivering that order |
 | **Orders, carts and order history** | Placing, tracking and rating orders | The shop you ordered from |
@@ -41,7 +42,7 @@ Bucks is an app for people, local services and shops near you, run by **Bucks Te
 |---|---|---|
 | **Business or skill profile, catalogue, prices, photos** | Your public page | Everyone who finds your page |
 | **Vehicle details and documents** (registration certificate, insurance, driving licence, permit) and **business documents** (for example an FSSAI licence) | Checking that you can legally offer the service | Bucks staff who review them. Not shown publicly |
-| **Your location while you are online as a driver** | Offering you nearby ride and delivery requests | The customer of a trip you accept, during that trip |
+| **Your precise location while you are online as a driver** (a notification shows the whole time; it stops when you go offline) | Offering you nearby ride and delivery requests, and checking arrival and drop | The customer of a trip you accept, during that trip |
 | **UPI payment QR** | Showing customers how to pay you | Your customers |
 
 Bucks does not process card or UPI payments itself: payments go directly from the customer's UPI app to yours, or are paid in cash.
@@ -53,6 +54,7 @@ Bucks does not process card or UPI payments itself: payments go directly from th
 | **Push notification token** | Sending you notifications | Firebase Cloud Messaging (Google) |
 | **Crash reports** | Fixing bugs. No user identifier | Firebase Crashlytics (Google) |
 | **Usage statistics** (adults only, and you can turn it off) | Seeing which features are used | Google Analytics for Firebase. No advertising ID, no user ID, never for anyone under 18 |
+| **Voice search** (only when you tap the microphone) | Turning what you say into a search | Your phone's speech service (for example Google) converts it to text. Bucks receives only the text, never the audio |
 | **Map and place searches** | Showing maps, finding places and routes | Mapbox, which receives the search text and map area, not your identity |
 
 We don't sell personal data, show ads or use an advertising ID.

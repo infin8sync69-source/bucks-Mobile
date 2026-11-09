@@ -65,7 +65,7 @@ Report any post, comment, message or profile. Teen accounts need a parent's cons
 | Privacy policy | https://infin8sync69-source.github.io/bucks-Mobile/legal/privacy |
 | App access | Sign-in needed. Give reviewers a Firebase **test phone number** and its fixed code (Firebase console → Authentication → Sign-in method → Phone → Phone numbers for testing). Instructions: "Enter the number, then the code. Choose any date of birth over 18." |
 | Ads | No ads |
-| Content rating | IARC questionnaire: category **Social / Communication**. Users interact: **Yes**. Users share location: **Yes (approximate)**. Digital purchases: **No**. User-generated content with moderation and reporting: **Yes**. Expect roughly **Teen / 12+** |
+| Content rating | IARC questionnaire: category **Social / Communication**. Users interact: **Yes**. Users share location: **Yes** (precise during rides and for drivers). Digital purchases: **No**. User-generated content with moderation and reporting: **Yes**. Expect roughly **Teen / 12+** |
 | Target audience | **13–15, 16–17, 18+**. Not designed for children under 13. "Appeals to children": No |
 | News app | No |
 | Data safety | See below |
@@ -82,6 +82,7 @@ Encrypted in transit: **Yes**. Users can request deletion: **Yes**. Data shared 
 | Data type | Collected | Optional | Purposes |
 |---|---|---|---|
 | Location → Approximate | Yes | Yes | App functionality |
+| Location → Precise | Yes | Yes (rides, deliveries, driver mode) | App functionality, Fraud prevention, security and compliance |
 | Personal info → Name | Yes | No | App functionality, Account management |
 | Personal info → Phone number | Yes | No | Account management, App functionality (deliveries) |
 | Personal info → Address | Yes | Yes | App functionality (deliveries) |
@@ -97,9 +98,17 @@ Encrypted in transit: **Yes**. Users can request deletion: **Yes**. Data shared 
 | Device or other IDs (push token) | Yes | No | App functionality |
 | Contacts | **No** (read on the phone, never uploaded) | | |
 
-### Sensitive permissions in the Play build
+Audio is **not** collected: voice search uses the phone's speech recogniser and Bucks receives only text.
 
-`app/src/release/AndroidManifest.xml` removes precise location, background/foreground-service location, battery-exemption and microphone from Play builds, so **no permission declaration forms are needed** for this build. See "Scope" below.
+### Sensitive permissions (super-app build)
+
+| Permission | Play Console form | What to enter |
+|---|---|---|
+| `ACCESS_FINE_LOCATION` | Not a separate form (foreground only; no `ACCESS_BACKGROUND_LOCATION`) | Covered by Data safety → Precise location |
+| `FOREGROUND_SERVICE_LOCATION` (`DriverLocationService`) | **App content → Foreground service permissions** | Type: *Location*. Use: "Drivers who go online share their live location so nearby ride and delivery requests can be offered to them and the customer can follow the trip. Runs only while the driver is online, with a persistent notification; stops when they go offline." **Video:** 30–60 s screen recording: Menu → vehicle → Go online → notification appears → accept a request → Go offline → notification disappears. Upload to YouTube as unlisted and paste the link |
+| `RECORD_AUDIO` | None (runtime permission, declared in Data safety as not collected) | — |
+| `READ_CONTACTS` | None | Data safety: not collected (stays on the phone) |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Removed from Play builds | — |
 
 ## Release (Test and release)
 
@@ -110,12 +119,9 @@ Encrypted in transit: **Yes**. Users can request deletion: **Yes**. Data shared 
 5. **Closed testing** (personal developer accounts): at least 12 testers opted in for 14 days in a row, then **Apply for production**.
 6. **Production**: staged rollout 10% → 50% → 100%.
 
-## Scope (decide before the first upload)
+## Scope
 
-The `SOCIAL_ONLY` flag was removed on 8 November (commit `0e95951`), so the Play build shows the full app: rides, driver mode, shops and orders. The release manifest still strips the permissions those need (precise location, the driver location service). Either:
-
-- **Social and shops only for 1.0:** hide rides and driver mode in release builds, and keep the stripped permissions; or
-- **Everything in 1.0:** remove those lines from `app/src/release/AndroidManifest.xml`, then fill Play's location permission and foreground service declarations (with a short video), and check ride-aggregator, FSSAI and e-commerce rules with a lawyer first.
+**Decided 9 November 2026: the full super-app ships in 1.0** (social, shops and orders, local services, jobs, rides and driver mode). Before production, confirm with a lawyer: Motor Vehicle Aggregator Guidelines licence for each launch state, Consumer Protection (E-Commerce) Rules 2020 (seller details, grievance officer, refunds), FSSAI for food sellers, GST.
 
 ## MOCK details to replace after legal review
 

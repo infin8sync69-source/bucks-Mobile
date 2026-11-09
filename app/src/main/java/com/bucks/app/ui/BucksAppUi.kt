@@ -109,7 +109,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                 (if (notifOk()) "\u2713 Notifications are on.\n" else "\u2717 Notifications are off.\n") + (if (batteryOk()) "\u2713 Battery: unrestricted." else "\u2717 Battery: the phone may put Bucks to sleep. Choose \"Allow\" or \"Unrestricted\".")) },
             confirmButton = { TextButton({ reachSheet = false
                 if (!notifOk()) { if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)) }
-                else if (!batteryOk()) runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${ctx.packageName}"))) }
+                // Play builds don't declare REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (release manifest), so they go straight to the settings list.
+                else if (!batteryOk()) runCatching { check(ctx.checkSelfPermission(Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+                        ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${ctx.packageName}"))) }
                     .onFailure { runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } } }) { Text("Fix now") } },
             dismissButton = { TextButton({ reachSheet = false }) { Text("Later") } })
         // Back in the foreground: where the phone is now, not where it was when Bucks was last opened.
