@@ -99,10 +99,10 @@ select pg_temp.expect_ok(format($$select recommend(%L, 12.9063, 77.5857)$$, curr
 select pg_temp.as_user('rec2');
 select 'second person, same code -> ' || pg_temp.expect_fail(format($$select recommend(%L, 12.9063, 77.5857)$$, current_setting('t.tok')), 'expired');
 update profiles set home = geo(12.9300, 77.6000) where id = me();
-select pg_temp.check('a home move is recorded', (select home_changed_at is not null from profiles where id = me()));
+reset role; select pg_temp.check('a home move is recorded', (select home_changed_at is not null from profiles where id = me())); set role authenticated;
 -- Clearing the stamp by hand either isn't allowed or is ignored by the trigger; either way it stays.
 select pg_temp.try($$update profiles set home_changed_at = null where id = me()$$);
-select pg_temp.check('the move stamp can''t be cleared by hand', (select home_changed_at is not null from profiles where id = me()));
+reset role; select pg_temp.check('the move stamp can''t be cleared by hand', (select home_changed_at is not null from profiles where id = me())); set role authenticated;
 reset role; update profiles set home = geo(12.9063, 77.5857) where auth_uid = 'rec2'; set role authenticated;
 select pg_temp.as_user('owner');
 select set_config('t.tok', recommend_token(id), false) is not null from listings where title = 'Asha Biryani';
