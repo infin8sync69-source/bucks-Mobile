@@ -97,25 +97,20 @@ fun MyFilesTab(vm: BucksViewModel) {
 /** Recommendations: locals I recommended, reviews I gave, and how many people recommended my own listings. */
 @Composable
 fun MyRecommendationsTab(vm: BucksViewModel, onOpen: (String) -> Unit) {
-    val me = vm.social.me ?: return; val m = vm.myListings
+    val me = vm.social.me ?: return
     var given by remember { mutableStateOf<List<Pair<RecGiven, ListingRow?>>?>(null) }; var reviews by remember { mutableStateOf<List<Pair<ReviewRow, ListingRow?>>?>(null) }; var failed by remember { mutableStateOf(false) }
     LaunchedEffect(me.id) {
         given = runCatching { Backend.recommendationsIGave(me.id) }.onFailure { failed = true }.getOrNull()
         reviews = runCatching { Backend.reviewsIWrote(me.id) }.getOrNull()
-        if (!m.loaded) m.refresh(); m.listings.forEach { m.loadCounts(it.id) }
     }
     val st = MaterialTheme.status
     Column(Modifier.padding(bottom = 12.dp)) {
-        SectionTitle("For my listings", Modifier.padding(start = Gutter, end = Gutter, top = 14.dp, bottom = 4.dp))
-        if (m.listings.isEmpty()) Muted("When you list a business, skill or asset, the people who recommend it show here.", Modifier.padding(horizontal = Gutter))
-        m.listings.forEach { l -> val n = m.counts[l.id]?.recommendations ?: m.recommendations[l.id]
-            ListRow(l.title, listOfNotNull(if (n != null) "$n ${if (n == 1) "person" else "people"} recommended" else null, if (l.status == "LIVE") "Live" else "Not live yet").joinToString(" · "), leading = { Avatar(icon = Icons.Rounded.ArrowUpward, size = 40) },
-                trailing = { TrustBadge(Trust(l.trustUp, l.trustDown), compact = true) }, onClick = { onOpen(Routes.studioListing(l.id)) }); Divider() }
-        SectionTitle("Locals I recommended", Modifier.padding(start = Gutter, end = Gutter, top = 18.dp, bottom = 4.dp))
+        // Personal only: who recommends my pages is shown on each page's Pro dashboard, not here.
+        SectionTitle("Locals I recommended", Modifier.padding(start = Gutter, end = Gutter, top = 14.dp, bottom = 4.dp))
         when {
             given == null && !failed -> CenteredLoading()
             failed -> Muted("Couldn't load your recommendations. Open this tab again.", Modifier.padding(horizontal = Gutter))
-            given.orEmpty().isEmpty() -> Muted("Scan someone's code in person (Menu > Recommend a local) to vouch for a shop, skill or driver you know.", Modifier.padding(horizontal = Gutter))
+            given.orEmpty().isEmpty() -> Muted("Scan someone's code in person (Profile > Orders and activity > Recommend a local) to vouch for a shop, skill or driver you know.", Modifier.padding(horizontal = Gutter))
             else -> given.orEmpty().forEach { (r, l) -> ListRow(l?.title ?: "A listing", listOfNotNull(l?.category?.ifBlank { null }, l?.area?.ifBlank { null }, ago(r.createdAt)).joinToString(" · "), leading = { Avatar(icon = Icons.Rounded.Verified, size = 40) },
                 onClick = l?.let { x -> { onOpen(Routes.listing(x.id)) } }); Divider() }
         }

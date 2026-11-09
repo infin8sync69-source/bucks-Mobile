@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +37,7 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
     val tabs = listOf("activity" to "Activity", "settings" to "Settings")
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
     // Cloud builds: my real profile and posts (the demo profile writes to the local demo store, which no neighbour ever sees).
-    if (tab == "profile") { if (vm.social.enabled) CloudPersonalProfile(vm, onEditProfile, onOpen) else PersonalProfile(vm, onEditProfile, onCreatePost); return }
+    if (tab == "profile") { if (vm.social.enabled) CloudPersonalProfile(vm, onEditProfile, onOpen, onMenu, onMessages, vm.unreadCount(chats)) else PersonalProfile(vm, onEditProfile, onCreatePost); return }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Account", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         PrimaryTabRow(selectedTabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) { tabs.forEach { (k, l) -> Tab(selected = tab == k, onClick = { tab = k }, text = { Text(l, style = MaterialTheme.typography.labelLarge) }) } }
         // Settings is the shared list, edge to edge; the activity tab keeps the page gutter.
@@ -70,13 +71,16 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
 /** My own profile in cloud builds: name, Bucks ID, synced people and chats from the server, and my posts from the feed. Posting goes through social.post like the Feed tab. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onOpen: (String) -> Unit) {
+private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onOpen: (String) -> Unit, onMenu: () -> Unit, onMessages: () -> Unit, unread: Int) {
     val social = vm.social; val s by vm.state.collectAsState(); val u = s.user ?: return; val ctx = LocalContext.current
     val me = social.me
     var compose by remember { mutableStateOf(false) }; var comments by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(me?.id) { if (me != null) { social.refreshFeed(); social.refreshSyncs() } }
     val name = me?.name?.ifBlank { null } ?: u.name; val area = me?.area?.ifBlank { null } ?: u.area; val bio = me?.bio?.ifBlank { null } ?: u.bio
     val mine = social.feed.filter { it.authorId == me?.id }
+    // Settings, help, log out, orders and the Bucks ID left the ☰ menu (it is Pro-only now), so Profile is where they live.
+    Column(Modifier.fillMaxSize()) { BucksTopBar("Profile", onMenu = onMenu, unread = unread, onChat = onMessages) {
+        IconButton(onClick = { onOpen(Routes.SETTINGS) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Settings, "Settings") } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         ProfileMediaHeader(vm, name, me?.photoUrl, me?.coverUrl, editable = me != null, busy = social.mediaBusy,
             onPick = { slot, picked -> social.setMyPicture(slot, picked) }, onRemove = { social.clearMyPicture(it) })
@@ -91,7 +95,14 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
                 SoftButton("Edit profile", Icons.Rounded.EditNote, onClick = onEditProfile)
                 SoftButton("Share", Icons.Rounded.IosShare) { shareText(ctx, "$name on Bucks" + (me?.let { " · Bucks ID ${it.shortCode}" } ?: "") + (if (area.isNotBlank()) " · $area" else "")) } }
         }
-        MyPagesSection(vm, onOpen)
+        // Profile is personal only: pages, vehicles and other Pro listings live in the ☰ Bucks Pro menu.
+        Column(Modifier.padding(horizontal = Gutter)) {
+            SectionTitle("Your account", Modifier.padding(top = 8.dp, bottom = 4.dp))
+            ListRowCompact(Icons.Rounded.ShoppingBag, "Orders and activity", "Orders, rides, job applications and service requests") { onOpen(Routes.ACTIVITY) }
+            ListRowCompact(Icons.Rounded.QrCode2, "Bucks ID", "Your card and QR for syncing") { onOpen(Routes.BUCKS_ID) }
+            ListRowCompact(Icons.Rounded.Settings, "Settings", "Privacy, notifications, appearance, voice, app versions, log out") { onOpen(Routes.SETTINGS) }
+            ListRowCompact(Icons.AutoMirrored.Rounded.HelpOutline, "Help and support", "Questions, contact us, grievance officer") { onOpen(Routes.HELP) }
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(initials(name), size = 40, photoUrl = me?.photoUrl)
@@ -112,6 +123,7 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
             else -> MyRecommendationsTab(vm, onOpen)
         }
         Spacer(Modifier.height(24.dp))
+    }
     }
     if (compose) NewPostSheet(vm) { compose = false }
     comments?.let { id -> CloudCommentsSheet(vm, id) { comments = null } }
@@ -143,24 +155,4 @@ private fun VerificationCard(vm: BucksViewModel, id: String, levels: Set<Verific
 @Composable private fun StatCard(value: String, label: String, modifier: Modifier) = BucksCard(modifier, padding = 14) { Text(value, style = MaterialTheme.typography.titleLarge); Muted(label) }
 @Composable private fun ProfileRow(icon: ImageVector, title: String, sub: String) = BucksCard(Modifier.padding(bottom = 10.dp), padding = 14) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Column(Modifier.padding(start = 14.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(sub) } } }
 @Composable private fun ListRowCompact(icon: ImageVector, title: String, sub: String, onClick: (() -> Unit)? = null) { Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(icon = icon, size = 36, tinted = false); Column(Modifier.padding(start = 12.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Muted(sub) } }; Divider() }
-
-/**
- * The businesses, skills and organisations this person runs, under their profile. Each row opens the page itself
- * (its public profile), the same one people find in search; managing it stays in Menu > Bucks Pro.
- */
-@Composable
-private fun MyPagesSection(vm: BucksViewModel, onOpen: (String) -> Unit) {
-    val m = vm.myListings
-    LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
-    val pages = m.listings.filter { it.kind != "DRIVER" }
-    if (pages.isEmpty()) return
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-    SectionTitle(if (pages.size == 1) "My page" else "My pages", Modifier.padding(start = Gutter, end = Gutter, top = 12.dp, bottom = 4.dp))
-    pages.forEach { l ->
-        val ships = (l.details["ships_india"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
-        ListRow(l.title, listOfNotNull(PageTypes.badge(l.kind, l.typeKey, ships), l.category.ifBlank { null }, if (l.status == "LIVE") null else "Not live yet").joinToString(" · "),
-            leading = { Avatar(icon = PageTypes.badgeIcon(l.kind, l.typeKey, ships), size = 40) },
-            trailing = { TrustBadge(Trust(l.trustUp, l.trustDown), compact = true) }, onClick = { onOpen(Routes.listing(l.id)) })
-    }
-}
 
