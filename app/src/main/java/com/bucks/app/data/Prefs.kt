@@ -46,6 +46,10 @@ object Prefs {
         set(v) { if (::sp.isInitialized) sp.edit().apply { if (v == null) remove("cart") else putString("cart", v) }.apply() }
     /** The store rider a shop last sent, preselected the next time it chooses one (per listing, on this phone). */
     fun lastRider(listingId: String): String? = if (::sp.isInitialized) sp.getString("rider_$listingId", null) else null
+    /** The one-time "counts show after you vote" hint was seen (dismissed, or the person voted). */
+    var voteHintSeen: Boolean
+        get() = if (::sp.isInitialized) sp.getBoolean("vote_hint_seen", false) else true
+        set(v) { if (::sp.isInitialized) sp.edit().putBoolean("vote_hint_seen", v).apply() }
     fun rememberRider(listingId: String, riderId: String) { if (::sp.isInitialized) sp.edit().putString("rider_$listingId", riderId).apply() }
     fun chooseTheme(t: Theme) { theme = t; sp.edit().putString("theme", t.name).apply() }
     fun chooseTextSize(t: TextSize) { textSize = t; sp.edit().putString("text", t.name).apply() }

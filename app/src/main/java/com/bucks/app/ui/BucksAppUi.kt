@@ -213,9 +213,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 if (l.status == "LIVE" && m.canManage(l.id)) ListingSwitch(l.online) { on -> m.setOnline(l.id, on) }
                             }
                         }
-                        // Quick switch for the active vehicle, so a driver can go online from anywhere.
-                        if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, online = s.online, onToggle = { on -> vm.setVehicleOnline(v.id, on); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate) }
-                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), online = s.vehicleOnline, onToggle = { on -> vm.setOnline(on, cv.plate); if (on) { closeMenu(); home() } }, onEdit = { closeMenu(); nav.navigate(Routes.vehicleEdit(cv.id)) }) { Muted(cv.plate) }
+                        // The vehicle and whether it's online; going online and offline happens in one place, on Home.
+                        if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate + if (s.online) " · Online" else "") }
+                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), onEdit = { closeMenu(); nav.navigate(Routes.vehicleEdit(cv.id)) }) { Muted(cv.plate + if (s.vehicleOnline) " · Online" else " · Go online from Home") }
                         if (studio) DrawerItem(Icons.Rounded.Add, "Create a listing", false) { closeMenu(); nav.navigate(Routes.MY_LISTINGS) }
                     }
                     if (studio) {

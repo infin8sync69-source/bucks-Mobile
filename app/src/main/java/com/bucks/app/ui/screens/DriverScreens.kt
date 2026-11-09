@@ -258,7 +258,7 @@ private fun DriverCancelSheet(vm: BucksViewModel, delivery: Boolean, atPickup: B
         message = (if (atPickup) (if (delivery) "Use this when you can't collect the order. " else "Use this when the customer isn't there. ") + "It goes to the next rider and you won't be rung for it again."
                    else "The ${if (delivery) "order" else "customer"} goes to the next rider.") + " Cancelling after accepting counts against your recommendations.",
         reasons = CancelReasons.driver, requireReason = true, confirmLabel = if (atPickup) "Hand back" else "Cancel $what", keepLabel = "Keep it",
-        nudge = if (n >= 2) "You've handed back $n trips today. Customers and shops rely on riders who finish what they accept." else null, busy = busy,
+        nudge = when { n >= 2 -> "You've handed back $n trips today. Customers and shops rely on riders who finish what they accept."; n == 1 -> "You've handed back 1 trip today."; else -> null }, busy = busy,
         onConfirm = { code, note -> busy = true; vm.driverCancel(code, note) { ok -> busy = false; if (ok) onClose() } }, onDismiss = onClose)
 }
 

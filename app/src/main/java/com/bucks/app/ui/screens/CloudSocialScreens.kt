@@ -134,16 +134,26 @@ fun CloudFeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Un
     var compose by remember { mutableStateOf(false) }; var comments by remember { mutableStateOf<String?>(null) }
     var muteFor by remember { mutableStateOf<TrayRow?>(null) }; var showMuted by remember { mutableStateOf(false) }
     LaunchedEffect(social.me?.id) { if (social.me != null) social.refreshFeed() }
+    var hintSeen by remember { mutableStateOf(com.bucks.app.data.Prefs.voteHintSeen) }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Feed", onMenu = onMenu, unread = social.unread, onChat = onMessages)
         LazyColumn {
             item { MomentsTray(social.tray, myName = social.me?.name ?: "You", onOpen = onOpenMoments, onNew = onNewMoment, onMute = { muteFor = it }, onMore = { showMuted = true }) }
             item { Box(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) { Surface(Modifier.fillMaxWidth().height(56.dp).clip(MaterialTheme.shapes.medium).clickable { compose = true }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Edit, null, Modifier.size(24.dp)); Spacer(Modifier.width(16.dp)); Text("Share with your neighbours", style = MaterialTheme.typography.bodyLarge) } } } }
+            // Once: why only one number shows on a post before voting.
+            if (!hintSeen && social.feed.any { it.myVote == null && it.authorId != social.me?.id }) item {
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 6.dp)) {
+                    Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Tap ↑ or ↓ on a post. The full counts show after you vote, so nobody just follows the crowd.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+                        TextButton({ hintSeen = true; com.bucks.app.data.Prefs.voteHintSeen = true }) { Text("Got it") }
+                    }
+                }
+            }
             // The Feed is the people you've synced with (and pages you sync with); strangers' posts never land here.
             if (social.feed.isEmpty()) item { Column(Modifier.padding(Gutter)) {
                 Muted("Posts from people you've synced with show here.")
                 SmallButton("Find people to sync with", Modifier.padding(top = 10.dp), tonal = true, onClick = onFindPeople) } }
-            items(social.feed, key = { it.id }) { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it) }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
+            items(social.feed, key = { it.id }) { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it); if (!hintSeen) { hintSeen = true; com.bucks.app.data.Prefs.voteHintSeen = true } }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
             if (social.feed.isNotEmpty() && !social.feedEnd) item { TextButton({ social.loadMoreFeed() }, Modifier.fillMaxWidth().padding(8.dp)) { Text("Load more") } }
             item { Spacer(Modifier.height(24.dp)) }
         }
