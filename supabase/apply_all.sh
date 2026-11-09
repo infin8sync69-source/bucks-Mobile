@@ -50,6 +50,7 @@ files=(
   migrations/feedback_board.sql
   migrations/profile_media.sql
   migrations/own_post_votes.sql
+  migrations/pro_profile.sql
 )
 
 case "${1:-}" in

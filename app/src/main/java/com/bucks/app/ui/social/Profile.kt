@@ -99,13 +99,15 @@ fun MeScreen(vm: BucksViewModel, onEditProfile: () -> Unit, onSettings: () -> Un
  * Their posts show what I'm allowed to see; a private person I'm not synced with shows only their name and Bucks ID.
  */
 @Composable
-fun PersonScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit) {
+fun PersonScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat: (String) -> Unit, onOpenPro: (String) -> Unit = {}) {
     val social = vm.social; val scope = rememberCoroutineScope(); val report = LocalReporter.current
     var person by remember { mutableStateOf<ProfileRow?>(null) }; var missing by remember { mutableStateOf(false) }
     val posts = remember(id) { PostsOf(vm, id) }
     var comments by remember { mutableStateOf<String?>(null) }; var menu by remember { mutableStateOf(false) }; var confirmBlock by remember { mutableStateOf(false) }
     var requested by remember { mutableStateOf(false) }
-    LaunchedEffect(id) { person = runCatching { Backend.profiles(listOf(id)).firstOrNull() }.getOrNull(); missing = person == null; posts.load(); social.refreshSyncs() }
+    var hasPro by remember(id) { mutableStateOf(false) }
+    LaunchedEffect(id) { person = runCatching { Backend.profiles(listOf(id)).firstOrNull() }.getOrNull(); missing = person == null; posts.load(); social.refreshSyncs()
+        hasPro = runCatching { com.bucks.app.data.ProBackend.visible(id) }.getOrDefault(false) }
     val synced = social.synced.any { it.id == id }; val incoming = social.incoming.any { it.id == id }; val close = id in social.closeFriends
     val p = person
     Box(Modifier.fillMaxSize()) {
@@ -135,6 +137,7 @@ fun PersonScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenChat:
                     }
                     OutlinedButton({ social.openDirect(id, onOpenChat) }, Modifier.weight(1f), shape = MaterialTheme.shapes.large, enabled = p != null) { Icon(Icons.Rounded.ChatBubbleOutline, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Message") }
                 }
+                if (hasPro) TextButton({ onOpenPro(id) }, Modifier.padding(horizontal = Gutter - 12.dp)) { Icon(Icons.Rounded.Work, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("See ${p?.name?.substringBefore(' ') ?: "their"}'s Pro profile") }
                 if (!synced && !missing) Muted("Sync with ${p?.name?.substringBefore(' ') ?: "them"} to see posts they share with syncs and to message them.", Modifier.padding(horizontal = Gutter))
                 Text("Posts", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = Gutter, top = 20.dp, bottom = 4.dp).semantics { heading() })
             }

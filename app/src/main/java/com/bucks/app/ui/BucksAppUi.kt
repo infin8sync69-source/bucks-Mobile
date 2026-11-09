@@ -190,6 +190,16 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         Text("Bucks Pro", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                         IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close menu", tint = MaterialTheme.colorScheme.primary) }
                     }
+                    // Pro profile: my professional side, one tap from the menu (adults only; the screen says so otherwise).
+                    if (studio && vm.social.me != null) Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer).clickable { closeMenu(); nav.navigate(Routes.PRO_PROFILE) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(initials(vm.social.me?.name.orEmpty().ifBlank { "?" }), size = 44, photoUrl = vm.social.me?.photoUrl)
+                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text("Pro profile", style = MaterialTheme.typography.titleSmall)
+                            Text("Your work, skills and CV", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.ChevronRight, "Open Pro profile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     // Bucks ID: a mini card that opens the full card with QR and barcode.
                     vm.social.me?.takeIf { studio }?.let { me ->
                         val info = BucksIdCardInfo.of(me.idIssuedAt)
@@ -408,12 +418,14 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             // ---- onboarding, people, notifications, settings, safety and help (from the social build) ----
                             composable(Routes.AGE) { com.bucks.app.ui.social.AgeScreen(vm, onDone = { band -> if (band == "ADULT") afterGate() else nav.navigate(Routes.GUARDIAN) { popUpTo(0); launchSingleTop = true } }, onSignOut = logout) }
                             composable(Routes.GUARDIAN) { com.bucks.app.ui.social.GuardianScreen(vm, onDone = afterGate, onSignOut = logout) }
-                            composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> com.bucks.app.ui.social.PersonScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
+                            composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> com.bucks.app.ui.social.PersonScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onOpenPro = { nav.navigate(Routes.proPerson(it)) }) }
                             composable(Routes.DISCOVER) { com.bucks.app.ui.social.DiscoverScreen(vm, onOpenPerson = openPerson, onContacts = { nav.navigate(Routes.CONTACTS) }, onBucksId = { nav.navigate(Routes.SYNC) }) }
                             composable(Routes.NOTIFICATIONS) { CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, initialTab = 1, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { runCatching { nav.navigate(it) } } }) }
                             composable(Routes.SETTINGS) { com.bucks.app.ui.social.SocialSettingsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }) }
                             composable(Routes.SAFETY_CENTER) { com.bucks.app.ui.social.SafetyCenterScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) }) }
                             composable(Routes.HELP) { com.bucks.app.ui.social.HelpScreen(vm, onBack = { nav.popBackStack() }, onFeedback = { nav.navigate(Routes.FEEDBACK) }) }
+                            composable(Routes.PRO_PROFILE) { com.bucks.app.ui.screens.pro.ProProfileScreen(vm, null, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onAddService = { nav.navigate(Routes.listingEdit(null, "SKILL")) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
+                            composable(Routes.PRO_PERSON, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> com.bucks.app.ui.screens.pro.ProProfileScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onAddService = { nav.navigate(Routes.listingEdit(null, "SKILL")) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) }
                             composable(Routes.APP_VERSIONS) { AppVersionsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.FEEDBACK) { com.bucks.app.ui.social.FeedbackBoardScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.STAFF_REPORTS) { com.bucks.app.ui.social.StaffReportsScreen(vm, onBack = { nav.popBackStack() }, onOpenPerson = openPerson) }

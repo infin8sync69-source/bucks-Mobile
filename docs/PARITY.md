@@ -58,4 +58,5 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 | Report sheet and staff report queue | `ui/social/Report.kt`, `Settings.kt` | Not yet | Needed before the App Store submission (guideline 1.2) |
 | People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | Not yet | |
 | Feedback board | `ui/social/Feedback.kt` | Not yet | |
+| Pro profile (Bucks Pro menu): intro, experience, education, skills, certificates, services, preferences, visibility, CV files | `ui/screens/pro/*`, `data/BackendPro.kt`, `supabase/migrations/pro_profile.sql` | Not yet | Reading a CV to fill the profile is planned (AI waitlist) |
 | Analytics (adults only) and Crashlytics | `data/Analytics.kt` | Not yet | |
