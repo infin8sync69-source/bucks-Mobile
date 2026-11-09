@@ -57,7 +57,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
+          LEGAL_BASE_URL: ${{ vars.LEGAL_BASE_URL }}
         run: |
+          if [ -z "$SUPPORT_EMAIL" ]; then echo "::warning::No SUPPORT_EMAIL secret: Help has no contact address."; fi
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then echo "::error::Set the SUPABASE_URL and SUPABASE_ANON_KEY secrets for the production project."; exit 1; fi
           if [ -z "$MAPBOX_TOKEN" ]; then echo "::warning::No MAPBOX_TOKEN: maps would fall back to public OpenStreetMap servers, which do not allow production app traffic."; fi
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
