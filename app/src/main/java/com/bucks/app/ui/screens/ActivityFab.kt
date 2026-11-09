@@ -18,7 +18,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.bucks.app.R
+import com.bucks.app.data.Money
 import com.bucks.app.data.RideStatus
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
@@ -43,28 +47,28 @@ fun activityItems(vm: BucksViewModel): List<ActivityItem> {
     s.ride?.let { r ->
         val text: String?; val route: String?
         when (r.status) {
-            RideStatus.SEARCHING -> { text = "Finding a driver"; route = Routes.SEARCHING }
-            RideStatus.NO_DRIVER -> { text = "No driver accepted yet"; route = Routes.SEARCHING }
-            RideStatus.MATCHED -> { text = "Driver on the way · ${r.etaMin} min"; route = Routes.DRIVER_FOUND }
-            RideStatus.ARRIVED -> { text = "Your driver is here"; route = Routes.DRIVER_FOUND }
-            RideStatus.IN_RIDE -> { text = "On your trip"; route = Routes.IN_RIDE }
-            RideStatus.COMPLETED -> { text = "Pay ₹${r.fare}"; route = Routes.PAY }
+            RideStatus.SEARCHING -> { text = stringResource(R.string.g4_act_finding_driver); route = Routes.SEARCHING }
+            RideStatus.NO_DRIVER -> { text = stringResource(R.string.g4_act_no_driver); route = Routes.SEARCHING }
+            RideStatus.MATCHED -> { text = stringResource(R.string.g4_act_driver_on_way, r.etaMin.toString()); route = Routes.DRIVER_FOUND }
+            RideStatus.ARRIVED -> { text = stringResource(R.string.g4_act_driver_here); route = Routes.DRIVER_FOUND }
+            RideStatus.IN_RIDE -> { text = stringResource(R.string.g4_act_on_trip); route = Routes.IN_RIDE }
+            RideStatus.COMPLETED -> { text = stringResource(R.string.g4_act_pay, Money.format(r.fare)); route = Routes.PAY }
             else -> { text = null; route = null }
         }
-        if (text != null && route != null) items += ActivityItem("ride", r.kind.icon, "Ride to ${r.dest.name}", text, route, needsYou = r.status == RideStatus.ARRIVED || r.status == RideStatus.COMPLETED)
+        if (text != null && route != null) items += ActivityItem("ride", r.kind.icon, stringResource(R.string.g4_act_ride_to, r.dest.name), text, route, needsYou = r.status == RideStatus.ARRIVED || r.status == RideStatus.COMPLETED)
     }
     vm.commerce.myOrders.filter { it.status in OPEN_ORDER && (me == null || it.buyerId == me) && !(it.status == "PLACED" && epochMillis(it.acceptBy) < System.currentTimeMillis()) }.forEach { o ->
         val shop = vm.commerce.titleOf(o.listingId)
         val pickup = o.deliveryMode == "PICKUP"
         val text = when (o.status) {
-            "PLACED" -> "Waiting for $shop to accept"
-            "ACCEPTED" -> if (o.deliveryMode == "SHIP") "Accepted, getting ready to ship" else "Accepted, being prepared"
-            "READY" -> if (pickup) "Ready to collect" else "Ready, a rider is on the way"
-            "PICKED_UP" -> "On its way to you"
-            "SHIPPED" -> "Shipped"
+            "PLACED" -> stringResource(R.string.g4_act_order_waiting, shop)
+            "ACCEPTED" -> if (o.deliveryMode == "SHIP") stringResource(R.string.g4_act_order_accepted_ship) else stringResource(R.string.g4_act_order_accepted)
+            "READY" -> if (pickup) stringResource(R.string.g4_act_order_ready_collect) else stringResource(R.string.g4_act_order_ready_rider)
+            "PICKED_UP" -> stringResource(R.string.g4_act_order_on_way)
+            "SHIPPED" -> stringResource(R.string.g4_act_order_shipped)
             else -> o.status.lowercase()
         }
-        items += ActivityItem("order-${o.id}", Icons.Rounded.Storefront, "Order from $shop", text, Routes.cloudOrder(o.id), needsYou = o.status == "READY" && pickup)
+        items += ActivityItem("order-${o.id}", Icons.Rounded.Storefront, stringResource(R.string.g4_act_order_from, shop), text, Routes.cloudOrder(o.id), needsYou = o.status == "READY" && pickup)
     }
     return items
 }
@@ -75,15 +79,16 @@ fun ActivityFab(items: List<ActivityItem>, modifier: Modifier = Modifier, onClic
     val first = items.first()
     val shape = RoundedCornerShape(28.dp)
     val one = items.size == 1
+    val cdText = if (one) stringResource(R.string.g4_cd_activity_one, first.title, first.status) else pluralStringResource(R.plurals.g4_cd_activity_many, items.size, items.size)
     Row(modifier.widthIn(max = 232.dp).heightIn(min = 56.dp).breathe(enabled = items.any { it.needsYou }, amount = 0.03f, periodMs = 1200)
         .shadow(10.dp, shape).clip(shape).background(MaterialTheme.colorScheme.primaryContainer)
-        .clickable(onClickLabel = "See your activity", onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)
-        .semantics(mergeDescendants = true) { contentDescription = if (one) "${first.title}: ${first.status}" else "${items.size} things in progress" },
+        .clickable(onClickLabel = stringResource(R.string.g4_act_see_activity), onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)
+        .semantics(mergeDescendants = true) { contentDescription = cdText },
         verticalAlignment = Alignment.CenterVertically) {
         Icon(first.icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
         Column(Modifier.padding(start = 10.dp)) {
-            Text(if (one) first.title else "Your activity", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (one) first.status else "${items.size} in progress", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (one) first.title else stringResource(R.string.g4_act_your_activity), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (one) first.status else stringResource(R.string.g4_act_in_progress, items.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -94,8 +99,8 @@ fun ActivityFab(items: List<ActivityItem>, modifier: Modifier = Modifier, onClic
 fun ActivitySheet(items: List<ActivityItem>, onOpen: (ActivityItem) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
-            Text("Your activity", style = MaterialTheme.typography.titleLarge)
-            Muted("Tap one to see where it stands.", Modifier.padding(top = 2.dp, bottom = 8.dp))
+            Text(stringResource(R.string.g4_act_your_activity), style = MaterialTheme.typography.titleLarge)
+            Muted(stringResource(R.string.g4_act_tap_one), Modifier.padding(top = 2.dp, bottom = 8.dp))
             items.forEach { a ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(MaterialTheme.shapes.small).clickable { onOpen(a) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     ListingThumb(a.icon, size = 44)

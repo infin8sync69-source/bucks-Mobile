@@ -1,5 +1,6 @@
 package com.bucks.app.ui
 
+import com.bucks.app.R
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -96,9 +97,9 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     var bookError by androidx.compose.runtime.mutableStateOf<String?>(null); private set
     fun requestRide(kind: VehicleKind, from: LatLng, fromLabel: String, dest: Place, to: LatLng, fare: Int) {
         bookError = null
-        if (!kind.carriesPassengers) { toast("Bikes carry goods only. Choose an auto or a cab."); return }
-        if (dest.km < MIN_TRIP_KM) { toast("That's too close for a ride. Pick a destination at least 200 m away."); return }
-        if (dest.km > MAX_TRIP_KM) { toast("That trip is too far for Bucks. Rides go up to ${MAX_TRIP_KM.toInt()} km."); return }
+        if (!kind.carriesPassengers) { toast(Str.get(R.string.g5_bike_goods_only)); return }
+        if (dest.km < MIN_TRIP_KM) { toast(Str.get(R.string.g5_trip_too_close)); return }
+        if (dest.km > MAX_TRIP_KM) { toast(Str.get(R.string.g5_trip_too_far, MAX_TRIP_KM.toInt())); return }
         if (busy) return
         go { busy = true
             try {
@@ -106,7 +107,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
                     // The request may have reached the server before the answer was lost, or a ride of mine is already open: follow that one.
                     val open = runCatching { Backend.myOpenTask() }.getOrNull()?.takeIf { it.requesterId == social.me?.id && it.type == "RIDE" }
                     if (open == null) { bookError = friendlyError(e); return@go }
-                    toast("You already have a ride in progress."); restoreRide(open); return@go }
+                    toast(Str.get(R.string.g5_ride_in_progress)); restoreRide(open); return@go }
                 rideDriver = null; ridePhone = null
                 _ride.value = Ride(t.id, kind, dest.copy(km = t.km), t.fare, RideStatus.SEARCHING, t.pin, pickupLabel = fromLabel)
                 startNoDriverTimer(t.id, 0); followRide(t.id)
@@ -141,14 +142,14 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
 
     private fun rideStatus(s: String) = when (s) { "SEARCHING" -> RideStatus.SEARCHING; "MATCHED" -> RideStatus.MATCHED; "ARRIVED" -> RideStatus.ARRIVED; "IN_PROGRESS" -> RideStatus.IN_RIDE
         "COMPLETED" -> RideStatus.COMPLETED; "PAID" -> RideStatus.PAID; "NO_DRIVER" -> RideStatus.NO_DRIVER; else -> RideStatus.CANCELLED }
-    private fun placeOf(t: TaskGeoRow): Place { val (x, y) = Geo.toPercent(t.drop); return Place(t.dropLabel.ifBlank { "Drop point" }, x, y, t.km, at = t.drop) }
+    private fun placeOf(t: TaskGeoRow): Place { val (x, y) = Geo.toPercent(t.drop); return Place(t.dropLabel.ifBlank { Str.get(R.string.g5_drop_point) }, x, y, t.km, at = t.drop) }
     private fun kindOf(s: String) = runCatching { VehicleKind.valueOf(s) }.getOrDefault(VehicleKind.AUTO)
 
     /** Maps a task row onto the rider's [Ride]; fetches the driver's name, vehicle and phone once per driver. */
     private suspend fun applyRide(t: TaskGeoRow) {
         val prev = _ride.value; val st = rideStatus(t.status); val kind = kindOf(t.vehicleKind)
         // Cancelled somewhere else (another phone, the server): close it here. A cancel from this phone is finished by [cancelRide].
-        if (st == RideStatus.CANCELLED) { if (!cancelling) { stopFollowingRide(); _ride.value = null; onRideClosed("This ride was cancelled.") }; return }
+        if (st == RideStatus.CANCELLED) { if (!cancelling) { stopFollowingRide(); _ride.value = null; onRideClosed(Str.get(R.string.g5_ride_cancelled)) }; return }
         val pos = t.driverAt
         var driver: Driver? = null; var dx = prev?.driverX ?: 0f; var dy = prev?.driverY ?: 0f; var drvAt = prev?.driverAt
         if (t.driverId != null) {
@@ -156,7 +157,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
             else if (ridePhone.isNullOrBlank()) ridePhone = runCatching { Backend.contactFor(t.id)?.phone }.getOrNull()
             val d = rideDriver
             (pos ?: if (prev?.driver == null) t.pickup else null)?.let { p -> drvAt = p; Geo.toPercent(p).let { dx = it.first; dy = it.second } }
-            driver = Driver(t.driverId, d?.name?.ifBlank { null } ?: social.names[t.driverId] ?: "Your rider", d?.kind?.let(::kindOf) ?: kind, d?.plate.orEmpty(), d?.model.orEmpty(), dx, dy,
+            driver = Driver(t.driverId, d?.name?.ifBlank { null } ?: social.names[t.driverId] ?: Str.get(R.string.g5_your_rider), d?.kind?.let(::kindOf) ?: kind, d?.plate.orEmpty(), d?.model.orEmpty(), dx, dy,
                 pos?.let { round1(Geo.distanceKm(it, t.pickup)) } ?: 0.0, d?.up ?: 0, d?.down ?: 0, true, ridePhone.orEmpty(), at = drvAt)
         } else { rideDriver = null; ridePhone = null; drvAt = null }
         // -1 means "no position yet" (the screen says the rider is on the way instead of counting); 0 is "under a minute".
@@ -187,8 +188,8 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
             val t = runCatching { Backend.taskGeo(r.id) }.getOrNull() ?: return friendlyError(e)   // can't even read it: nothing has changed
             if (t.status == "CANCELLED") return closedByMe()
             applyRide(t)
-            return when (t.status) { "IN_PROGRESS" -> "Your trip has already started, so it can't be cancelled here."; "COMPLETED", "PAID" -> "This trip is already finished."
-                "NO_DRIVER" -> "Nobody took this request in time. You can ring again."; else -> friendlyError(e) }
+            return when (t.status) { "IN_PROGRESS" -> Str.get(R.string.g5_cancel_started); "COMPLETED", "PAID" -> Str.get(R.string.g5_cancel_finished)
+                "NO_DRIVER" -> Str.get(R.string.g5_cancel_no_driver); else -> friendlyError(e) }
         }
     }
     private fun closedByMe(): String? { stopFollowingRide(); _ride.value = null; return null }
@@ -207,8 +208,8 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     fun finishRide(vote: Int?, comment: String, reason: String? = null) { val r = _ride.value ?: return; stopFollowingRide(); _ride.value = null
         if (vote == null) return
         val listing = rideDriver?.takeIf { it.profileId == r.driver?.id }?.listingId
-        if (listing == null) { toast("${r.driver?.name?.substringBefore(' ') ?: "Your rider"} has no driver profile on Bucks yet, so your review wasn't posted."); return }
-        go { Backend.review(listing, r.id, null, vote > 0, comment.trim(), if (vote < 0) reason else null); toast("Thanks. Your review is public.") }
+        if (listing == null) { toast(Str.get(R.string.g5_review_no_profile, r.driver?.name?.substringBefore(' ') ?: Str.get(R.string.g5_your_rider))); return }
+        go { Backend.review(listing, r.id, null, vote > 0, comment.trim(), if (vote < 0) reason else null); toast(Str.get(R.string.g5_review_public)) }
     }
     suspend fun contact(taskId: String): ContactRow? = Backend.contactFor(taskId)
     suspend fun task(taskId: String): TaskGeoRow? = Backend.taskGeo(taskId)
@@ -232,7 +233,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     /** Publishes presence for my cloud vehicle (matched by [plate], else the first one) and starts ringing. [onResult] false = stay offline. */
     fun setOnline(on: Boolean, plate: String?, onResult: (Boolean) -> Unit = {}) = scope.launch {
         try {
-            val me = social.me ?: waitForMe() ?: run { toast("Still signing in. Try again in a moment."); onResult(false); return@launch }
+            val me = social.me ?: waitForMe() ?: run { toast(Str.get(R.string.g5_still_signing_in)); onResult(false); return@launch }
             if (!on) { stopDriverLoops(); markOnline(false); Presence.meId = null
                 offJob = vehicle?.let { v -> AppLife.scope.launch { withTimeoutOrNull(4_000) { runCatching { Backend.setPresence(me.id, v.id, v.kind, false, hereOrNull) } } } }
                 onResult(true); return@launch }
@@ -240,7 +241,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
             // Only a checked (ACTIVE) vehicle may go online; the presence policy refuses the others, so say why instead of failing.
             val active = mine.filter { it.status == "ACTIVE" }
             val v = active.firstOrNull { it.plate == norm } ?: active.firstOrNull()
-            if (v == null) { toast(if (mine.isEmpty()) "Add your vehicle under My vehicles before going online." else "Bucks is still checking your vehicle. You can go online once it's active."); onResult(false); return@launch }
+            if (v == null) { toast(Str.get(if (mine.isEmpty()) R.string.g5_online_add_vehicle else R.string.g5_online_vehicle_checking)); onResult(false); return@launch }
             Backend.setPresence(me.id, v.id, v.kind, true, hereOrNull)
             Presence.meId = me.id
             vehicle = v; markOnline(true); startDriverLoops(me.id, v); onResult(true)
@@ -272,7 +273,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
             countdownJob?.cancel()
             // A claim of mine can land with both the answer and the retry lost (see claim): the request left the open list because it is mine now.
             t?.takeIf { ownedByMe(it) }?.let { adoptTrip(it); return }
-            _driverRide.value = null; toast("That request was taken or cancelled.") }
+            _driverRide.value = null; toast(Str.get(R.string.g5_request_gone)) }
         val next = list.firstOrNull { it.id !in passed } ?: return
         ringTask(next)
     }
@@ -282,9 +283,9 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         who?.let { social.names[it.id] = it.name }
         val me = here; val delivery = geo.isDelivery
         val items = geo.orderItems ?: 0
-        val dr = DriverRide(t.id, DriverRideStatus.RINGING, who?.name?.ifBlank { null } ?: "Customer", Trust(who?.trustUp ?: 0, who?.trustDown ?: 0),
-            pickupAt = if (delivery) t.pickupLabel.ifBlank { "the shop" } + (if (items > 0) " · $items item${if (items > 1) "s" else ""}" else "") else t.pickupLabel.ifBlank { "Pick-up point" },
-            dropAt = t.dropLabel.ifBlank { "Drop point" }, km = t.km, fare = t.fare, pin = "", secondsLeft = 15, pickupKm = round1(Geo.distanceKm(me, geo.pickup)),
+        val dr = DriverRide(t.id, DriverRideStatus.RINGING, who?.name?.ifBlank { null } ?: Str.get(R.string.g5_customer), Trust(who?.trustUp ?: 0, who?.trustDown ?: 0),
+            pickupAt = if (delivery) t.pickupLabel.ifBlank { Str.get(R.string.g5_the_shop) }.let { if (items > 0) Str.plural(R.plurals.g5_pickup_items, items, it, items) else it } else t.pickupLabel.ifBlank { Str.get(R.string.g5_pickup_point) },
+            dropAt = t.dropLabel.ifBlank { Str.get(R.string.g5_drop_point) }, km = t.km, fare = t.fare, pin = "", secondsLeft = 15, pickupKm = round1(Geo.distanceKm(me, geo.pickup)),
             kind = vehicle?.kind?.let { kindOf(it) } ?: kindOf(t.vehicleKind), driver = me, pickup = geo.pickup, drop = geo.drop, customerPhone = "")
         _driverRide.value = dr
         startCountdown()
@@ -296,17 +297,17 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
                 val mine = runCatching { Backend.taskGeo(cur.id) }.getOrNull()?.takeIf { ownedByMe(it) }
                 if (!isActive) return@launch   // accepted or declined while the row was being read
                 if (mine != null) { adoptTrip(mine); return@launch }
-                _driverRide.value = null; passed += cur.id; toast("Missed that one. Stay online for the next request.")
+                _driverRide.value = null; passed += cur.id; toast(Str.get(R.string.g5_missed_request))
                 runCatching { Backend.passTask(cur.id, true) }; nudges.trySend(Unit); return@launch }
             _driverRide.value = cur.copy(secondsLeft = cur.secondsLeft - 1) } }
     }
     fun driverDecline() { val cur = _driverRide.value?.takeIf { it.status == DriverRideStatus.RINGING } ?: return
-        countdownJob?.cancel(); passed += cur.id; _driverRide.value = null; toast("Passed. We'll send you the next one.")
+        countdownJob?.cancel(); passed += cur.id; _driverRide.value = null; toast(Str.get(R.string.g5_passed))
         go { runCatching { Backend.passTask(cur.id, false) }; nudges.trySend(Unit) } }
 
     private sealed interface Claim { data object Won : Claim; data object Taken : Claim; data object Unreachable : Claim; class Refused(val message: String) : Claim }
     private fun ownedByMe(t: TaskGeoRow) = t.driverId == social.me?.id && t.status in setOf("MATCHED", "ARRIVED", "IN_PROGRESS")
-    private suspend fun adoptTrip(t: TaskGeoRow) { toast("It's yours. Your accept had gone through."); restoreDriverTrip(t) }
+    private suspend fun adoptTrip(t: TaskGeoRow) { toast(Str.get(R.string.g5_adopted)); restoreDriverTrip(t) }
     private suspend fun isMine(id: String): Boolean = runCatching { Backend.taskGeo(id) }.getOrNull()?.let { ownedByMe(it) } == true
     /**
      * claim_task answers false only for "not claimable" (taken, too far, stale). A call that throws says nothing about the task:
@@ -329,11 +330,11 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
                 when (val res = claim(cur.id)) {
                     Claim.Won -> {
                         _driverRide.value = cur.copy(status = DriverRideStatus.TO_PICKUP, progress = 0f, secondsLeft = 0, driver = hereOrNull ?: cur.driver)
-                        toast(if (cur.kind == VehicleKind.BIKE) "It's yours. Head to the shop to collect the order." else "It's yours. Head to the pick-up.")
+                        toast(Str.get(if (cur.kind == VehicleKind.BIKE) R.string.g5_claim_won_delivery else R.string.g5_claim_won_ride))
                         loadCustomerPhone(cur.id); followDriverTask(cur.id) }
-                    Claim.Taken -> { passed += cur.id; if (_driverRide.value?.id == cur.id) _driverRide.value = null; toast("Too late. Another rider took it, or it's no longer available."); nudges.trySend(Unit) }
+                    Claim.Taken -> { passed += cur.id; if (_driverRide.value?.id == cur.id) _driverRide.value = null; toast(Str.get(R.string.g5_claim_taken)); nudges.trySend(Unit) }
                     Claim.Unreachable -> { if (_driverRide.value?.id == cur.id) { _driverRide.value = cur.copy(secondsLeft = max(cur.secondsLeft, 8)); startCountdown() }
-                        toast("Couldn't reach Bucks. Try again.") }
+                        toast(Str.get(R.string.g5_cant_reach)) }
                     is Claim.Refused -> { passed += cur.id; if (_driverRide.value?.id == cur.id) _driverRide.value = null; toast(res.message); runCatching { restoreFromServer() }; nudges.trySend(Unit) }
                 }
             } finally { busy = false } }
@@ -362,14 +363,14 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     /** Puts the driver's screen where the server row says the trip is (forward or back). Returns true when the trip is gone from this driver. */
     private suspend fun applyDriverTruth(id: String, t: TaskGeoRow): Boolean {
         val cur = _driverRide.value?.takeIf { it.id == id } ?: return false
-        if (t.status == "CANCELLED") { stopDriverTask(); _driverRide.value = null; toast(if (t.isDelivery) "This delivery was cancelled." else "The customer cancelled this ride."); nudges.trySend(Unit); return true }
-        if (t.driverId != social.me?.id) { stopDriverTask(); passed += id; _driverRide.value = null; toast("This trip is no longer yours. It went back to other riders."); nudges.trySend(Unit); return true }
+        if (t.status == "CANCELLED") { stopDriverTask(); _driverRide.value = null; toast(Str.get(if (t.isDelivery) R.string.g5_delivery_cancelled else R.string.g5_customer_cancelled)); nudges.trySend(Unit); return true }
+        if (t.driverId != social.me?.id) { stopDriverTask(); passed += id; _driverRide.value = null; toast(Str.get(R.string.g5_trip_not_yours)); nudges.trySend(Unit); return true }
         val st = driverStatusOf(t.status, cur.status) ?: return false
         var next = cur
         if (st != cur.status) next = next.copy(status = st, progress = when { st == DriverRideStatus.DONE || st == DriverRideStatus.RATE -> 1f; st == DriverRideStatus.IN_RIDE -> 0f; else -> cur.progress })
         // What the customer says they paid with (they mark it on their phone); the server doesn't verify it.
         if (t.status == "PAID" && t.paidWith != null) { next = next.copy(paidWith = t.paidWith)
-            if (paidToastFor != id) { paidToastFor = id; toast("The customer says they paid by ${payWord(t.paidWith)}. Check ${if (isCash(t.paidWith)) "you have the cash" else "your UPI app"} before you continue.") } }
+            if (paidToastFor != id) { paidToastFor = id; toast(Str.get(if (isCash(t.paidWith)) R.string.g5_customer_paid_cash else R.string.g5_customer_paid_upi, payWord(t.paidWith))) } }
         if (t.pinAttempts > cur.pinAttempts) next = next.copy(pinAttempts = t.pinAttempts, pinLocked = t.pinAttempts >= PIN_TRIES)
         if (next != cur) _driverRide.value = next
         if (cur.customerPhone.isBlank() && t.status in setOf("MATCHED", "ARRIVED", "IN_PROGRESS", "COMPLETED")) loadCustomerPhone(id)
@@ -382,11 +383,12 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         val before = _driverRide.value?.status
         val t = runCatching { Backend.taskGeo(id) }.getOrNull()
         if (t != null) {
-            if (msg.startsWith("Cannot go from", true)) msg = "This trip had already moved on. Your screen now shows where it really is."
+            val movedOn = Str.get(R.string.g5_trip_moved_on)
+            if (msg.startsWith("Cannot go from", true)) msg = movedOn
             if (msg.contains("too many wrong PIN", true)) update(id) { it.copy(pinAttempts = PIN_TRIES, pinLocked = true) }
             if (applyDriverTruth(id, t)) return
             // The call itself failed but the server has the change (a lost answer): say so instead of an error.
-            if (_driverRide.value?.status != before && !msg.startsWith("This trip had already")) { toast("That had already gone through. Your screen is up to date."); return }
+            if (_driverRide.value?.status != before && msg != movedOn) { toast(Str.get(R.string.g5_already_done)); return }
         }
         toast(msg)
     }
@@ -397,14 +399,14 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         go { busy = true
             try { when (d.status) {
                 DriverRideStatus.TO_PICKUP -> { Backend.advanceTask(d.id, "ARRIVED"); update(d.id) { it.copy(status = DriverRideStatus.ARRIVED) }
-                    toast(if (d.kind == VehicleKind.BIKE) "You're at the shop. Call the customer for the 4-digit pickup PIN." else "You're at the pick-up. Ask the customer for their PIN.") }
-                DriverRideStatus.ARRIVED -> { if (pin.length != 4) { toast("Enter the 4-digit PIN."); return@go }
-                    if (d.pinLocked) { toast("Too many wrong PINs. Hand this trip back."); return@go }
+                    toast(Str.get(if (d.kind == VehicleKind.BIKE) R.string.g5_at_shop else R.string.g5_at_pickup)) }
+                DriverRideStatus.ARRIVED -> { if (pin.length != 4) { toast(Str.get(R.string.g5_enter_pin)); return@go }
+                    if (d.pinLocked) { toast(Str.get(R.string.g5_pin_locked)); return@go }
                     // A wrong PIN doesn't raise (contract C1): the row comes back still ARRIVED with the attempts counted. Only IN_PROGRESS means it matched.
                     val t = Backend.advanceTask(d.id, "IN_PROGRESS", pin = pin)
-                    if (t.status == "IN_PROGRESS") { update(d.id) { it.copy(status = DriverRideStatus.IN_RIDE, progress = 0f) }; toast("PIN matched. Off you go.") }
+                    if (t.status == "IN_PROGRESS") { update(d.id) { it.copy(status = DriverRideStatus.IN_RIDE, progress = 0f) }; toast(Str.get(R.string.g5_pin_matched)) }
                     else { val left = (PIN_TRIES - t.pinAttempts).coerceAtLeast(0); update(d.id) { it.copy(pinAttempts = t.pinAttempts, pinLocked = left == 0) }
-                        toast(if (left == 0) "That PIN doesn't match, and you have no tries left. Hand this trip back." else "That PIN doesn't match. $left ${if (left == 1) "try" else "tries"} left.") } }
+                        toast(if (left == 0) Str.get(R.string.g5_pin_wrong_none_left) else Str.plural(R.plurals.g5_pin_wrong_left, left)) } }
                 DriverRideStatus.IN_RIDE -> { Backend.advanceTask(d.id, "COMPLETED"); update(d.id) { it.copy(status = DriverRideStatus.DONE, progress = 1f) } }
                 else -> {}
             } } catch (e: CancellationException) { throw e } catch (e: Exception) { failedDriverAction(d.id, e) } finally { busy = false } }
@@ -421,7 +423,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     /** Hands the request back so it rings other drivers. Allowed from the way to the pick-up and at the pick-up, not once the PIN is in. [reason] is a CancelReasons.driver code; [done] says whether it happened. */
     fun driverCancel(reason: String?, note: String = "", done: (Boolean) -> Unit = {}) { val d = _driverRide.value ?: run { done(true); return }
         if (d.status == DriverRideStatus.RINGING) { driverDecline(); done(true); return }
-        if (d.status != DriverRideStatus.TO_PICKUP && d.status != DriverRideStatus.ARRIVED) { toast("A trip that has started can't be handed back."); done(false); return }
+        if (d.status != DriverRideStatus.TO_PICKUP && d.status != DriverRideStatus.ARRIVED) { toast(Str.get(R.string.g5_cant_hand_back)); done(false); return }
         if (handingBack || busy) return
         driverGen++
         scope.launch { handingBack = true
@@ -465,9 +467,9 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         val status = when (t.status) { "MATCHED" -> DriverRideStatus.TO_PICKUP; "ARRIVED" -> DriverRideStatus.ARRIVED; "IN_PROGRESS" -> DriverRideStatus.IN_RIDE; "COMPLETED" -> DriverRideStatus.DONE; else -> return }
         val who = runCatching { Backend.profiles(listOf(t.requesterId)).firstOrNull() }.getOrNull()
         val me = here; val items = t.orderItems ?: 0
-        _driverRide.value = DriverRide(t.id, status, who?.name?.ifBlank { null } ?: "Customer", Trust(who?.trustUp ?: 0, who?.trustDown ?: 0),
-            pickupAt = if (t.isDelivery) t.pickupLabel.ifBlank { "the shop" } + (if (items > 0) " · $items item${if (items > 1) "s" else ""}" else "") else t.pickupLabel.ifBlank { "Pick-up point" },
-            dropAt = t.dropLabel.ifBlank { "Drop point" }, km = t.km, fare = t.fare, pin = "", secondsLeft = 0, pickupKm = round1(Geo.distanceKm(me, t.pickup)),
+        _driverRide.value = DriverRide(t.id, status, who?.name?.ifBlank { null } ?: Str.get(R.string.g5_customer), Trust(who?.trustUp ?: 0, who?.trustDown ?: 0),
+            pickupAt = if (t.isDelivery) t.pickupLabel.ifBlank { Str.get(R.string.g5_the_shop) }.let { if (items > 0) Str.plural(R.plurals.g5_pickup_items, items, it, items) else it } else t.pickupLabel.ifBlank { Str.get(R.string.g5_pickup_point) },
+            dropAt = t.dropLabel.ifBlank { Str.get(R.string.g5_drop_point) }, km = t.km, fare = t.fare, pin = "", secondsLeft = 0, pickupKm = round1(Geo.distanceKm(me, t.pickup)),
             kind = kindOf(t.vehicleKind), driver = me, pickup = t.pickup, drop = t.drop, progress = if (status == DriverRideStatus.DONE) 1f else 0f, paidWith = if (t.status == "PAID") t.paidWith else null,
             pinAttempts = t.pinAttempts, pinLocked = t.pinAttempts >= PIN_TRIES)
         loadCustomerPhone(t.id); followDriverTask(t.id)
@@ -485,7 +487,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     suspend fun refreshDrivers() { runCatching { Backend.onlineDriversNear(here, 10_000) }.onSuccess { rows -> _drivers.value = rows.mapNotNull { r ->
         val kind = runCatching { VehicleKind.valueOf(r.kind) }.getOrNull() ?: return@mapNotNull null
         val (x, y) = Geo.toPercent(LatLng(r.lat, r.lng))
-        Driver(r.profileId, r.name.ifBlank { "Rider" }, kind, r.plate, r.model, x, y, round1(Geo.distanceKm(here, LatLng(r.lat, r.lng))), r.up, r.down, true, at = LatLng(r.lat, r.lng)) } } }
+        Driver(r.profileId, r.name.ifBlank { Str.get(R.string.g5_rider) }, kind, r.plate, r.model, x, y, round1(Geo.distanceKm(here, LatLng(r.lat, r.lng))), r.up, r.down, true, at = LatLng(r.lat, r.lng)) } } }
     /** Call from a screen that shows the map (DisposableEffect) to poll faster while it is visible. */
     fun mapShown() { mapViewers++ }
     fun mapHidden() { mapViewers = max(0, mapViewers - 1) }
@@ -493,10 +495,10 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
     fun refreshPaymentLink() = go { val me = social.me ?: waitForMe() ?: return@go; paymentLink = Backend.myPaymentLink(me.id); paymentLinkLoaded = true }
     /** Saves a decoded `upi://pay?...` link as my payment QR. */
     fun savePaymentLink(uri: String, then: () -> Unit = {}) = go { val me = social.me ?: return@go
-        if (!uri.startsWith("upi://pay", ignoreCase = true)) { toast("That QR isn't a UPI payment code."); return@go }
+        if (!uri.startsWith("upi://pay", ignoreCase = true)) { toast(Str.get(R.string.g5_qr_not_upi)); return@go }
         busy = true
-        try { Backend.setPaymentLink(me.id, uri); paymentLink = uri; paymentLinkLoaded = true; toast("Saved. Customers can now pay you by UPI."); then() } finally { busy = false } }
-    fun removePaymentLink() = go { val me = social.me ?: return@go; Backend.clearPaymentLink(me.id); paymentLink = null; toast("Payment QR removed. Customers can't pay you by UPI until you add one again.") }
+        try { Backend.setPaymentLink(me.id, uri); paymentLink = uri; paymentLinkLoaded = true; toast(Str.get(R.string.g5_upi_saved)); then() } finally { busy = false } }
+    fun removePaymentLink() = go { val me = social.me ?: return@go; Backend.clearPaymentLink(me.id); paymentLink = null; toast(Str.get(R.string.g5_upi_removed)) }
 
     /**
      * Sign-out, account deletion or a cleared ViewModel: presence off, everything cancelled, nothing left on screen. The presence call
@@ -513,7 +515,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
 
 /** "cash" for the customer-facing words; anything else the server holds is a UPI payment. */
 fun isCash(paidWith: String?) = paidWith?.contains("cash", ignoreCase = true) == true
-fun payWord(paidWith: String?) = when { paidWith.isNullOrBlank() -> "cash or UPI"; isCash(paidWith) -> "cash"; else -> paidWith }
+fun payWord(paidWith: String?) = when { paidWith.isNullOrBlank() -> Str.get(R.string.g5_pay_cash_or_upi); isCash(paidWith) -> Str.get(R.string.g5_pay_cash); else -> paidWith }
 
 /** A UPI deep link with the amount and note filled in: any UPI app opens it with the driver's details from their QR. */
 fun upiPayLink(base: String, amountRupees: Int, note: String): String {

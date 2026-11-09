@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocationOn
@@ -36,19 +38,19 @@ fun PinDropDialog(start: LatLng, name: String, onPick: (String, LatLng) -> Unit,
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
-                BucksTopBar("Drop a pin", onBack = onDismiss)
+                BucksTopBar(stringResource(R.string.g7_pin_title), onBack = onDismiss)
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     BucksMap(Modifier.fillMaxSize(), emptyList(), zoom = 16.0, commands = cmds, onCenter = { center = it })
                     // The pin stays in the middle; the map moves under it.
-                    Icon(Icons.Rounded.LocationOn, "Pin", Modifier.align(Alignment.Center).offset(y = (-20).dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.LocationOn, stringResource(R.string.g7_cd_pin), Modifier.align(Alignment.Center).offset(y = (-20).dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
                     MapAttribution(Modifier.align(Alignment.BottomStart).padding(8.dp))
                 }
                 Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-                    Muted("Move the map until the pin sits on the place." + (if (area.isNotBlank()) " Near $area." else ""), Modifier.padding(bottom = 8.dp))
-                    BucksField(placeName, { placeName = it.take(60); error = null }, "Name of the place", "e.g. Sai Baba Temple, Ward 12")
+                    Muted(if (area.isNotBlank()) stringResource(R.string.g7_pin_move_near, area) else stringResource(R.string.g7_pin_move), Modifier.padding(bottom = 8.dp))
+                    BucksField(placeName, { placeName = it.take(60); error = null }, stringResource(R.string.g7_pin_name), stringResource(R.string.g7_pin_name_hint))
                     error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 6.dp)) }
-                    Muted("Saved on Bucks so neighbours can find it too.", Modifier.padding(bottom = 8.dp))
-                    PrimaryButton(if (saving) "Saving…" else "Use this place", enabled = !saving && placeName.trim().length >= 2) {
+                    Muted(stringResource(R.string.g7_pin_saved_note), Modifier.padding(bottom = 8.dp))
+                    PrimaryButton(if (saving) stringResource(R.string.g7_pin_saving) else stringResource(R.string.g7_pin_use), enabled = !saving && placeName.trim().length >= 2) {
                         saving = true
                         scope.launch {
                             val n = placeName.trim(); val at = center

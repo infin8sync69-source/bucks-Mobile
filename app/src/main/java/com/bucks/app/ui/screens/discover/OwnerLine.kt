@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.discover
 
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -35,12 +37,13 @@ fun OwnerLine(vm: BucksViewModel, l: ListingRow, modifier: Modifier = Modifier) 
     var open by remember { mutableStateOf(false) }
     LaunchedEffect(l.id) { owner = runCatching { Backend.listingOwner(l.id) }.getOrNull() }
     val o = owner
-    val name = o?.name ?: vm.social.nameOf(l.ownerId).takeIf { it != "…" } ?: "Bucks member"
-    Row(modifier.fillMaxWidth().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).clickable(onClickLabel = "About $name") { open = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    val name = o?.name ?: vm.social.nameOf(l.ownerId).takeIf { it != "…" } ?: stringResource(R.string.g5_bucks_member)
+    val aboutLabel = stringResource(R.string.g5_cd_about_name, name)
+    Row(modifier.fillMaxWidth().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).clickable(onClickLabel = aboutLabel) { open = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(initials(name).ifBlank { "?" }, size = 28)
-        Text("By $name", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false))
+        Text(stringResource(R.string.g5_by_name, name), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false))
         Spacer(Modifier.width(8.dp))
-        if (o?.idChecked == true) PillGood("ID checked by Bucks") else PillGrey("Phone-verified")
+        if (o?.idChecked == true) PillGood(stringResource(R.string.g5_id_checked)) else PillGrey(stringResource(R.string.g5_phone_verified))
         Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     if (open) OwnerSheet(vm, l, o, onDismiss = { open = false })
@@ -53,35 +56,36 @@ fun OwnerSheet(vm: BucksViewModel, l: ListingRow, owner: OwnerRow?, onDismiss: (
     val me = vm.social.me?.id
     var pages by remember(l.ownerId) { mutableStateOf<List<ListingRow>?>(null) }
     LaunchedEffect(l.ownerId) { pages = runCatching { Backend.livePagesOf(l.ownerId) }.getOrDefault(emptyList()) }
-    val name = owner?.name ?: "Bucks member"
+    val name = owner?.name ?: stringResource(R.string.g5_bucks_member)
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(initials(name).ifBlank { "?" }, size = 56)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Muted(listOfNotNull(owner?.shortCode?.takeIf { it.isNotBlank() }?.let { "Bucks ID $it" }, owner?.area?.takeIf { it.isNotBlank() }).joinToString(" · "), maxLines = 1)
+                    Muted(listOfNotNull(owner?.shortCode?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.g5_bucks_id_code, it) }, owner?.area?.takeIf { it.isNotBlank() }).joinToString(" · "), maxLines = 1)
                 }
             }
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (owner?.idChecked == true) PillGood("ID checked by Bucks") else PillGrey("Phone-verified")
-                owner?.memberSince?.takeIf { it.length >= 4 }?.let { Muted("On Bucks since ${it.take(4)}") }
+                if (owner?.idChecked == true) PillGood(stringResource(R.string.g5_id_checked)) else PillGrey(stringResource(R.string.g5_phone_verified))
+                owner?.memberSince?.takeIf { it.length >= 4 }?.let { Muted(stringResource(R.string.g5_on_bucks_since, it.take(4))) }
             }
-            Muted(if (owner?.idChecked == true) "This person signed in with their phone number and Bucks staff checked their photo ID. Face checks come later."
-                  else "This person signed in with their phone number. Bucks has not yet checked their photo ID; face checks come later.", Modifier.padding(top = 8.dp))
+            Muted(stringResource(if (owner?.idChecked == true) R.string.g5_owner_id_checked
+                  else R.string.g5_owner_phone_only), Modifier.padding(top = 8.dp))
             val list = pages
-            Text("Pages ${name.substringBefore(' ')} runs", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+            Text(stringResource(R.string.g5_pages_runs, name.substringBefore(' ')), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
             when {
-                list == null -> Muted("Loading…")
-                list.isEmpty() -> Muted("Only this page.")
+                list == null -> Muted(stringResource(R.string.g5_loading))
+                list.isEmpty() -> Muted(stringResource(R.string.g5_only_this_page))
                 else -> list.forEach { x ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Open ${x.title}") { onDismiss(); vm.open(com.bucks.app.ui.nav.Routes.listing(x.id)) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val openLabel = stringResource(R.string.g5_cd_open_name, x.title)
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).clickable(onClickLabel = openLabel) { onDismiss(); vm.open(com.bucks.app.ui.nav.Routes.listing(x.id)) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(PageTypes.badgeIcon(x.kind, x.typeKey, x.details.str("ships_india") == "true"), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(x.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(PageTypes.badge(x.kind, x.typeKey, x.details.str("ships_india") == "true") + (if (x.id == l.id) " · this page" else ""), maxLines = 1) }
+                        Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(x.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(PageTypes.badge(x.kind, x.typeKey, x.details.str("ships_india") == "true") + (if (x.id == l.id) " · " + stringResource(R.string.g5_this_page) else ""), maxLines = 1) }
                     }
                 }
             }
-            if (me != null && me != l.ownerId) PrimaryButton("Message ${name.substringBefore(' ')}", Modifier.padding(top = 16.dp)) { onDismiss(); vm.social.openDirect(l.ownerId) { vm.open(com.bucks.app.ui.nav.Routes.chat(it)) } }
+            if (me != null && me != l.ownerId) PrimaryButton(stringResource(R.string.g5_message_name, name.substringBefore(' ')), Modifier.padding(top = 16.dp)) { onDismiss(); vm.social.openDirect(l.ownerId) { vm.open(com.bucks.app.ui.nav.Routes.chat(it)) } }
         }
     }
 }

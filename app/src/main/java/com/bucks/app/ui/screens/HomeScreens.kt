@@ -52,6 +52,9 @@ import com.bucks.app.ui.Role
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 import com.bucks.app.data.DriverLocationService
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 val MeColor = Color(0xFF1D4ED8)
 
@@ -77,9 +80,9 @@ fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, 
     Column(Modifier.imePadding()) {
         if (q.trim().length >= 3) {
             places.forEach { h ->
-                ListRow(h.name, h.detail, leading = { Icon(Icons.Rounded.Place, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { Muted("Directions") }, onClick = { com.bucks.app.ui.screens.MapsPick.place = h; q = ""; onPlace() })
+                ListRow(h.name, h.detail, leading = { Icon(Icons.Rounded.Place, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { Muted(stringResource(R.string.g3_home_directions)) }, onClick = { com.bucks.app.ui.screens.MapsPick.place = h; q = ""; onPlace() })
             }
-            ListRow("Search shops, pros and drivers for “${q.trim()}”", null, leading = { Icon(Icons.Rounded.Search, null) }, onClick = { onSearchAll(q.trim()); q = "" })
+            ListRow(stringResource(R.string.g3_home_search_all, q.trim()), null, leading = { Icon(Icons.Rounded.Search, null) }, onClick = { onSearchAll(q.trim()); q = "" })
         }
         Surface(Modifier.fillMaxWidth().height(56.dp), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(Modifier.padding(start = 20.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -89,7 +92,7 @@ fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, 
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { if (q.isNotBlank()) { onSearchAll(q.trim()); q = "" } }),
                     decorationBox = { inner -> Box { if (q.isEmpty()) Text(hint, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
-                if (q.isNotEmpty()) IconButton({ q = "" }) { Icon(Icons.Rounded.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (q.isNotEmpty()) IconButton({ q = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.g3_cd_clear), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }
@@ -98,7 +101,7 @@ fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, 
 /** Explains the pin colours on the maps: providers are drawn in the theme primary (only where the map shows them), online riders in status good (only where the map shows riders). */
 @Composable
 private fun MapLegend(modifier: Modifier = Modifier, riders: Boolean = true, shops: Boolean = true) {
-    val dots: @Composable () -> Unit = { if (shops) LegendDot(MaterialTheme.colorScheme.primary, "Shops & services"); if (riders) LegendDot(MaterialTheme.status.good, "Riders online") }
+    val dots: @Composable () -> Unit = { if (shops) LegendDot(MaterialTheme.colorScheme.primary, stringResource(R.string.g3_legend_shops)); if (riders) LegendDot(MaterialTheme.status.good, stringResource(R.string.g3_legend_riders)) }
     // Large text: one dot per line, so the pill is never wider than the screen and its labels never wrap letter by letter.
     if (largeText()) Surface(modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) { Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { dots() } }
     else Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) { Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { dots() } }
@@ -125,18 +128,20 @@ private val CLOUD_CATEGORIES = (com.bucks.app.ui.screens.manage.BUSINESS_CATEGOR
 private fun ActiveRideCard(r: Ride, onReturn: () -> Unit) {
     val eta = etaText(r.etaMin)
     val detail = when (r.status) {
-        RideStatus.SEARCHING -> "Looking for a nearby ${r.kind.label.lowercase()} rider"
-        RideStatus.NO_DRIVER -> "Nobody accepted yet. Return to ring again."
-        RideStatus.MATCHED -> (r.driver?.name?.substringBefore(' ')?.let { "$it is on the way" } ?: "Your rider is on the way") + (eta?.let { " · $it away" } ?: "")
-        RideStatus.ARRIVED -> "Your rider is here. Share PIN ${r.pin} to start."
-        RideStatus.IN_RIDE -> "On the way to ${r.dest.name}"
-        RideStatus.COMPLETED -> "Trip finished. Pay ₹${r.fare} to close it."
-        RideStatus.PAID -> "Paid. Rate your ride, or skip it."
+        RideStatus.SEARCHING -> stringResource(R.string.g3_ride_searching, r.kind.label.lowercase())
+        RideStatus.NO_DRIVER -> stringResource(R.string.g3_ride_no_driver)
+        RideStatus.MATCHED -> { val who = r.driver?.name?.substringBefore(' ')
+            when { who != null && eta != null -> stringResource(R.string.g3_ride_named_coming_eta, who, eta); who != null -> stringResource(R.string.g3_ride_named_coming, who)
+                eta != null -> stringResource(R.string.g3_ride_coming_eta, eta); else -> stringResource(R.string.g3_ride_coming) } }
+        RideStatus.ARRIVED -> stringResource(R.string.g3_ride_arrived, r.pin)
+        RideStatus.IN_RIDE -> stringResource(R.string.g3_ride_in_ride, r.dest.name)
+        RideStatus.COMPLETED -> stringResource(R.string.g3_ride_completed, Money.format(r.fare))
+        RideStatus.PAID -> stringResource(R.string.g3_ride_paid)
         RideStatus.CANCELLED -> return }
     BucksCard(Modifier.padding(bottom = 12.dp), tint = true, padding = 14) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 10.dp)) { Text("Ride in progress", style = MaterialTheme.typography.titleMedium); Muted(detail) }
-            SmallButton("Return", onClick = onReturn)
+            Column(Modifier.weight(1f).padding(end = 10.dp)) { Text(stringResource(R.string.g3_ride_in_progress), style = MaterialTheme.typography.titleMedium); Muted(detail) }
+            SmallButton(stringResource(R.string.g3_return), onClick = onReturn)
         }
     }
 }
@@ -171,16 +176,18 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
         // Provider pins come from the demo seed only (cloud sign-in clears it); cloud listings have no map position here, so the map shows me and the riders online.
         val shopPins = providers.filter { it.scope == Scope.LOCAL }.take(6)
         // Me and online riders at their real positions; the demo's sample shops keep their spots on the Bengaluru grid.
-        val pins = listOf(pinAt(vm.mePos, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }
+        val pins = listOf(pinAt(vm.mePos, stringResource(R.string.g3_map_you), MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }
         // Same content on phones (in the sheet) and wide screens (in the side panel): an unfinished ride, the vehicle note, the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
             s.ride?.let { r -> ActiveRideCard(r, onReturnToRide) }
             // A cloud vehicle the server hasn't activated yet: say why there is no online button, and where to look.
             vm.waitingVehicle?.takeIf { !showFab }?.let { v -> Column(Modifier.padding(bottom = 12.dp)) {
-                Notice(if (v.status == "SUSPENDED") "Your ${v.model.ifBlank { "vehicle" }} (${v.plate}) is suspended, so you can't go online with it. Open Manage listings for details."
-                       else "Bucks is still checking your ${v.model.ifBlank { "vehicle" }} (${v.plate}). The online button appears here once it's active.")
-                SmallButton("Manage listings", Modifier.padding(top = 8.dp), tonal = true, onClick = onListings) } }
-            if (vm.social.enabled) HomeSearch(vm, "Where to, or what do you need?", onSearchAll = onQuery, onPlace = onPlace) else SearchBar("Where to, or what do you need?", onClick = onSearch)
+                val vName = v.model.ifBlank { stringResource(R.string.g3_vehicle_generic) }
+                Notice(if (v.status == "SUSPENDED") stringResource(R.string.g3_vehicle_suspended, vName, v.plate)
+                       else stringResource(R.string.g3_vehicle_checking, vName, v.plate))
+                SmallButton(stringResource(R.string.g3_menu_manage_listings), Modifier.padding(top = 8.dp), tonal = true, onClick = onListings) } }
+            val hint = stringResource(R.string.g3_home_search_hint)
+            if (vm.social.enabled) HomeSearch(vm, hint, onSearchAll = onQuery, onPlace = onPlace) else SearchBar(hint, onClick = onSearch)
         }
         if (wide) Column(Modifier.fillMaxSize()) {
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
@@ -197,7 +204,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(top = 64.dp)) {
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())
                 Sheet(Modifier.weight(1f, fill = false), scrollable = true) { panel()
-                    if (vm.canGoOnline) Box(Modifier.padding(top = 6.dp)) { Chip("You're offline · Go online", icon = Icons.Rounded.PowerSettingsNew) { showOnline = true } }
+                    if (vm.canGoOnline) Box(Modifier.padding(top = 6.dp)) { Chip(stringResource(R.string.g3_home_offline_chip), icon = Icons.Rounded.PowerSettingsNew) { showOnline = true } }
                     Spacer(Modifier.height(24.dp)) }
             }
             // Only while I'm online (a driver switch or a live shop / pro listing); offline, a small chip in the sheet opens the same switches.
@@ -221,10 +228,11 @@ private fun ServiceTile(def: ServiceDef, st: ServiceState?, index: Int, modifier
     val fg = if (!locked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     val src = remember { MutableInteractionSource() }; var nope by remember { mutableIntStateOf(0) }; val haptic = LocalHapticFeedback.current
     // Tiles assemble in reading order; a locked tile shakes and its padlock wiggles before its sheet opens.
+    val cdQuiet = stringResource(R.string.g3_cd_service_quiet, def.label); val cdSoon = stringResource(R.string.g3_cd_service_soon, def.label); val cdLocked = stringResource(R.string.g3_cd_service_locked, def.label)
     Box(modifier.height(64.dp).enterStagger(index).shakeOn(nope).pressScale(src, 0.93f)) {
         Column(Modifier.fillMaxSize().padding(top = 4.dp, end = 4.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(interactionSource = src, indication = LocalIndication.current) { if (locked) { nope++; haptic.performHapticFeedback(HapticFeedbackType.LongPress) }; onClick() }.padding(horizontal = 2.dp)
-            .semantics { contentDescription = def.label + when (st?.state) { "OPEN" -> ""; "QUIET" -> ", nobody online right now"; "SOON" -> ", coming soon"; else -> ", locked near you" } },
+            .semantics { contentDescription = when (st?.state) { "OPEN" -> def.label; "QUIET" -> cdQuiet; "SOON" -> cdSoon; else -> cdLocked } },
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(def.icon, null, tint = fg)
             Text(def.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = fg, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -247,28 +255,28 @@ private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceSta
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(def.icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-                Text(if (st?.state == "SOON" || !cloud) "${def.label} is coming soon" else "${def.label} isn't open near you yet", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 14.dp))
+                Text(if (st?.state == "SOON" || !cloud) stringResource(R.string.g3_service_soon_title, def.label) else stringResource(R.string.g3_service_locked_title, def.label), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 14.dp))
             }
             if (st != null && st.state == "LOCKED") {
-                Text("Not enough ${st.supplyNoun} near you have joined Bucks and been recommended by locals yet. It opens once ${st.minSupply} within ${st.radiusKm} of you are live.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
+                Text(stringResource(R.string.g3_service_locked_body, st.supplyNoun, st.minSupply.toString(), st.radiusKm), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
                 val progress = if (st.minSupply == 0) 1f else (st.supply.toFloat() / st.minSupply).coerceIn(0f, 1f)
                 val shown by animateFloatAsState(progress, tween(Motion.LONG * 2, easing = Motion.Emphasized), label = "unlock")
                 LinearProgressIndicator(progress = { shown }, Modifier.fillMaxWidth().padding(top = 14.dp).height(8.dp).clip(CircleShape))
-                Muted("${st.supply} of ${st.minSupply} so far", Modifier.padding(top = 6.dp))
-            } else Text(if (cloud) "Bucks is still building ${def.label.lowercase()}. Tell us you want it and we'll let you know when it opens." else "It opens in the online version of Bucks.",
+                Muted(stringResource(R.string.g3_service_progress, st.supply.toString(), st.minSupply.toString()), Modifier.padding(top = 6.dp))
+            } else Text(if (cloud) stringResource(R.string.g3_service_building, def.label.lowercase()) else stringResource(R.string.g3_service_online_only),
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
-            if (st != null && st.interested > 0) Muted("${st.interested} ${if (st.interested == 1) "person" else "people"} near you ${if (st.interested == 1) "is" else "are"} waiting for it.", Modifier.padding(top = 10.dp))
+            if (st != null && st.interested > 0) Muted(pluralStringResource(R.plurals.g3_service_waiting, st.interested, st.interested), Modifier.padding(top = 10.dp))
             if (cloud) {
-                if (st?.mine == true) GhostButton("You'll be told when it opens · Stop", Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
-                else PrimaryButton("Notify me when it opens", Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
+                if (st?.mine == true) GhostButton(stringResource(R.string.g3_service_notify_on), Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
+                else PrimaryButton(stringResource(R.string.g3_service_notify_me), Modifier.padding(top = 18.dp)) { vm.services.toggleInterest(def.key) }
             }
             // Help it open: bring the people it needs onto Bucks, or vouch for one you know.
-            SectionTitle("Help it open here", Modifier.padding(top = 22.dp, bottom = 8.dp))
+            SectionTitle(stringResource(R.string.g3_service_help_open), Modifier.padding(top = 22.dp, bottom = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("Invite to Bucks", Modifier.weight(1f), tonal = true) { Invite.share(ctx, scope, Invite.forService(def.label, st?.supplyNoun ?: def.label.lowercase())) }
-                if (cloud) SmallButton("Recommend a local", Modifier.weight(1f), tonal = true, onClick = onRecommend)
+                SmallButton(stringResource(R.string.g3_service_invite), Modifier.weight(1f), tonal = true) { Invite.share(ctx, scope, Invite.forService(def.label, st?.supplyNoun ?: def.label.lowercase())) }
+                if (cloud) SmallButton(stringResource(R.string.g3_service_recommend), Modifier.weight(1f), tonal = true, onClick = onRecommend)
             }
-            Muted("Know ${st?.supplyNoun ?: "someone who offers this"} nearby? Send them Bucks through WhatsApp or any app, then scan their code in person to recommend them.", Modifier.padding(top = 8.dp))
+            Muted(st?.supplyNoun?.let { stringResource(R.string.g3_service_know_noun, it) } ?: stringResource(R.string.g3_service_know_someone), Modifier.padding(top = 8.dp))
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Muted(def.joinPrompt, Modifier.weight(1f)); TextButton(onClick = onList) { Text(def.joinAction) }
             }
@@ -284,11 +292,11 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
     LaunchedEffect(s.me?.let { (it.lat * 200).toInt() to (it.lng * 200).toInt() }) { if (s.me != null) vm.services.refresh() }
     var sheetFor by remember { mutableStateOf<String?>(null) }
     // Services is for booking and buying: one small icon per service, each opening its own flow. Finding anything else is Home's search.
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Services", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g3_services_title), onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             if (vm.social.enabled) {
                 val open = SERVICE_CATALOG.count { vm.services.state(it.key)?.usable == true }
-                Muted(if (s.me == null) "Turn on location to see which services are open where you are." else "$open of ${SERVICE_CATALOG.size} open near you", Modifier.padding(top = 4.dp, bottom = 12.dp))
+                Muted(if (s.me == null) stringResource(R.string.g3_services_need_location) else stringResource(R.string.g3_services_open_count, open, SERVICE_CATALOG.size), Modifier.padding(top = 4.dp, bottom = 12.dp))
             }
             // Locked tiles open a sheet saying what unlocks them here; open ones go straight in; quiet ones go in with a word about nobody online.
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { SERVICE_CATALOG.chunked(4).forEach { row ->
@@ -297,7 +305,7 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
                         ServiceTile(def, st, SERVICE_CATALOG.indexOf(def), Modifier.weight(1f)) {
                             when {
                                 st == null || !st.usable -> sheetFor = def.key
-                                st.state == "QUIET" && st.minOnline > 0 -> { vm.toast(if (st.delivery) "Most ${st.supplyNoun} near you are closed right now." else "No ${st.supplyNoun} online near you right now. Try again in a few minutes."); onOpenService(def.key) }
+                                st.state == "QUIET" && st.minOnline > 0 -> { vm.toast(if (st.delivery) Str.get(R.string.g3_services_quiet_delivery, st.supplyNoun) else Str.get(R.string.g3_services_quiet_online, st.supplyNoun)); onOpenService(def.key) }
                                 else -> onOpenService(def.key)
                             }
                         }
@@ -305,7 +313,7 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
                     repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             } }
-            vm.services.error?.let { Muted("Couldn't check which services are open here. $it", Modifier.padding(top = 8.dp)) }
+            vm.services.error?.let { Muted(stringResource(R.string.g3_services_error, it), Modifier.padding(top = 8.dp)) }
         }
     }
     sheetFor?.let { key -> serviceDef(key)?.let { def -> ServiceLockSheet(vm, def, vm.services.state(key), onDismiss = { sheetFor = null }, onList = { sheetFor = null; onListService(key) }, onRecommend = { sheetFor = null; onRecommend() }) } }

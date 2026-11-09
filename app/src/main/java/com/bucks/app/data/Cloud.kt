@@ -7,6 +7,7 @@ import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import android.util.Log
 import com.bucks.app.BuildConfig
+import com.bucks.app.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -66,7 +67,7 @@ object Cloud {
         PhoneAuthProvider.verifyPhoneNumber(options.build())
     }
     fun verifyCode(code: String, onSignedIn: () -> Unit, onError: (String) -> Unit) {
-        val id = verificationId ?: return onError("Tap Resend code to get a new code.")
+        val id = verificationId ?: return onError(Str.get(R.string.g1_auth_resend_needed))
         signIn(PhoneAuthProvider.getCredential(id, code), onSignedIn, onError)
     }
     private fun signIn(credential: PhoneAuthCredential, onSignedIn: () -> Unit, onError: (String) -> Unit) {
@@ -77,9 +78,9 @@ object Cloud {
         Log.w("BucksAuth", "phone sign-in failed", e)
         val code = (e as? FirebaseAuthException)?.errorCode ?: e.message?.take(80)
         val text = when (e) {
-            is FirebaseAuthInvalidCredentialsException -> "That code or number isn't valid. Check it and try again."
-            is FirebaseTooManyRequestsException -> "Too many attempts from this phone. Try again later."
-            else -> "Couldn't verify right now."
+            is FirebaseAuthInvalidCredentialsException -> Str.get(R.string.g1_auth_invalid)
+            is FirebaseTooManyRequestsException -> Str.get(R.string.g1_auth_too_many)
+            else -> Str.get(R.string.g1_auth_failed)
         }
         return if (code.isNullOrBlank()) text else "$text ($code)"
     }

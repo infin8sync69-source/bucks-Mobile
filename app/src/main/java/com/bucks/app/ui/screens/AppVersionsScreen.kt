@@ -14,7 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import com.bucks.app.BuildConfig
+import com.bucks.app.R
 import com.bucks.app.data.AppUpdate
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
@@ -31,14 +33,14 @@ fun AppVersionsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val current = AppUpdate.currentBuild
     val branch = BuildConfig.BUILD_BRANCH.ifBlank { null }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("App versions", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g1_versions_title), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             BucksCard(Modifier.fillMaxWidth(), tint = true) {
-                Text("You have build $current", style = MaterialTheme.typography.titleMedium)
-                Muted("Bucks ${BuildConfig.VERSION_NAME}" + (branch?.let { " · from $it" } ?: ""))
+                Text(stringResource(R.string.g1_versions_current, current.toString()), style = MaterialTheme.typography.titleMedium)
+                Muted(if (branch != null) stringResource(R.string.g1_versions_name_branch, BuildConfig.VERSION_NAME, branch) else "Bucks ${BuildConfig.VERSION_NAME}")
             }
             if (!AppUpdate.enabled) {
-                Muted("This version updates through the Play Store.", Modifier.padding(top = 16.dp)); return@Column
+                Muted(stringResource(R.string.g1_versions_play), Modifier.padding(top = 16.dp)); return@Column
             }
             Row(Modifier.padding(top = 20.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Published builds", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

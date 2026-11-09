@@ -15,7 +15,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.bucks.app.R
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 
@@ -27,21 +29,21 @@ fun MyApplicationsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
     val list = jobs.myApplications
     val active = list.filter { it.status in ACTIVE }; val past = list.filter { it.status !in ACTIVE }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("My applications", onBack = onBack, actions = {
-            if (onNear != null) IconButton(onNear) { Icon(Icons.Rounded.Work, "Jobs near me") }
-            IconButton({ jobs.refreshMyApplications() }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
+        BucksTopBar(stringResource(R.string.g4_apps_title), onBack = onBack, actions = {
+            if (onNear != null) IconButton(onNear) { Icon(Icons.Rounded.Work, stringResource(R.string.g4_cd_jobs_near_me)) }
+            IconButton({ jobs.refreshMyApplications() }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.g4_cd_refresh)) } })
         LazyColumn(contentPadding = PaddingValues(horizontal = Gutter, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when {
-                jobs.loadingMine && list.isEmpty() -> item { JobsLoading("Loading your applications…") }
+                jobs.loadingMine && list.isEmpty() -> item { JobsLoading(stringResource(R.string.g4_apps_loading)) }
                 list.isEmpty() -> item {
-                    Muted("You haven't applied to any job yet. Open Jobs under Services to see what businesses near you are hiring, then apply with your skill profile.", Modifier.padding(top = 8.dp))
-                    if (onNear != null) PrimaryButton("See jobs near me", Modifier.padding(top = 16.dp), onClick = onNear)
+                    Muted(stringResource(R.string.g4_apps_empty), Modifier.padding(top = 8.dp))
+                    if (onNear != null) PrimaryButton(stringResource(R.string.g4_apps_see_jobs), Modifier.padding(top = 16.dp), onClick = onNear)
                 }
                 else -> {
-                    if (active.isEmpty()) item { Muted("Nothing in progress. Your past applications are below.", Modifier.padding(top = 8.dp)) }
+                    if (active.isEmpty()) item { Muted(stringResource(R.string.g4_apps_none_active), Modifier.padding(top = 8.dp)) }
                     items(active, key = { it.id }) { a -> ApplicationRow(a.jobTitle, a.listingTitle, a.area, a.pay, a.status, a.createdAt, a.jobOpen) { onOpen(a.jobId) } }
                     if (past.isNotEmpty()) {
-                        item { SectionTitle("Past", Modifier.padding(top = 12.dp)) }
+                        item { SectionTitle(stringResource(R.string.g4_apps_past), Modifier.padding(top = 12.dp)) }
                         items(past, key = { it.id }) { a -> ApplicationRow(a.jobTitle, a.listingTitle, a.area, a.pay, a.status, a.createdAt, a.jobOpen) { onOpen(a.jobId) } }
                     }
                 }
@@ -63,6 +65,6 @@ private fun ApplicationRow(jobTitle: String, business: String, area: String, pay
             }
             Spacer(Modifier.width(10.dp)); ApplicationStatusPill(status)
         }
-        Muted(listOf(pay.ifBlank { "" }, "Applied ${timeSince(createdAt)}", if (!jobOpen) "Job closed" else "").filter { it.isNotBlank() }.joinToString(" · "), Modifier.padding(top = 8.dp), maxLines = 2)
+        Muted(listOf(pay.ifBlank { "" }, stringResource(R.string.g4_apps_applied_when, timeSince(createdAt)), if (!jobOpen) stringResource(R.string.g4_apps_job_closed) else "").filter { it.isNotBlank() }.joinToString(" · "), Modifier.padding(top = 8.dp), maxLines = 2)
     }
 }

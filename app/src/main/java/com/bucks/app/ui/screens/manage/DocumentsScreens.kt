@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens.manage
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
+import com.bucks.app.data.Str
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -50,43 +53,43 @@ fun ListingDocsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit)
         if (uri != null && row != null) {
             val f = Upload.read(ctx, uri)
             when {
-                f == null -> vm.toast("Couldn't read that file. Try a photo of the document.")
-                f.bytes.size > MAX_FILE_BYTES -> vm.toast("Documents up to 10 MB. Take a smaller photo.")
-                !(f.isImage || f.mime == "application/pdf") -> vm.toast("Photos (JPG, PNG) or PDF only.")
+                f == null -> vm.toast(Str.get(R.string.g2_doc_read_failed))
+                f.bytes.size > MAX_FILE_BYTES -> vm.toast(Str.get(R.string.g2_doc_too_big))
+                !(f.isImage || f.mime == "application/pdf") -> vm.toast(Str.get(R.string.g2_doc_types))
                 else -> draft = row to f
             }
         }
     }
 
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Documents", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g2_ml_documents), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             if (l != null) {
                 Text(l.title, style = MaterialTheme.typography.titleLarge)
-                Muted(serviceDef(l.service)?.label?.let { "Listed under $it" } ?: "", Modifier.padding(bottom = 12.dp))
+                Muted(serviceDef(l.service)?.label?.let { stringResource(R.string.g2_doc_listed_under, it) } ?: "", Modifier.padding(bottom = 12.dp))
             }
             val required = rows.orEmpty().filter { it.required }; val checked = required.count { it.status == "VERIFIED" }
             BucksCard(Modifier.padding(bottom = 12.dp), tint = true, padding = 14) {
                 Text(when {
-                    l == null -> "Documents"
-                    l.status == "LIVE" -> "Live"
-                    l.status == "SUSPENDED" && l.complianceHold -> "Paused for a document"
-                    l.status == "SUSPENDED" -> "Suspended"
-                    else -> "Not live yet"
+                    l == null -> stringResource(R.string.g2_ml_documents)
+                    l.status == "LIVE" -> stringResource(R.string.g2_live)
+                    l.status == "SUSPENDED" && l.complianceHold -> stringResource(R.string.g2_doc_paused)
+                    l.status == "SUSPENDED" -> stringResource(R.string.g2_suspended)
+                    else -> stringResource(R.string.g2_doc_not_live)
                 }, style = MaterialTheme.typography.titleMedium)
                 Muted(when {
                     l == null -> ""
-                    l.status == "LIVE" -> "Keep required documents in date. Seven days after one expires, the listing pauses until a new one is checked."
-                    l.status == "SUSPENDED" && l.complianceHold -> "A required document expired. Upload a new one; you go live again as soon as Bucks checks it."
-                    l.status == "SUSPENDED" -> "Bucks suspended this listing. Contact support."
-                    else -> "Two things take it live: ${MyListingsNeeded} people nearby recommend it in person ($recs so far), and Bucks checks the required documents below ($checked of ${required.size} checked)."
+                    l.status == "LIVE" -> stringResource(R.string.g2_doc_live_info)
+                    l.status == "SUSPENDED" && l.complianceHold -> stringResource(R.string.g2_doc_hold_info)
+                    l.status == "SUSPENDED" -> stringResource(R.string.g2_doc_suspended_info)
+                    else -> stringResource(R.string.g2_doc_pending_info, MyListingsNeeded, recs, checked, required.size)
                 }, Modifier.padding(top = 4.dp))
             }
-            Notice("Only you and Bucks staff can open these files. Customers see a \"checked by Bucks\" tick, plus the number for FSSAI, GST and RERA, which businesses are expected to show.")
+            Notice(stringResource(R.string.g2_doc_privacy))
             Spacer(Modifier.height(12.dp))
             when {
                 rows == null -> Box(Modifier.fillMaxWidth().padding(40.dp)) { BucksLoader() }
-                rows.isEmpty() -> Muted("This listing doesn't need any documents.")
+                rows.isEmpty() -> Muted(stringResource(R.string.g2_doc_none_needed))
                 else -> rows.forEachIndexed { i, r ->
                     DocRow(r, uploading = sv.uploading == r.docType, modifier = Modifier.popIn(i),
                         onPick = { pickingFor = r; picker.launch(arrayOf("image/*", "application/pdf")) },
@@ -96,7 +99,7 @@ fun ListingDocsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit)
         }
     }
     draft?.let { (row, file) -> DocDetailsDialog(row, file, busy = sv.uploading != null, onDismiss = { draft = null }) { number, expires -> sv.submit(listingId, row, file, number, expires) { draft = null } } }
-    removing?.let { r -> ConfirmDialog("Remove ${r.label}?", "The file is deleted. You can add it again later.", "Remove", onConfirm = { sv.remove(listingId, r); removing = null }, onDismiss = { removing = null }) }
+    removing?.let { r -> ConfirmDialog(stringResource(R.string.g2_remove_member_q, r.label), stringResource(R.string.g2_doc_remove_body), stringResource(R.string.g2_remove), onConfirm = { sv.remove(listingId, r); removing = null }, onDismiss = { removing = null }) }
 }
 
 /** Local recommendations a listing needs (settings.min_recommendations). */
@@ -107,18 +110,18 @@ private fun DocRow(r: ComplianceRow, uploading: Boolean, modifier: Modifier, onP
     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Text(r.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
         when (r.status) {
-            "VERIFIED" -> PillGood("Checked"); "PENDING" -> PillWarn("Being checked"); "REJECTED" -> PillBad("Rejected"); "EXPIRED" -> PillBad("Expired")
-            else -> if (r.required) PillPurple("Required") else PillGrey("Optional")
+            "VERIFIED" -> PillGood(stringResource(R.string.g2_doc_checked)); "PENDING" -> PillWarn(stringResource(R.string.g2_doc_being_checked)); "REJECTED" -> PillBad(stringResource(R.string.g2_doc_rejected)); "EXPIRED" -> PillBad(stringResource(R.string.g2_doc_expired))
+            else -> if (r.required) PillPurple(stringResource(R.string.g2_doc_required)) else PillGrey(stringResource(R.string.g2_doc_optional))
         }
     }
     if (r.hint.isNotBlank()) Muted(r.hint, Modifier.padding(top = 4.dp))
-    if (r.status == "REJECTED" && r.note.isNotBlank()) Text("Bucks: ${r.note}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.status.bad, modifier = Modifier.padding(top = 6.dp))
-    val facts = listOfNotNull(r.number.ifBlank { null }?.let { "No. $it" }, r.expiresOn?.let { "valid till ${humanDate(it)}" })
+    if (r.status == "REJECTED" && r.note.isNotBlank()) Text(stringResource(R.string.g2_doc_bucks_note, r.note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.status.bad, modifier = Modifier.padding(top = 6.dp))
+    val facts = listOfNotNull(r.number.ifBlank { null }?.let { stringResource(R.string.g2_doc_number, it) }, r.expiresOn?.let { stringResource(R.string.g2_doc_valid_till_lc, humanDate(it)) })
     if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
-    Muted(if (r.publicNumber) "Customers see: a tick and the number" else "Customers see: a tick only", Modifier.padding(top = 6.dp))
+    Muted(stringResource(if (r.publicNumber) R.string.g2_doc_customers_number else R.string.g2_doc_customers_tick), Modifier.padding(top = 6.dp))
     Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SmallButton(if (uploading) "Uploading…" else if (r.status == "MISSING") "Add" else "Replace", tonal = r.status != "MISSING", enabled = !uploading, onClick = onPick)
-        if (onRemove != null) SmallButton("Remove", tonal = true, onClick = onRemove)
+        SmallButton(stringResource(if (uploading) R.string.g2_uploading else if (r.status == "MISSING") R.string.g2_add else R.string.g2_doc_replace), tonal = r.status != "MISSING", enabled = !uploading, onClick = onPick)
+        if (onRemove != null) SmallButton(stringResource(R.string.g2_remove), tonal = true, onClick = onRemove)
     }
 }
 
@@ -132,20 +135,20 @@ private fun DocDetailsDialog(r: ComplianceRow, file: Picked, busy: Boolean, onDi
     val needsNumber = r.asksNumber && r.publicNumber
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text(r.label) },
         text = { Column {
-            Muted("File: ${file.name}")
-            if (r.asksNumber) OutlinedTextField(number, { number = it.take(40) }, label = { Text(if (needsNumber) "Number" else "Number (optional)") }, singleLine = true,
+            Muted(stringResource(R.string.g2_doc_file, file.name))
+            if (r.asksNumber) OutlinedTextField(number, { number = it.take(40) }, label = { Text(stringResource(if (needsNumber) R.string.g2_doc_number_label else R.string.g2_doc_number_optional)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = if (r.docType == "FSSAI") KeyboardType.Number else KeyboardType.Ascii), modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
-            if (r.hasExpiry) OutlinedButton({ choosing = true }, Modifier.fillMaxWidth().padding(top = 12.dp)) { Text(expires?.let { "Valid till ${humanDate(it.toString())}" } ?: "Choose the expiry date") }
-            if (!r.asksNumber) Muted("Bucks doesn't keep this document's number, only the file for checking.", Modifier.padding(top = 12.dp))
+            if (r.hasExpiry) OutlinedButton({ choosing = true }, Modifier.fillMaxWidth().padding(top = 12.dp)) { Text(expires?.let { stringResource(R.string.g2_doc_valid_till, humanDate(it.toString())) } ?: stringResource(R.string.g2_doc_choose_expiry)) }
+            if (!r.asksNumber) Muted(stringResource(R.string.g2_doc_no_number_kept), Modifier.padding(top = 12.dp))
         } },
-        confirmButton = { TextButton(enabled = !busy && (!needsNumber || number.isNotBlank()) && (!r.hasExpiry || expires != null), onClick = { onSubmit(number, expires?.toString()) }) { Text(if (busy) "Sending…" else "Send to Bucks") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } })
+        confirmButton = { TextButton(enabled = !busy && (!needsNumber || number.isNotBlank()) && (!r.hasExpiry || expires != null), onClick = { onSubmit(number, expires?.toString()) }) { Text(stringResource(if (busy) R.string.g2_sending else R.string.g2_doc_send)) } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.g2_cancel)) } })
     if (choosing) {
         val today = LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         val state = rememberDatePickerState(selectableDates = object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= today })
         DatePickerDialog(onDismissRequest = { choosing = false },
-            confirmButton = { TextButton({ state.selectedDateMillis?.let { expires = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; choosing = false }) { Text("OK") } },
-            dismissButton = { TextButton({ choosing = false }) { Text("Cancel") } }) { DatePicker(state) }
+            confirmButton = { TextButton({ state.selectedDateMillis?.let { expires = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; choosing = false }) { Text(stringResource(R.string.g2_ok)) } },
+            dismissButton = { TextButton({ choosing = false }) { Text(stringResource(R.string.g2_cancel)) } }) { DatePicker(state) }
     }
 }
 
@@ -166,58 +169,58 @@ fun StaffReviewScreen(vm: BucksViewModel, onBack: () -> Unit) {
     fun decide(v: com.bucks.app.data.VehicleToReview, approve: Boolean, note: String) = scope.launch {
         vBusy = true
         runCatching { com.bucks.app.data.DeliveryBackend.reviewVehicle(v.id, approve, note) }
-            .onSuccess { vm.toast(if (approve) "${v.plate} approved. The owner can go online." else "${v.plate} sent back to the owner."); vehicles = vehicles?.filterNot { it.id == v.id } }
+            .onSuccess { vm.toast(Str.get(if (approve) R.string.g2_staff_vehicle_approved else R.string.g2_staff_vehicle_sent_back, v.plate)); vehicles = vehicles?.filterNot { it.id == v.id } }
             .onFailure { vm.toast(com.bucks.app.data.friendlyError(it)) }
         vBusy = false
     }
     LaunchedEffect(Unit) { loadVehicles() }
     fun openPath(path: String) = scope.launch {
-        runCatching { Backend.signedUrl("docs", path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast("No app on this phone can open that file.") } }
-            .onFailure { vm.toast("Couldn't open the file. Check your connection.") }
+        runCatching { Backend.signedUrl("docs", path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast(Str.get(R.string.g2_no_app_open_file)) } }
+            .onFailure { vm.toast(Str.get(R.string.g2_file_open_connection)) }
     }
     fun open(item: ReviewItem) = scope.launch {
-        runCatching { Backend.signedUrl("docs", item.path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast("No app on this phone can open that file.") } }
-            .onFailure { vm.toast("Couldn't open the file. Check your connection.") }
+        runCatching { Backend.signedUrl("docs", item.path) }.onSuccess { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast(Str.get(R.string.g2_no_app_open_file)) } }
+            .onFailure { vm.toast(Str.get(R.string.g2_file_open_connection)) }
     }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Review documents and vehicles", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g2_staff_title), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
-            SectionTitle("Vehicles", Modifier.padding(top = 8.dp, bottom = 6.dp))
+            SectionTitle(stringResource(R.string.g2_ml_tab_vehicles), Modifier.padding(top = 8.dp, bottom = 6.dp))
             val vs = vehicles
             when {
                 vs == null -> Box(Modifier.fillMaxWidth().padding(24.dp)) { BucksLoader() }
-                vs.isEmpty() -> Muted("No vehicles waiting.", Modifier.padding(bottom = 12.dp))
+                vs.isEmpty() -> Muted(stringResource(R.string.g2_staff_no_vehicles), Modifier.padding(bottom = 12.dp))
                 else -> vs.forEach { v ->
                     BucksCard(Modifier.padding(bottom = 10.dp), padding = 14) {
-                        Text("${v.plate} · ${when (v.kind) { "BIKE" -> "Bike (deliveries)"; "AUTO" -> "Auto"; else -> "Cab" }}", style = MaterialTheme.typography.titleSmall)
-                        Muted(listOfNotNull(v.model.ifBlank { null }, v.ownerName, "added ${humanDate(v.createdAt)}").joinToString(" · "))
+                        Text(stringResource(R.string.g2_staff_plate_kind, v.plate, stringResource(when (v.kind) { "BIKE" -> R.string.g2_vk_bike_deliveries; "AUTO" -> R.string.g2_vk_auto; else -> R.string.g2_vk_cab })), style = MaterialTheme.typography.titleSmall)
+                        Muted(listOfNotNull(v.model.ifBlank { null }, v.ownerName, stringResource(R.string.g2_staff_added, humanDate(v.createdAt))).joinToString(" · "))
                         val files = v.files
-                        if (files.isEmpty()) Text("No documents uploaded: reject and ask for the RC, insurance and licence.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                        if (files.isEmpty()) Text(stringResource(R.string.g2_staff_no_docs), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
                         else Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            files.forEachIndexed { i, (kind, path) -> SmallButton(kind.ifBlank { "Document ${i + 1}" }, tonal = true) { openPath(path) } } }
-                        Muted("Check the plate on the RC matches, and the insurance is in date.", Modifier.padding(top = 6.dp))
+                            files.forEachIndexed { i, (kind, path) -> SmallButton(kind.ifBlank { stringResource(R.string.g2_staff_document_n, i + 1) }, tonal = true) { openPath(path) } } }
+                        Muted(stringResource(R.string.g2_staff_check_vehicle), Modifier.padding(top = 6.dp))
                         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SmallButton("Approve", enabled = !vBusy && files.isNotEmpty()) { decide(v, true, "") }
-                            SmallButton("Reject", tonal = true, enabled = !vBusy) { rejectingVehicle = v }
+                            SmallButton(stringResource(R.string.g2_approve), enabled = !vBusy && files.isNotEmpty()) { decide(v, true, "") }
+                            SmallButton(stringResource(R.string.g2_reject), tonal = true, enabled = !vBusy) { rejectingVehicle = v }
                         }
                     }
                 }
             }
-            SectionTitle("Documents", Modifier.padding(top = 8.dp, bottom = 6.dp))
+            SectionTitle(stringResource(R.string.g2_ml_documents), Modifier.padding(top = 8.dp, bottom = 6.dp))
             when {
                 !sv.reviewLoaded -> Box(Modifier.fillMaxWidth().padding(40.dp)) { BucksLoader() }
-                sv.reviewQueue.isEmpty() -> Muted("Nothing to review. New uploads show up here.")
+                sv.reviewQueue.isEmpty() -> Muted(stringResource(R.string.g2_staff_nothing))
                 else -> sv.reviewQueue.forEach { item ->
                     BucksCard(Modifier.padding(bottom = 10.dp), padding = 14) {
                         Text(item.label, style = MaterialTheme.typography.titleSmall)
                         Muted(listOfNotNull(item.listingTitle, serviceDef(item.service)?.label).joinToString(" · "))
-                        val facts = listOfNotNull(item.number.ifBlank { null }?.let { "No. $it" }, item.expiresOn?.let { "valid till ${humanDate(it)}" })
+                        val facts = listOfNotNull(item.number.ifBlank { null }?.let { stringResource(R.string.g2_doc_number, it) }, item.expiresOn?.let { stringResource(R.string.g2_doc_valid_till_lc, humanDate(it)) })
                         if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                        Muted("Check the name, number and dates on the file match what they entered.", Modifier.padding(top = 4.dp))
+                        Muted(stringResource(R.string.g2_staff_check_doc), Modifier.padding(top = 4.dp))
                         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SmallButton("Open file", tonal = true) { open(item) }
-                            SmallButton("Approve") { sv.review(item, true, "") }
-                            SmallButton("Reject", tonal = true) { rejecting = item }
+                            SmallButton(stringResource(R.string.g2_staff_open_file), tonal = true) { open(item) }
+                            SmallButton(stringResource(R.string.g2_approve)) { sv.review(item, true, "") }
+                            SmallButton(stringResource(R.string.g2_reject), tonal = true) { rejecting = item }
                         }
                     }
                 }
@@ -226,16 +229,16 @@ fun StaffReviewScreen(vm: BucksViewModel, onBack: () -> Unit) {
     }
     rejectingVehicle?.let { v ->
         var reason by remember(v.id) { mutableStateOf("") }
-        AlertDialog(onDismissRequest = { rejectingVehicle = null }, title = { Text("Send ${v.plate} back?") },
-            text = { OutlinedTextField(reason, { reason = it.take(300) }, label = { Text("What the owner needs to fix") }, placeholder = { Text("The insurance has expired; upload the new one") }, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(enabled = reason.isNotBlank() && !vBusy, onClick = { decide(v, false, reason.trim()); rejectingVehicle = null }) { Text("Send back") } },
-            dismissButton = { TextButton({ rejectingVehicle = null }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { rejectingVehicle = null }, title = { Text(stringResource(R.string.g2_staff_send_back_q, v.plate)) },
+            text = { OutlinedTextField(reason, { reason = it.take(300) }, label = { Text(stringResource(R.string.g2_staff_fix_label)) }, placeholder = { Text(stringResource(R.string.g2_staff_fix_hint)) }, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = { TextButton(enabled = reason.isNotBlank() && !vBusy, onClick = { decide(v, false, reason.trim()); rejectingVehicle = null }) { Text(stringResource(R.string.g2_staff_send_back)) } },
+            dismissButton = { TextButton({ rejectingVehicle = null }) { Text(stringResource(R.string.g2_cancel)) } })
     }
     rejecting?.let { item ->
         var reason by remember(item.id) { mutableStateOf("") }
-        AlertDialog(onDismissRequest = { rejecting = null }, title = { Text("Reject ${item.label}?") },
-            text = { OutlinedTextField(reason, { reason = it.take(200) }, label = { Text("Reason they will see") }, placeholder = { Text("The name on the licence doesn't match the shop") }, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(enabled = reason.isNotBlank(), onClick = { sv.review(item, false, reason.trim()); rejecting = null }) { Text("Reject") } },
-            dismissButton = { TextButton({ rejecting = null }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { rejecting = null }, title = { Text(stringResource(R.string.g2_staff_reject_q, item.label)) },
+            text = { OutlinedTextField(reason, { reason = it.take(200) }, label = { Text(stringResource(R.string.g2_staff_reason_label)) }, placeholder = { Text(stringResource(R.string.g2_staff_reason_hint)) }, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = { TextButton(enabled = reason.isNotBlank(), onClick = { sv.review(item, false, reason.trim()); rejecting = null }) { Text(stringResource(R.string.g2_reject)) } },
+            dismissButton = { TextButton({ rejecting = null }) { Text(stringResource(R.string.g2_cancel)) } })
     }
 }

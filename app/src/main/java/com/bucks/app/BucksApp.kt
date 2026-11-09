@@ -12,6 +12,7 @@ class BucksApp : Application() {
         com.bucks.app.data.Cloud.init(this)
         com.bucks.app.data.AppLife.init(this)
         com.bucks.app.data.Countries.init(this)
+        com.bucks.app.data.Str.init(this)
         com.bucks.app.data.Prefs.init(this)
         com.bucks.app.data.Prefs.countLaunch()
         com.bucks.app.data.Analytics.init(this)

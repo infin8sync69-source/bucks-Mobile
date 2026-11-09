@@ -1,5 +1,9 @@
 package com.bucks.app.ui.screens.discover
 
+import com.bucks.app.data.Money
+import com.bucks.app.data.Str
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -47,9 +51,9 @@ fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
                     Text(hit.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     Spacer(Modifier.width(8.dp)); KindBadge(PageTypes.badge(hit.kind, hit.typeKey, ships), PageTypes.badgeIcon(hit.kind, hit.typeKey, ships))
                 }
-                Muted(listOfNotNull(hit.category.ifBlank { null }, if (ships && hit.distanceM > 25_000) "Ships across India" else formatDistance(hit.distanceM), hit.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
+                Muted(listOfNotNull(hit.category.ifBlank { null }, if (ships && hit.distanceM > 25_000) stringResource(R.string.g1_card_ships_india) else formatDistance(hit.distanceM), hit.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) { OnlineDot(hit.online); Spacer(Modifier.width(6.dp)); Muted(onlineText(hit.kind, hit.online), maxLines = 1) }
-                hit.ownerName?.takeIf { it.isNotBlank() }?.let { Muted("by $it", Modifier.padding(top = 2.dp), maxLines = 1) }
+                hit.ownerName?.takeIf { it.isNotBlank() }?.let { Muted(stringResource(R.string.g1_card_by, it), Modifier.padding(top = 2.dp), maxLines = 1) }
             }
         }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -66,36 +70,49 @@ fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
  */
 private fun kindLine(h: SearchHit): String = when (h.kind) {
     "BUSINESS" -> businessLine(h, PageTypes.of(h))
-    "SKILL" -> listOfNotNull(h.matchedItem?.let { n -> h.matchedPrice?.let { "$n ₹$it" } ?: n }, proRate(h.details, h.minPrice)).joinToString(" · ")
-    "DRIVER" -> driverKind(h.details, h.category)?.let { k -> listOfNotNull("${k.label} · ₹${k.farePerKm}/km", h.details.str("model")).joinToString(" · ") } ?: "Driver"
+    "SKILL" -> listOfNotNull(matchedLine(h), proRate(h.details, h.minPrice)).joinToString(" · ")
+    "DRIVER" -> driverKind(h.details, h.category)?.let { k -> listOfNotNull(Str.get(R.string.g1_card_driver_fare, k.label, Money.format(k.farePerKm)), h.details.str("model")).joinToString(" · ") } ?: Str.get(R.string.g1_card_driver)
     else -> h.description.take(80)
 }
 
+/** The matched product with its own price ("Basmati Rice ₹120") when the server sent it. */
+private fun matchedLine(h: SearchHit): String? = h.matchedItem?.let { n -> h.matchedPrice?.let { Str.get(R.string.g1_card_item_price, n, Money.format(it)) } ?: n }
+
 /** What a business page's card says under the name: by type, with the matched item first when the query hit one. */
 private fun businessLine(h: SearchHit, t: PageType?): String {
-    // The matched product with its own price ("Basmati Rice ₹120") when the server sent it.
-    val matched = h.matchedItem?.let { n -> h.matchedPrice?.let { "$n ₹$it" } ?: n }; val from = h.minPrice
+    val matched = matchedLine(h); val from = h.minPrice?.let { Money.format(it) }
     return when (t?.key) {
-        "LOCAL_SERVICE", "HOSPITAL" -> listOfNotNull(matched?.let { "Offers $it" }, from?.let { "services from ₹$it" } ?: "book a visit").joinToString(" · ").replaceFirstChar { it.uppercase() }
-        "IT_COMPANY", "COLLECTIVE", "PRO_FIRM", "MANUFACTURER" -> listOfNotNull(matched?.let { "Offers $it" }, from?.let { "from ₹$it" } ?: "quotes on request").joinToString(" · ").replaceFirstChar { it.uppercase() }
-        "NGO_CHARITY" -> listOfNotNull(matched?.let { "Program: $it" } ?: "Programs you can join", "volunteers welcome").joinToString(" · ")
-        "SCHOOL_COLLEGE" -> listOfNotNull(matched, "Admissions and programs").joinToString(" · ")
-        "COMMUNITY_GROUP", "ASSOCIATION", "WORSHIP_PLACE" -> listOfNotNull(matched, "Events and updates").joinToString(" · ")
+        "LOCAL_SERVICE", "HOSPITAL" -> when {
+            matched != null && from != null -> Str.get(R.string.g1_card_service_offers_from, matched, from)
+            matched != null -> Str.get(R.string.g1_card_service_offers_visit, matched)
+            from != null -> Str.get(R.string.g1_card_service_from, from)
+            else -> Str.get(R.string.g1_card_service_visit)
+        }
+        "IT_COMPANY", "COLLECTIVE", "PRO_FIRM", "MANUFACTURER" -> when {
+            matched != null && from != null -> Str.get(R.string.g1_card_firm_offers_from, matched, from)
+            matched != null -> Str.get(R.string.g1_card_firm_offers_quotes, matched)
+            from != null -> Str.get(R.string.g1_card_firm_from, from)
+            else -> Str.get(R.string.g1_card_firm_quotes)
+        }
+        "NGO_CHARITY" -> if (matched != null) Str.get(R.string.g1_card_ngo_program, matched) else Str.get(R.string.g1_card_ngo)
+        "SCHOOL_COLLEGE" -> listOfNotNull(matched, Str.get(R.string.g1_card_school)).joinToString(" · ")
+        "COMMUNITY_GROUP", "ASSOCIATION", "WORSHIP_PLACE" -> listOfNotNull(matched, Str.get(R.string.g1_card_community)).joinToString(" · ")
         else -> when {
-            matched != null -> "Sells $matched" + (from?.let { " · products from ₹$it" } ?: "")
-            from != null -> "Products from ₹$from"
-            else -> "No products listed yet · message to ask"
+            matched != null && from != null -> Str.get(R.string.g1_card_shop_sells_from, matched, from)
+            matched != null -> Str.get(R.string.g1_card_shop_sells, matched)
+            from != null -> Str.get(R.string.g1_card_shop_from, from)
+            else -> Str.get(R.string.g1_card_shop_empty)
         }
     }
 }
 
 /** "Open now" for a shop, "Available now" for a pro, "Online now" for a driver, and their opposites. */
-fun onlineText(kind: String, online: Boolean): String = when (kind) {
-    "BUSINESS" -> if (online) "Open now" else "Closed now"
-    "SKILL" -> if (online) "Available now" else "Not available right now"
-    "ASSET" -> if (online) "Available" else "Not available now"
-    else -> if (online) "Online now" else "Offline"
-}
+fun onlineText(kind: String, online: Boolean): String = Str.get(when (kind) {
+    "BUSINESS" -> if (online) R.string.g1_card_open else R.string.g1_card_closed
+    "SKILL" -> if (online) R.string.g1_card_pro_available else R.string.g1_card_pro_unavailable
+    "ASSET" -> if (online) R.string.g1_card_asset_available else R.string.g1_card_asset_unavailable
+    else -> if (online) R.string.g1_card_online else R.string.g1_card_offline
+})
 
 /** A small pill with an icon: the page type of a business ("NGO / charity"), or Shop / Pro / Driver for the other kinds. */
 @Composable

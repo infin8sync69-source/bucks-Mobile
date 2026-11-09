@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -109,16 +111,16 @@ fun DemoMomentViewer(m: DemoMoments, startId: String, myName: String, onReply: (
                         Text(initials(m.nameOf(id, myName)), color = Color.White, style = MaterialTheme.typography.labelLarge) }
                     Column(Modifier.padding(start = 10.dp).weight(1f)) {
                         Text(m.nameOf(id, myName), color = Color.White, style = MaterialTheme.typography.titleSmall)
-                        Text(if (s.minutesAgo < 1) "Just now" else if (s.minutesAgo < 60) "${s.minutesAgo} min ago" else "${s.minutesAgo / 60} h ago", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall)
+                        Text(if (s.minutesAgo < 1) stringResource(R.string.g7_time_just_now) else if (s.minutesAgo < 60) stringResource(R.string.g7_time_min_ago, s.minutesAgo) else stringResource(R.string.g7_time_h_ago, s.minutesAgo / 60), color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall)
                     }
-                    IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close", tint = Color.White) }
+                    IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.g7_cd_close), tint = Color.White) }
                 }
             }
             Text(s.text, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, lineHeight = 34.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.Center).padding(horizontal = 28.dp))
             if (id != "me") Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp).fillMaxWidth().height(48.dp).clip(CircleShape)
                 .border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape).clickable(onClick = onReply).padding(horizontal = 18.dp), contentAlignment = Alignment.CenterStart) {
-                Text("Reply to ${m.nameOf(id, myName).substringBefore(' ')}…", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.g7_moments_reply_to, m.nameOf(id, myName).substringBefore(' ')), color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -130,16 +132,16 @@ fun DemoMomentViewer(m: DemoMoments, startId: String, myName: String, onReply: (
 fun DemoMomentComposer(onShare: (String, List<Color>) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }; var colors by remember { mutableStateOf(MOMENT_COLORS.first()) }
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-        Text("New moment", style = MaterialTheme.typography.titleLarge)
-        Muted("Disappears after 24 hours.", Modifier.padding(top = 2.dp, bottom = 12.dp))
+        Text(stringResource(R.string.g7_moments_new), style = MaterialTheme.typography.titleLarge)
+        Muted(stringResource(R.string.g7_moments_24h), Modifier.padding(top = 2.dp, bottom = 12.dp))
         Box(Modifier.fillMaxWidth().height(180.dp).clip(MaterialTheme.shapes.medium).background(Brush.verticalGradient(colors)).padding(18.dp), contentAlignment = Alignment.Center) {
-            Text(text.ifBlank { "What's happening nearby?" }, color = Color.White.copy(alpha = if (text.isBlank()) 0.6f else 1f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            Text(text.ifBlank { stringResource(R.string.g7_moments_prompt) }, color = Color.White.copy(alpha = if (text.isBlank()) 0.6f else 1f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         }
         Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MOMENT_COLORS.forEach { c -> Box(Modifier.size(32.dp).clip(CircleShape).background(Brush.verticalGradient(c))
                 .then(if (c == colors) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier).clickable { colors = c }) }
         }
-        BucksField(text, { text = it.take(160) }, placeholder = "Fresh stock, a deal, a question for neighbours", singleLine = false, minLines = 2)
-        PrimaryButton("Share for 24 hours", enabled = text.isNotBlank()) { onShare(text.trim(), colors) }
+        BucksField(text, { text = it.take(160) }, placeholder = stringResource(R.string.g7_moments_hint), singleLine = false, minLines = 2)
+        PrimaryButton(stringResource(R.string.g7_moments_share_24h), enabled = text.isNotBlank()) { onShare(text.trim(), colors) }
     } }
 }

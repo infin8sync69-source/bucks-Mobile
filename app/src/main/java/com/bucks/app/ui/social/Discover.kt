@@ -1,5 +1,8 @@
 package com.bucks.app.ui.social
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -51,52 +54,52 @@ fun DiscoverScreen(vm: BucksViewModel, onOpenPerson: (String) -> Unit, onContact
     val pending = remember(social.synced, social.incoming) { mutableStateMapOf<String, Boolean>() }
     fun syncState(id: String) = when { social.synced.any { it.id == id } -> "SYNCED"; social.incoming.any { it.id == id } -> "INCOMING"; pending[id] == true -> "SENT"; else -> "NONE" }
     Column(Modifier.fillMaxSize()) {
-        Text("Discover", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.statusBarsPadding().padding(start = Gutter, end = Gutter, top = 12.dp).semantics { heading() })
-        OutlinedTextField(q, { q = it.take(60) }, Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), placeholder = { Text("Search names or a Bucks ID") },
-            leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (q.isNotEmpty()) IconButton({ q = "" }) { Icon(Icons.Rounded.Close, "Clear search") } },
+        Text(stringResource(R.string.g8_discover), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.statusBarsPadding().padding(start = Gutter, end = Gutter, top = 12.dp).semantics { heading() })
+        OutlinedTextField(q, { q = it.take(60) }, Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), placeholder = { Text(stringResource(R.string.g8_search_people_hint)) },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (q.isNotEmpty()) IconButton({ q = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.g8_cd_clear_search)) } },
             singleLine = true, shape = MaterialTheme.shapes.extraLarge, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }))
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (hits != null || searching) {
                 if (searching && hits == null) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = Gutter)) }
                 hits?.let { list ->
-                    if (list.isEmpty()) item { Muted("No one found for \"${q.trim()}\". Check the spelling, or ask them for their Bucks ID.", Modifier.padding(Gutter)) }
+                    if (list.isEmpty()) item { Muted(stringResource(R.string.g8_no_one_found, q.trim()), Modifier.padding(Gutter)) }
                     items(list, key = { it.id }) { h ->
-                        PersonListRow(h.name, listOfNotNull(h.area.ifBlank { null }, if (h.mutual > 0) "${h.mutual} mutual" else null).joinToString(" · ").ifBlank { "Bucks ID ${h.shortCode}" },
+                        PersonListRow(h.name, listOfNotNull(h.area.ifBlank { null }, if (h.mutual > 0) pluralStringResource(R.plurals.g8_mutual, h.mutual, h.mutual) else null).joinToString(" · ").ifBlank { stringResource(R.string.g8_bucks_id_code, h.shortCode) },
                             onClick = { onOpenPerson(h.id) }) { SyncButton(if (h.synced) "SYNCED" else syncState(h.id)) { pending[h.id] = true; social.syncWith(h.id, h.name) } }
                     }
                 }
             } else {
-                if (safety.isMinor) item { SafetyNote(if (safety.isChild) "Only people your parent approves can sync with you." else "For your safety, adults you aren't connected to can't find you in search or suggestions.") }
+                if (safety.isMinor) item { SafetyNote(if (safety.isChild) stringResource(R.string.g8_safety_child) else stringResource(R.string.g8_safety_teen)) }
                 if (social.incoming.isNotEmpty()) {
-                    item { SectionHeader("Sync requests", "${social.incoming.size}") }
+                    item { SectionHeader(stringResource(R.string.g8_sync_requests), "${social.incoming.size}") }
                     items(social.incoming, key = { "in-" + it.id }) { p ->
-                        PersonListRow(p.name, p.area.ifBlank { "Wants to sync with you" }, onClick = { onOpenPerson(p.id) }) {
+                        PersonListRow(p.name, p.area.ifBlank { stringResource(R.string.g8_wants_to_sync) }, onClick = { onOpenPerson(p.id) }) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilledTonalButton({ social.acceptSync(p.id) }, contentPadding = PaddingValues(horizontal = 14.dp)) { Text("Accept") }
-                                IconButton({ social.unsync(p.id) }) { Icon(Icons.Rounded.Close, "Decline ${p.name}") }
+                                FilledTonalButton({ social.acceptSync(p.id) }, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(stringResource(R.string.g8_accept)) }
+                                IconButton({ social.unsync(p.id) }) { Icon(Icons.Rounded.Close, stringResource(R.string.g8_cd_decline_name, p.name)) }
                             }
                         }
                     }
                 }
-                item { SectionHeader("Find your friends", null) }
+                item { SectionHeader(stringResource(R.string.g8_find_friends), null) }
                 item {
                     Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FindCard(Icons.Rounded.Contacts, "From contacts", "See who's already here", Modifier.weight(1f), onContacts)
-                        FindCard(Icons.Rounded.QrCode2, "Bucks ID", "Type or scan a code", Modifier.weight(1f), onBucksId)
+                        FindCard(Icons.Rounded.Contacts, stringResource(R.string.g8_from_contacts), stringResource(R.string.g8_from_contacts_sub), Modifier.weight(1f), onContacts)
+                        FindCard(Icons.Rounded.QrCode2, "Bucks ID", stringResource(R.string.g8_type_or_scan), Modifier.weight(1f), onBucksId)
                     }
                 }
-                item { SectionHeader("People you may know", null) }
-                if (social.suggestions.isEmpty()) item { Muted("Suggestions appear as you sync with people. Friends of friends and people near you show up here.", Modifier.padding(horizontal = Gutter)) }
+                item { SectionHeader(stringResource(R.string.g8_people_you_may_know), null) }
+                if (social.suggestions.isEmpty()) item { Muted(stringResource(R.string.g8_suggestions_empty), Modifier.padding(horizontal = Gutter)) }
                 else item {
                     LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(social.suggestions, key = { it.id }) { p ->
-                            SuggestionTile(p.name, if (p.mutual > 0) "${p.mutual} mutual" else p.area.ifBlank { "Near you" }, syncState(p.id), onOpen = { onOpenPerson(p.id) }) { pending[p.id] = true; social.syncWith(p.id, p.name) }
+                            SuggestionTile(p.name, if (p.mutual > 0) pluralStringResource(R.plurals.g8_mutual, p.mutual, p.mutual) else p.area.ifBlank { stringResource(R.string.g8_near_you) }, syncState(p.id), onOpen = { onOpenPerson(p.id) }) { pending[p.id] = true; social.syncWith(p.id, p.name) }
                         }
                     }
                 }
                 if (social.synced.isNotEmpty()) {
-                    item { SectionHeader("Synced", "${social.synced.size}") }
-                    items(social.synced.take(20), key = { "s-" + it.id }) { p -> PersonListRow(p.name, p.area.ifBlank { "Synced" }, onClick = { onOpenPerson(p.id) }) { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                    item { SectionHeader(stringResource(R.string.g8_synced), "${social.synced.size}") }
+                    items(social.synced.take(20), key = { "s-" + it.id }) { p -> PersonListRow(p.name, p.area.ifBlank { stringResource(R.string.g8_synced) }, onClick = { onOpenPerson(p.id) }) { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 }
             }
         }
@@ -111,7 +114,7 @@ fun SectionHeader(title: String, count: String?) = Row(Modifier.fillMaxWidth().p
 
 @Composable
 fun PersonListRow(name: String, sub: String, onClick: () -> Unit, trailing: @Composable () -> Unit) =
-    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Open $name's profile", onClick = onClick).padding(horizontal = Gutter, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = stringResource(R.string.g8_open_profile_of, name), onClick = onClick).padding(horizontal = Gutter, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(initials(name.ifBlank { "?" }), size = 46)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -123,10 +126,10 @@ fun PersonListRow(name: String, sub: String, onClick: () -> Unit, trailing: @Com
 /** NONE: Sync. SENT: Requested. INCOMING: Accept (handled by the caller's request list). SYNCED: Synced, quiet. */
 @Composable
 fun SyncButton(state: String, onSync: () -> Unit) = when (state) {
-    "SYNCED" -> AssistChip(onClick = {}, label = { Text("Synced") }, leadingIcon = { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) })
-    "SENT" -> AssistChip(onClick = {}, label = { Text("Requested") }, enabled = false)
-    "INCOMING" -> FilledTonalButton(onSync, contentPadding = PaddingValues(horizontal = 14.dp)) { Text("Accept") }
-    else -> Button(onSync, contentPadding = PaddingValues(horizontal = 16.dp), shape = MaterialTheme.shapes.large) { Text("Sync") }
+    "SYNCED" -> AssistChip(onClick = {}, label = { Text(stringResource(R.string.g8_synced)) }, leadingIcon = { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) })
+    "SENT" -> AssistChip(onClick = {}, label = { Text(stringResource(R.string.g8_requested)) }, enabled = false)
+    "INCOMING" -> FilledTonalButton(onSync, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(stringResource(R.string.g8_accept)) }
+    else -> Button(onSync, contentPadding = PaddingValues(horizontal = 16.dp), shape = MaterialTheme.shapes.large) { Text(stringResource(R.string.g8_sync)) }
 }
 
 @Composable

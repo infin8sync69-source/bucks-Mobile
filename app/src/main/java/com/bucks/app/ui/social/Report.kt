@@ -23,10 +23,14 @@ import com.bucks.app.data.ReportReason
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import kotlinx.coroutines.launch
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 
 /** What is being reported. [kind]: POST, COMMENT, MOMENT, MESSAGE, PROFILE, LISTING, REVIEW, JOB or FEEDBACK. [ownerId] lets the sheet offer "also block". */
 data class ReportTarget(val kind: String, val id: String, val ownerId: String?, val ownerName: String) {
-    val noun get() = when (kind) { "POST" -> "post"; "COMMENT" -> "comment"; "MOMENT" -> "moment"; "MESSAGE" -> "message"; "LISTING" -> "page"; "REVIEW" -> "recommendation"; "JOB" -> "job"; "FEEDBACK" -> "feedback post"; else -> "account" }
+    /** Sheet title for a report of anything but a profile ("Report this post"). */
+    @get:StringRes val titleRes: Int get() = when (kind) { "POST" -> R.string.g6_report_post; "COMMENT" -> R.string.g6_report_comment; "MOMENT" -> R.string.g6_report_moment; "MESSAGE" -> R.string.g6_report_message; "LISTING" -> R.string.g6_report_page; "REVIEW" -> R.string.g6_report_review; "JOB" -> R.string.g6_report_job; "FEEDBACK" -> R.string.g6_report_feedback; else -> R.string.g6_report_account }
 }
 
 /**
@@ -49,16 +53,17 @@ fun ReportSheet(vm: BucksViewModel, target: ReportTarget, onDismiss: () -> Unit)
     val scope = rememberCoroutineScope()
     val canBlock = target.ownerId != null && target.ownerId != vm.social.me?.id
     var alsoBlock by remember { mutableStateOf(target.kind == "PROFILE" || target.kind == "MESSAGE") }
+    val msgMapThanks = stringResource(R.string.g6_report_map_thanks); val msgSendFailed = stringResource(R.string.g6_report_send_failed)
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Flag, null, tint = MaterialTheme.colorScheme.error)
-                Text(if (target.kind == "PROFILE") "Report ${target.ownerName}" else "Report this ${target.noun}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 10.dp))
+                Text(if (target.kind == "PROFILE") stringResource(R.string.g6_report_name, target.ownerName) else stringResource(target.titleRes), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 10.dp))
             }
-            Muted("${target.ownerName.ifBlank { "They" }} won't know who reported them. Our team reviews every report.", Modifier.padding(top = 6.dp, bottom = 12.dp))
+            Muted(if (target.ownerName.isBlank()) stringResource(R.string.g6_report_anon) else stringResource(R.string.g6_report_anon_name, target.ownerName), Modifier.padding(top = 6.dp, bottom = 12.dp))
             if (target.kind == "POST") Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).selectable(selected = mapLocation, role = Role.RadioButton) { mapLocation = true; reason = null }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(selected = mapLocation, onClick = null)
-                Column(Modifier.padding(start = 12.dp)) { Text("It shows my home or where I am", style = MaterialTheme.typography.bodyLarge); Muted("Comes off the map right away while our team checks.") }
+                Column(Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.g6_report_map), style = MaterialTheme.typography.bodyLarge); Muted(stringResource(R.string.g6_report_map_hint)) }
             }
             ReportReason.entries.forEach { r ->
                 Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).selectable(selected = reason == r, role = Role.RadioButton) { reason = r; mapLocation = false }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -69,23 +74,23 @@ fun ReportSheet(vm: BucksViewModel, target: ReportTarget, onDismiss: () -> Unit)
             if (reason == ReportReason.SELF_HARM || reason == ReportReason.CHILD_SAFETY || reason == ReportReason.VIOLENCE) {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("If someone is in danger right now, call for help first.", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
-                        HelpLine("Emergency", "112", ctx); HelpLine("Childline (children in need)", "1098", ctx); HelpLine("Tele-MANAS (mental health, free, 24×7)", "14416", ctx)
+                        Text(stringResource(R.string.g6_report_danger), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        HelpLine(stringResource(R.string.g6_help_emergency), "112", ctx); HelpLine(stringResource(R.string.g6_help_childline), "1098", ctx); HelpLine(stringResource(R.string.g6_help_telemanas), "14416", ctx)
                     }
                 }
             }
-            if (reason != null || mapLocation) BucksField(detail, { detail = it.take(500) }, "Anything else we should know? (optional)", "What happened", Modifier.padding(top = 14.dp), singleLine = false, minLines = 3)
+            if (reason != null || mapLocation) BucksField(detail, { detail = it.take(500) }, stringResource(R.string.g6_report_detail_label), stringResource(R.string.g6_report_detail_hint), Modifier.padding(top = 14.dp), singleLine = false, minLines = 3)
             if (canBlock) Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).toggleable(alsoBlock, role = Role.Checkbox) { alsoBlock = it }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = alsoBlock, onCheckedChange = null)
-                Column(Modifier.padding(start = 12.dp)) { Text("Also block ${target.ownerName.ifBlank { "them" }}", style = MaterialTheme.typography.bodyLarge); Muted("They can't message you, sync with you or see your posts.") }
+                Column(Modifier.padding(start = 12.dp)) { Text(if (target.ownerName.isBlank()) stringResource(R.string.g6_report_block) else stringResource(R.string.g6_report_block_name, target.ownerName), style = MaterialTheme.typography.bodyLarge); Muted(stringResource(R.string.g6_report_block_hint)) }
             }
-            PrimaryButton(if (safety.busy || sendingMap) "Sending…" else "Send report", Modifier.padding(top = 14.dp), enabled = (reason != null || mapLocation) && !safety.busy && !sendingMap) {
+            PrimaryButton(if (safety.busy || sendingMap) stringResource(R.string.g6_sending) else stringResource(R.string.g6_report_send), Modifier.padding(top = 14.dp), enabled = (reason != null || mapLocation) && !safety.busy && !sendingMap) {
                 if (mapLocation) {
                     sendingMap = true
                     scope.launch {
                         runCatching { com.bucks.app.data.MapBackend.reportLocation(target.id, detail.trim()) }
-                            .onSuccess { vm.toast("Thanks. It's off the map while we check."); if (alsoBlock && canBlock) target.ownerId?.let { vm.social.block(it) }; onDismiss() }
-                            .onFailure { vm.toast("Couldn't send that. Check your connection and try again.") }
+                            .onSuccess { vm.toast(msgMapThanks); if (alsoBlock && canBlock) target.ownerId?.let { vm.social.block(it) }; onDismiss() }
+                            .onFailure { vm.toast(msgSendFailed) }
                         sendingMap = false
                     }
                     return@PrimaryButton
@@ -102,8 +107,8 @@ fun ReportSheet(vm: BucksViewModel, target: ReportTarget, onDismiss: () -> Unit)
 
 @Composable
 private fun HelpLine(label: String, number: String, ctx: android.content.Context) =
-    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Call $label") { runCatching { ctx.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) } }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.g6_cd_call, label)) { runCatching { ctx.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) } }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Call, null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(18.dp))
-        Text("$label · $number", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(start = 10.dp))
+        Text(stringResource(R.string.g6_help_line, label, number), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(start = 10.dp))
     }
 

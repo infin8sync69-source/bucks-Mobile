@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens.commerce
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -91,23 +94,23 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     val feeUnknown = fees.any { it == null }
 
     ContentColumn(Modifier.fillMaxHeight().imePadding()) {
-        BucksTopBar("Cart", onBack = onBack, actions = { if (stores.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteOutline, "Empty the cart") } })
+        BucksTopBar(stringResource(R.string.g7_cart_title), onBack = onBack, actions = { if (stores.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.g7_cd_cart_empty)) } })
         if (stores.isEmpty()) {
             Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(icon = Icons.Rounded.ShoppingBag, size = 72)
-                Text("Your cart is empty", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
-                Muted("Open a shop and tap Add on what you need. You can mix shops: each shop's items become their own order, delivered separately.", Modifier.padding(top = 6.dp), TextAlign.Center)
-                SmallButton("Find shops", Modifier.padding(top = 18.dp), onClick = onBack)
+                Text(stringResource(R.string.g7_cart_empty), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
+                Muted(stringResource(R.string.g7_cart_empty_sub), Modifier.padding(top = 6.dp), TextAlign.Center)
+                SmallButton(stringResource(R.string.g7_cart_find_shops), Modifier.padding(top = 18.dp), onClick = onBack)
             }
             return@ContentColumn
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter)) {
-            if (stores.size > 1) Notice("${stores.size} shops, so ${stores.size} separate orders and deliveries. Each has its own delivery fee, payment and time.", Modifier.padding(bottom = 12.dp))
+            if (stores.size > 1) Notice(pluralStringResource(R.plurals.g7_cart_multi_notice, stores.size, stores.size), Modifier.padding(bottom = 12.dp))
             stores.forEachIndexed { index, st ->
                 val shop = st.listing; val mode = modeOf(st); val payment = paymentOf(st)
                 val codAllowed = mode in setOf("STORE_RIDER", "SHIP") && shop.details.flag("cod"); val freeDelivery = shop.details.flag("free_delivery")
                 Column(Modifier.padding(bottom = 20.dp)) {
-                    Text(if (stores.size > 1) "Order ${index + 1} of ${stores.size}" else "Your order", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { heading() })
+                    Text(if (stores.size > 1) stringResource(R.string.g7_cart_order_n_of, index + 1, stores.size) else stringResource(R.string.g7_cart_your_order), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { heading() })
                     ListRow(shop.title, listOfNotNull(shop.category.ifBlank { null }, shop.area.ifBlank { null }).joinToString(" · "), leading = { Avatar(icon = Icons.Rounded.Storefront, tinted = false) }, trailing = { TrustBadge(Trust(shop.trustUp, shop.trustDown), compact = true) })
                     BucksCard(Modifier.padding(top = 6.dp)) {
                         st.lines.forEach { l ->
@@ -117,61 +120,62 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
                                     Muted(listOfNotNull(rupees(l.item.price), l.item.unit.ifBlank { null }).joinToString(" · "))
                                 }
                                 AddStepper(l.qty) { d -> commerce.add(shop, l.item, d) }
-                                IconButton({ l.item.id?.let { commerce.remove(it) } }, Modifier.size(48.dp)) { Icon(Icons.Rounded.Close, "Remove ${l.item.name}", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                IconButton({ l.item.id?.let { commerce.remove(it) } }, Modifier.size(48.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.g7_cd_cart_remove, l.item.name), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 Text(rupees(l.amount), style = MaterialTheme.typography.titleSmall, modifier = Modifier.widthIn(min = 56.dp), textAlign = TextAlign.End)
                             }
                         }
                         Divider()
-                        Row(Modifier.padding(top = 8.dp)) { Text("Items from ${shop.title}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); Text(rupees(st.amount), style = MaterialTheme.typography.titleLarge) }
+                        Row(Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.g7_cart_items_from, shop.title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); Text(rupees(st.amount), style = MaterialTheme.typography.titleLarge) }
                     }
-                    Label("How do you want it?")
-                    if (blocked(st)) Notice("${shop.title} is too far for local delivery and doesn't ship. Remove it from the cart, or ask them to switch on shipping.", Modifier.padding(bottom = 8.dp))
+                    Label(stringResource(R.string.g7_cart_how))
+                    if (blocked(st)) Notice(stringResource(R.string.g7_cart_too_far, shop.title), Modifier.padding(bottom = 8.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (ships(st)) Chip("Ship to my address", selected = mode == "SHIP", icon = Icons.Rounded.LocalShipping) { modes[shop.id] = "SHIP" }
+                        if (ships(st)) Chip(stringResource(R.string.g7_cart_mode_ship), selected = mode == "SHIP", icon = Icons.Rounded.LocalShipping) { modes[shop.id] = "SHIP" }
                         if (near(st)) {
-                            Chip("Delivery by a Bucks rider", selected = mode == "MARKETPLACE", icon = Icons.Rounded.TwoWheeler) { modes[shop.id] = "MARKETPLACE" }
-                            if (hasRiders[shop.id] == true) Chip("Store's own rider", selected = mode == "STORE_RIDER", icon = Icons.Rounded.Storefront) { modes[shop.id] = "STORE_RIDER" }
-                            Chip("I'll pick up", selected = mode == "PICKUP", icon = Icons.Rounded.DirectionsWalk) { modes[shop.id] = "PICKUP" }
+                            Chip(stringResource(R.string.g7_cart_mode_marketplace), selected = mode == "MARKETPLACE", icon = Icons.Rounded.TwoWheeler) { modes[shop.id] = "MARKETPLACE" }
+                            if (hasRiders[shop.id] == true) Chip(stringResource(R.string.g7_cart_mode_store_rider), selected = mode == "STORE_RIDER", icon = Icons.Rounded.Storefront) { modes[shop.id] = "STORE_RIDER" }
+                            Chip(stringResource(R.string.g7_cart_mode_pickup), selected = mode == "PICKUP", icon = Icons.Rounded.DirectionsWalk) { modes[shop.id] = "PICKUP" }
                         }
                     }
                     Notice(when {
-                        mode == "SHIP" -> "Shipping ${if (shipFee(st) == 0) "is free" else rupees(shipFee(st))}" + (if (num(st, "free_ship_above") > 0 && shipFee(st) > 0) ", free above ${rupees(num(st, "free_ship_above"))}" else "") + "." +
-                            ((shop.details["dispatch_days"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.isNotBlank() }?.let { " Ships in $it days." } ?: "") +
-                            " ${shop.title} has 24 hours to accept, then ships it with a tracking number."
-                        mode == "PICKUP" -> "No delivery fee. Collect it from ${shop.title}" + (if (shop.area.isBlank()) "" else " in ${shop.area}") + " once they mark it ready."
-                        freeDelivery -> "Free delivery: ${shop.title} pays the rider's fee on this order. You pay for the items only."
-                        mode == "STORE_RIDER" -> "Delivery ${localFee(st)?.let { rupees(it) } ?: "fee"} to your drop point. It goes to ${shop.title} with the items, since it's their rider."
-                        else -> "Delivery ${localFee(st)?.let { rupees(it) } ?: "fee"} to your drop point. You pay it to the Bucks rider at the door (UPI or cash)."
+                        mode == "SHIP" -> listOfNotNull(
+                            if (shipFee(st) == 0) stringResource(R.string.g7_cart_ship_free) else if (num(st, "free_ship_above") > 0) stringResource(R.string.g7_cart_ship_fee_free_above, rupees(shipFee(st)), rupees(num(st, "free_ship_above"))) else stringResource(R.string.g7_cart_ship_fee, rupees(shipFee(st))),
+                            (shop.details["dispatch_days"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.g7_cart_ships_in_days, it) },
+                            stringResource(R.string.g7_cart_ship_accept, shop.title)).joinToString(" ")
+                        mode == "PICKUP" -> if (shop.area.isBlank()) stringResource(R.string.g7_cart_pickup_note, shop.title) else stringResource(R.string.g7_cart_pickup_note_area, shop.title, shop.area)
+                        freeDelivery -> stringResource(R.string.g7_cart_free_delivery, shop.title)
+                        mode == "STORE_RIDER" -> localFee(st)?.let { stringResource(R.string.g7_cart_store_rider_fee, rupees(it), shop.title) } ?: stringResource(R.string.g7_cart_store_rider_nofee, shop.title)
+                        else -> localFee(st)?.let { stringResource(R.string.g7_cart_rider_fee, rupees(it)) } ?: stringResource(R.string.g7_cart_rider_nofee)
                     }, Modifier.padding(top = 12.dp, bottom = 12.dp))
-                    localFee(st)?.takeIf { it > 0 }?.let { f -> Row(Modifier.padding(top = 8.dp)) { Muted("Items ${rupees(st.amount)} + delivery ${rupees(f)}", Modifier.weight(1f)); Text(rupees(st.amount + f), style = MaterialTheme.typography.titleSmall) } }
-                    if (mode == "SHIP") Row(Modifier.padding(top = 8.dp)) { Muted("Items ${rupees(st.amount)} + shipping ${if (shipFee(st) == 0) "free" else rupees(shipFee(st))}", Modifier.weight(1f)); Text(rupees(st.amount + shipFee(st)), style = MaterialTheme.typography.titleSmall) }
-                    Label("Pay ${shop.title} with")
+                    localFee(st)?.takeIf { it > 0 }?.let { f -> Row(Modifier.padding(top = 8.dp)) { Muted(stringResource(R.string.g7_cart_items_plus_delivery, rupees(st.amount), rupees(f)), Modifier.weight(1f)); Text(rupees(st.amount + f), style = MaterialTheme.typography.titleSmall) } }
+                    if (mode == "SHIP") Row(Modifier.padding(top = 8.dp)) { Muted(if (shipFee(st) == 0) stringResource(R.string.g7_cart_items_free_shipping, rupees(st.amount)) else stringResource(R.string.g7_cart_items_plus_shipping, rupees(st.amount), rupees(shipFee(st))), Modifier.weight(1f)); Text(rupees(st.amount + shipFee(st)), style = MaterialTheme.typography.titleSmall) }
+                    Label(stringResource(R.string.g7_cart_pay_with, shop.title))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip("Pay by UPI", selected = payment == "UPI", icon = Icons.Rounded.QrCode2) { payments[shop.id] = "UPI" }
-                        if (codAllowed) Chip("Cash on delivery", selected = payment == "COD", icon = Icons.Rounded.Payments) { payments[shop.id] = "COD" }
+                        Chip(stringResource(R.string.g7_cart_pay_upi), selected = payment == "UPI", icon = Icons.Rounded.QrCode2) { payments[shop.id] = "UPI" }
+                        if (codAllowed) Chip(stringResource(R.string.g7_cart_pay_cod), selected = payment == "COD", icon = Icons.Rounded.Payments) { payments[shop.id] = "COD" }
                     }
                     Muted(when {
-                        payment == "COD" -> if (mode == "SHIP") "Pay the courier in cash when it arrives." else "Pay the store's rider in cash when it arrives."
-                        mode == "MARKETPLACE" && !freeDelivery -> "You pay the shop for the items through your UPI app from the order page; the shop's QR is filled in for you. The rider's fee is paid to the rider."
-                        else -> "You pay the shop through your UPI app from the order page; the shop's QR is filled in for you."
+                        payment == "COD" -> if (mode == "SHIP") stringResource(R.string.g7_cart_cod_courier) else stringResource(R.string.g7_cart_cod_rider)
+                        mode == "MARKETPLACE" && !freeDelivery -> stringResource(R.string.g7_cart_upi_note_rider)
+                        else -> stringResource(R.string.g7_cart_upi_note)
                     }, Modifier.padding(top = 8.dp))
                     if (index < stores.lastIndex) HorizontalDivider(Modifier.padding(top = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
             if (needsAddress) {
-                Text("Ship to", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 6.dp).semantics { heading() })
+                Text(stringResource(R.string.g7_cart_ship_to), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 6.dp).semantics { heading() })
                 AddressCard(address) { addressSheet = true }
                 Spacer(Modifier.height(14.dp))
             }
             // Delivery needs the phone's real position: it is the rider's drop pin and what each fee is worked out from.
             if (needsDrop) {
                 if (pinned.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (s.me != null) Chip("Where I am", selected = dropAddr == null, icon = Icons.Rounded.MyLocation) { dropAddrId = null; dropLabel = social.me?.area ?: "" }
+                    if (s.me != null) Chip(stringResource(R.string.g7_cart_where_i_am), selected = dropAddr == null, icon = Icons.Rounded.MyLocation) { dropAddrId = null; dropLabel = social.me?.area ?: "" }
                     pinned.forEach { a -> Chip(a.label.ifBlank { a.line1.take(18) }, selected = dropAddr?.id == a.id, icon = Icons.Rounded.Home) { dropAddrId = a.id; dropLabel = listOf(a.line1, a.line2).filter { it.isNotBlank() }.joinToString(", ").take(120) } }
                 }
-                BucksField(dropLabel, { dropLabel = it.take(120) }, "Deliver to", "e.g. 4th block, near the park, 2nd floor")
-                if (here == null) Notice("Turn on location to get it delivered. The rider needs your exact drop point, and the fee is worked out from it. You can still choose \"I'll pick up\".", Modifier.padding(top = 8.dp, bottom = 14.dp))
-                else Muted(if (dropAddr != null) "Riders come to the spot pinned for ${dropAddr.label.ifBlank { "this address" }}. The label helps them find the door." else "Your current location is the drop point. The label helps the rider find the door. Pin your home under Addresses to order there from anywhere.", Modifier.padding(top = 6.dp, bottom = 14.dp))
+                BucksField(dropLabel, { dropLabel = it.take(120) }, stringResource(R.string.g7_cart_deliver_to), stringResource(R.string.g7_cart_deliver_to_hint))
+                if (here == null) Notice(stringResource(R.string.g7_cart_need_location), Modifier.padding(top = 8.dp, bottom = 14.dp))
+                else Muted(if (dropAddr != null) stringResource(R.string.g7_cart_drop_pinned, dropAddr.label.ifBlank { stringResource(R.string.g7_cart_this_address) }) else stringResource(R.string.g7_cart_drop_here), Modifier.padding(top = 6.dp, bottom = 14.dp))
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -180,28 +184,28 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
                 // What went wrong last time stays here, next to the button, until the next try (a toast is easy to miss).
                 if (commerce.checkoutErrors.isNotEmpty()) Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
                     Column(Modifier.padding(12.dp)) {
-                        Text(if (stores.isEmpty()) "Some orders didn't go through" else "Not placed yet", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(if (stores.isEmpty()) stringResource(R.string.g7_cart_some_failed) else stringResource(R.string.g7_cart_not_placed), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         commerce.checkoutErrors.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = 4.dp)) }
-                        Muted("Fix it above if needed, then tap Place order to try again.", Modifier.padding(top = 6.dp))
+                        Muted(stringResource(R.string.g7_cart_fix_retry), Modifier.padding(top = 6.dp))
                     }
                 }
                 // Several shops are several orders, each with its own delivery: say so before the button.
-                if (stores.size > 1) Muted("${stores.size} shops: ${stores.size} separate orders" + stores.count { modeOf(it) != "PICKUP" }.let { n -> if (n > 0) ", $n ${if (n == 1) "delivery" else "deliveries"}" else "" }, Modifier.padding(bottom = 6.dp))
+                if (stores.size > 1) Muted(stores.count { modeOf(it) != "PICKUP" }.let { n -> if (n > 0) pluralStringResource(R.plurals.g7_cart_orders_deliveries, n, stores.size, n) else pluralStringResource(R.plurals.g7_cart_orders, stores.size, stores.size) }, Modifier.padding(bottom = 6.dp))
                 // The total includes delivery; "about" while the drop point or the fee rule isn't known yet.
-                val total = (if (feeUnknown && needsDrop) "about " else "") + rupees(grand)
-                PrimaryButton(if (commerce.placing) "Placing…" else if (stores.size == 1) "Place order · $total" else "Place ${stores.size} orders · $total",
+                val total = if (feeUnknown && needsDrop) stringResource(R.string.g7_cart_about, rupees(grand)) else rupees(grand)
+                PrimaryButton(if (commerce.placing) stringResource(R.string.g7_cart_placing) else if (stores.size == 1) stringResource(R.string.g7_cart_place_one, total) else pluralStringResource(R.plurals.g7_cart_place_n, stores.size, stores.size, total),
                     enabled = !commerce.placing && stores.none { blocked(it) } && (!needsDrop || (dropLabel.isNotBlank() && here != null)) && (!needsAddress || address != null)) {
                     val choices = stores.associate { st -> st.listing.id to Commerce.Choice(modeOf(st), paymentOf(st), if (modeOf(st) == "PICKUP") st.listing.area else dropLabel, if (modeOf(st) == "SHIP") address else null) }
                     commerce.checkoutAll(choices, here, onPlaced)
                 }
-                Muted(if (stores.size > 1) "Each shop accepts its own order (local shops within 5 minutes, shops that ship within 24 hours). If one doesn't, only that order is cancelled; nothing is charged." else if (modeOf(stores.first()) == "SHIP") "${stores.first().listing.title} has 24 hours to accept. If they don't, nothing is charged and you can try another shop." else "${stores.first().listing.title} has 5 minutes to accept. If they don't, nothing is charged and you can try another shop.",
+                Muted(if (stores.size > 1) stringResource(R.string.g7_cart_accept_multi) else if (modeOf(stores.first()) == "SHIP") stringResource(R.string.g7_cart_accept_24h, stores.first().listing.title) else stringResource(R.string.g7_cart_accept_5m, stores.first().listing.title),
                     Modifier.padding(top = 8.dp).fillMaxWidth(), TextAlign.Center)
             }
         }
     }
     if (addressSheet) AddressSheet(vm, address?.id, startNew = addressList.isEmpty(), onPick = { a -> addressId = a.id }, onDismiss = { addressSheet = false })
-    if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false }, title = { Text("Empty the cart?") }, text = { Text(if (stores.size > 1) "Everything from all ${stores.size} shops will be removed." else "Everything from ${stores.firstOrNull()?.listing?.title ?: "this shop"} will be removed.") },
-        confirmButton = { TextButton({ confirmClear = false; commerce.clear() }) { Text("Empty it", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmClear = false }) { Text("Keep") } })
+    if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false }, title = { Text(stringResource(R.string.g7_cart_empty_title)) }, text = { Text(if (stores.size > 1) pluralStringResource(R.plurals.g7_cart_empty_all, stores.size, stores.size) else stringResource(R.string.g7_cart_empty_from, stores.firstOrNull()?.listing?.title ?: stringResource(R.string.g7_cart_this_shop))) },
+        confirmButton = { TextButton({ confirmClear = false; commerce.clear() }) { Text(stringResource(R.string.g7_cart_empty_it), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmClear = false }) { Text(stringResource(R.string.g7_cart_keep)) } })
 }
 
 /** The cart used to ask before mixing shops; it no longer does (each shop is its own order), so this shows nothing. Kept so older screens compile. */

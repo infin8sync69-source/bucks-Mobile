@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens.jobs
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
+import com.bucks.app.data.Str
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -16,7 +19,11 @@ import com.bucks.app.ui.screens.ago
 /* ---------- bits shared by the jobs screens ---------- */
 
 /** "just now", "5m ago", "3h ago", "yesterday", "on 12 Mar" from an ISO timestamp, to follow a verb ("Posted …", "Applied …"). */
-fun timeSince(iso: String): String = when (val a = ago(iso)) { "" -> ""; "now" -> "just now"; "Yesterday" -> "yesterday"; else -> if (a.last() == 'm' || a.last() == 'h') "$a ago" else "on $a" }
+fun timeSince(iso: String): String = runCatching {
+    val t = java.time.Instant.parse(iso.replace(" ", "T").let { if (it.endsWith("Z") || it.contains("+")) it else it + "Z" }); val s = (java.time.Instant.now().epochSecond - t.epochSecond).coerceAtLeast(0)
+    when { s < 60 -> Str.get(R.string.g2_since_just_now); s < 3600 -> Str.get(R.string.g2_since_min, (s / 60).toInt()); s < 86400 -> Str.get(R.string.g2_since_hours, (s / 3600).toInt())
+        s < 172800 -> Str.get(R.string.g2_since_yesterday); else -> Str.get(R.string.g2_since_on_date, ago(iso)) }
+}.getOrDefault("")
 
 /** Application status as a coloured pill. */
 @Composable
@@ -29,7 +36,7 @@ fun ApplicationStatusPill(status: String) {
 
 /** Centred spinner with a line under it, for a screen that is still loading. */
 @Composable
-fun JobsLoading(text: String = "Loading…") = Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+fun JobsLoading(text: String = stringResource(R.string.g2_loading)) = Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
     BucksLoader(); Muted(text, Modifier.padding(top = 12.dp))
 }
 
@@ -40,13 +47,13 @@ fun JobCard(title: String, pay: String, type: String, createdAt: String, details
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(pay.ifBlank { "Pay on request" }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+                Text(pay.ifBlank { stringResource(R.string.g2_job_pay_on_request) }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
             }
             Spacer(Modifier.width(10.dp))
-            if (closed) PillGrey("Closed") else JobTypePill(type)
+            if (closed) PillGrey(stringResource(R.string.g2_job_closed)) else JobTypePill(type)
         }
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Muted((details + "Posted ${timeSince(createdAt)}").filter { it.isNotBlank() }.joinToString(" · "), Modifier.weight(1f), maxLines = 2)
+            Muted((details + stringResource(R.string.g2_job_posted, timeSince(createdAt))).filter { it.isNotBlank() }.joinToString(" · "), Modifier.weight(1f), maxLines = 2)
             if (badge != null) { Spacer(Modifier.width(8.dp)); PillPurple(badge) }
         }
     }

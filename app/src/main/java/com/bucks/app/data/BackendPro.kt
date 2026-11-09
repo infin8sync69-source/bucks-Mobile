@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -91,8 +92,8 @@ object ProBackend {
 
     /** Uploads a CV to docs/<me>/cv-..., records it, and makes it the main CV when it's the first or [primary] is asked. */
     suspend fun uploadCv(me: String, picked: Picked, primary: Boolean, hasOthers: Boolean): ProCv {
-        require(picked.mime in CV_MIMES) { "A CV can be a PDF, a Word .docx file or a photo." }
-        require(picked.bytes.size <= CV_MAX_BYTES) { "That file is over 10 MB." }
+        require(picked.mime in CV_MIMES) { Str.get(R.string.g1_cv_bad_type) }
+        require(picked.bytes.size <= CV_MAX_BYTES) { Str.get(R.string.g1_cv_too_big) }
         val path = "$me/cv-${picked.objectName()}"
         Backend.upload("docs", path, picked.bytes)
         val makePrimary = primary || !hasOthers

@@ -11,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.UUID
@@ -33,13 +35,14 @@ private class RecordVideo(private val maxBytes: Long) : ActivityResultContract<U
 @Composable
 fun rememberCamera(maxVideoBytes: Long = 25L * 1024 * 1024, onError: (String) -> Unit, onPhoto: (Uri) -> Unit, onVideo: (Uri) -> Unit): CameraCapture {
     val ctx = LocalContext.current
+    val noCamera = stringResource(R.string.g4_camera_no_app)
     var pending by remember { mutableStateOf<Uri?>(null) }
     fun newUri(ext: String): Uri { val dir = File(ctx.cacheDir, "captures").apply { mkdirs(); listFiles()?.forEach { if (System.currentTimeMillis() - it.lastModified() > 6 * 3600_000L) it.delete() } }
         return FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", File(dir, UUID.randomUUID().toString() + "." + ext)) }
     val photo = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> val u = pending; pending = null; if (ok && u != null) onPhoto(u) }
     val video = rememberLauncherForActivityResult(RecordVideo(maxVideoBytes)) { ok -> val u = pending; pending = null; if (ok && u != null) onVideo(u) }
     return CameraCapture(
-        takePhoto = { runCatching { val u = newUri("jpg"); pending = u; photo.launch(u) }.onFailure { onError("No camera app found on this phone.") } },
-        recordVideo = { runCatching { val u = newUri("mp4"); pending = u; video.launch(u) }.onFailure { onError("No camera app found on this phone.") } },
+        takePhoto = { runCatching { val u = newUri("jpg"); pending = u; photo.launch(u) }.onFailure { onError(noCamera) } },
+        recordVideo = { runCatching { val u = newUri("mp4"); pending = u; video.launch(u) }.onFailure { onError(noCamera) } },
     )
 }

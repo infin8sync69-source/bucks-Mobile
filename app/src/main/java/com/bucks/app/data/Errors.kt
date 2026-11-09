@@ -3,6 +3,7 @@ package com.bucks.app.data
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
+import com.bucks.app.R
 
 /** Statuses that say nothing about the request itself: an expired or withheld token (401), a timeout (408), rate limiting (429). Retry them like a lost connection. */
 private val TRANSIENT_STATUS = setOf(401, 408, 429)
@@ -15,8 +16,8 @@ fun isTransportError(e: Throwable) = !isServerRefusal(e) && e !is SerializationE
 
 /** Our own database errors come back wrapped; show just the sentence we wrote. Connection problems get one plain sentence instead of an exception name. */
 fun friendlyError(e: Throwable): String {
-    if (isTransportError(e)) return "Couldn't reach Bucks. Check your connection and try again."
-    val m = e.message ?: return "Something went wrong. Try again."
+    if (isTransportError(e)) return Str.get(R.string.g6_err_offline)
+    val m = e.message ?: return Str.get(R.string.g6_err_generic)
     val text = Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(m)?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\\\", "\\") ?: m.substringAfter("message: ", m).substringBefore("\n").take(140)
-    return text.trim().replaceFirstChar { it.uppercase() }.ifBlank { "Something went wrong. Try again." }
+    return text.trim().replaceFirstChar { it.uppercase() }.ifBlank { Str.get(R.string.g6_err_generic) }
 }

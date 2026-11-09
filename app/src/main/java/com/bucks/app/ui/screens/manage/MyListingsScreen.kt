@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens.manage
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,7 +22,7 @@ import com.bucks.app.ui.components.*
 import com.bucks.app.ui.nav.Routes
 import com.bucks.app.ui.screens.ListingSwitch
 
-private val TABS = listOf("Businesses", "Skills", "Driver", "Vehicles")
+private val TABS = listOf(R.string.g2_ml_tab_businesses, R.string.g2_ml_tab_skills, R.string.g2_driver, R.string.g2_ml_tab_vehicles)
 private val KINDS = listOf("BUSINESS", "SKILL", "DRIVER")
 
 /**
@@ -40,11 +43,11 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
     val kind = KINDS[tab.coerceIn(0, 2)]
     val rows = m.listings.filter { it.kind == kind }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("My listings", onBack = onBack, actions = {
-            IconButton(onClick = onInvites) { BadgedBox(badge = { if (m.pendingCount > 0) Badge { Text("${m.pendingCount}") } }) { Icon(Icons.Rounded.MailOutline, "Invites") } }
+        BucksTopBar(stringResource(R.string.g2_ml_title), onBack = onBack, actions = {
+            IconButton(onClick = onInvites) { BadgedBox(badge = { if (m.pendingCount > 0) Badge { Text("${m.pendingCount}") } }) { Icon(Icons.Rounded.MailOutline, stringResource(R.string.g2_cd_invites)) } }
         })
         PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) {
-            TABS.forEachIndexed { i, l -> Tab(selected = tab == i, onClick = { if (i == 3) onVehicles() else tab = i }, text = { Text(l, style = MaterialTheme.typography.labelLarge) }) }
+            TABS.forEachIndexed { i, l -> Tab(selected = tab == i, onClick = { if (i == 3) onVehicles() else tab = i }, text = { Text(stringResource(l), style = MaterialTheme.typography.labelLarge) }) }
         }
         if (m.loading && !m.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
         LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -54,12 +57,12 @@ fun MyListingsScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (kind: Stri
             if (rows.isEmpty() && m.loaded) item { EmptyListings(kind) { onEdit(kind, null) } }
             items(rows, key = { it.id }) { l -> ListingManageCard(m, l, onEdit = { onEdit(l.kind, l.id) }, onItems = { onItems(l.id) }, onMembers = { onMembers(l.id) }, onRecommend = { onRecommend(l.id) }, onOrders = { onOrders(l.id) }, onJobs = { onJobs(l.id) }, onOpenProfile = { onOpenProfile(l.id) }, onDocs = { onDocs(l.id) },
                 onPaymentQr = if (noUpi && l.kind == "BUSINESS" && m.isOwner(l.id)) ({ vm.open(Routes.PAYMENT_QR) }) else null) }
-            if (rows.isNotEmpty() && kind != "DRIVER") item { GhostButton(if (kind == "BUSINESS") "Add another business" else "Add another skill") { onEdit(kind, null) } }
+            if (rows.isNotEmpty() && kind != "DRIVER") item { GhostButton(stringResource(if (kind == "BUSINESS") R.string.g2_ml_add_another_business else R.string.g2_ml_add_another_skill)) { onEdit(kind, null) } }
             if (m.loaded) item {
                 BucksCard(tint = true) {
-                    Text("Recommend a local", style = MaterialTheme.typography.titleMedium)
-                    Muted("Know a shop, driver or worker nearby who does good work? Scan the code on their phone and help them go live. $NEEDED recommendations from people nearby take a listing live.", Modifier.padding(top = 4.dp))
-                    if (onScan != null) SmallButton("Scan their code", Modifier.padding(top = 10.dp), onClick = onScan)
+                    Text(stringResource(R.string.g2_ml_recommend_local), style = MaterialTheme.typography.titleMedium)
+                    Muted(stringResource(R.string.g2_ml_recommend_local_body, NEEDED), Modifier.padding(top = 4.dp))
+                    if (onScan != null) SmallButton(stringResource(R.string.g2_ml_scan_code), Modifier.padding(top = 10.dp), onClick = onScan)
                 }
             }
             item { Spacer(Modifier.height(12.dp)) }
@@ -72,19 +75,19 @@ private fun EmptyListings(kind: String, onCreate: () -> Unit) {
     BucksCard {
         when (kind) {
             "BUSINESS" -> {
-                Text("No business yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Add your shop, restaurant, pharmacy or any business. Put your products in with prices so customers nearby can order. It goes live once $NEEDED people nearby recommend it by scanning your QR code in person.", Modifier.padding(top = 4.dp))
-                PrimaryButton("Add a business", Modifier.padding(top = 14.dp), onClick = onCreate)
+                Text(stringResource(R.string.g2_ml_no_business), style = MaterialTheme.typography.titleMedium)
+                Muted(stringResource(R.string.g2_ml_no_business_body, NEEDED), Modifier.padding(top = 4.dp))
+                PrimaryButton(stringResource(R.string.g2_ml_add_business), Modifier.padding(top = 14.dp), onClick = onCreate)
             }
             "SKILL" -> {
-                Text("No skills yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Add what you do: plumber, electrician, tutor, doctor, carpenter, designer. Each skill is its own listing with services and prices. It goes live once $NEEDED people nearby recommend you.", Modifier.padding(top = 4.dp))
-                PrimaryButton("Add a skill", Modifier.padding(top = 14.dp), onClick = onCreate)
+                Text(stringResource(R.string.g2_ml_no_skills), style = MaterialTheme.typography.titleMedium)
+                Muted(stringResource(R.string.g2_ml_no_skills_body, NEEDED), Modifier.padding(top = 4.dp))
+                PrimaryButton(stringResource(R.string.g2_ml_add_skill), Modifier.padding(top = 14.dp), onClick = onCreate)
             }
             else -> {
-                Text("No driver profile yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Create your driver profile to take auto and cab rides or bike deliveries. You have one driver profile; add the vehicles you drive under Vehicles. It goes live once $NEEDED people nearby recommend you.", Modifier.padding(top = 4.dp))
-                PrimaryButton("Create your driver profile", Modifier.padding(top = 14.dp), onClick = onCreate)
+                Text(stringResource(R.string.g2_ml_no_driver), style = MaterialTheme.typography.titleMedium)
+                Muted(stringResource(R.string.g2_ml_no_driver_body, NEEDED), Modifier.padding(top = 4.dp))
+                PrimaryButton(stringResource(R.string.g2_ml_create_driver), Modifier.padding(top = 14.dp), onClick = onCreate)
             }
         }
     }
@@ -102,37 +105,37 @@ private fun ListingManageCard(m: MyListings, l: ListingRow, onEdit: () -> Unit, 
                 Text(l.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Muted(listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(" · "), maxLines = 1)
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    when (l.status) { "LIVE" -> PillGood("Live"); "SUSPENDED" -> PillBad("Suspended"); else -> PillWarn("$recs of $NEEDED recommendations") }
+                    when (l.status) { "LIVE" -> PillGood(stringResource(R.string.g2_live)); "SUSPENDED" -> PillBad(stringResource(R.string.g2_suspended)); else -> PillWarn(stringResource(R.string.g2_ml_recs_progress, recs, NEEDED)) }
                     if (role != null && role != "OWNER") PillGrey(roleLabel(role, false))
                 }
             }
         }
         when (l.status) {
             "PENDING" -> {
-                Muted(if (recs == 0) "Not visible to customers yet. Ask $NEEDED people nearby who know your work to scan your code." else "${(NEEDED - recs).coerceAtLeast(0)} more people nearby need to scan your code before customers can find you.", Modifier.padding(top = 10.dp))
-                if (manage) PrimaryButton("Get recommended", Modifier.padding(top = 10.dp), onClick = onRecommend)
+                Muted(if (recs == 0) stringResource(R.string.g2_ml_pending_none, NEEDED) else pluralStringResource(R.plurals.g2_ml_pending_more, (NEEDED - recs).coerceAtLeast(0), (NEEDED - recs).coerceAtLeast(0)), Modifier.padding(top = 10.dp))
+                if (manage) PrimaryButton(stringResource(R.string.g2_ml_get_recommended), Modifier.padding(top = 10.dp), onClick = onRecommend)
             }
             "LIVE" -> Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(onlineLabel(l, l.online), style = MaterialTheme.typography.titleSmall)
-                    Muted(if (l.online) "Shown first in search; customers can reach you now." else "Hidden until you switch it on.")
+                    Muted(stringResource(if (l.online) R.string.g2_ml_online_on else R.string.g2_ml_online_off))
                 }
                 if (manage) ListingSwitch(l.online) { m.setOnline(l.id, it) }
             }
-            else -> Notice("This listing is suspended and hidden from customers. Contact Bucks support to sort it out.", Modifier.padding(top = 10.dp))
+            else -> Notice(stringResource(R.string.g2_ml_suspended_notice), Modifier.padding(top = 10.dp))
         }
         if (onPaymentQr != null) {
-            Notice("Add your UPI QR so customers can pay your orders by UPI. Until then they have to pay you directly.", Modifier.padding(top = 10.dp))
-            SmallButton("Add payment QR", Modifier.padding(top = 8.dp), onClick = onPaymentQr)
+            Notice(stringResource(R.string.g2_ml_upi_notice), Modifier.padding(top = 10.dp))
+            SmallButton(stringResource(R.string.g2_ml_add_payment_qr), Modifier.padding(top = 8.dp), onClick = onPaymentQr)
         }
         FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (manage) SmallButton("Edit", tonal = true, onClick = onEdit)
-            if (manage && l.kind == "BUSINESS") SmallButton("Products", tonal = true, onClick = onItems)
-            if (manage && l.kind == "SKILL") SmallButton("Services", tonal = true, onClick = onItems)
-            if (manage && l.kind != "DRIVER") SmallButton("Documents", tonal = true, onClick = onDocs)
-            if (l.kind != "DRIVER") SmallButton("Members", tonal = true, onClick = onMembers)
-            if (manage && l.kind == "BUSINESS") { SmallButton("Orders", tonal = true, onClick = onOrders); SmallButton("Jobs", tonal = true, onClick = onJobs) }
-            SmallButton("View profile", tonal = true, onClick = onOpenProfile)
+            if (manage) SmallButton(stringResource(R.string.g2_edit), tonal = true, onClick = onEdit)
+            if (manage && l.kind == "BUSINESS") SmallButton(stringResource(R.string.g2_ml_products), tonal = true, onClick = onItems)
+            if (manage && l.kind == "SKILL") SmallButton(stringResource(R.string.g2_ml_services), tonal = true, onClick = onItems)
+            if (manage && l.kind != "DRIVER") SmallButton(stringResource(R.string.g2_ml_documents), tonal = true, onClick = onDocs)
+            if (l.kind != "DRIVER") SmallButton(stringResource(R.string.g2_cd_members), tonal = true, onClick = onMembers)
+            if (manage && l.kind == "BUSINESS") { SmallButton(stringResource(R.string.g2_ml_orders), tonal = true, onClick = onOrders); SmallButton(stringResource(R.string.g2_ml_jobs), tonal = true, onClick = onJobs) }
+            SmallButton(stringResource(R.string.g2_ml_view_profile), tonal = true, onClick = onOpenProfile)
         }
     }
 }

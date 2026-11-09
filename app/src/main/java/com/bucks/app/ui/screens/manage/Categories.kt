@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.manage
 
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -68,7 +70,7 @@ internal fun cleanCategory(raw: String): String? {
 @Composable
 internal fun CategoryField(value: String, hint: String, onClick: () -> Unit) {
     val shape = MaterialTheme.shapes.small
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).border(1.dp, MaterialTheme.colorScheme.outline, shape).clickable(onClickLabel = "Choose", onClick = onClick).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).border(1.dp, MaterialTheme.colorScheme.outline, shape).clickable(onClickLabel = stringResource(R.string.g1_cat_choose), onClick = onClick).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(value.ifBlank { hint }, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (value.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
         Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -87,21 +89,21 @@ internal fun CategoryPickerSheet(kind: String, selected: String, onPick: (String
     LaunchedEffect(kind) { others = runCatching { Backend.categorySuggestions(kind).map { it.category } }.getOrDefault(emptyList()) }
     val builtIn = remember(groups) { groups.flatMap { it.second }.map { it.lowercase() }.toSet() }
     val extra = others.filter { it.lowercase() !in builtIn }
-    val all = groups + (if (extra.isNotEmpty()) listOf("Added by others" to extra) else emptyList())
+    val all = groups + (if (extra.isNotEmpty()) listOf(stringResource(R.string.g1_cat_added_by_others) to extra) else emptyList())
     val query = q.trim()
     val shown = if (query.isEmpty()) all else all.map { (g, items) -> g to items.filter { it.contains(query, ignoreCase = true) } }.filter { it.second.isNotEmpty() }
     val own = cleanCategory(query)
     val exact = own != null && all.any { (_, items) -> items.any { it.equals(own, ignoreCase = true) } }
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Gutter).imePadding()) {
-            Text(if (kind == "SKILL") "What do you do?" else "What kind of business?", style = MaterialTheme.typography.titleLarge)
-            Muted("Pick the closest one, or type your own and add it.", Modifier.padding(top = 2.dp))
-            OutlinedTextField(q, { q = it.take(40) }, Modifier.fillMaxWidth().padding(vertical = 10.dp), placeholder = { Text("Search or type your own") }, singleLine = true, leadingIcon = { Icon(Icons.Rounded.Search, null) })
+            Text(if (kind == "SKILL") stringResource(R.string.g1_cat_title_skill) else stringResource(R.string.g1_cat_title_business), style = MaterialTheme.typography.titleLarge)
+            Muted(stringResource(R.string.g1_cat_subtitle), Modifier.padding(top = 2.dp))
+            OutlinedTextField(q, { q = it.take(40) }, Modifier.fillMaxWidth().padding(vertical = 10.dp), placeholder = { Text(stringResource(R.string.g1_cat_search_hint)) }, singleLine = true, leadingIcon = { Icon(Icons.Rounded.Search, null) })
             LazyColumn(Modifier.weight(1f)) {
                 if (own != null && !exact) item(key = "own") {
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(MaterialTheme.shapes.small).clickable { onPick(own) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.padding(start = 12.dp)) { Text("Use “$own” as my category", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary); Muted("Your own category. Others can find and pick it too.") }
+                        Column(Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.g1_cat_use_own, own), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary); Muted(stringResource(R.string.g1_cat_own_note)) }
                     }
                 }
                 shown.forEach { (g, list) ->
@@ -109,11 +111,11 @@ internal fun CategoryPickerSheet(kind: String, selected: String, onPick: (String
                     items(list, key = { "$g/$it" }) { c ->
                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.small).clickable { onPick(c) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(c, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                            if (c.equals(selected, ignoreCase = true)) Icon(Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.primary)
+                            if (c.equals(selected, ignoreCase = true)) Icon(Icons.Rounded.Check, stringResource(R.string.g1_cd_selected), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
-                if (shown.isEmpty() && own == null) item(key = "none") { Muted("Nothing matches. Type at least 2 letters to add your own.", Modifier.padding(top = 16.dp)) }
+                if (shown.isEmpty() && own == null) item(key = "none") { Muted(stringResource(R.string.g1_cat_none), Modifier.padding(top = 16.dp)) }
                 item(key = "end") { Spacer(Modifier.height(24.dp)) }
             }
         }

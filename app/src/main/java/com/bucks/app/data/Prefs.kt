@@ -2,6 +2,8 @@ package com.bucks.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.annotation.StringRes
+import com.bucks.app.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -12,9 +14,9 @@ import androidx.compose.runtime.setValue
  * Supabase (user_settings) because the server enforces them.
  */
 object Prefs {
-    enum class Theme(val label: String) { SYSTEM("Match phone"), LIGHT("Light"), DARK("Dark") }
-    enum class TextSize(val label: String, val scale: Float) { SMALL("Small", 0.9f), NORMAL("Normal", 1f), LARGE("Large", 1.15f), HUGE("Huge", 1.3f) }
-    enum class MediaDownload(val label: String) { WIFI("Wi-Fi only"), ALWAYS("Always"), NEVER("Ask each time") }
+    enum class Theme(@StringRes private val labelRes: Int) { SYSTEM(R.string.g1_theme_system), LIGHT(R.string.g1_theme_light), DARK(R.string.g1_theme_dark); val label: String get() = Str.get(labelRes) }
+    enum class TextSize(@StringRes private val labelRes: Int, val scale: Float) { SMALL(R.string.g1_text_small, 0.9f), NORMAL(R.string.g1_text_normal, 1f), LARGE(R.string.g1_text_large, 1.15f), HUGE(R.string.g1_text_huge, 1.3f); val label: String get() = Str.get(labelRes) }
+    enum class MediaDownload(@StringRes private val labelRes: Int) { WIFI(R.string.g1_media_wifi), ALWAYS(R.string.g1_media_always), NEVER(R.string.g1_media_ask); val label: String get() = Str.get(labelRes) }
 
     private lateinit var sp: SharedPreferences
     fun init(ctx: Context) {

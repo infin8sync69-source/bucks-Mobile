@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens
 
+import com.bucks.app.R
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,8 +47,8 @@ import kotlin.math.ceil
 
 @Composable
 fun ProviderRow(p: Provider, trust: Trust = p.trust, onClick: () -> Unit) {
-    ListRow(p.name, "${p.category} · ${p.distanceKm} km" + (p.rate?.let { " · $it" } ?: "") + (if (p.items.isNotEmpty()) " · from ₹${p.minPrice}" else ""), leading = { Avatar(icon = p.icon, tinted = false) },
-        trailing = { Column(horizontalAlignment = Alignment.End) { TrustBadge(trust, compact = true); Spacer(Modifier.height(4.dp)); if (p.scope == Scope.LOCAL) PillPurple("Local") else PillGrey("Global") } }, onClick = onClick)
+    ListRow(p.name, stringResource(R.string.g5_cat_km, p.category, p.distanceKm.toString()) + (p.rate?.let { " · $it" } ?: "") + (if (p.items.isNotEmpty()) " · " + stringResource(R.string.g5_from_price, Money.format(p.minPrice)) else ""), leading = { Avatar(icon = p.icon, tinted = false) },
+        trailing = { Column(horizontalAlignment = Alignment.End) { TrustBadge(trust, compact = true); Spacer(Modifier.height(4.dp)); if (p.scope == Scope.LOCAL) PillPurple(stringResource(R.string.g5_scope_local)) else PillGrey(stringResource(R.string.g5_scope_global)) } }, onClick = onClick)
     Divider()
 }
 
@@ -63,38 +66,39 @@ fun SearchScreen(vm: BucksViewModel, onBack: () -> Unit, onProvider: (String, St
             Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)); Spacer(Modifier.width(14.dp))
             BasicTextField(input, { input = it }, Modifier.weight(1f), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { submit(input) }),
-                decorationBox = { inner -> Box { if (input.isEmpty()) Text(if (voice.listening) voice.partial.ifBlank { "Listening…" } else "Search", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); inner() } })
-            IconButton(onClick = listen) { Icon(if (voice.listening) Icons.Rounded.GraphicEq else Icons.Rounded.Mic, "Speak", tint = if (voice.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                decorationBox = { inner -> Box { if (input.isEmpty()) Text(if (voice.listening) voice.partial.ifBlank { stringResource(R.string.g5_listening) } else stringResource(R.string.g5_search_hint), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); inner() } })
+            IconButton(onClick = listen) { Icon(if (voice.listening) Icons.Rounded.GraphicEq else Icons.Rounded.Mic, stringResource(R.string.g5_cd_speak), tint = if (voice.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             // Chip-height (32dp) pill with the same 48dp touch target as the chips, so the row lines up.
             Box(Modifier.minimumInteractiveComponentSize().size(width = 44.dp, height = 32.dp).clip(CircleShape).background(if (advanced) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer).clickable { advanced = !advanced }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Tune, "More filters", Modifier.size(18.dp), tint = if (advanced) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface) }
+                Icon(Icons.Rounded.Tune, stringResource(R.string.g5_cd_more_filters), Modifier.size(18.dp), tint = if (advanced) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface) }
             Chip(ScopeFilter.LOCAL.label, selected = s.scope == ScopeFilter.LOCAL) { vm.setScope(if (s.scope == ScopeFilter.LOCAL) ScopeFilter.ALL else ScopeFilter.LOCAL) }
             DropPill(SortMode.TRUST.label, s.sort.takeIf { it != SortMode.TRUST }?.label, SortMode.entries.map { it.label }) { vm.setSort(SortMode.entries[it]) }
-            DropPill("Reviews from", s.lens.takeIf { it != Lens.ALL }?.label, Lens.entries.map { it.label }) { vm.setLens(Lens.entries[it]) }
+            DropPill(stringResource(R.string.g5_reviews_from), s.lens.takeIf { it != Lens.ALL }?.label, Lens.entries.map { it.label }) { vm.setLens(Lens.entries[it]) }
         }
         if (advanced) Column(Modifier.padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.horizontalScrollIfNeeded().padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(6.dp)) { ScopeFilter.entries.forEach { f -> Chip(f.label, selected = s.scope == f) { vm.setScope(f) } } }
-            Row(Modifier.horizontalScrollIfNeeded().padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } }; if (vm.cloudEnabled) Chip("Cloud AI on", selected = true) {} }
+            Row(Modifier.horizontalScrollIfNeeded().padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } }; if (vm.cloudEnabled) Chip(stringResource(R.string.g5_cloud_ai_on), selected = true) {} }
         }
         if (s.thinking) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = Gutter), color = MaterialTheme.colorScheme.primary)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = if (cartCount > 0) 96.dp else 24.dp)) {
             if (chat) items(s.agent) { m -> AgentBubble(m, onAction = { submit(it) }, onCard = { c -> when (val a = c.action) { is AgentAction.OpenProvider -> onProvider(a.id, a.tab ?: ""); is AgentAction.Request -> onRequest(a.providerId) } }) }
             else {
-                if (s.query.isBlank()) item { Column(Modifier.padding(Gutter)) { SectionTitle("Try", Modifier.padding(bottom = 10.dp)); FlowChips(TRY_QUERIES.keys.toList()) { val q = TRY_QUERIES.getValue(it); input = q; submit(q) } } }
+                if (s.query.isBlank()) item { Column(Modifier.padding(Gutter)) { SectionTitle(stringResource(R.string.g5_try), Modifier.padding(bottom = 10.dp)); FlowChips(TRY_QUERIES.keys.toList()) { val q = TRY_QUERIES.getValue(it); input = q; submit(q) } } }
                 itemsIndexed(results, key = { _, p -> p.id }) { i, p ->
+                    val shareBody = stringResource(R.string.g5_search_share, p.name, p.category, p.distanceKm.toString()); val shareTitle = stringResource(R.string.g5_share_name, p.name)
                     Box(Modifier.padding(start = Gutter, end = Gutter, top = if (i > 0) 12.dp else 0.dp)) {
                         ResultSection(p, vm.trustFor(p), followed = p.id in s.followedProviders, cart = s.cart, onFollow = { vm.followProvider(p.id) }, onOpen = { tab -> onProvider(p.id, tab) }, onAdd = { idx, d -> vm.cartAdd(p.id, idx, d) }, onRequest = { onRequest(p.id) },
                             onEnquiry = { onChatWith(p.name, p.category) }, onCall = { onCall(p.name, p.phone) },
-                            onShare = { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${p.name} on Bucks · ${p.category}, ${p.distanceKm} km away") }, "Share ${p.name}")) })
+                            onShare = { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareBody) }, shareTitle)) })
                     }
                 }
-                if (s.query.isNotBlank() && results.isEmpty()) item { Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) { Muted("No one offers \"${s.query}\" yet.", align = TextAlign.Center); TextButton(onClick = { submit("post a request for ${s.query}") }) { Text("Ask people nearby") } } }
+                if (s.query.isNotBlank() && results.isEmpty()) item { Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) { Muted(stringResource(R.string.g5_no_one_offers, s.query), align = TextAlign.Center); TextButton(onClick = { submit("post a request for ${s.query}") }) { Text(stringResource(R.string.g5_ask_nearby)) } } }
             }
         }
     }
-        if (cartCount > 0) DarkButton("View cart · $cartCount item${if (cartCount == 1) "" else "s"}", Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
+        if (cartCount > 0) DarkButton(pluralStringResource(R.plurals.g5_view_cart, cartCount, cartCount), Modifier.align(Alignment.BottomCenter).padding(Gutter), onClick = onCart)
     }
 }
 
@@ -125,25 +129,25 @@ fun ResultSection(p: Provider, trust: Trust, followed: Boolean, cart: Map<String
             // Area on its own line, distance and ETA below, so the Follow pill never pushes the ETA off.
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(p.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(Geo.nearestArea(p.pos), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Muted("${p.distanceKm} km · ~$mins min", maxLines = 1) }
+                Muted(stringResource(R.string.g5_km_mins, p.distanceKm.toString(), mins), maxLines = 1) }
             Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primaryContainer).clickable(onClick = onFollow).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val c = MaterialTheme.colorScheme.onPrimaryContainer
-                Icon(if (followed) Icons.Rounded.Check else Icons.Rounded.Add, null, Modifier.size(18.dp), tint = c); Text(if (followed) "Following" else "Follow", style = MaterialTheme.typography.labelLarge, color = c, modifier = Modifier.padding(start = 6.dp)) }
+                Icon(if (followed) Icons.Rounded.Check else Icons.Rounded.Add, null, Modifier.size(18.dp), tint = c); Text(stringResource(if (followed) R.string.g5_following else R.string.g5_follow), style = MaterialTheme.typography.labelLarge, color = c, modifier = Modifier.padding(start = 6.dp)) }
         }
         if (p.items.isNotEmpty()) Column(Modifier.padding(top = 8.dp)) {
             p.items.take(3).forEachIndexed { i, it -> ItemLine(it, cart["${p.id}:$i"] ?: 0, onOpen = { onOpen("items") }) { d -> onAdd(i, d) } }
             // 32dp tall (touch target is still extended to 48dp) so no dead band opens between it and the trust badge.
-            if (p.items.size > 3) TextButton(onClick = { onOpen("items") }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(0.dp)) { Text("See all ${p.items.size} items", style = MaterialTheme.typography.labelMedium) }
+            if (p.items.size > 3) TextButton(onClick = { onOpen("items") }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(0.dp)) { Text(pluralStringResource(R.plurals.g5_see_all_items, p.items.size, p.items.size), style = MaterialTheme.typography.labelMedium) }
         } else if (p.type == ProviderType.BUSINESS) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Muted("No products listed yet", Modifier.weight(1f).padding(end = 12.dp)); SmallButton("Message", tonal = true, onClick = onEnquiry)
+            Muted(stringResource(R.string.g5_no_products), Modifier.weight(1f).padding(end = 12.dp)); SmallButton(stringResource(R.string.g5_message), tonal = true, onClick = onEnquiry)
         } else Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(p.rate ?: "Rate on request", style = MaterialTheme.typography.titleMedium); Muted(p.bio, maxLines = 2) }
-            OutlinedButton(onRequest, shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) { Text("Request", color = MaterialTheme.colorScheme.primary) }
+            Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(p.rate ?: stringResource(R.string.g5_rate_on_request), style = MaterialTheme.typography.titleMedium); Muted(p.bio, maxLines = 2) }
+            OutlinedButton(onRequest, shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) { Text(stringResource(R.string.g5_request), color = MaterialTheme.colorScheme.primary) }
         }
         // Share lives here (the header has no room for it at 360dp next to Follow); its 48dp touch height gives the badge its ~12dp spacing above and below.
-        Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.weight(1f)) { TrustBadge(trust) }; IconButton(onClick = onShare) { Icon(Icons.Rounded.Share, "Share ${p.name}", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.weight(1f)) { TrustBadge(trust) }; IconButton(onClick = onShare) { Icon(Icons.Rounded.Share, stringResource(R.string.g5_share_name, p.name), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionPill("Message", Icons.Rounded.Sms, Modifier.weight(1f), onEnquiry); ActionPill("Call", Icons.Rounded.Call, Modifier.weight(1f), onCall); ActionPill("Recommend", Icons.Rounded.Leaderboard, Modifier.weight(1f)) { onOpen("votes") }
+            ActionPill(stringResource(R.string.g5_message), Icons.Rounded.Sms, Modifier.weight(1f), onEnquiry); ActionPill(stringResource(R.string.g5_call), Icons.Rounded.Call, Modifier.weight(1f), onCall); ActionPill(stringResource(R.string.g5_recommend), Icons.Rounded.Leaderboard, Modifier.weight(1f)) { onOpen("votes") }
         }
     }
 }
@@ -163,7 +167,7 @@ private fun ActionPill(text: String, icon: ImageVector, modifier: Modifier = Mod
 @Composable
 private fun ItemLine(item: Item, qty: Int, onOpen: () -> Unit, onAdd: (Int) -> Unit) = Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(item.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis); if (item.detail.isNotBlank()) Muted(item.detail, maxLines = 1) }
-    Text("₹${item.price}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 10.dp))
+    Text(Money.format(item.price), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 10.dp))
     AddStepper(qty, onAdd)
 }
 

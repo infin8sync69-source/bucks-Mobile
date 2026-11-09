@@ -82,21 +82,21 @@ object Push {
     fun ensureChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
         nm.deleteNotificationChannel(CH_TASKS_OLD)
-        val ring = NotificationChannel(CH_RIDE, "Ride and delivery requests", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "A customer near you needs a ride or a delivery. Plays the Bucks ride-request tune."
+        val ring = NotificationChannel(CH_RIDE, Str.get(com.bucks.app.R.string.g8_ch_ride), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = Str.get(com.bucks.app.R.string.g8_ch_ride_desc)
             setSound(android.net.Uri.parse("android.resource://${ctx.packageName}/${com.bucks.app.R.raw.ride_request}"),
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             enableVibration(true); vibrationPattern = longArrayOf(0, 700, 300, 700, 300, 700, 300, 900)
             enableLights(true); lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
-        val trips = NotificationChannel(CH_TRIPS, "My rides and deliveries", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Your rider is on the way, has arrived, or your order is out for delivery"
+        val trips = NotificationChannel(CH_TRIPS, Str.get(com.bucks.app.R.string.g8_ch_trips), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = Str.get(com.bucks.app.R.string.g8_ch_trips_desc)
             enableVibration(true); enableLights(true); lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
-        val orders = NotificationChannel(CH_ORDERS, "Orders", NotificationManager.IMPORTANCE_HIGH).apply { description = "New orders for your shop and updates on orders you placed"; enableVibration(true) }
-        val messages = NotificationChannel(CH_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH).apply { description = "Chats with people, shops and pros"; enableVibration(true) }
-        val social = NotificationChannel(CH_SOCIAL, "Sync, Moments and comments", NotificationManager.IMPORTANCE_DEFAULT).apply { description = "Sync requests, new Moments from synced people, comments on your posts" }
-        val quiet = NotificationChannel(CH_QUIET, "Quiet hours", NotificationManager.IMPORTANCE_LOW).apply { description = "Notifications that arrive during your quiet hours: shown silently"; setSound(null, null); enableVibration(false) }
+        val orders = NotificationChannel(CH_ORDERS, Str.get(com.bucks.app.R.string.g8_ch_orders), NotificationManager.IMPORTANCE_HIGH).apply { description = Str.get(com.bucks.app.R.string.g8_ch_orders_desc); enableVibration(true) }
+        val messages = NotificationChannel(CH_MESSAGES, Str.get(com.bucks.app.R.string.g8_ch_messages), NotificationManager.IMPORTANCE_HIGH).apply { description = Str.get(com.bucks.app.R.string.g8_ch_messages_desc); enableVibration(true) }
+        val social = NotificationChannel(CH_SOCIAL, Str.get(com.bucks.app.R.string.g8_ch_social), NotificationManager.IMPORTANCE_DEFAULT).apply { description = Str.get(com.bucks.app.R.string.g8_ch_social_desc) }
+        val quiet = NotificationChannel(CH_QUIET, Str.get(com.bucks.app.R.string.g8_ch_quiet), NotificationManager.IMPORTANCE_LOW).apply { description = Str.get(com.bucks.app.R.string.g8_ch_quiet_desc); setSound(null, null); enableVibration(false) }
         nm.createNotificationChannels(listOf(ring, trips, orders, messages, social, quiet))
     }
 

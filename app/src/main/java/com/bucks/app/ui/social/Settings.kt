@@ -1,5 +1,9 @@
 package com.bucks.app.ui.social
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.bucks.app.R
+import com.bucks.app.data.Str
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,7 +34,7 @@ import com.bucks.app.ui.screens.ago
 /** Settings for the social app: account, privacy and safety, notifications, appearance, help and legal, then sign-out and deletion. */
 @Composable
 fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit, onEditProfile: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit) {
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Settings", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g2_settings), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) { SettingsList(vm, onOpen, onEditProfile, onLogout, onDeleted) }
     }
 }
@@ -45,48 +49,48 @@ fun SettingsList(vm: BucksViewModel, onOpen: (String) -> Unit, onEditProfile: ()
     var deleteDialog by remember { mutableStateOf(false) }; var logoutDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.services.checkStaff() }
         Column {
-            Group("Account")
-            Item(Icons.Rounded.Person, "Edit profile", "Name, area and bio", onClick = onEditProfile)
-            Item(Icons.Rounded.QrCode2, "Bucks ID", "Your card and QR for syncing") { onOpen(Routes.BUCKS_ID) }
-            Item(Icons.Rounded.Sync, "Synced people and requests", null) { onOpen(Routes.SYNC) }
-            if (vm.dispatch.enabled) Item(Icons.Rounded.QrCode2, "Payment QR", "How customers pay you by UPI: rides, deliveries and shop orders") { onOpen(Routes.PAYMENT_QR) }
-            Group("Privacy and safety")
-            Item(Icons.Rounded.Shield, "Safety centre", "How Bucks keeps you safe, and your reports") { onOpen(Routes.SAFETY_CENTER) }
-            Item(Icons.Rounded.Lock, "Privacy", "Who can message you, sync with you and see your Moments") { onOpen(Routes.SETTINGS_PRIVACY) }
-            Item(Icons.Rounded.Block, "Blocked people", null) { onOpen(Routes.SETTINGS_BLOCKED) }
-            Item(Icons.Rounded.Place, "Posts on the map", "Whether your posts show as places on the map") { onOpen(Routes.SETTINGS_MAP) }
-            Item(Icons.Rounded.Favorite, "Close friends", "Who sees Moments you share with close friends") { onOpen(Routes.SETTINGS_CLOSE) }
-            Group("App")
-            Item(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { onOpen(Routes.SETTINGS_NOTIFS) }
-            Item(Icons.Rounded.Language, "Language", com.bucks.app.data.AppLanguages.current().native) { onOpen(Routes.LANGUAGE) }
-            Item(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
+            Group(stringResource(R.string.g2_set_account))
+            Item(Icons.Rounded.Person, stringResource(R.string.g2_set_edit_profile), stringResource(R.string.g2_set_edit_profile_d), onClick = onEditProfile)
+            Item(Icons.Rounded.QrCode2, "Bucks ID", stringResource(R.string.g2_set_bucks_id_d)) { onOpen(Routes.BUCKS_ID) }
+            Item(Icons.Rounded.Sync, stringResource(R.string.g2_set_synced), null) { onOpen(Routes.SYNC) }
+            if (vm.dispatch.enabled) Item(Icons.Rounded.QrCode2, stringResource(R.string.g2_set_payment_qr), stringResource(R.string.g2_set_payment_qr_d)) { onOpen(Routes.PAYMENT_QR) }
+            Group(stringResource(R.string.g2_set_privacy_safety))
+            Item(Icons.Rounded.Shield, stringResource(R.string.g2_set_safety), stringResource(R.string.g2_set_safety_d)) { onOpen(Routes.SAFETY_CENTER) }
+            Item(Icons.Rounded.Lock, stringResource(R.string.g2_set_privacy), stringResource(R.string.g2_set_privacy_d)) { onOpen(Routes.SETTINGS_PRIVACY) }
+            Item(Icons.Rounded.Block, stringResource(R.string.g2_set_blocked), null) { onOpen(Routes.SETTINGS_BLOCKED) }
+            Item(Icons.Rounded.Place, stringResource(R.string.g2_set_map), stringResource(R.string.g2_set_map_d)) { onOpen(Routes.SETTINGS_MAP) }
+            Item(Icons.Rounded.Favorite, stringResource(R.string.g2_close_friends), stringResource(R.string.g2_set_close_d)) { onOpen(Routes.SETTINGS_CLOSE) }
+            Group(stringResource(R.string.g2_set_app))
+            Item(Icons.Rounded.Notifications, stringResource(R.string.g2_notifications), stringResource(R.string.g2_set_notifs_d)) { onOpen(Routes.SETTINGS_NOTIFS) }
+            Item(Icons.Rounded.Language, stringResource(R.string.g2_set_language), com.bucks.app.data.AppLanguages.current().native) { onOpen(Routes.LANGUAGE) }
+            Item(Icons.Rounded.Palette, stringResource(R.string.g2_set_appearance), stringResource(R.string.g2_set_appearance_d)) { onOpen(Routes.SETTINGS_APPEARANCE) }
             com.bucks.app.ui.screens.VoiceAiCard(vm, Modifier.padding(horizontal = Gutter))
-            Item(Icons.Rounded.SystemUpdate, "App versions", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + when {
-                !com.bucks.app.data.AppUpdate.enabled -> " · updates through the Play Store"
-                vm.updates.available != null -> " · build ${vm.updates.available?.build} is ready"
-                else -> " · switch to the latest build" }) { onOpen(Routes.APP_VERSIONS) }
-            Group("Help and legal")
-            Item(Icons.Rounded.HelpOutline, "Help and support", "Questions, contact us, grievance officer") { onOpen(Routes.HELP) }
-            Item(Icons.Rounded.Lightbulb, "Feedback board", "Suggest ideas, report bugs, vote on what's next") { onOpen(Routes.FEEDBACK) }
-            Item(Icons.Rounded.Gavel, "Community guidelines", null) { Legal.open(ctx, Legal.GUIDELINES) }
-            Item(Icons.Rounded.PrivacyTip, "Privacy policy", null) { Legal.open(ctx, Legal.PRIVACY) }
-            Item(Icons.Rounded.Description, "Terms of use", null) { Legal.open(ctx, Legal.TERMS) }
+            Item(Icons.Rounded.SystemUpdate, stringResource(R.string.g2_set_versions), when {
+                !com.bucks.app.data.AppUpdate.enabled -> stringResource(R.string.g2_set_versions_play, com.bucks.app.data.AppUpdate.currentBuild.toString())
+                vm.updates.available != null -> stringResource(R.string.g2_set_versions_ready, com.bucks.app.data.AppUpdate.currentBuild.toString(), vm.updates.available?.build.toString())
+                else -> stringResource(R.string.g2_set_versions_switch, com.bucks.app.data.AppUpdate.currentBuild.toString()) }) { onOpen(Routes.APP_VERSIONS) }
+            Group(stringResource(R.string.g2_set_help_legal))
+            Item(Icons.Rounded.HelpOutline, stringResource(R.string.g2_set_help), stringResource(R.string.g2_set_help_d)) { onOpen(Routes.HELP) }
+            Item(Icons.Rounded.Lightbulb, stringResource(R.string.g2_set_feedback), stringResource(R.string.g2_set_feedback_d)) { onOpen(Routes.FEEDBACK) }
+            Item(Icons.Rounded.Gavel, stringResource(R.string.g2_set_guidelines), null) { Legal.open(ctx, Legal.GUIDELINES) }
+            Item(Icons.Rounded.PrivacyTip, stringResource(R.string.g2_set_privacy_policy), null) { Legal.open(ctx, Legal.PRIVACY) }
+            Item(Icons.Rounded.Description, stringResource(R.string.g2_set_terms), null) { Legal.open(ctx, Legal.TERMS) }
             if (vm.services.isStaff) {
-                Group("Bucks team")
-                Item(Icons.Rounded.FactCheck, "Review reports", "Reported posts, messages and accounts") { onOpen(Routes.STAFF_REPORTS) }
-                Item(Icons.Rounded.VerifiedUser, "Review documents and vehicles", "Shop and pro documents, and vehicles waiting to go online") { onOpen(Routes.STAFF_REVIEW) }
+                Group(stringResource(R.string.g2_set_team))
+                Item(Icons.Rounded.FactCheck, stringResource(R.string.g2_set_review_reports), stringResource(R.string.g2_set_review_reports_d)) { onOpen(Routes.STAFF_REPORTS) }
+                Item(Icons.Rounded.VerifiedUser, stringResource(R.string.g2_staff_title), stringResource(R.string.g2_set_review_docs_d)) { onOpen(Routes.STAFF_REVIEW) }
             }
-            Group("Account actions")
-            Item(Icons.AutoMirrored.Rounded.Logout, "Log out", null) { logoutDialog = true }
-            Item(Icons.Rounded.DeleteOutline, "Delete account", "Removes your profile, posts, Moments and messages", danger = true) { deleteDialog = true }
+            Group(stringResource(R.string.g2_set_account_actions))
+            Item(Icons.AutoMirrored.Rounded.Logout, stringResource(R.string.g2_set_log_out), null) { logoutDialog = true }
+            Item(Icons.Rounded.DeleteOutline, stringResource(R.string.g2_set_delete_account), stringResource(R.string.g2_set_delete_account_d), danger = true) { deleteDialog = true }
             Muted("Bucks ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})" + (social.me?.let { " · ${it.shortCode}" } ?: ""), Modifier.padding(horizontal = Gutter, vertical = 16.dp))
         }
-    if (logoutDialog) AlertDialog(onDismissRequest = { logoutDialog = false }, title = { Text("Log out?") }, text = { Text("You can sign back in any time with your mobile number.") },
-        confirmButton = { TextButton({ logoutDialog = false; onLogout() }) { Text("Log out") } }, dismissButton = { TextButton({ logoutDialog = false }) { Text("Cancel") } })
-    if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, icon = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) }, title = { Text("Delete your account?") },
-        text = { Text("This permanently removes your profile, phone number, posts, Moments, comments and messages, and your sign-in. It can't be undone.") },
-        confirmButton = { TextButton({ deleteDialog = false; vm.deleteAccount(); onDeleted() }) { Text("Delete my account", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton({ deleteDialog = false }) { Text("Cancel") } })
+    if (logoutDialog) AlertDialog(onDismissRequest = { logoutDialog = false }, title = { Text(stringResource(R.string.g2_set_log_out_q)) }, text = { Text(stringResource(R.string.g2_set_log_out_body)) },
+        confirmButton = { TextButton({ logoutDialog = false; onLogout() }) { Text(stringResource(R.string.g2_set_log_out)) } }, dismissButton = { TextButton({ logoutDialog = false }) { Text(stringResource(R.string.g2_cancel)) } })
+    if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, icon = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) }, title = { Text(stringResource(R.string.g2_set_delete_q)) },
+        text = { Text(stringResource(R.string.g2_set_delete_body)) },
+        confirmButton = { TextButton({ deleteDialog = false; vm.deleteAccount(); onDeleted() }) { Text(stringResource(R.string.g2_set_delete_mine), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton({ deleteDialog = false }) { Text(stringResource(R.string.g2_cancel)) } })
 }
 
 @Composable
@@ -107,23 +111,23 @@ private fun Item(icon: ImageVector, title: String, detail: String?, danger: Bool
 @Composable
 fun SafetyCenterScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
     val ctx = LocalContext.current; val safety = vm.safety
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Safety centre", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g2_set_safety), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            if (safety.isMinor) SafetyNote(if (safety.isChild) "Your account is managed with a parent. Only approved syncs can message you." else "Teen protections are on for your account.")
-            Text("How Bucks keeps you safe", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp).semantics { heading() })
-            Rule(Icons.Rounded.Lock, "You decide who reaches you", "By default only people you've synced with can message you. Change it in Privacy.")
-            Rule(Icons.Rounded.OutlinedFlag, "Report anything", "Every post, comment, Moment, message and profile has Report. Reports are private and our team reviews each one.")
-            Rule(Icons.Rounded.Block, "Block in one tap", "A blocked person can't message you, sync with you or see your posts. They aren't told.")
-            Rule(Icons.Rounded.NearMe, "Your exact location stays private", "Nearby uses an area of about 2 km. Your home is never shown.")
-            Rule(Icons.Rounded.FamilyRestroom, "Extra care for under-18s", "Teens are private by default, adults they don't know can't find them, and a parent or guardian agrees when they join.")
+            if (safety.isMinor) SafetyNote(stringResource(if (safety.isChild) R.string.g2_safety_child else R.string.g2_safety_teen))
+            Text(stringResource(R.string.g2_safety_how), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp).semantics { heading() })
+            Rule(Icons.Rounded.Lock, stringResource(R.string.g2_rule_reach), stringResource(R.string.g2_rule_reach_d))
+            Rule(Icons.Rounded.OutlinedFlag, stringResource(R.string.g2_rule_report), stringResource(R.string.g2_rule_report_d))
+            Rule(Icons.Rounded.Block, stringResource(R.string.g2_rule_block), stringResource(R.string.g2_rule_block_d))
+            Rule(Icons.Rounded.NearMe, stringResource(R.string.g2_rule_location), stringResource(R.string.g2_rule_location_d))
+            Rule(Icons.Rounded.FamilyRestroom, stringResource(R.string.g2_rule_minors), stringResource(R.string.g2_rule_minors_d))
             Spacer(Modifier.height(12.dp))
-            Item(Icons.Rounded.Lock, "Privacy settings", null) { onOpen(Routes.SETTINGS_PRIVACY) }
-            Item(Icons.Rounded.Block, "Blocked people", null) { onOpen(Routes.SETTINGS_BLOCKED) }
-            Item(Icons.Rounded.Place, "Posts on the map", "Whether your posts show as places on the map") { onOpen(Routes.SETTINGS_MAP) }
-            Item(Icons.Rounded.ChildCare, "Child safety standards", null) { Legal.open(ctx, Legal.CHILD_SAFETY) }
-            Item(Icons.Rounded.Gavel, "Community guidelines", null) { Legal.open(ctx, Legal.GUIDELINES) }
-            Text("Need help now?", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp).semantics { heading() })
-            Muted("Emergency 112 · Childline 1098 · Tele-MANAS (mental health, free, 24×7) 14416 · Cyber crime helpline 1930", Modifier.padding(top = 6.dp))
+            Item(Icons.Rounded.Lock, stringResource(R.string.g2_set_privacy_settings), null) { onOpen(Routes.SETTINGS_PRIVACY) }
+            Item(Icons.Rounded.Block, stringResource(R.string.g2_set_blocked), null) { onOpen(Routes.SETTINGS_BLOCKED) }
+            Item(Icons.Rounded.Place, stringResource(R.string.g2_set_map), stringResource(R.string.g2_set_map_d)) { onOpen(Routes.SETTINGS_MAP) }
+            Item(Icons.Rounded.ChildCare, stringResource(R.string.g2_set_child_safety), null) { Legal.open(ctx, Legal.CHILD_SAFETY) }
+            Item(Icons.Rounded.Gavel, stringResource(R.string.g2_set_guidelines), null) { Legal.open(ctx, Legal.GUIDELINES) }
+            Text(stringResource(R.string.g2_safety_help_now), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp).semantics { heading() })
+            Muted(stringResource(R.string.g2_safety_helplines), Modifier.padding(top = 6.dp))
         }
     }
 }
@@ -135,33 +139,33 @@ private fun Rule(icon: ImageVector, title: String, text: String) = Row(Modifier.
 }
 
 private val FAQ = listOf(
-    "What is a sync?" to "A sync is a two-way connection, like a friend request. Once you're synced you see each other's posts for syncs, and you can message each other.",
-    "Who can see my posts?" to "You choose for each post: Synced only, Nearby (people within about 5 km), or Everyone. Moments last 24 hours and go to syncs or close friends.",
-    "How do I find my friends?" to "Open Discover. Search a name, check your phone contacts, or scan their Bucks ID QR from their profile.",
-    "Someone is bothering me. What can I do?" to "Open their profile or the message, tap ⋯ and choose Block or Report. They aren't told who reported them.",
-    "Why do you ask for my date of birth?" to "People under 18 get extra privacy and safety settings, and Indian law needs a parent's consent for them. Your birthday is never shown.",
-    "How do I delete my account?" to "Settings → Delete account. Your profile, posts, Moments, comments and messages are removed. You can also ask us from the account deletion page.",
+    R.string.g2_faq_sync_q to R.string.g2_faq_sync_a,
+    R.string.g2_faq_who_q to R.string.g2_faq_who_a,
+    R.string.g2_faq_find_q to R.string.g2_faq_find_a,
+    R.string.g2_faq_bother_q to R.string.g2_faq_bother_a,
+    R.string.g2_faq_dob_q to R.string.g2_faq_dob_a,
+    R.string.g2_faq_delete_q to R.string.g2_faq_delete_a,
 )
 
 /** Help: common questions, how to reach us, and the grievance officer required by the IT Rules 2021. */
 @Composable
 fun HelpScreen(vm: BucksViewModel, onBack: () -> Unit, onFeedback: () -> Unit = {}) {
     val ctx = LocalContext.current
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Help and support", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g2_set_help), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            Text("Common questions", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-            FAQ.forEach { (q, a) -> FaqItem(q, a) }
-            Text("Contact us", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 24.dp).semantics { heading() })
+            Text(stringResource(R.string.g2_help_common), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            FAQ.forEach { (q, a) -> FaqItem(stringResource(q), stringResource(a)) }
+            Text(stringResource(R.string.g2_help_contact), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 24.dp).semantics { heading() })
             if (Legal.supportEmail.isNotBlank()) {
-                Item(Icons.Rounded.Email, "Email support", Legal.supportEmail) { Legal.emailSupport(ctx, "Help with Bucks") }
-                Item(Icons.Rounded.BugReport, "Report a problem with the app", "Tell us what went wrong") { Legal.emailSupport(ctx, "Problem report") }
-            } else Muted("Use Report on any post, message or profile, and our team will see it.", Modifier.padding(top = 8.dp))
-            Item(Icons.Rounded.Lightbulb, "Feedback board", "Ideas and bugs, voted on by everyone", onClick = onFeedback)
-            Text("Grievance officer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp).semantics { heading() })
-            Muted("Under the Information Technology (Intermediary Guidelines) Rules, 2021, you can raise a complaint with our grievance officer. We acknowledge complaints within 24 hours and resolve them within 15 days.", Modifier.padding(top = 6.dp))
+                Item(Icons.Rounded.Email, stringResource(R.string.g2_help_email), Legal.supportEmail) { Legal.emailSupport(ctx, Str.get(R.string.g2_help_email_subject)) }
+                Item(Icons.Rounded.BugReport, stringResource(R.string.g2_help_report_problem), stringResource(R.string.g2_help_report_problem_d)) { Legal.emailSupport(ctx, Str.get(R.string.g2_help_problem_subject)) }
+            } else Muted(stringResource(R.string.g2_help_use_report), Modifier.padding(top = 8.dp))
+            Item(Icons.Rounded.Lightbulb, stringResource(R.string.g2_set_feedback), stringResource(R.string.g2_help_feedback_d), onClick = onFeedback)
+            Text(stringResource(R.string.g2_help_grievance), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp).semantics { heading() })
+            Muted(stringResource(R.string.g2_help_grievance_body), Modifier.padding(top = 6.dp))
             if (Legal.grievanceOfficer.isNotBlank()) Text(Legal.grievanceOfficer, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
-            Item(Icons.Rounded.OpenInNew, "Grievance details", null) { Legal.open(ctx, Legal.GRIEVANCE) }
-            Item(Icons.Rounded.DeleteOutline, "Account deletion", null) { Legal.open(ctx, Legal.DELETE_ACCOUNT) }
+            Item(Icons.Rounded.OpenInNew, stringResource(R.string.g2_help_grievance_details), null) { Legal.open(ctx, Legal.GRIEVANCE) }
+            Item(Icons.Rounded.DeleteOutline, stringResource(R.string.g2_help_account_deletion), null) { Legal.open(ctx, Legal.DELETE_ACCOUNT) }
         }
     }
 }
@@ -169,7 +173,7 @@ fun HelpScreen(vm: BucksViewModel, onBack: () -> Unit, onFeedback: () -> Unit = 
 @Composable
 private fun FaqItem(q: String, a: String) {
     var open by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().animateContentSize().clickable(role = Role.Button, onClickLabel = if (open) "Hide answer" else "Show answer") { open = !open }.padding(vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().animateContentSize().clickable(role = Role.Button, onClickLabel = stringResource(if (open) R.string.g2_cd_hide_answer else R.string.g2_cd_show_answer)) { open = !open }.padding(vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) { Text(q, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f)); Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null) }
         if (open) Text(a, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
     }
@@ -182,8 +186,8 @@ fun StaffReportsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenPerson: (St
     val safety = vm.safety
     var confirm by remember { mutableStateOf<Pair<String, String>?>(null) }
     LaunchedEffect(Unit) { safety.refreshQueue() }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Review reports", onBack = onBack, actions = { IconButton({ safety.refreshQueue() }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
-        if (safety.queue.isEmpty()) Muted("Nothing waiting. New reports appear here.", Modifier.padding(Gutter))
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g2_set_review_reports), onBack = onBack, actions = { IconButton({ safety.refreshQueue() }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.g2_cd_refresh)) } })
+        if (safety.queue.isEmpty()) Muted(stringResource(R.string.g2_reports_empty), Modifier.padding(Gutter))
         LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(safety.queue, key = { it.id }) { r ->
                 val reason = runCatching { ReportReason.valueOf(r.reason) }.getOrNull()
@@ -192,22 +196,22 @@ fun StaffReportsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenPerson: (St
                         if (r.reason == "CHILD_SAFETY" || r.reason == "SELF_HARM") PillBad(reason?.label ?: r.reason) else PillWarn(reason?.label ?: r.reason)
                         Spacer(Modifier.width(8.dp)); PillGrey(r.targetKind.lowercase()); Spacer(Modifier.weight(1f)); Muted(ago(r.createdAt))
                     }
-                    Text(r.preview?.ifBlank { null } ?: "(no text: media or removed)", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
-                    if (r.detail.isNotBlank()) Muted("Reporter: ${r.detail}", Modifier.padding(top = 6.dp))
-                    Muted("By ${r.ownerName ?: "unknown"} · ${r.reporters} report${if (r.reporters == 1) "" else "s"}", Modifier.padding(top = 6.dp))
+                    Text(r.preview?.ifBlank { null } ?: stringResource(R.string.g2_reports_no_text), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
+                    if (r.detail.isNotBlank()) Muted(stringResource(R.string.g2_reports_reporter, r.detail), Modifier.padding(top = 6.dp))
+                    Muted(pluralStringResource(R.plurals.g2_reports_by, r.reporters, r.ownerName ?: stringResource(R.string.g2_unknown), r.reporters), Modifier.padding(top = 6.dp))
                     Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        r.targetOwner?.let { o -> TextButton({ onOpenPerson(o) }) { Text("Profile") } }
+                        r.targetOwner?.let { o -> TextButton({ onOpenPerson(o) }) { Text(stringResource(R.string.g2_profile)) } }
                         Spacer(Modifier.weight(1f))
-                        TextButton({ safety.review(r.id, "DISMISS") }) { Text("Dismiss") }
-                        if (r.targetKind != "PROFILE") FilledTonalButton({ confirm = r.id to "REMOVE" }) { Text("Remove") }
-                        Button({ confirm = r.id to "BAN" }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Ban") }
+                        TextButton({ safety.review(r.id, "DISMISS") }) { Text(stringResource(R.string.g2_dismiss)) }
+                        if (r.targetKind != "PROFILE") FilledTonalButton({ confirm = r.id to "REMOVE" }) { Text(stringResource(R.string.g2_remove)) }
+                        Button({ confirm = r.id to "BAN" }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.g2_ban)) }
                     }
                 }
             }
         }
     }
-    confirm?.let { (id, action) -> AlertDialog(onDismissRequest = { confirm = null }, title = { Text(if (action == "BAN") "Remove and suspend the account?" else "Remove this content?") },
-        text = { Text(if (action == "BAN") "The content comes down and the account can no longer use Bucks." else "It comes down for everyone, and every open report on it is closed.") },
-        confirmButton = { TextButton({ safety.review(id, action); confirm = null }) { Text("Confirm", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton({ confirm = null }) { Text("Cancel") } }) }
+    confirm?.let { (id, action) -> AlertDialog(onDismissRequest = { confirm = null }, title = { Text(stringResource(if (action == "BAN") R.string.g2_reports_ban_q else R.string.g2_reports_remove_q)) },
+        text = { Text(stringResource(if (action == "BAN") R.string.g2_reports_ban_body else R.string.g2_reports_remove_body)) },
+        confirmButton = { TextButton({ safety.review(id, action); confirm = null }) { Text(stringResource(R.string.g2_confirm), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton({ confirm = null }) { Text(stringResource(R.string.g2_cancel)) } }) }
 }

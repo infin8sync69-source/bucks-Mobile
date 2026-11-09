@@ -1,5 +1,6 @@
 package com.bucks.app.ui
 
+import com.bucks.app.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -45,7 +46,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         val cur = stores.firstOrNull { it.listing.id == listing.id }
         val was = cur?.lines?.firstOrNull { it.item.id == id }?.qty ?: 0
         val next = (was + delta).coerceIn(0, item.stock?.coerceAtLeast(0) ?: 99)
-        if (next == was) { if (delta > 0 && item.stock != null && was >= item.stock) toast("Only ${item.stock} of ${item.name} in stock."); return }
+        if (next == was) { if (delta > 0 && item.stock != null && was >= item.stock) toast(Str.get(R.string.g8_only_in_stock, item.stock.toString(), item.name)); return }
         val old = cur?.lines ?: emptyList()
         val lines = when {
             next == 0 -> old.filterNot { it.item.id == id }
@@ -89,7 +90,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         // Next time this shop's order starts on the same delivery and payment.
         choices.forEach { (id, c) -> Prefs.rememberCheckout(id, c.mode, c.payment) }
         val todo = stores.toList()
-        if (todo.isEmpty()) { toast("Your cart is empty."); return@go }
+        if (todo.isEmpty()) { toast(Str.get(R.string.g8_cart_empty)); return@go }
         placing = true
         val placed = mutableListOf<String>(); var failed = 0; var shipped = 0
         try {
@@ -100,25 +101,25 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
                 try {
                     val id = if (c.mode == "SHIP") {
                         val a = c.address
-                        if (a == null) { failed++; errors += "Add a delivery address for ${st.listing.title}'s order."; continue }
+                        if (a == null) { failed++; errors += Str.get(R.string.g8_checkout_need_address, st.listing.title); continue }
                         Backend.placeShipOrder(st.listing.id, ls, a.json(), c.payment).also { shipped++ }
                     } else {
                         val at = drop ?: if (c.mode == "PICKUP") social.here else null
-                        if (at == null) { failed++; errors += "Turn on location to get ${st.listing.title}'s order delivered, or choose pick-up."; continue }
+                        if (at == null) { failed++; errors += Str.get(R.string.g8_checkout_need_location, st.listing.title); continue }
                         Backend.placeOrder(st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
                     }
                     placed += id; clearStore(st.listing.id)
-                } catch (e: CancellationException) { throw e } catch (e: Exception) { failed++; errors += "${st.listing.title}: ${friendlyError(e)}" }
+                } catch (e: CancellationException) { throw e } catch (e: Exception) { failed++; errors += Str.get(R.string.g8_checkout_error, st.listing.title, friendlyError(e)) }
             }
         } finally { placing = false; checkoutErrors = errors }
         if (placed.isNotEmpty()) {
             toast(when {
-                placed.size == 1 && shipped == 1 -> "Order placed. The shop has 24 hours to accept and ship it."
-                placed.size == 1 -> "Order placed. The shop has 5 minutes to accept."
-                else -> "${placed.size} orders placed, each delivered separately. Shops that ship have 24 hours to accept; local shops 5 minutes."
+                placed.size == 1 && shipped == 1 -> Str.get(R.string.g8_order_placed_ship)
+                placed.size == 1 -> Str.get(R.string.g8_order_placed_local)
+                else -> Str.plural(R.plurals.g8_orders_placed, placed.size)
             })
             refreshMyOrders(); onDone(placed)
-        } else if (failed == 0) toast("Nothing to place.")
+        } else if (failed == 0) toast(Str.get(R.string.g8_nothing_to_place))
     }
 
     // ---------- address book (delivery addresses for shipped orders) ----------
@@ -128,17 +129,17 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Saves a new address or edits one (id set); [onSaved] gets the saved row so checkout can pick it. */
     fun saveAddress(a: AddressRow, onSaved: (AddressRow) -> Unit = {}) = go {
         val me = social.me?.id ?: return@go
-        val saved = Backend.saveAddress(me, a); addresses = Backend.addresses(); addressesLoaded = true; toast("Address saved."); onSaved(saved)
+        val saved = Backend.saveAddress(me, a); addresses = Backend.addresses(); addressesLoaded = true; toast(Str.get(R.string.g8_address_saved)); onSaved(saved)
     }
-    fun deleteAddress(id: String) = go { Backend.deleteAddress(id); addresses = addresses.filterNot { it.id == id }; toast("Address deleted.") }
+    fun deleteAddress(id: String) = go { Backend.deleteAddress(id); addresses = addresses.filterNot { it.id == id }; toast(Str.get(R.string.g8_address_deleted)) }
 
     // ---------- shipping (shop side and buyer side) ----------
     /** The shop hands an accepted shipped order to a carrier; the customer is told and sees the tracking. */
     fun shipOrder(id: String, carrier: String, tracking: String, url: String, then: () -> Unit = {}) = act(id) {
-        Backend.shipOrder(id, carrier, tracking, url); toast("Marked shipped. The customer has been told."); refreshVendorOrder(id); then()
+        Backend.shipOrder(id, carrier, tracking, url); toast(Str.get(R.string.g8_marked_shipped)); refreshVendorOrder(id); then()
     }
     /** The buyer received it, or the shop delivered it itself: closes the shipped order. */
-    fun markDelivered(id: String) = act(id) { Backend.markDelivered(id); toast("Marked delivered."); order(id); refreshMyOrders(); runCatching { refreshVendorOrder(id) } }
+    fun markDelivered(id: String) = act(id) { Backend.markDelivered(id); toast(Str.get(R.string.g8_marked_delivered)); order(id); refreshMyOrders(); runCatching { refreshVendorOrder(id) } }
 
     // ---------- my orders (buyer) ----------
     var myOrders by mutableStateOf<List<OrderRow>>(emptyList()); private set
@@ -153,7 +154,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     fun refreshMyOrders(quiet: Boolean = false) = scope.launch { try { val me = social.me ?: return@launch; val rows = Backend.myOrders(me.id); if (social.me?.id != me.id) return@launch
         myOrders = rows; myOrdersLoaded = true; titlesFor(rows.map { it.listingId }) } catch (e: Exception) { if (!quiet) toast(friendlyError(e)) } }
     suspend fun titlesFor(ids: Collection<String>) { val missing = ids.distinct().filter { it !in listingTitles }; if (missing.isNotEmpty()) Backend.listingsByIds(missing).forEach { listingTitles[it.id] = it.title } }
-    fun titleOf(listingId: String) = listingTitles[listingId] ?: "Shop"
+    fun titleOf(listingId: String) = listingTitles[listingId] ?: Str.get(R.string.g8_shop)
 
     /** Loads one order with its lines, caches it in [orders] and returns it (null when it is not mine or does not exist). */
     suspend fun order(id: String): CloudOrderRow? {
@@ -164,7 +165,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     suspend fun taskForOrder(orderId: String): TaskRow? = Backend.taskForOrder(orderId)
     suspend fun contactFor(orderId: String): OrderContactRow? = Backend.contactForOrder(orderId)
     /** [reason] is a CancelReasons.buyer code. [done] gets true once the server cancelled it, false when it refused (the reason sheet stays open). */
-    fun cancelOrder(id: String, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) { Backend.cancelOrder(id, reason); toast("Order cancelled. Nothing to pay."); runCatching { order(id) }; refreshMyOrders(quiet = true) }
+    fun cancelOrder(id: String, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) { Backend.cancelOrder(id, reason); toast(Str.get(R.string.g8_order_cancelled_free)); runCatching { order(id) }; refreshMyOrders(quiet = true) }
 
     // ---------- vendor inbox ----------
     var vendorOrders by mutableStateOf<List<CloudOrderRow>>(emptyList()); private set
@@ -214,7 +215,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
      */
     fun respondOrder(id: String, accept: Boolean, reason: String? = null, rider: StoreRider? = null, done: (Boolean) -> Unit = {}) = act(id, done) {
         DeliveryBackend.respond(id, accept, reason, rider?.profileId)
-        toast(when { !accept -> "Rejected. The customer has been told."; rider != null -> "Accepted. ${rider.name.substringBefore(' ')} is being rung first."; else -> "Accepted. A rider is being rung." })
+        toast(when { !accept -> Str.get(R.string.g8_order_rejected); rider != null -> Str.get(R.string.g8_order_accepted_rider, rider.name.substringBefore(' ')); else -> Str.get(R.string.g8_order_accepted_any) })
         runCatching { refreshVendorOrder(id) }; runCatching { refreshDelivery(id) }
     }
     /** Where each accepted order's delivery stands, for the shop (order id -> delivery). */
@@ -226,13 +227,13 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** Ring again, or send one of the shop's riders, while nobody has taken the delivery. */
     fun reassignDelivery(orderId: String, rider: StoreRider?, done: (Boolean) -> Unit = {}) = act(orderId, done) {
         DeliveryBackend.reassign(orderId, rider?.profileId)
-        toast(if (rider != null) "${rider.name.substringBefore(' ')} is being rung." else "Ringing riders again.")
+        toast(if (rider != null) Str.get(R.string.g8_rider_being_rung, rider.name.substringBefore(' ')) else Str.get(R.string.g8_ringing_again))
         refreshDelivery(orderId)
     }
     /** READY for any accepted order; DELIVERED only for pick-up orders once collected; CANCELLED when no rider has it (or the buyer never came). */
     fun updateOrderStatus(id: String, status: String, reason: String? = null, done: (Boolean) -> Unit = {}) = act(id, done) {
         Backend.updateOrderStatus(id, status, reason)
-        toast(when (status) { "READY" -> "Marked ready."; "CANCELLED" -> "Order cancelled. The customer has been told."; else -> "Marked as collected. Thanks!" })
+        toast(when (status) { "READY" -> Str.get(R.string.g8_marked_ready); "CANCELLED" -> Str.get(R.string.g8_order_cancelled_told); else -> Str.get(R.string.g8_marked_collected) })
         runCatching { refreshVendorOrder(id) }
     }
     private suspend fun refreshVendorOrder(id: String) {

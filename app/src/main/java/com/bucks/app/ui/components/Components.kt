@@ -47,7 +47,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import com.bucks.app.data.Provider
+import com.bucks.app.data.Str
 import com.bucks.app.data.ProviderType
 import com.bucks.app.data.Trust
 import com.bucks.app.data.VehicleKind
@@ -85,22 +90,23 @@ val LocalCartAction = androidx.compose.runtime.compositionLocalOf<CartAction?> {
 fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (() -> Unit)? = null, unread: Int = 0, onChat: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         when {
-            onBack != null -> IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            onMenu != null -> IconButton(onClick = onMenu) { Icon(Icons.Rounded.Menu, "Menu", Modifier.size(28.dp)) }
+            onBack != null -> IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g4_cd_back)) }
+            onMenu != null -> IconButton(onClick = onMenu) { Icon(Icons.Rounded.Menu, stringResource(R.string.g4_cd_menu), Modifier.size(28.dp)) }
             else -> Spacer(Modifier.width(48.dp))
         }
         if (title == null) Box(Modifier.weight(1f).padding(start = 8.dp)) { BucksWordmark(height = 26.dp) }
         else Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
         if (onChat != null) LocalCartAction.current?.let { c ->
-            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) "Cart, ${c.count} item${if (c.count == 1) "" else "s"}" else "Cart", Modifier.size(26.dp)) } }
+            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) pluralStringResource(R.plurals.g4_cd_cart_items, c.count, c.count) else stringResource(R.string.g4_cd_cart), Modifier.size(26.dp)) } }
         }
-        if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, "Messages", Modifier.size(28.dp)) } }
+        if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, stringResource(R.string.g4_cd_messages), Modifier.size(28.dp)) } }
     }
 }
 
-enum class BottomTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Rounded.Home), FEED("Feed", Icons.Rounded.VideoLibrary), SERVICES("Services", Icons.Rounded.GridView), RECOMMENDED("For you", Icons.Rounded.AutoAwesome), ACCOUNT("Profile", Icons.Rounded.Person)
+enum class BottomTab(@StringRes val labelRes: Int, val icon: ImageVector) {
+    HOME(R.string.g4_tab_home, Icons.Rounded.Home), FEED(R.string.g4_tab_feed, Icons.Rounded.VideoLibrary), SERVICES(R.string.g4_tab_services, Icons.Rounded.GridView), RECOMMENDED(R.string.g4_tab_for_you, Icons.Rounded.AutoAwesome), ACCOUNT(R.string.g4_tab_profile, Icons.Rounded.Person);
+    val label: String get() = Str.get(labelRes)
 }
 @Composable
 fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
@@ -111,9 +117,10 @@ fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
                 val c by animateColorAsState(if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, tween(Motion.MEDIUM), label = "tabColor")
                 // The newly selected icon hops up and settles; the others stay still.
                 val lift by animateFloatAsState(if (sel) 1f else 0f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), label = "tabLift")
+                val tl = stringResource(t.labelRes)
                 Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Icon(t.icon, t.label, Modifier.size(28.dp).graphicsLayer { translationY = -3.dp.toPx() * lift; val sc = 1f + 0.08f * lift; scaleX = sc; scaleY = sc }, tint = c)
-                    Text(t.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.sp), color = c, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 4.dp))
+                    Icon(t.icon, tl, Modifier.size(28.dp).graphicsLayer { translationY = -3.dp.toPx() * lift; val sc = 1f + 0.08f * lift; scaleX = sc; scaleY = sc }, tint = c)
+                    Text(tl, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.sp), color = c, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 4.dp))
                 } }
         }
     }
@@ -122,7 +129,7 @@ fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
     NavigationRail(containerColor = MaterialTheme.colorScheme.surface, header = { Text("b", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp)) }) {
         Spacer(Modifier.height(12.dp))
-        BottomTab.entries.forEach { t -> NavigationRailItem(selected = t == current, onClick = { onSelect(t) }, icon = { Icon(t.icon, t.label) }, label = { Text(t.label, style = MaterialTheme.typography.labelSmall) }) }
+        BottomTab.entries.forEach { t -> NavigationRailItem(selected = t == current, onClick = { onSelect(t) }, icon = { Icon(t.icon, stringResource(t.labelRes)) }, label = { Text(stringResource(t.labelRes), style = MaterialTheme.typography.labelSmall) }) }
     }
 }
 
@@ -141,10 +148,10 @@ fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 /** Add, then a -/qty/+ stepper once the item is in the cart; search results and provider products share it. */
 @Composable
 fun AddStepper(qty: Int, onAdd: (Int) -> Unit) =
-    if (qty == 0) SmallButton("Add", tonal = true) { onAdd(1) }
+    if (qty == 0) SmallButton(stringResource(R.string.g4_add), tonal = true) { onAdd(1) }
     else Row(Modifier.height(38.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), verticalAlignment = Alignment.CenterVertically) {
         val c = MaterialTheme.colorScheme.onPrimary
-        Icon(Icons.Rounded.Remove, "Remove one", Modifier.minimumInteractiveComponentSize().clickable { onAdd(-1) }.padding(10.dp).size(18.dp), tint = c); Text("$qty", style = MaterialTheme.typography.labelMedium, color = c); Icon(Icons.Rounded.Add, "Add one", Modifier.minimumInteractiveComponentSize().clickable { onAdd(1) }.padding(10.dp).size(18.dp), tint = c) }
+        Icon(Icons.Rounded.Remove, stringResource(R.string.g4_cd_remove_one), Modifier.minimumInteractiveComponentSize().clickable { onAdd(-1) }.padding(10.dp).size(18.dp), tint = c); Text("$qty", style = MaterialTheme.typography.labelMedium, color = c); Icon(Icons.Rounded.Add, stringResource(R.string.g4_cd_add_one), Modifier.minimumInteractiveComponentSize().clickable { onAdd(1) }.padding(10.dp).size(18.dp), tint = c) }
 @Composable fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick).padding(6.dp)) {
     Box(Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) { Icon(icon, label, tint = MaterialTheme.colorScheme.onSurface) }
     Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -193,9 +200,9 @@ fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null
     val pct = t.pct; val st = MaterialTheme.status
     val (fg, bg) = when { pct == null -> MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surfaceContainer; pct >= 85 -> st.good to st.goodTint; pct >= 60 -> st.warn to st.warnTint; else -> st.bad to st.badTint }
     // Recommendations read as votes everywhere: an up count and a down count, never stars or thumbs.
-    Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.g4_trust_how_ranked), onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
         val side = shownVote(t.up, t.down)
-        if (side == null) Text(if (compact || pct == null) "New" else "New · ${t.total} so far", style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        if (side == null) Text(if (compact || pct == null) stringResource(R.string.g4_trust_new) else stringResource(R.string.g4_trust_new_so_far, t.total.toString()), style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
         else VoteMark(t.up, t.down, fg, side = side)
     }
 }
@@ -331,14 +338,15 @@ fun postCountsShown(up: Int, down: Int, my: Int): Pair<Int?, Int?> = when {
 }
 
 /** Why a down was given; the server takes the same codes (reviews.reason, profile_votes.reason). */
-val VOTE_REASONS = listOf("LATE" to "Late", "QUALITY" to "Quality", "PRICE" to "Price", "BEHAVIOUR" to "Behaviour", "SAFETY" to "Safety", "OTHER" to "Other")
+val VOTE_REASONS: List<Pair<String, String>> get() = listOf("LATE" to Str.get(R.string.g4_reason_late), "QUALITY" to Str.get(R.string.g4_reason_quality), "PRICE" to Str.get(R.string.g4_reason_price),
+    "BEHAVIOUR" to Str.get(R.string.g4_reason_behaviour), "SAFETY" to Str.get(R.string.g4_reason_safety), "OTHER" to Str.get(R.string.g4_reason_other))
 
 /** The larger side of a vote (or [side] when given): the arrow and its count, tinted [tint] (or green / red by the side when null). Ties show up. */
 @Composable
 fun VoteMark(up: Int, down: Int, tint: Color? = null, size: Int = 13, side: Int? = null) {
     val upWins = side?.let { it > 0 } ?: (up >= down)
     val c = tint ?: if (upWins) MaterialTheme.status.good else MaterialTheme.status.bad
-    Icon(if (upWins) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (upWins) "Recommended by $up" else "Not recommended by $down", tint = c, modifier = Modifier.size(size.dp))
+    Icon(if (upWins) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (upWins) pluralStringResource(R.plurals.g4_cd_recommended_by, up, up) else pluralStringResource(R.plurals.g4_cd_not_recommended_by, down, down), tint = c, modifier = Modifier.size(size.dp))
     Text(" ${if (upWins) up else down}", style = MaterialTheme.typography.labelMedium, color = c, maxLines = 1)
 }
 
@@ -348,8 +356,8 @@ fun VoteArrow(up: Boolean, on: Boolean, modifier: Modifier = Modifier, onClick: 
     val st = MaterialTheme.status; val c = if (up) st.good else st.bad
     Box(modifier.minimumInteractiveComponentSize().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).background(if (on) c.copy(alpha = 0.15f) else Color.Transparent)
         .border(if (on) 2.dp else 1.dp, if (on) c else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-        .clickable(onClickLabel = if (up) "Recommend" else "Not recommend", onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommend" else "Not recommend", Modifier.size(22.dp), tint = if (on) c else MaterialTheme.colorScheme.onSurfaceVariant)
+        .clickable(onClickLabel = if (up) stringResource(R.string.g4_vote_recommend) else stringResource(R.string.g4_vote_not_recommend), onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) stringResource(R.string.g4_vote_recommend) else stringResource(R.string.g4_vote_not_recommend), Modifier.size(22.dp), tint = if (on) c else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -369,19 +377,19 @@ fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", bus
                 VoteArrow(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
             }
             // After a real order or trip, a down needs a reason: it is what the owner can act on.
-            if (askReason && vote < 0) { Text("What went wrong?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)); ReasonChips(reason) { reason = it } }
+            if (askReason && vote < 0) { Text(stringResource(R.string.g4_vote_what_wrong), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)); ReasonChips(reason) { reason = it } }
             OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(),
-                placeholder = { Text(if (vote > 0) "What was good about it? (optional)" else "Tell us more (optional)") }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
-            Button({ onSubmit(vote, text.trim(), if (vote < 0) reason else null) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy && !(askReason && vote < 0 && reason == null)) { Text(if (busy) "Sending…" else "Post") }
+                placeholder = { Text(if (vote > 0) stringResource(R.string.g4_vote_good_hint) else stringResource(R.string.g4_vote_more_hint)) }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            Button({ onSubmit(vote, text.trim(), if (vote < 0) reason else null) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy && !(askReason && vote < 0 && reason == null)) { Text(if (busy) stringResource(R.string.g4_vote_sending) else stringResource(R.string.g4_fb_post)) }
         }
     }
 }
 
 /** One of [VOTE_REASONS], as chips; tapping the chosen one again clears it. */
 @Composable
-fun ReasonChips(selected: String?, onPick: (String?) -> Unit) =
-    FlowChips(VOTE_REASONS.map { it.second }, setOfNotNull(VOTE_REASONS.firstOrNull { it.first == selected }?.second)) { label ->
-        val code = VOTE_REASONS.first { it.second == label }.first; onPick(if (code == selected) null else code) }
+fun ReasonChips(selected: String?, onPick: (String?) -> Unit) { val reasons = VOTE_REASONS
+    FlowChips(reasons.map { it.second }, setOfNotNull(reasons.firstOrNull { it.first == selected }?.second)) { label ->
+        val code = reasons.first { it.second == label }.first; onPick(if (code == selected) null else code) } }
 
 
 /** One sign-up progress bar used by every setup step: [step] of [of] segments filled, so the steps read as one journey. */
@@ -395,6 +403,6 @@ fun ReasonChips(selected: String?, onPick: (String?) -> Unit) =
 @Composable fun SheetCloseHandle(onClose: () -> Unit) {
     Box(Modifier.fillMaxWidth().padding(top = 6.dp)) {
         Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
-        IconButton(onClose, Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).size(48.dp)) { Icon(Icons.Rounded.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        IconButton(onClose, Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).size(48.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.g4_cd_close), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }

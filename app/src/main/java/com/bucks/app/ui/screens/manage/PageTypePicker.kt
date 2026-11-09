@@ -15,6 +15,9 @@ import com.bucks.app.ui.PageGroup
 import com.bucks.app.ui.PageType
 import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.components.*
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.data.Str
 
 /*
  * Picking what a page is (ui/PageTypes.kt): first the group (shops, local services, companies, NGOs and groups, institutions),
@@ -24,45 +27,45 @@ import com.bucks.app.ui.components.*
 
 /** One line of examples under a group card. */
 internal fun pageGroupExamples(key: String): String = when (key) {
-    "SHOPS" -> "Restaurant, grocery, store, online store"
-    "LOCAL_SERVICES" -> "Salon, clinic, repair, coaching, gym"
-    "COMPANIES" -> "IT company, firm, manufacturer, freelancer collective"
-    "COMMUNITY" -> "NGO, charity, community group"
-    "INSTITUTIONS" -> "School, hospital, place of worship, association"
+    "SHOPS" -> Str.get(R.string.g6_pg_ex_shops)
+    "LOCAL_SERVICES" -> Str.get(R.string.g6_pg_ex_local)
+    "COMPANIES" -> Str.get(R.string.g6_pg_ex_companies)
+    "COMMUNITY" -> Str.get(R.string.g6_pg_ex_community)
+    "INSTITUTIONS" -> Str.get(R.string.g6_pg_ex_institutions)
     else -> ""
 }
 
 /** What people do on a page of this type, from its primary button. */
 internal fun pageTypeOutcome(t: PageType): String = when (t.cta) {
-    "CART" -> "People add to cart"
-    "BOOK" -> "People book"
-    "QUOTE" -> "People ask for a quote"
-    "ENQUIRE" -> "People enquire"
-    "VOLUNTEER" -> "People volunteer"
-    "JOIN" -> "People join"
-    "HIRE" -> "People hire you"
-    else -> "People see timings and events"
+    "CART" -> Str.get(R.string.g6_pg_out_cart)
+    "BOOK" -> Str.get(R.string.g6_pg_out_book)
+    "QUOTE" -> Str.get(R.string.g6_pg_out_quote)
+    "ENQUIRE" -> Str.get(R.string.g6_pg_out_enquire)
+    "VOLUNTEER" -> Str.get(R.string.g6_pg_out_volunteer)
+    "JOIN" -> Str.get(R.string.g6_pg_out_join)
+    "HIRE" -> Str.get(R.string.g6_pg_out_hire)
+    else -> Str.get(R.string.g6_pg_out_info)
 }
 
 /** The label over the category field, by group: shops keep "Type of business". */
 internal fun pageCategoryLabel(t: PageType): String = when (t.group) {
-    "SHOPS" -> "Type of business"
-    "LOCAL_SERVICES" -> "What kind of service"
-    "COMPANIES" -> "Field"
-    "COMMUNITY" -> "Cause or area"
-    else -> "Type of institution"
+    "SHOPS" -> Str.get(R.string.g6_pg_cat_shops)
+    "LOCAL_SERVICES" -> Str.get(R.string.g6_pg_cat_local)
+    "COMPANIES" -> Str.get(R.string.g6_pg_cat_companies)
+    "COMMUNITY" -> Str.get(R.string.g6_pg_cat_community)
+    else -> Str.get(R.string.g6_pg_cat_institutions)
 }
 
 /** What a page of this type calls its photos tab; the same words the public profile uses (discover/ListingProfileScreen.kt). */
 internal fun pagePhotosLabel(t: PageType): String = when {
-    t.group == "LOCAL_SERVICES" -> "Gallery"
-    t.group == "COMPANIES" -> "Work"
-    t.key == "SCHOOL_COLLEGE" -> "Campus"
-    else -> "Photos"
+    t.group == "LOCAL_SERVICES" -> Str.get(R.string.g6_pg_photos_gallery)
+    t.group == "COMPANIES" -> Str.get(R.string.g6_pg_photos_work)
+    t.key == "SCHOOL_COLLEGE" -> Str.get(R.string.g6_pg_photos_campus)
+    else -> Str.get(R.string.g6_pg_photos)
 }
 
 /** The registration number field's label for a type (institutions quote an affiliation, the rest a registration). */
-internal fun pageRegistrationLabel(t: PageType): String = if (t.key == "SCHOOL_COLLEGE") "Affiliation number" else "Registration number"
+internal fun pageRegistrationLabel(t: PageType): String = if (t.key == "SCHOOL_COLLEGE") Str.get(R.string.g6_pg_affiliation_no) else Str.get(R.string.g6_pg_registration_no)
 
 /**
  * Two steps in one sheet: the group, then the type. [initialGroup] opens straight on step 2 (a Home tile for that group, or
@@ -76,15 +79,15 @@ internal fun PageTypePickerSheet(initialGroup: String? = null, selected: String?
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Gutter)) {
             val g = group
             if (g == null) {
-                Text("What is it?", style = MaterialTheme.typography.titleLarge)
-                Muted("Pick the closest group. You choose the exact kind next, and it decides what the page shows and does.", Modifier.padding(top = 2.dp, bottom = 10.dp))
+                Text(stringResource(R.string.g6_pg_what), style = MaterialTheme.typography.titleLarge)
+                Muted(stringResource(R.string.g6_pg_what_hint), Modifier.padding(top = 2.dp, bottom = 10.dp))
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(PageTypes.groups, key = { it.key }) { pg -> GroupCard(pg) { group = pg } }
                     if (onSkill != null) item(key = "skill") {
                         BucksCard(onClick = onSkill, padding = 14) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Avatar(icon = Icons.Rounded.Handyman, size = 44)
-                                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text("Just my skill", style = MaterialTheme.typography.titleSmall); Muted("Plumber, tutor, designer. A profile for you, not a business.") }
+                                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(stringResource(R.string.g6_pg_skill), style = MaterialTheme.typography.titleSmall); Muted(stringResource(R.string.g6_pg_skill_hint)) }
                                 Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -93,8 +96,8 @@ internal fun PageTypePickerSheet(initialGroup: String? = null, selected: String?
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { group = null }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "All groups") }
-                    Column(Modifier.weight(1f)) { Text(g.label, style = MaterialTheme.typography.titleLarge); Muted("Pick the kind that fits best.") }
+                    IconButton(onClick = { group = null }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g6_cd_all_groups)) }
+                    Column(Modifier.weight(1f)) { Text(g.label, style = MaterialTheme.typography.titleLarge); Muted(stringResource(R.string.g6_pg_kind_hint)) }
                 }
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(PageTypes.inGroup(g.key), key = { it.key }) { t -> TypeCard(t, t.key == selected) { onPick(t) } }
@@ -121,7 +124,7 @@ private fun TypeCard(t: PageType, selected: Boolean, onClick: () -> Unit) = Buck
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(t.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                if (selected) Icon(Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.primary)
+                if (selected) Icon(Icons.Rounded.Check, stringResource(R.string.g6_cd_selected), tint = MaterialTheme.colorScheme.primary)
             }
             Muted(t.blurb)
             Row(Modifier.padding(top = 8.dp)) { PillPurple(pageTypeOutcome(t)) }
@@ -136,8 +139,8 @@ internal fun PageTypeCard(t: PageType, locked: Boolean, onChange: () -> Unit) = 
         Avatar(icon = t.icon, size = 40)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(t.label, style = MaterialTheme.typography.titleSmall)
-            Muted(if (locked) "Fixed now that the page is live." else t.blurb)
+            Muted(if (locked) stringResource(R.string.g6_pg_locked) else t.blurb)
         }
-        if (!locked) SmallButton("Change", tonal = true, onClick = onChange)
+        if (!locked) SmallButton(stringResource(R.string.g6_change), tonal = true, onClick = onChange)
     }
 }

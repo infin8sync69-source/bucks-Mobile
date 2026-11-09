@@ -1,5 +1,7 @@
 package com.bucks.app.ui
 
+import androidx.annotation.StringRes
+import com.bucks.app.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apartment
 import androidx.compose.material.icons.rounded.Handyman
@@ -27,14 +29,16 @@ import kotlin.math.roundToInt
  * BUSINESS results to that group's service rows ([services], from PageTypes.groups), so shops, local services, companies, NGOs and
  * institutions each get their own chip while pros, assets and drivers stay one chip per kind.
  */
-enum class KindFilter(val label: String, val kinds: List<String>?, val group: String? = null) {
-    ALL("All", null),
-    SHOPS("Shops", listOf("BUSINESS"), "SHOPS"),
-    LOCAL_SERVICES("Local services", listOf("BUSINESS"), "LOCAL_SERVICES"),
-    COMPANIES("Companies", listOf("BUSINESS"), "COMPANIES"),
-    COMMUNITY("NGOs and groups", listOf("BUSINESS"), "COMMUNITY"),
-    INSTITUTIONS("Institutions", listOf("BUSINESS"), "INSTITUTIONS"),
-    PROS("Pros", listOf("SKILL")), ASSETS("Buy & rent", listOf("ASSET")), DRIVERS("Drivers", listOf("DRIVER"));
+enum class KindFilter(@StringRes private val labelRes: Int, val kinds: List<String>?, val group: String? = null) {
+    ALL(R.string.g2_filter_all, null),
+    SHOPS(R.string.g2_kf_shops, listOf("BUSINESS"), "SHOPS"),
+    LOCAL_SERVICES(R.string.g2_kf_local_services, listOf("BUSINESS"), "LOCAL_SERVICES"),
+    COMPANIES(R.string.g2_kf_companies, listOf("BUSINESS"), "COMPANIES"),
+    COMMUNITY(R.string.g2_kf_community, listOf("BUSINESS"), "COMMUNITY"),
+    INSTITUTIONS(R.string.g2_kf_institutions, listOf("BUSINESS"), "INSTITUTIONS"),
+    PROS(R.string.g2_kf_pros, listOf("SKILL")), ASSETS(R.string.g2_kf_assets, listOf("ASSET")), DRIVERS(R.string.g2_kf_drivers, listOf("DRIVER"));
+
+    val label: String get() = Str.get(labelRes)
 
     /** The service rows search_listings is limited to (a page group's), or null for every service. */
     val services: List<String>? get() = PageTypes.group(group)?.services
@@ -104,7 +108,7 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: CancellationException) { throw e } catch (e: Exception) { toast(friendly(e)) } }
     /** Our own database errors come back wrapped; show just the sentence we wrote. */
     private fun friendly(e: Exception): String {
-        val m = e.message ?: return "Something went wrong. Try again."
+        val m = e.message ?: return Str.get(R.string.g2_error_generic)
         return Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(m)?.groupValues?.get(1) ?: m.substringAfter("message: ", m).substringBefore("\n").take(140)
     }
 
@@ -154,7 +158,7 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
         val l = profiles[id]?.listing ?: return@go; if (mediaBusy != null) return@go; mediaBusy = id to slot
         try {
             com.bucks.app.data.ProfileMedia.setListing(id, slot, picked, if (slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO) l.photoUrl else l.coverUrl)
-            toast(if (slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO) "Page picture updated." else "Cover photo updated.")
+            toast(Str.get(if (slot == com.bucks.app.data.ProfileMedia.Slot.PHOTO) R.string.g2_page_picture_updated else R.string.g2_cover_updated))
         } finally { mediaBusy = null }
         open(id)
     }
@@ -215,8 +219,9 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
             if (on) Backend.syncListing(me, id) else Backend.unsyncListing(me, id)
             mySyncs = if (on) mySyncs + id else mySyncs - id
             profiles[id]?.let { profiles[id] = it.copy(synced = on, syncs = (it.syncs + if (on) 1 else -1).coerceAtLeast(0)) }
-            val title = profiles[id]?.listing?.title ?: results.firstOrNull { it.id == id }?.title ?: "them"
-            toast(if (on) "Synced with $title. Their posts now show in your feed." else "Unsynced from $title.")
+            val title = profiles[id]?.listing?.title ?: results.firstOrNull { it.id == id }?.title
+            toast(when { on && title != null -> Str.get(R.string.g2_synced_with, title); on -> Str.get(R.string.g2_synced_with_them)
+                title != null -> Str.get(R.string.g2_unsynced_from, title); else -> Str.get(R.string.g2_unsynced_from_them) })
         } finally { syncing = syncing - id }
     }
 
@@ -239,11 +244,11 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
 /* ---------- small helpers shared by the discover screens ---------- */
 
 /** Shop / Pro / Driver, the word people use for each listing kind. */
-fun kindLabel(kind: String) = when (kind) { "BUSINESS" -> "Shop"; "SKILL" -> "Pro"; "DRIVER" -> "Driver"; else -> kind.lowercase().replaceFirstChar { it.uppercase() } }
+fun kindLabel(kind: String) = when (kind) { "BUSINESS" -> Str.get(R.string.g2_shop); "SKILL" -> Str.get(R.string.g2_pro); "DRIVER" -> Str.get(R.string.g2_driver); "ASSET" -> Str.get(R.string.g2_kind_asset); else -> kind.lowercase().replaceFirstChar { it.uppercase() } }
 /** The icon of a listing kind (a business page's own type icon comes from PageTypes.badgeIcon). */
 fun kindIcon(kind: String): ImageVector = when (kind) { "BUSINESS" -> Icons.Rounded.Storefront; "SKILL" -> Icons.Rounded.Handyman; "ASSET" -> Icons.Rounded.Apartment; else -> Icons.Rounded.LocalTaxi }
 /** "650 m" or "1.2 km". */
-fun formatDistance(meters: Double): String = if (meters < 1000) "${meters.roundToInt()} m" else "%.1f km".format(meters / 1000)
+fun formatDistance(meters: Double): String = if (meters < 1000) Str.get(R.string.g2_meters, meters.roundToInt()) else Str.get(R.string.g2_km, "%.1f".format(meters / 1000))
 /** A string field of a listing's details, or null when missing or blank. Booleans and numbers come back as text. */
 fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.content?.trim()?.takeIf { it.isNotBlank() && it != "null" }
 /** A list field of details ("languages": ["Kannada", "Hindi"]) or a comma-separated string. */
@@ -255,7 +260,8 @@ fun JsonObject.list(key: String): List<String> = when (val v = this[key]) {
 /** The vehicle a driver listing drives, from details (vehicle_kind / vehicle / kind) or the category ("Auto"). */
 fun driverKind(details: JsonObject, category: String = ""): VehicleKind? {
     val raw = listOf("vehicle_kind", "vehicle", "kind").firstNotNullOfOrNull { details.str(it) } ?: category.takeIf { it.isNotBlank() } ?: return null
-    return VehicleKind.entries.firstOrNull { it.name.equals(raw, true) || it.label.equals(raw, true) || raw.contains(it.label, true) }
+    // Stored values are English ("Auto", "auto rickshaw"): match the enum names, never the translated labels.
+    return VehicleKind.entries.firstOrNull { it.name.equals(raw, true) || raw.contains(it.name, true) }
 }
 /** The rate line of a pro: details.rate, else the cheapest service. */
-fun proRate(details: JsonObject, minPrice: Int?): String = details.str("rate") ?: minPrice?.let { "From ₹$it" } ?: "Rate on request"
+fun proRate(details: JsonObject, minPrice: Int?): String = details.str("rate") ?: minPrice?.let { Str.get(R.string.g2_from_price, Money.format(it)) } ?: Str.get(R.string.g2_rate_on_request)

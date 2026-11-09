@@ -7,6 +7,8 @@ import com.bucks.app.data.Backend
 import com.bucks.app.data.BackendSafety
 import com.bucks.app.data.ReportQueueRow
 import com.bucks.app.data.SafetyRow
+import com.bucks.app.R
+import com.bucks.app.data.Str
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -58,21 +60,21 @@ class Safety(private val scope: CoroutineScope, private val toast: (String) -> U
 
     fun report(kind: String, targetId: String, reason: String, detail: String, onDone: () -> Unit = {}) = scope.launch {
         busy = true
-        try { BackendSafety.report(kind, targetId, reason, detail); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.REPORT, "kind" to kind, "reason" to reason); toast("Thanks for telling us. Our team will review it."); onDone() }
+        try { BackendSafety.report(kind, targetId, reason, detail); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.REPORT, "kind" to kind, "reason" to reason); toast(Str.get(R.string.g6_safety_report_thanks)); onDone() }
         catch (e: Exception) { toast(friendly(e)) }
         finally { busy = false }
     }
 
     fun refreshQueue() = scope.launch { runCatching { BackendSafety.reportQueue() }.onSuccess { queue = it }.onFailure { toast(friendly(it)) } }
     fun review(id: String, action: String) = scope.launch {
-        try { BackendSafety.reviewReport(id, action); queue = queue.filterNot { it.id == id }; toast(when (action) { "REMOVE" -> "Removed."; "BAN" -> "Removed and the account is suspended."; else -> "Dismissed." }) }
+        try { BackendSafety.reviewReport(id, action); queue = queue.filterNot { it.id == id }; toast(when (action) { "REMOVE" -> Str.get(R.string.g6_safety_removed); "BAN" -> Str.get(R.string.g6_safety_removed_banned); else -> Str.get(R.string.g6_safety_dismissed) }) }
         catch (e: Exception) { toast(friendly(e)) }
     }
 
     private fun friendly(e: Throwable): String {
-        val m = e.message ?: return "Something went wrong. Try again."
+        val m = e.message ?: return Str.get(R.string.g6_err_generic)
         return Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(m)?.groupValues?.get(1)?.replaceFirstChar { it.uppercase() }
-            ?: "Couldn't reach Bucks. Check your connection and try again."
+            ?: Str.get(R.string.g6_err_offline)
     }
 
     companion object { const val STEP_BIRTH = "birth"; const val STEP_GUARDIAN = "guardian" }

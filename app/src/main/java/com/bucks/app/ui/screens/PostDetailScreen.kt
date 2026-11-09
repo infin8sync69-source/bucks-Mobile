@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,7 +29,7 @@ fun PostDetailScreen(vm: BucksViewModel, postId: String, onBack: () -> Unit) {
         p?.let { vm.social.namesFor(listOf(it.authorId)); post = it; state = "ok" }
     }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Post", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g2_post_title), onBack = onBack)
         val p = post
         when {
             p != null -> Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
@@ -36,12 +39,12 @@ fun PostDetailScreen(vm: BucksViewModel, postId: String, onBack: () -> Unit) {
                 }
                 if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 12.dp))
                 PostMedia(vm, p.media)
-                Muted("${p.up} recommended · ${p.comments} comment${if (p.comments == 1) "" else "s"}", Modifier.padding(top = 12.dp))
-                SmallButton("Comments", Modifier.padding(top = 10.dp), tonal = true) { comments = true }
+                Muted(pluralStringResource(R.plurals.g2_post_counts, p.comments, p.up, p.comments), Modifier.padding(top = 12.dp))
+                SmallButton(stringResource(R.string.g2_comments), Modifier.padding(top = 10.dp), tonal = true) { comments = true }
             }
             state == "loading" -> CenteredLoading()
-            else -> Column(Modifier.padding(Gutter)) { Text(if (state == "error") "Couldn't load this post" else "This post is gone", style = MaterialTheme.typography.titleMedium)
-                Muted(if (state == "error") "Check your connection and try again." else "It was deleted, or you can no longer see it.", Modifier.padding(top = 4.dp)) }
+            else -> Column(Modifier.padding(Gutter)) { Text(stringResource(if (state == "error") R.string.g2_post_load_failed else R.string.g2_post_gone), style = MaterialTheme.typography.titleMedium)
+                Muted(stringResource(if (state == "error") R.string.g2_check_connection else R.string.g2_post_gone_detail), Modifier.padding(top = 4.dp)) }
         }
     }
     if (comments && post != null) CloudCommentsSheet(vm, postId) { comments = false }

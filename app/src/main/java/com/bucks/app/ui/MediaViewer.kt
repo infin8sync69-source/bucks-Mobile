@@ -1,5 +1,8 @@
 package com.bucks.app.ui
 
+import com.bucks.app.data.Str
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -108,17 +111,17 @@ fun MediaViewer(vm: BucksViewModel, items: List<ViewerMedia>, start: Int = 0, ti
                 is ViewerMedia.Stored -> MediaSaver.save(ctx, vm.social, current.bucket, current.path, current.mime)
                 is ViewerMedia.Url -> MediaSaver.saveUrl(ctx, current.url, current.mime)
             }
-            vm.toast(if (ok) "Saved to your gallery, in the Bucks album." else "Couldn't save. Check your connection and try again.")
+            vm.toast(if (ok) Str.get(R.string.g7_media_saved) else Str.get(R.string.g7_media_save_failed))
         }
     }
-    val askStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) save() else vm.toast("Allow storage access to save to your gallery.") }
+    val askStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) save() else vm.toast(Str.get(R.string.g7_media_storage_needed)) }
     val share: () -> Unit = {
         scope.launch {
             val ok = when (current) {
                 is ViewerMedia.Stored -> FileOpener.share(ctx, vm.social, current.bucket, current.path, current.mime)
                 is ViewerMedia.Url -> FileOpener.shareUrl(ctx, current.url, current.mime)
             }
-            if (!ok) vm.toast("Couldn't share that. Check your connection.")
+            if (!ok) vm.toast(Str.get(R.string.g7_media_share_failed))
         }
     }
 
@@ -132,14 +135,14 @@ fun MediaViewer(vm: BucksViewModel, items: List<ViewerMedia>, start: Int = 0, ti
             AnimatedVisibility(chrome, Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
                 Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))).statusBarsPadding().padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClose) { Icon(Icons.Rounded.Close, "Close", tint = Color.White) }
+                    IconButton(onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.g7_cd_close), tint = Color.White) }
                     Column(Modifier.weight(1f)) {
                         title?.let { Text(it, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1) }
-                        if (items.size > 1) Text("${pager.currentPage + 1} of ${items.size}", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
+                        if (items.size > 1) Text(stringResource(R.string.g7_media_page_of, pager.currentPage + 1, items.size), color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
                     }
                     IconButton({ if (Build.VERSION.SDK_INT < 29 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) askStorage.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else save() }) {
-                        Icon(Icons.Rounded.Download, "Save to gallery", tint = Color.White) }
-                    IconButton(share) { Icon(Icons.Rounded.Share, "Share", tint = Color.White) }
+                        Icon(Icons.Rounded.Download, stringResource(R.string.g7_cd_save_gallery), tint = Color.White) }
+                    IconButton(share) { Icon(Icons.Rounded.Share, stringResource(R.string.g7_cd_share), tint = Color.White) }
                 }
             }
             if (current.caption.isNotBlank() || vote != null) AnimatedVisibility(chrome, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
@@ -177,7 +180,7 @@ private fun ZoomableImage(vm: BucksViewModel, item: ViewerMedia, active: Boolean
                 } while (event.changes.any { it.pressed })
             }
         }, contentAlignment = Alignment.Center) {
-        if (url == null) BucksLoader(color = Color.White, label = "Loading")
+        if (url == null) BucksLoader(color = Color.White, label = stringResource(R.string.g7_loading))
         else AsyncImage(url, item.caption.ifBlank { null }, Modifier.fillMaxSize().graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }, contentScale = ContentScale.Fit)
     }
 }
@@ -187,7 +190,7 @@ private fun ZoomableImage(vm: BucksViewModel, item: ViewerMedia, active: Boolean
 private fun ViewerVideo(vm: BucksViewModel, item: ViewerMedia, playing: Boolean, onTap: () -> Unit) {
     val url = rememberMediaUrl(vm, item)
     Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { onTap() }) }, contentAlignment = Alignment.Center) {
-        if (url == null) BucksLoader(color = Color.White, label = "Loading")
+        if (url == null) BucksLoader(color = Color.White, label = stringResource(R.string.g7_loading))
         else MomentVideo(url, paused = !playing, modifier = Modifier.fillMaxSize(), loop = true)
     }
 }
@@ -208,7 +211,7 @@ private fun ViewerVoteBar(v: ViewerVote, modifier: Modifier = Modifier) {
 
 @Composable
 private fun ViewerArrow(up: Boolean, on: Boolean, count: Int?, color: Color, onClick: () -> Unit) {
-    val label = when { on -> "Take back my vote"; up -> "Recommend"; else -> "Not recommend" }
+    val label = when { on -> stringResource(R.string.g7_cd_vote_undo); up -> stringResource(R.string.g7_cd_vote_up); else -> stringResource(R.string.g7_cd_vote_down) }
     val tint = if (on) color else Color.White
     Row(Modifier.heightIn(min = 48.dp).clip(androidx.compose.foundation.shape.CircleShape)
         .background(if (on) color.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.12f))

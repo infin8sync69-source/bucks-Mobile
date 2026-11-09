@@ -1,5 +1,8 @@
 package com.bucks.app.ui
 
+import com.bucks.app.data.Str
+import com.bucks.app.R
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -26,61 +29,67 @@ data class Catalogue(val label: String, val kinds: List<String>, val custom: Boo
 }
 
 /** A group of types: one Home tile, one search chip. */
-data class PageGroup(val key: String, val label: String, val icon: ImageVector, val services: List<String>)
+data class PageGroup(val key: String, @StringRes val labelRes: Int, val icon: ImageVector, val services: List<String>) {
+    val label: String get() = Str.get(labelRes)
+}
 
 /** What a page of this type shows and does. [itemKinds] are the items.kind values its catalogue holds. */
 data class PageType(
-    val key: String, val group: String, val label: String, val blurb: String, val icon: ImageVector,
+    val key: String, val group: String, @StringRes val labelRes: Int, @StringRes val blurbRes: Int, val icon: ImageVector,
     /** Service row the page lives under; shop types derive it from the category instead (see serviceForCategory). */
     val service: String,
-    val tabs: List<String>, val catalogueLabel: String?, val itemKinds: List<String>,
-    val cta: String, val ctaLabel: String, val reviews: Boolean, val docs: List<String>,
+    val tabs: List<String>, @StringRes val catalogueLabelRes: Int?, val itemKinds: List<String>,
+    val cta: String, @StringRes val ctaLabelRes: Int, val reviews: Boolean, val docs: List<String>,
 ) {
+    val label: String get() = Str.get(labelRes)
+    val blurb: String get() = Str.get(blurbRes)
+    val catalogueLabel: String? get() = catalogueLabelRes?.let { Str.get(it) }
+    val ctaLabel: String get() = Str.get(ctaLabelRes)
     val isShop get() = group == "SHOPS"
     val sellsProducts get() = "PRODUCT" in itemKinds
     /** Which tab shows the catalogue, if any. */
     val catalogueTab: String? get() = tabs.firstOrNull { it in setOf("products", "services", "programs", "events") }
     /** The noun for one catalogue entry: product, service, program, event. */
-    val itemNoun: String get() = when (itemKinds.firstOrNull()) { "PRODUCT" -> "product"; "PROGRAM" -> "program"; "EVENT" -> "event"; else -> "service" }
+    val itemNoun: String get() = PageTypes.kindNoun(itemKinds.firstOrNull() ?: "SERVICE")
     /** The items.kind a new catalogue entry gets. */
     val newItemKind: String get() = itemKinds.firstOrNull() ?: "SERVICE"
 }
 
 object PageTypes {
     val groups = listOf(
-        PageGroup("SHOPS", "Shops", Icons.Rounded.Storefront, listOf("FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING")),
-        PageGroup("LOCAL_SERVICES", "Local services", Icons.Rounded.ContentCut, listOf("LOCAL_SERVICES")),
-        PageGroup("COMPANIES", "Companies", Icons.Rounded.Code, listOf("BIZ_PRO")),
-        PageGroup("COMMUNITY", "NGOs and groups", Icons.Rounded.Groups, listOf("COMMUNITY")),
-        PageGroup("INSTITUTIONS", "Institutions", Icons.Rounded.Apartment, listOf("INSTITUTIONS")),
+        PageGroup("SHOPS", R.string.g5_pt_group_shops, Icons.Rounded.Storefront, listOf("FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING")),
+        PageGroup("LOCAL_SERVICES", R.string.g5_pt_group_local_services, Icons.Rounded.ContentCut, listOf("LOCAL_SERVICES")),
+        PageGroup("COMPANIES", R.string.g5_pt_group_companies, Icons.Rounded.Code, listOf("BIZ_PRO")),
+        PageGroup("COMMUNITY", R.string.g5_pt_group_community, Icons.Rounded.Groups, listOf("COMMUNITY")),
+        PageGroup("INSTITUTIONS", R.string.g5_pt_group_institutions, Icons.Rounded.Apartment, listOf("INSTITUTIONS")),
     )
     val all = listOf(
-        PageType("RETAIL_SHOP", "SHOPS", "Shop", "Restaurant, grocery, store. Products with prices, orders and delivery nearby.", Icons.Rounded.Storefront, "SHOPPING",
-            listOf("products", "feed", "about", "jobs", "reviews"), "Products", listOf("PRODUCT"), "CART", "Add to cart", true, listOf("OWNER_ID", "GSTIN", "FSSAI", "SHOP_EST", "TRADE_LICENCE")),
-        PageType("D2C_STORE", "SHOPS", "Online store", "Ships across India by courier. Products, orders, tracking.", Icons.Rounded.LocalShipping, "SHOPPING",
-            listOf("products", "about", "feed", "reviews"), "Products", listOf("PRODUCT"), "CART", "Add to cart", true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
-        PageType("LOCAL_SERVICE", "LOCAL_SERVICES", "Local service", "Salon, clinic, repair, coaching, gym. Services with prices; people book.", Icons.Rounded.ContentCut, "LOCAL_SERVICES",
-            listOf("services", "photos", "about", "feed", "reviews"), "Services", listOf("SERVICE"), "BOOK", "Book", true, listOf("OWNER_ID", "GSTIN", "TRADE_LICENCE", "SHOP_EST")),
-        PageType("IT_COMPANY", "COMPANIES", "IT company", "Software, apps, design, digital marketing. Services from a price or on quote.", Icons.Rounded.Code, "BIZ_PRO",
-            listOf("services", "photos", "about", "team", "jobs", "reviews", "feed"), "Services", listOf("SERVICE"), "QUOTE", "Get a quote", true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
-        PageType("COLLECTIVE", "COMPANIES", "Freelancer collective", "A few pros working together. People, then services.", Icons.Rounded.Group, "BIZ_PRO",
-            listOf("team", "services", "photos", "about", "reviews", "feed"), "Services", listOf("SERVICE"), "HIRE", "Hire us", true, listOf("OWNER_ID", "GSTIN")),
-        PageType("PRO_FIRM", "COMPANIES", "Professional firm", "Accounting, legal, architecture, consulting.", Icons.Rounded.Gavel, "BIZ_PRO",
-            listOf("services", "about", "team", "reviews", "feed"), "Services", listOf("SERVICE"), "ENQUIRE", "Enquire", true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
-        PageType("MANUFACTURER", "COMPANIES", "Manufacturer / wholesaler", "A catalogue with per-unit prices; buyers ask for a quote, no cart.", Icons.Rounded.Inventory2, "BIZ_PRO",
-            listOf("services", "about", "jobs", "reviews", "feed"), "Catalogue", listOf("SERVICE"), "QUOTE", "Get a quote", true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
-        PageType("NGO_CHARITY", "COMMUNITY", "NGO / charity", "Programs people can join or support. Volunteers, team, updates.", Icons.Rounded.Favorite, "COMMUNITY",
-            listOf("about", "programs", "jobs", "team", "feed", "reviews"), "Programs", listOf("PROGRAM"), "VOLUNTEER", "Volunteer", true, listOf("OWNER_ID", "NGO_REG")),
-        PageType("COMMUNITY_GROUP", "COMMUNITY", "Community group", "Neighbours doing things together. Events and updates.", Icons.Rounded.Groups, "COMMUNITY",
-            listOf("about", "events", "feed", "team"), "Events", listOf("EVENT", "SERVICE"), "JOIN", "Join", false, listOf("OWNER_ID")),
-        PageType("SCHOOL_COLLEGE", "INSTITUTIONS", "School / college", "Courses and classes, admissions, campus, staff openings.", Icons.Rounded.Apartment, "INSTITUTIONS",
-            listOf("about", "programs", "photos", "team", "jobs", "feed", "reviews"), "Programs", listOf("PROGRAM"), "ENQUIRE", "Admission enquiry", true, listOf("OWNER_ID", "NGO_REG", "AFFILIATION")),
-        PageType("HOSPITAL", "INSTITUTIONS", "Hospital", "Departments and services; people book a visit.", Icons.Rounded.MedicalServices, "INSTITUTIONS",
-            listOf("about", "services", "team", "feed", "reviews"), "Services", listOf("SERVICE"), "BOOK", "Book a visit", true, listOf("OWNER_ID", "GSTIN")),
-        PageType("WORSHIP_PLACE", "INSTITUTIONS", "Place of worship", "Timings, events and updates. No reviews.", Icons.Rounded.Place, "INSTITUTIONS",
-            listOf("about", "events", "photos", "feed"), "Events", listOf("EVENT"), "DIRECTIONS", "Directions", false, listOf("OWNER_ID", "NGO_REG")),
-        PageType("ASSOCIATION", "INSTITUTIONS", "Association / society", "Residents, alumni, trade or welfare association. Members, events, notices.", Icons.Rounded.HowToReg, "INSTITUTIONS",
-            listOf("about", "events", "team", "jobs", "feed"), "Events", listOf("EVENT", "SERVICE"), "JOIN", "Join", false, listOf("OWNER_ID", "NGO_REG")),
+        PageType("RETAIL_SHOP", "SHOPS", R.string.g5_pt_retail_shop_label, R.string.g5_pt_retail_shop_blurb, Icons.Rounded.Storefront, "SHOPPING",
+            listOf("products", "feed", "about", "jobs", "reviews"), R.string.g5_kind_products, listOf("PRODUCT"), "CART", R.string.g5_cta_add_to_cart, true, listOf("OWNER_ID", "GSTIN", "FSSAI", "SHOP_EST", "TRADE_LICENCE")),
+        PageType("D2C_STORE", "SHOPS", R.string.g5_pt_d2c_store_label, R.string.g5_pt_d2c_store_blurb, Icons.Rounded.LocalShipping, "SHOPPING",
+            listOf("products", "about", "feed", "reviews"), R.string.g5_kind_products, listOf("PRODUCT"), "CART", R.string.g5_cta_add_to_cart, true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
+        PageType("LOCAL_SERVICE", "LOCAL_SERVICES", R.string.g5_pt_local_service_label, R.string.g5_pt_local_service_blurb, Icons.Rounded.ContentCut, "LOCAL_SERVICES",
+            listOf("services", "photos", "about", "feed", "reviews"), R.string.g5_kind_services, listOf("SERVICE"), "BOOK", R.string.g5_cta_book, true, listOf("OWNER_ID", "GSTIN", "TRADE_LICENCE", "SHOP_EST")),
+        PageType("IT_COMPANY", "COMPANIES", R.string.g5_pt_it_company_label, R.string.g5_pt_it_company_blurb, Icons.Rounded.Code, "BIZ_PRO",
+            listOf("services", "photos", "about", "team", "jobs", "reviews", "feed"), R.string.g5_kind_services, listOf("SERVICE"), "QUOTE", R.string.g5_cta_get_quote, true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
+        PageType("COLLECTIVE", "COMPANIES", R.string.g5_pt_collective_label, R.string.g5_pt_collective_blurb, Icons.Rounded.Group, "BIZ_PRO",
+            listOf("team", "services", "photos", "about", "reviews", "feed"), R.string.g5_kind_services, listOf("SERVICE"), "HIRE", R.string.g5_cta_hire_us, true, listOf("OWNER_ID", "GSTIN")),
+        PageType("PRO_FIRM", "COMPANIES", R.string.g5_pt_pro_firm_label, R.string.g5_pt_pro_firm_blurb, Icons.Rounded.Gavel, "BIZ_PRO",
+            listOf("services", "about", "team", "reviews", "feed"), R.string.g5_kind_services, listOf("SERVICE"), "ENQUIRE", R.string.g5_cta_enquire, true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
+        PageType("MANUFACTURER", "COMPANIES", R.string.g5_pt_manufacturer_label, R.string.g5_pt_manufacturer_blurb, Icons.Rounded.Inventory2, "BIZ_PRO",
+            listOf("services", "about", "jobs", "reviews", "feed"), R.string.g5_kind_catalogue, listOf("SERVICE"), "QUOTE", R.string.g5_cta_get_quote, true, listOf("OWNER_ID", "GSTIN", "UDYAM")),
+        PageType("NGO_CHARITY", "COMMUNITY", R.string.g5_pt_ngo_charity_label, R.string.g5_pt_ngo_charity_blurb, Icons.Rounded.Favorite, "COMMUNITY",
+            listOf("about", "programs", "jobs", "team", "feed", "reviews"), R.string.g5_kind_programs, listOf("PROGRAM"), "VOLUNTEER", R.string.g5_cta_volunteer, true, listOf("OWNER_ID", "NGO_REG")),
+        PageType("COMMUNITY_GROUP", "COMMUNITY", R.string.g5_pt_community_group_label, R.string.g5_pt_community_group_blurb, Icons.Rounded.Groups, "COMMUNITY",
+            listOf("about", "events", "feed", "team"), R.string.g5_kind_events, listOf("EVENT", "SERVICE"), "JOIN", R.string.g5_cta_join, false, listOf("OWNER_ID")),
+        PageType("SCHOOL_COLLEGE", "INSTITUTIONS", R.string.g5_pt_school_college_label, R.string.g5_pt_school_college_blurb, Icons.Rounded.Apartment, "INSTITUTIONS",
+            listOf("about", "programs", "photos", "team", "jobs", "feed", "reviews"), R.string.g5_kind_programs, listOf("PROGRAM"), "ENQUIRE", R.string.g5_cta_admission_enquiry, true, listOf("OWNER_ID", "NGO_REG", "AFFILIATION")),
+        PageType("HOSPITAL", "INSTITUTIONS", R.string.g5_pt_hospital_label, R.string.g5_pt_hospital_blurb, Icons.Rounded.MedicalServices, "INSTITUTIONS",
+            listOf("about", "services", "team", "feed", "reviews"), R.string.g5_kind_services, listOf("SERVICE"), "BOOK", R.string.g5_cta_book_visit, true, listOf("OWNER_ID", "GSTIN")),
+        PageType("WORSHIP_PLACE", "INSTITUTIONS", R.string.g5_pt_worship_place_label, R.string.g5_pt_worship_place_blurb, Icons.Rounded.Place, "INSTITUTIONS",
+            listOf("about", "events", "photos", "feed"), R.string.g5_kind_events, listOf("EVENT"), "DIRECTIONS", R.string.g5_cta_directions, false, listOf("OWNER_ID", "NGO_REG")),
+        PageType("ASSOCIATION", "INSTITUTIONS", R.string.g5_pt_association_label, R.string.g5_pt_association_blurb, Icons.Rounded.HowToReg, "INSTITUTIONS",
+            listOf("about", "events", "team", "jobs", "feed"), R.string.g5_kind_events, listOf("EVENT", "SERVICE"), "JOIN", R.string.g5_cta_join, false, listOf("OWNER_ID", "NGO_REG")),
     )
     fun byKey(key: String?): PageType? = all.firstOrNull { it.key == key }
     fun group(key: String?): PageGroup? = groups.firstOrNull { it.key == key }
@@ -93,19 +102,19 @@ object PageTypes {
 
     /** The kinds a catalogue can hold, in the order the tab shows them. */
     val itemKinds = listOf("PRODUCT", "SERVICE", "PROGRAM", "EVENT")
-    fun kindPlural(k: String) = when (k) { "PRODUCT" -> "Products"; "PROGRAM" -> "Programs"; "EVENT" -> "Events"; else -> "Services" }
-    fun kindNoun(k: String) = when (k) { "PRODUCT" -> "product"; "PROGRAM" -> "program"; "EVENT" -> "event"; else -> "service" }
+    fun kindPlural(k: String) = Str.get(when (k) { "PRODUCT" -> R.string.g5_kind_products; "PROGRAM" -> R.string.g5_kind_programs; "EVENT" -> R.string.g5_kind_events; else -> R.string.g5_kind_services })
+    fun kindNoun(k: String) = Str.get(when (k) { "PRODUCT" -> R.string.g5_noun_product; "PROGRAM" -> R.string.g5_noun_program; "EVENT" -> R.string.g5_noun_event; else -> R.string.g5_noun_service })
     const val CATALOGUE_LABEL_MAX = 24
 
     /** What a page's catalogue holds before the owner changes it: its type's kinds, services for a pro, nothing for an asset or a driver. */
     fun defaultKinds(kind: String, type: PageType?): List<String> = type?.itemKinds ?: if (kind == "SKILL") listOf("SERVICE") else emptyList()
     /** The tab's name before the owner renames it. */
     fun defaultLabel(kind: String, type: PageType?, kinds: List<String>): String = when {
-        kind == "ASSET" -> "Pricing"
-        kind == "DRIVER" -> "Rides"
-        type != null && kinds == type.itemKinds && type.catalogueLabel != null -> type.catalogueLabel
-        kinds.isEmpty() -> "Services"
-        else -> kinds.map { kindPlural(it) }.let { if (it.size <= 2) it.joinToString(" & ") else it.dropLast(1).joinToString(", ") + " & " + it.last() }
+        kind == "ASSET" -> Str.get(R.string.g5_tab_pricing)
+        kind == "DRIVER" -> Str.get(R.string.g5_tab_rides)
+        type != null && kinds == type.itemKinds && type.catalogueLabelRes != null -> Str.get(type.catalogueLabelRes)
+        kinds.isEmpty() -> Str.get(R.string.g5_kind_services)
+        else -> kinds.map { kindPlural(it) }.let { when (it.size) { 1 -> it[0]; 2 -> Str.get(R.string.g5_list_two, it[0], it[1]); 3 -> Str.get(R.string.g5_list_three, it[0], it[1], it[2]); else -> Str.get(R.string.g5_list_four, it[0], it[1], it[2], it[3]) } }
     }
     fun catalogue(l: ListingRow): Catalogue {
         val type = of(l)
@@ -121,12 +130,12 @@ object PageTypes {
 
     /** What the primary button says to the page, when it opens a chat (until requests become their own object). */
     fun ctaMessage(t: PageType, title: String): String = when (t.cta) {
-        "BOOK" -> "Hi, I'd like to book with $title. When are you free?"
-        "QUOTE" -> "Hi $title, could you send me a quote? Here is what I need: "
-        "ENQUIRE" -> if (t.key == "SCHOOL_COLLEGE") "Hi, I'd like to enquire about admission at $title. " else "Hi $title, I have an enquiry: "
-        "VOLUNTEER" -> "Hi, I'd like to volunteer with $title. How can I help?"
-        "JOIN" -> "Hi, I'd like to join $title. What are the next steps?"
-        "HIRE" -> "Hi $title, I'd like to hire you for a project: "
-        else -> "Hi $title, "
+        "BOOK" -> Str.get(R.string.g5_cta_msg_book, title)
+        "QUOTE" -> Str.get(R.string.g5_cta_msg_quote, title)
+        "ENQUIRE" -> if (t.key == "SCHOOL_COLLEGE") Str.get(R.string.g5_cta_msg_admission, title) else Str.get(R.string.g5_cta_msg_enquire, title)
+        "VOLUNTEER" -> Str.get(R.string.g5_cta_msg_volunteer, title)
+        "JOIN" -> Str.get(R.string.g5_cta_msg_join, title)
+        "HIRE" -> Str.get(R.string.g5_cta_msg_hire, title)
+        else -> Str.get(R.string.g5_cta_msg_hi, title)
     }
 }

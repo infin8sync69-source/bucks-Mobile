@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens.manage
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -35,7 +38,7 @@ private val SHOWCASE_MIMES = setOf("application/pdf", "image/jpeg", "image/png",
 
 /** The sentence we wrote on the server (for instance "that name could be mistaken for a Bucks check"), or a generic one. */
 private fun friendly(e: Throwable) = Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(e.message ?: "")?.groupValues?.get(1)?.replace("\\\"", "\"")?.takeIf { it.isNotBlank() }
-    ?: "Couldn't do that. Check your connection and try again."
+    ?: Str.get(R.string.g8_generic_error)
 
 /**
  * The documents a business, NGO or institution shows on its profile (showcase_docs.sql). Owner and admins add them, choose who may open
@@ -73,62 +76,62 @@ fun ShowcaseDocsManageScreen(vm: BucksViewModel, listingId: String, onBack: () -
     } }
 
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Documents to show", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g8_docs_to_show), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             val l = m.listing(listingId)
             if (l != null) Text(l.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 8.dp))
             when {
                 !m.loaded -> CenteredLoading()
-                !allowed -> Muted("Only the owner or an admin can manage the documents shown on this profile.")
+                !allowed -> Muted(stringResource(R.string.g8_docs_owner_only))
                 else -> {
-                    Notice("These appear on your public profile, as you choose below. They are separate from the checks Bucks does for going live: nothing here is \"checked by Bucks\" unless Bucks staff say so.")
+                    Notice(stringResource(R.string.g8_docs_notice))
                     val list = docs
                     Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Your documents", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        if (list != null) Muted("${list.size} of 20")
+                        Text(stringResource(R.string.g8_your_documents), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        if (list != null) Muted(stringResource(R.string.g8_n_of_20, list.size))
                     }
                     when {
                         list == null && loadError != null -> LoadError(loadError.orEmpty(), Modifier.padding(top = 8.dp)) { loadError = null; reload++ }
                         list == null -> CenteredLoading()
                         else -> {
-                            if (list.isEmpty()) Muted("No documents yet. Registrations, licences, certificates and awards help people trust a page.", Modifier.padding(top = 8.dp))
+                            if (list.isEmpty()) Muted(stringResource(R.string.g8_no_docs), Modifier.padding(top = 8.dp))
                             list.forEach { d -> ManageDocCard(d, Modifier.padding(top = 10.dp), onOpen = { viewing = d }, onEdit = { editing = d }, onRemove = { removing = d }) }
-                            if (list.size < 20) DocButton("Add a document", { adding = true }, Modifier.padding(top = 12.dp), icon = Icons.Rounded.Add)
-                            else Muted("You have reached 20 documents. Remove one to add another.", Modifier.padding(top = 12.dp))
+                            if (list.size < 20) DocButton(stringResource(R.string.g8_add_document), { adding = true }, Modifier.padding(top = 12.dp), icon = Icons.Rounded.Add)
+                            else Muted(stringResource(R.string.g8_docs_limit), Modifier.padding(top = 12.dp))
                         }
                     }
 
-                    SectionTitle("Requests", Modifier.padding(top = 24.dp))
-                    Muted("People ask to see documents marked On request. You choose; approving lasts 30 days and you can revoke it any time.", Modifier.padding(top = 2.dp, bottom = 4.dp))
-                    if (requests.isEmpty() && sideFailed) Muted("Couldn't load requests. Check your connection and pull to retry.", Modifier.padding(top = 4.dp))
-                    else if (requests.isEmpty()) Muted("No requests right now.", Modifier.padding(top = 4.dp))
+                    SectionTitle(stringResource(R.string.g8_requests), Modifier.padding(top = 24.dp))
+                    Muted(stringResource(R.string.g8_requests_sub), Modifier.padding(top = 2.dp, bottom = 4.dp))
+                    if (requests.isEmpty() && sideFailed) Muted(stringResource(R.string.g8_requests_failed), Modifier.padding(top = 4.dp))
+                    else if (requests.isEmpty()) Muted(stringResource(R.string.g8_no_requests), Modifier.padding(top = 4.dp))
                     requests.forEach { r ->
                         BucksCard(Modifier.padding(top = 10.dp), padding = 14) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(r.requesterName.ifBlank { "A Bucks member" }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                                if (r.status == "PENDING") PillWarn("Waiting") else PillGood("Approved")
+                                Text(r.requesterName.ifBlank { stringResource(R.string.g8_a_bucks_member) }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                                if (r.status == "PENDING") PillWarn(stringResource(R.string.g8_waiting)) else PillGood(stringResource(R.string.g8_approved))
                             }
-                            Muted("For ${r.docTitle}" + if (r.relation.isNotBlank()) " · ${r.relation}" else "", Modifier.padding(top = 2.dp))
+                            Muted(if (r.relation.isNotBlank()) stringResource(R.string.g8_for_doc_relation, r.docTitle, r.relation) else stringResource(R.string.g8_for_doc, r.docTitle), Modifier.padding(top = 2.dp))
                             if (r.message.isNotBlank()) Text("\"${r.message}\"", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
                             if (r.status == "PENDING") Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                DocButton("Approve 30 days", { act("a" + r.id, "Approved for 30 days. They've been told.") { Backend.decideDocRequest(r.id, true, 30) } }, enabled = busyId == null)
-                                DocButton("Decline", { act("d" + r.id, "Declined. They've been told.") { Backend.decideDocRequest(r.id, false) } }, tonal = true, enabled = busyId == null)
+                                DocButton(stringResource(R.string.g8_approve_30), { act("a" + r.id, Str.get(R.string.g8_approved_30_told)) { Backend.decideDocRequest(r.id, true, 30) } }, enabled = busyId == null)
+                                DocButton(stringResource(R.string.g8_decline), { act("d" + r.id, Str.get(R.string.g8_declined_told)) { Backend.decideDocRequest(r.id, false) } }, tonal = true, enabled = busyId == null)
                             } else {
-                                Muted("Can open until ${humanDate(r.expiresAt)}", Modifier.padding(top = 6.dp))
-                                DocButton("Revoke", { act("r" + r.id, "Access ended.") { Backend.revokeDocAccess(r.id) } }, Modifier.padding(top = 4.dp), tonal = true, enabled = busyId == null)
+                                Muted(stringResource(R.string.g8_can_open_until, humanDate(r.expiresAt)), Modifier.padding(top = 6.dp))
+                                DocButton(stringResource(R.string.g8_revoke), { act("r" + r.id, Str.get(R.string.g8_access_ended)) { Backend.revokeDocAccess(r.id) } }, Modifier.padding(top = 4.dp), tonal = true, enabled = busyId == null)
                             }
                         }
                     }
 
-                    SectionTitle("Who looked", Modifier.padding(top = 24.dp))
-                    Muted("The last 50 people who opened one of your documents. Team members are not listed.", Modifier.padding(top = 2.dp, bottom = 4.dp))
-                    if (views.isEmpty() && sideFailed) Muted("Couldn't load who looked.", Modifier.padding(top = 4.dp))
-                    else if (views.isEmpty()) Muted("Nobody has opened a document yet.", Modifier.padding(top = 4.dp))
+                    SectionTitle(stringResource(R.string.g8_who_looked), Modifier.padding(top = 24.dp))
+                    Muted(stringResource(R.string.g8_who_looked_sub), Modifier.padding(top = 2.dp, bottom = 4.dp))
+                    if (views.isEmpty() && sideFailed) Muted(stringResource(R.string.g8_who_looked_failed), Modifier.padding(top = 4.dp))
+                    else if (views.isEmpty()) Muted(stringResource(R.string.g8_nobody_looked), Modifier.padding(top = 4.dp))
                     views.forEach { v ->
                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(v.viewerName.ifBlank { "A Bucks member" }, style = MaterialTheme.typography.bodyMedium)
-                                Muted("${v.docTitle} · ${humanDate(v.lastAt)}" + if (v.times > 1) " · ${v.times} times" else "")
+                                Text(v.viewerName.ifBlank { stringResource(R.string.g8_a_bucks_member) }, style = MaterialTheme.typography.bodyMedium)
+                                Muted(if (v.times > 1) pluralStringResource(R.plurals.g8_doc_viewed_times, v.times, v.docTitle, humanDate(v.lastAt), v.times) else "${v.docTitle} · ${humanDate(v.lastAt)}")
                             }
                         }
                     }
@@ -141,8 +144,8 @@ fun ShowcaseDocsManageScreen(vm: BucksViewModel, listingId: String, onBack: () -
     if (adding) DocEditorSheet(vm, listingId, null, onDone = { adding = false; reload++ }, onDismiss = { adding = false })
     editing?.let { d -> DocEditorSheet(vm, listingId, d, onDone = { editing = null; reload++ }, onDismiss = { editing = null }) }
     removing?.let { d ->
-        ConfirmDialog("Remove ${d.title}?", "The file is deleted and anyone who had access loses it. You can add it again later.", "Remove",
-            onConfirm = { act("x" + d.id, "Document removed.") { Backend.removeShowcaseFile(Backend.removeShowcaseDoc(d.id)) } }, onDismiss = { removing = null })
+        ConfirmDialog(stringResource(R.string.g8_remove_name_q, d.title), stringResource(R.string.g8_remove_doc_body), stringResource(R.string.g8_remove),
+            onConfirm = { act("x" + d.id, Str.get(R.string.g8_doc_removed)) { Backend.removeShowcaseFile(Backend.removeShowcaseDoc(d.id)) } }, onDismiss = { removing = null })
     }
 }
 
@@ -156,15 +159,15 @@ private fun ManageDocCard(d: ShowcaseDoc, modifier: Modifier, onOpen: () -> Unit
             Text(d.title, style = MaterialTheme.typography.titleSmall)
             Muted(listOfNotNull(ShowcaseKinds.label(d.kind), d.issuer.ifBlank { null }).joinToString(" · "))
         }
-        if (d.pendingRequests > 0) PillWarn("${d.pendingRequests} waiting")
+        if (d.pendingRequests > 0) PillWarn(stringResource(R.string.g8_n_waiting, d.pendingRequests))
     }
     DocPills(d, Modifier.padding(top = 10.dp), selfLabelled = d.kind == "OTHER")
-    if (d.number.isNotBlank()) Text("No. ${d.number}" + (Registries.all.firstOrNull { it.first == d.registry }?.let { " · ${it.second} link shown" } ?: ""), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
-    Muted(if (d.checks == 0) "No viewer opinions yet." else "Viewer opinions (not a Bucks check): ${d.checksUp} say it looks genuine, ${d.checksDown} say it doesn't look right.", Modifier.padding(top = 4.dp))
+    if (d.number.isNotBlank()) Text(Registries.all.firstOrNull { it.first == d.registry }?.let { stringResource(R.string.g8_doc_number_link, d.number, it.second) } ?: stringResource(R.string.g8_doc_number, d.number), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+    Muted(if (d.checks == 0) stringResource(R.string.g8_no_opinions) else stringResource(R.string.g8_opinions, d.checksUp, d.checksDown), Modifier.padding(top = 4.dp))
     FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        DocButton("Open", onOpen, tonal = true)
-        DocButton("Edit", onEdit, tonal = true)
-        DocButton("Remove", onRemove, tonal = true)
+        DocButton(stringResource(R.string.g8_open), onOpen, tonal = true)
+        DocButton(stringResource(R.string.g8_edit), onEdit, tonal = true)
+        DocButton(stringResource(R.string.g8_remove), onRemove, tonal = true)
     }
 }
 
@@ -188,9 +191,9 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
         if (uri != null) scope.launch {
             val f = withContext(kotlinx.coroutines.Dispatchers.IO) { Upload.read(ctx, uri, maxPx = 2400) }
             when {
-                f == null -> vm.toast("Couldn't read that file. Try a photo of the document.")
-                f.bytes.size > SHOWCASE_MAX_BYTES -> vm.toast("Documents up to 10 MB. Take a smaller photo.")
-                f.mime !in SHOWCASE_MIMES -> vm.toast("PDF, JPG or PNG only.")
+                f == null -> vm.toast(Str.get(R.string.g8_file_unreadable))
+                f.bytes.size > SHOWCASE_MAX_BYTES -> vm.toast(Str.get(R.string.g8_file_too_big))
+                f.mime !in SHOWCASE_MIMES -> vm.toast(Str.get(R.string.g8_file_types))
                 else -> file = f
             }
         }
@@ -204,14 +207,14 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
         try {
             if (existing != null) {
                 Backend.updateShowcaseDoc(existing.id, title.trim(), issuer.trim(), number.trim(), registry, visibility, expires?.toString())
-                vm.toast("Saved.")
+                vm.toast(Str.get(R.string.g8_saved))
             } else {
                 val me = vm.social.me?.id; val f = file
-                if (me == null || f == null) { vm.toast("Choose a file first."); busy = false; return@launch }
+                if (me == null || f == null) { vm.toast(Str.get(R.string.g8_choose_file_first)); busy = false; return@launch }
                 val path = Backend.uploadShowcaseFile(me, f.bytes, f.mime)
                 uploaded = path
                 Backend.addShowcaseDoc(listingId, kind, title.trim(), issuer.trim(), number.trim(), registry, path, f.mime, f.bytes.size, visibility, expires?.toString())
-                vm.toast("Document added.")
+                vm.toast(Str.get(R.string.g8_doc_added))
             }
             onDone()
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
@@ -225,9 +228,9 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
 
     ModalBottomSheet(onDismissRequest = { if (!busy) onDismiss() }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            Text(if (existing == null) "Add a document" else "Edit document", style = MaterialTheme.typography.titleLarge)
+            Text(if (existing == null) stringResource(R.string.g8_add_document) else stringResource(R.string.g8_edit_document), style = MaterialTheme.typography.titleLarge)
             if (existing == null) {
-                Text("What is it?", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+                Text(stringResource(R.string.g8_what_is_it), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
                 FlowChips(ShowcaseKinds.all.map { it.second }, setOf(ShowcaseKinds.label(kind))) { label ->
                     val k = ShowcaseKinds.all.first { it.second == label }.first
                     if (!titleTouched || title.isBlank()) title = if (k == "OTHER") "" else label
@@ -235,28 +238,29 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
                 }
                 Muted(ShowcaseKinds.all.first { it.first == kind }.third, Modifier.padding(top = 6.dp))
                 OutlinedButton({ picker.launch(arrayOf("image/*", "application/pdf")) }, Modifier.padding(top = 12.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy) {
-                    Text(file?.let { "File: ${it.name}" } ?: "Choose the file (PDF, JPG or PNG, up to 10 MB)") }
-            } else Muted("${ShowcaseKinds.label(existing.kind)}. To use a different file, remove this document and add it again.", Modifier.padding(top = 4.dp))
+                    Text(file?.let { stringResource(R.string.g8_file_name, it.name) } ?: stringResource(R.string.g8_choose_file)) }
+            } else Muted(stringResource(R.string.g8_doc_change_file, ShowcaseKinds.label(existing.kind)), Modifier.padding(top = 4.dp))
 
             OutlinedTextField(title, { title = it.take(60); titleTouched = true }, Modifier.padding(top = 12.dp).fillMaxWidth(), singleLine = true,
-                label = { Text(if (kind == "OTHER") "Name of the document" else "Title") },
-                supportingText = { Text(if (kind == "OTHER") "You choose the name, 2 to 60 characters. It is shown as self-labelled. Names with \"verified\" or \"Bucks\" are not allowed." else "2 to 60 characters. Names with \"verified\" or \"Bucks\" are not allowed.") })
-            OutlinedTextField(issuer, { issuer = it.take(80) }, Modifier.padding(top = 4.dp).fillMaxWidth(), singleLine = true, label = { Text("Issued by (optional)") }, placeholder = { Text("Registrar of Companies, FSSAI, a university...") })
+                label = { Text(if (kind == "OTHER") stringResource(R.string.g8_doc_name) else stringResource(R.string.g8_title)) },
+                supportingText = { Text(if (kind == "OTHER") stringResource(R.string.g8_doc_name_help_other) else stringResource(R.string.g8_doc_name_help)) })
+            OutlinedTextField(issuer, { issuer = it.take(80) }, Modifier.padding(top = 4.dp).fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.g8_issued_by)) }, placeholder = { Text(stringResource(R.string.g8_issued_by_hint)) })
             if (showNumber) {
-                OutlinedTextField(number, { number = it.take(40) }, Modifier.padding(top = 4.dp).fillMaxWidth(), singleLine = true, label = { Text("Registration number (optional)") },
-                    supportingText = { Text("People who may open the document see it. It is shown only as you typed it; Bucks does not check it.") })
-                Text("Where can people check it?", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
-                FlowChips(listOf("None") + Registries.all.map { it.second }, setOf(Registries.all.firstOrNull { it.first == registry }?.second ?: "None")) { label ->
+                OutlinedTextField(number, { number = it.take(40) }, Modifier.padding(top = 4.dp).fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.g8_reg_number)) },
+                    supportingText = { Text(stringResource(R.string.g8_reg_number_help)) })
+                Text(stringResource(R.string.g8_where_check), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+                val noneLabel = stringResource(R.string.g8_none)
+                FlowChips(listOf(noneLabel) + Registries.all.map { it.second }, setOf(Registries.all.firstOrNull { it.first == registry }?.second ?: noneLabel)) { label ->
                     registry = Registries.all.firstOrNull { it.second == label }?.first
                 }
-                Muted(if (registry == null) "Pick a registry to add a \"Check on official site\" link. It opens the registry's own website; viewers search there." else "Needs the number above. GST: 15 characters. FSSAI: 14 digits.", Modifier.padding(top = 6.dp))
+                Muted(if (registry == null) stringResource(R.string.g8_registry_help) else stringResource(R.string.g8_registry_needs_number), Modifier.padding(top = 6.dp))
             }
 
-            Text("Who can open it?", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.g8_who_can_open), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
             listOf(
-                Triple("PUBLIC", "Public", "Anyone signed in can open it."),
-                Triple("ON_REQUEST", "On request", "People see it is there and ask you. You approve for 30 days or decline, and can revoke."),
-                Triple("PRIVATE", "Team only", "Only your team sees it. Choosing this ends any access already given.")).forEach { (v, label, hint) ->
+                Triple("PUBLIC", stringResource(R.string.g8_vis_public), stringResource(R.string.g8_vis_public_sub)),
+                Triple("ON_REQUEST", stringResource(R.string.g8_vis_request), stringResource(R.string.g8_vis_request_sub)),
+                Triple("PRIVATE", stringResource(R.string.g8_vis_team), stringResource(R.string.g8_vis_team_sub))).forEach { (v, label, hint) ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).selectable(visibility == v, role = Role.RadioButton, onClick = { visibility = v }), verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(visibility == v, onClick = null, modifier = Modifier.padding(end = 12.dp))
                     Column { Text(label, style = MaterialTheme.typography.bodyLarge); Muted(hint) }
@@ -264,12 +268,12 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
             }
 
             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton({ choosing = true }, Modifier.heightIn(min = 48.dp).weight(1f)) { Text(expires?.let { "Valid till ${humanDate(it.toString())}" } ?: "Expiry date (optional)") }
-                if (expires != null) TextButton({ expires = null }, Modifier.heightIn(min = 48.dp)) { Text("Clear") }
+                OutlinedButton({ choosing = true }, Modifier.heightIn(min = 48.dp).weight(1f)) { Text(expires?.let { stringResource(R.string.g8_valid_till_date, humanDate(it.toString())) } ?: stringResource(R.string.g8_expiry_optional)) }
+                if (expires != null) TextButton({ expires = null }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g8_cd_clear)) }
             }
             Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                DocButton(if (busy) "Saving…" else "Save", { save() }, enabled = valid && !busy)
-                TextButton(onDismiss, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text("Cancel") }
+                DocButton(if (busy) stringResource(R.string.g8_saving) else stringResource(R.string.g8_save), { save() }, enabled = valid && !busy)
+                TextButton(onDismiss, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(stringResource(R.string.g8_cancel)) }
             }
         }
     }
@@ -277,7 +281,7 @@ private fun DocEditorSheet(vm: BucksViewModel, listingId: String, existing: Show
         val today = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         val state = rememberDatePickerState(selectableDates = object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= today })
         DatePickerDialog(onDismissRequest = { choosing = false },
-            confirmButton = { TextButton({ state.selectedDateMillis?.let { expires = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; choosing = false }) { Text("OK") } },
-            dismissButton = { TextButton({ choosing = false }) { Text("Cancel") } }) { DatePicker(state) }
+            confirmButton = { TextButton({ state.selectedDateMillis?.let { expires = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; choosing = false }) { Text(stringResource(R.string.g8_ok)) } },
+            dismissButton = { TextButton({ choosing = false }) { Text(stringResource(R.string.g8_cancel)) } }) { DatePicker(state) }
     }
 }

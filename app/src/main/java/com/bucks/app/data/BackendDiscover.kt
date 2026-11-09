@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
@@ -65,12 +66,12 @@ fun Backend.listingPhoto(photoUrl: String?): String? =
     photoUrl?.trim()?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("http://") || it.startsWith("https://")) it else publicUrl("listing-media", it) }
 
 /** The human behind a page (server function listing_owner): who they are, how long they have been on Bucks, and how far their identity has been checked. */
-@Serializable data class OwnerRow(val id: String, val name: String = "Bucks member", @SerialName("short_code") val shortCode: String = "", @SerialName("photo_url") val photoUrl: String? = null,
+@Serializable data class OwnerRow(val id: String, val name: String = Str.get(R.string.g3_owner_default_name), @SerialName("short_code") val shortCode: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", @SerialName("member_since") val memberSince: String = "",
     /** Bucks staff have checked a photo ID of this person on one of their pages. Phone verification is implicit: every account signs in by OTP. */
     @SerialName("id_checked") val idChecked: Boolean = false, val pages: Int = 0) {
     /** The identity level shown next to the name. Face / biometric checks are a later level on this same line. */
-    val identityLabel get() = if (idChecked) "ID checked by Bucks" else "Phone-verified"
+    val identityLabel get() = if (idChecked) Str.get(R.string.g3_owner_id_checked) else Str.get(R.string.g3_owner_phone_verified)
 }
 suspend fun Backend.listingOwner(listingId: String): OwnerRow? = client.postgrest.rpc("listing_owner", buildJsonObject { put("p_listing", listingId) }).decodeList<OwnerRow>().firstOrNull()
 /** The other live pages this person runs, for the owner sheet. */

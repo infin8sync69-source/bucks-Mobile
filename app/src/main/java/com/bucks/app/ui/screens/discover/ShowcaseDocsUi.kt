@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.discover
 
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -61,15 +63,15 @@ import kotlin.coroutines.cancellation.CancellationException
 
 /** The sentence we wrote on the server, or a generic one. */
 private fun friendly(e: Throwable) = Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(e.message ?: "")?.groupValues?.get(1)?.replace("\\\"", "\"")?.takeIf { it.isNotBlank() }
-    ?: "Couldn't do that. Check your connection and try again."
+    ?: Str.get(R.string.g1_err_generic)
 
 internal fun docKindIcon(kind: String): ImageVector = when (kind) { "LICENCE", "CERTIFICATE" -> Icons.Rounded.Shield; "AFFILIATION" -> Icons.Rounded.Public; else -> Icons.Rounded.Description }
-internal fun docVisibilityLabel(v: String) = when (v) { "PUBLIC" -> "Public"; "PRIVATE" -> "Team only"; else -> "On request" }
+internal fun docVisibilityLabel(v: String) = when (v) { "PUBLIC" -> Str.get(R.string.g1_doc_vis_public); "PRIVATE" -> Str.get(R.string.g1_doc_vis_team); else -> Str.get(R.string.g1_doc_vis_request) }
 
 /** Opens the registry's own search in the browser. Nothing is copied or checked for the person. */
 internal fun openOfficialSite(ctx: Context, vm: BucksViewModel, registry: String?) {
     val url = Registries.url(registry) ?: return
-    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast("No app on this phone can open that link.") }
+    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { vm.toast(Str.get(R.string.g1_doc_no_app)) }
 }
 
 /** The pills every document row shows: who can open it, whether it has lapsed, and whether Bucks checked it (never implied otherwise). */
@@ -77,13 +79,13 @@ internal fun openOfficialSite(ctx: Context, vm: BucksViewModel, registry: String
 @Composable
 internal fun DocPills(d: ShowcaseDoc, modifier: Modifier = Modifier, selfLabelled: Boolean = false) = FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     PillGrey(docVisibilityLabel(d.visibility))
-    if (selfLabelled) PillGrey("Self-labelled")
-    if (d.expired) PillBad("Expired") else d.expiresOn?.let { PillGrey("Valid till ${humanDate(it)}") }
-    if (d.bucksChecked) PillGood("Checked by Bucks") else PillGrey("Not checked by Bucks")
+    if (selfLabelled) PillGrey(stringResource(R.string.g1_doc_self_labelled))
+    if (d.expired) PillBad(stringResource(R.string.g1_doc_expired)) else d.expiresOn?.let { PillGrey(stringResource(R.string.g1_doc_valid_till, humanDate(it))) }
+    if (d.bucksChecked) PillGood(stringResource(R.string.g1_doc_checked)) else PillGrey(stringResource(R.string.g1_doc_not_checked))
 }
 
 /** "3 of 4 viewers say it looks genuine", only once at least 3 viewers gave an opinion. */
-internal fun docOpinionLine(d: ShowcaseDoc): String? = if (d.checks >= 3) "${d.checksUp} of ${d.checks} viewers say it looks genuine. Viewer opinions, not a Bucks check." else null
+internal fun docOpinionLine(d: ShowcaseDoc): String? = if (d.checks >= 3) Str.plural(R.plurals.g1_doc_opinions, d.checks, d.checksUp, d.checks) else null
 
 /** A 48dp-high button with an optional icon. */
 @Composable
@@ -124,20 +126,20 @@ fun ShowcaseDocsSection(vm: BucksViewModel, listingId: String, mine: Boolean, on
         // Nothing while loading for a visitor (most profiles have no documents, so no flash); the team always sees the block.
         if (team && !failed) Column(modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 8.dp)) { SkeletonBox(Modifier.width(120.dp).height(18.dp)); Spacer(Modifier.height(10.dp)); SkeletonBox(Modifier.fillMaxWidth().height(96.dp)) }
         else if (failed) Row(modifier.fillMaxWidth().padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
-            Muted("Couldn't load documents.", Modifier.weight(1f)); TextButton({ failed = false; reload++ }, Modifier.heightIn(min = 48.dp)) { Text("Try again") } }
+            Muted(stringResource(R.string.g1_doc_load_failed), Modifier.weight(1f)); TextButton({ failed = false; reload++ }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g1_action_try_again)) } }
         return
     }
     if (list.isEmpty() && !team) return
 
     Column(modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Documents", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.g1_doc_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             if (list.isNotEmpty()) Muted("${list.size}")
         }
-        Muted(if (team) "What you show here is chosen by you, per document. This is separate from the checks Bucks does for going live." else "Shown by the owner. A document is checked by Bucks only when it says so. Locked ones open after the owner agrees.", Modifier.padding(top = 2.dp))
-        if (list.isEmpty()) Muted("No documents yet. Add a registration, licence or certificate to help people trust you.", Modifier.padding(top = 10.dp))
+        Muted(if (team) stringResource(R.string.g1_doc_note_team) else stringResource(R.string.g1_doc_note_visitor), Modifier.padding(top = 2.dp))
+        if (list.isEmpty()) Muted(stringResource(R.string.g1_doc_empty), Modifier.padding(top = 10.dp))
         list.forEach { d -> ShowcaseDocCard(vm, d, Modifier.padding(top = 10.dp), onOpen = { viewing = d }, onRequest = { requesting = d }) }
-        if (team) DocButton("Manage documents", onManage, Modifier.padding(top = 12.dp), tonal = true, icon = Icons.Rounded.Edit)
+        if (team) DocButton(stringResource(R.string.g1_doc_manage), onManage, Modifier.padding(top = 12.dp), tonal = true, icon = Icons.Rounded.Edit)
     }
     viewing?.let { d -> ShowcaseDocViewer(vm, d, team, onClose = { viewing = null }, onChanged = { reload++ }) }
     requesting?.let { d -> RequestAccessSheet(vm, d, onDone = { requesting = null; reload++ }, onDismiss = { requesting = null }) }
@@ -152,21 +154,21 @@ private fun ShowcaseDocCard(vm: BucksViewModel, d: ShowcaseDoc, modifier: Modifi
             Text(d.title, style = MaterialTheme.typography.titleSmall)
             Muted(listOfNotNull(ShowcaseKinds.label(d.kind), d.issuer.ifBlank { null }).joinToString(" · "))
         }
-        if (!d.canOpen) Icon(Icons.Rounded.Lock, "Locked", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!d.canOpen) Icon(Icons.Rounded.Lock, stringResource(R.string.g1_cd_locked), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     DocPills(d, Modifier.padding(top = 10.dp))
     if (d.number.isNotBlank()) Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("No. ${d.number}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f, fill = false))
-        if (Registries.url(d.registry) != null) TextButton({ openOfficialSite(ctx, vm, d.registry) }, Modifier.heightIn(min = 48.dp)) { Text("Check on official site") }
+        Text(stringResource(R.string.g1_doc_number, d.number), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f, fill = false))
+        if (Registries.url(d.registry) != null) TextButton({ openOfficialSite(ctx, vm, d.registry) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g1_doc_official_site)) }
     }
     docOpinionLine(d)?.let { Muted(it, Modifier.padding(top = 4.dp)) }
     Box(Modifier.padding(top = 8.dp)) {
         when {
-            d.canOpen -> DocButton("Open", onOpen, icon = Icons.Rounded.Visibility)
-            d.myRequest == "PENDING" -> DocButton("Requested, waiting", {}, tonal = true, enabled = false)
-            d.myRequest == "DECLINED" -> DocButton("Declined", {}, tonal = true, enabled = false)
-            d.visibility == "ON_REQUEST" -> DocButton("Request access", onRequest, tonal = true, icon = Icons.Rounded.Lock)
-            else -> Muted("Not available right now.")
+            d.canOpen -> DocButton(stringResource(R.string.g1_doc_open), onOpen, icon = Icons.Rounded.Visibility)
+            d.myRequest == "PENDING" -> DocButton(stringResource(R.string.g1_doc_requested), {}, tonal = true, enabled = false)
+            d.myRequest == "DECLINED" -> DocButton(stringResource(R.string.g1_doc_declined), {}, tonal = true, enabled = false)
+            d.visibility == "ON_REQUEST" -> DocButton(stringResource(R.string.g1_doc_request), onRequest, tonal = true, icon = Icons.Rounded.Lock)
+            else -> Muted(stringResource(R.string.g1_doc_unavailable))
         }
     }
 }
@@ -180,15 +182,15 @@ private fun RequestAccessSheet(vm: BucksViewModel, d: ShowcaseDoc, onDone: () ->
     val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = { if (!busy) onDismiss() }) {
         Column(Modifier.padding(Gutter).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            Text("Ask to see ${d.title}?", style = MaterialTheme.typography.titleLarge)
-            Muted("The owner sees your name, whether you have ordered or follow this page, and your message. If they agree you can open it for 30 days.", Modifier.padding(top = 4.dp))
-            OutlinedTextField(message, { message = it.take(200) }, Modifier.padding(top = 12.dp).fillMaxWidth(), placeholder = { Text("Why you'd like to see it (optional)") }, minLines = 2, maxLines = 4, supportingText = { Text("${message.length}/200") })
-            DocButton(if (busy) "Sending…" else "Request access", {
+            Text(stringResource(R.string.g1_doc_ask_title, d.title), style = MaterialTheme.typography.titleLarge)
+            Muted(stringResource(R.string.g1_doc_ask_body), Modifier.padding(top = 4.dp))
+            OutlinedTextField(message, { message = it.take(200) }, Modifier.padding(top = 12.dp).fillMaxWidth(), placeholder = { Text(stringResource(R.string.g1_doc_ask_hint)) }, minLines = 2, maxLines = 4, supportingText = { Text("${message.length}/200") })
+            DocButton(if (busy) stringResource(R.string.g1_doc_sending) else stringResource(R.string.g1_doc_request), {
                 scope.launch {
                     busy = true
                     try {
                         val status = Backend.requestDocAccess(d.id, message.trim())
-                        vm.toast(if (status == "APPROVED") "You can already open this document." else "Request sent. You'll get a notification when the owner answers.")
+                        vm.toast(if (status == "APPROVED") Str.get(R.string.g1_doc_already_open) else Str.get(R.string.g1_doc_request_sent))
                         onDone()
                     } catch (e: CancellationException) { throw e } catch (e: Exception) { vm.toast(friendly(e)) }
                     busy = false
@@ -218,11 +220,12 @@ fun ShowcaseDocViewer(vm: BucksViewModel, doc: ShowcaseDoc, mine: Boolean, onClo
             val bytes = Backend.downloadShowcaseFile(path)
             val asPdf = mime.ifBlank { doc.mime } == "application/pdf"
             val out = withContext(Dispatchers.IO) { if (asPdf) renderPdf(ctx.cacheDir, bytes) else listOfNotNull(decodeImage(bytes)) }
-            if (out.isEmpty()) error = "Couldn't show this file. It may be damaged." else { pages = out; opened = true }
-        } catch (e: CancellationException) { throw e } catch (e: Throwable) { error = if (e is Exception) friendly(e) else "This file is too large to show on this phone." }
+            if (out.isEmpty()) error = Str.get(R.string.g1_doc_damaged) else { pages = out; opened = true }
+        } catch (e: CancellationException) { throw e } catch (e: Throwable) { error = if (e is Exception) friendly(e) else Str.get(R.string.g1_doc_too_large) }
     }
-    val who = (vm.social.me?.name?.ifBlank { null } ?: "a Bucks member") + (vm.social.me?.id?.takeLast(4)?.let { " #$it" } ?: "")
-    val mark = "Viewed by $who · ${java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))}"
+    val whoName = vm.social.me?.name?.ifBlank { null } ?: stringResource(R.string.g1_doc_member)
+    val who = vm.social.me?.id?.takeLast(4)?.let { stringResource(R.string.g1_doc_who_id, whoName, it) } ?: whoName
+    val mark = stringResource(R.string.g1_doc_watermark, who, java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH)))
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = Gutter, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -230,20 +233,20 @@ fun ShowcaseDocViewer(vm: BucksViewModel, doc: ShowcaseDoc, mine: Boolean, onClo
                     Text(doc.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Muted(listOfNotNull(ShowcaseKinds.label(doc.kind), doc.issuer.ifBlank { null }).joinToString(" · "), maxLines = 1)
                 }
-                IconButton(onClose) { Icon(Icons.Rounded.Close, "Close") }
+                IconButton(onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.g1_cd_close)) }
             }
             Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF1B1B1B)), contentAlignment = Alignment.Center) {
                 val list = pages; val err = error
                 when {
                     err != null -> Column(Modifier.padding(Gutter), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(err, color = Color.White, textAlign = TextAlign.Center)
-                        DocButton("Try again", { attempt++ }, Modifier.padding(top = 12.dp), tonal = true)
+                        DocButton(stringResource(R.string.g1_action_try_again), { attempt++ }, Modifier.padding(top = 12.dp), tonal = true)
                     }
-                    list == null -> BucksLoader(color = Color.White, label = "Opening")
+                    list == null -> BucksLoader(color = Color.White, label = stringResource(R.string.g1_cd_opening))
                     doc.isPdf -> {
                         val imgs = remember(list) { list.map { it.asImageBitmap() } }
                         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(imgs.size) { i -> Image(imgs[i], "Page ${i + 1} of ${imgs.size}", Modifier.fillMaxWidth().background(Color.White), contentScale = ContentScale.FillWidth) }
+                            items(imgs.size) { i -> Image(imgs[i], stringResource(R.string.g1_cd_page_of, i + 1, imgs.size), Modifier.fillMaxWidth().background(Color.White), contentScale = ContentScale.FillWidth) }
                         }
                     }
                     else -> {
@@ -292,36 +295,36 @@ private fun OpinionBar(vm: BucksViewModel, doc: ShowcaseDoc, onChanged: () -> Un
     var busy by remember { mutableStateOf(false) }
     val sel = picked ?: saved
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).navigationBarsPadding().imePadding().padding(horizontal = Gutter, vertical = 10.dp)) {
-        Muted("Viewer opinions, not a Bucks check. Your name is not shown with it.")
+        Muted(stringResource(R.string.g1_doc_opinion_note))
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DocButton("Looks genuine", { picked = 1 }, Modifier.weight(1f), tonal = sel != 1, enabled = !busy)
-            DocButton("Doesn't look right", { picked = -1 }, Modifier.weight(1f), tonal = sel != -1, enabled = !busy)
+            DocButton(stringResource(R.string.g1_doc_genuine), { picked = 1 }, Modifier.weight(1f), tonal = sel != 1, enabled = !busy)
+            DocButton(stringResource(R.string.g1_doc_not_right), { picked = -1 }, Modifier.weight(1f), tonal = sel != -1, enabled = !busy)
         }
         val v = picked
         if (v != null) {
-            OutlinedTextField(comment, { comment = it.take(300) }, Modifier.padding(top = 8.dp).fillMaxWidth(), placeholder = { Text("Add a comment (optional)") }, minLines = 2, maxLines = 4, supportingText = { Text("${comment.length}/300") })
+            OutlinedTextField(comment, { comment = it.take(300) }, Modifier.padding(top = 8.dp).fillMaxWidth(), placeholder = { Text(stringResource(R.string.g1_doc_comment_hint)) }, minLines = 2, maxLines = 4, supportingText = { Text("${comment.length}/300") })
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                DocButton(if (busy) "Saving…" else "Save my opinion", {
+                DocButton(if (busy) stringResource(R.string.g1_doc_saving) else stringResource(R.string.g1_doc_save_opinion), {
                     scope.launch {
                         busy = true
-                        try { Backend.checkShowcaseDoc(doc.id, v, comment.trim()); saved = v; picked = null; comment = ""; vm.toast("Thanks, your opinion is saved."); onChanged() }
+                        try { Backend.checkShowcaseDoc(doc.id, v, comment.trim()); saved = v; picked = null; comment = ""; vm.toast(Str.get(R.string.g1_doc_opinion_saved)); onChanged() }
                         catch (e: CancellationException) { throw e } catch (e: Exception) { vm.toast(friendly(e)) }
                         busy = false
                     }
                 }, enabled = !busy)
-                TextButton({ picked = null }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text("Cancel") }
+                TextButton({ picked = null }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(stringResource(R.string.g1_action_cancel)) }
             }
         } else if (saved != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Muted(if (saved == 1) "Your opinion: looks genuine." else "Your opinion: doesn't look right.", Modifier.weight(1f))
+                Muted(if (saved == 1) stringResource(R.string.g1_doc_my_genuine) else stringResource(R.string.g1_doc_my_not_right), Modifier.weight(1f))
                 TextButton({
                     scope.launch {
                         busy = true
-                        try { Backend.clearShowcaseCheck(doc.id); saved = null; vm.toast("Your opinion was removed."); onChanged() }
+                        try { Backend.clearShowcaseCheck(doc.id); saved = null; vm.toast(Str.get(R.string.g1_doc_opinion_removed)); onChanged() }
                         catch (e: CancellationException) { throw e } catch (e: Exception) { vm.toast(friendly(e)) }
                         busy = false
                     }
-                }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text("Remove mine", color = MaterialTheme.colorScheme.error) }
+                }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(stringResource(R.string.g1_doc_remove_mine), color = MaterialTheme.colorScheme.error) }
             }
         }
     }

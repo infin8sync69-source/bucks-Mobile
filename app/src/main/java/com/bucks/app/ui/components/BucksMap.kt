@@ -5,6 +5,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.GradientDrawable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
@@ -107,7 +109,7 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
         mv.invalidate()
     })
     if (zoomButtons) androidx.compose.foundation.layout.Column(Modifier.align(androidx.compose.ui.Alignment.CenterEnd).padding(end = 10.dp)) {
-        listOf(true to "Zoom in", false to "Zoom out").forEach { (zin, label) ->
+        listOf(true to stringResource(R.string.g3_cd_zoom_in), false to stringResource(R.string.g3_cd_zoom_out)).forEach { (zin, label) ->
             androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.padding(vertical = 4.dp).size(48.dp).clickable(onClickLabel = label) { if (zin) map.controller.zoomIn() else map.controller.zoomOut() }) {
                 androidx.compose.foundation.layout.Box(contentAlignment = androidx.compose.ui.Alignment.Center) {

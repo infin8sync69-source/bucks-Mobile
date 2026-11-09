@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -14,15 +15,15 @@ private val cancelDb get() = Backend.client.postgrest
 
 object CancelReasons {
     /** Rider cancelling a ride. */
-    val rider = listOf("TOO_LONG" to "Taking too long", "DRIVER_FAR" to "Driver is too far", "DRIVER_ASKED" to "Driver asked me to cancel", "PLANS_CHANGED" to "My plans changed", "BOOKED_BY_MISTAKE" to "Booked by mistake", "WRONG_ADDRESS" to "Wrong pickup or drop", "OTHER" to "Something else")
+    val rider get() = listOf("TOO_LONG" to Str.get(R.string.g8_cancel_too_long), "DRIVER_FAR" to Str.get(R.string.g8_cancel_driver_far), "DRIVER_ASKED" to Str.get(R.string.g8_cancel_driver_asked), "PLANS_CHANGED" to Str.get(R.string.g8_cancel_plans_changed), "BOOKED_BY_MISTAKE" to Str.get(R.string.g8_cancel_booked_mistake), "WRONG_ADDRESS" to Str.get(R.string.g8_cancel_wrong_pickup), "OTHER" to Str.get(R.string.g8_cancel_other))
     /** Driver handing a ride back. */
-    val driver = listOf("RIDER_NO_SHOW" to "Customer isn't at the pickup", "RIDER_UNREACHABLE" to "Can't reach the customer", "RIDER_ASKED" to "Customer asked me to cancel", "TOO_FAR" to "Pickup is too far", "VEHICLE_ISSUE" to "Vehicle problem", "UNSAFE" to "I don't feel safe", "OTHER" to "Something else")
+    val driver get() = listOf("RIDER_NO_SHOW" to Str.get(R.string.g8_cancel_rider_no_show), "RIDER_UNREACHABLE" to Str.get(R.string.g8_cancel_customer_unreachable), "RIDER_ASKED" to Str.get(R.string.g8_cancel_customer_asked_me), "TOO_FAR" to Str.get(R.string.g8_cancel_pickup_far), "VEHICLE_ISSUE" to Str.get(R.string.g8_cancel_vehicle), "UNSAFE" to Str.get(R.string.g8_cancel_unsafe), "OTHER" to Str.get(R.string.g8_cancel_other))
     /** Buyer cancelling an order before the shop accepts. */
-    val buyer = listOf("CHANGED_MIND" to "I changed my mind", "ORDERED_BY_MISTAKE" to "Ordered by mistake", "WRONG_ADDRESS" to "Wrong address", "TOO_SLOW" to "Shop is taking too long", "FOUND_BETTER" to "Found it elsewhere", "OTHER" to "Something else")
+    val buyer get() = listOf("CHANGED_MIND" to Str.get(R.string.g8_cancel_changed_mind), "ORDERED_BY_MISTAKE" to Str.get(R.string.g8_cancel_ordered_mistake), "WRONG_ADDRESS" to Str.get(R.string.g8_cancel_wrong_address), "TOO_SLOW" to Str.get(R.string.g8_cancel_shop_slow), "FOUND_BETTER" to Str.get(R.string.g8_cancel_found_elsewhere), "OTHER" to Str.get(R.string.g8_cancel_other))
     /** Shop cancelling an order it had accepted. */
-    val shop = listOf("OUT_OF_STOCK" to "Out of stock", "CANT_DELIVER" to "Can't deliver there", "CUSTOMER_UNREACHABLE" to "Can't reach the customer", "CUSTOMER_ASKED" to "Customer asked to cancel", "CLOSED" to "We're closed", "OTHER" to "Something else")
+    val shop get() = listOf("OUT_OF_STOCK" to Str.get(R.string.g8_cancel_out_of_stock), "CANT_DELIVER" to Str.get(R.string.g8_cancel_cant_deliver), "CUSTOMER_UNREACHABLE" to Str.get(R.string.g8_cancel_customer_unreachable), "CUSTOMER_ASKED" to Str.get(R.string.g8_cancel_customer_asked), "CLOSED" to Str.get(R.string.g8_cancel_closed), "OTHER" to Str.get(R.string.g8_cancel_other))
     /** Shop declining a new order. */
-    val shopReject = listOf("OUT_OF_STOCK" to "Out of stock", "CLOSED" to "We're closed", "TOO_FAR" to "Too far to deliver", "CANT_DELIVER" to "Can't deliver there", "OTHER" to "Something else")
+    val shopReject get() = listOf("OUT_OF_STOCK" to Str.get(R.string.g8_cancel_out_of_stock), "CLOSED" to Str.get(R.string.g8_cancel_closed), "TOO_FAR" to Str.get(R.string.g8_cancel_too_far_deliver), "CANT_DELIVER" to Str.get(R.string.g8_cancel_cant_deliver), "OTHER" to Str.get(R.string.g8_cancel_other))
 }
 
 /** How often I cancelled after someone accepted: today and in the last 7 days, as a rider and as a driver. */

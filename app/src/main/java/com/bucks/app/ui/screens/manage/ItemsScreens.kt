@@ -1,5 +1,10 @@
 package com.bucks.app.ui.screens.manage
 
+import com.bucks.app.data.Money
+import com.bucks.app.data.Str
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -62,7 +67,7 @@ internal fun AddItemButton(l: ListingRow?, modifier: Modifier = Modifier, onAdd:
     var menu by remember { mutableStateOf(false) }
     if (kinds.size <= 1) PrimaryButton(addItemTitle(itemNoun(itemKindOf(l))), modifier) { NewItemKind.next = null; onAdd() }
     else Box(modifier) {
-        PrimaryButton("Add to ${cat?.label ?: "catalogue"}") { menu = true }
+        PrimaryButton(cat?.label?.let { stringResource(R.string.g8_add_to, it) } ?: stringResource(R.string.g8_add_to_catalogue)) { menu = true }
         DropdownMenu(menu, { menu = false }) {
             kinds.forEach { k -> DropdownMenuItem(text = { Text(addItemTitle(itemNoun(k))) }, leadingIcon = { Icon(itemIcon(k), null) }, onClick = { menu = false; NewItemKind.next = k; onAdd() }) }
         }
@@ -71,25 +76,28 @@ internal fun AddItemButton(l: ListingRow?, modifier: Modifier = Modifier, onAdd:
 internal fun itemNoun(kind: String) = when (kind) { "SERVICE" -> "service"; "PROGRAM" -> "program"; "EVENT" -> "event"; else -> "product" }
 internal fun itemIcon(kind: String): ImageVector = when (kind) { "SERVICE" -> Icons.Rounded.Handyman; "PROGRAM" -> Icons.Rounded.Assignment; "EVENT" -> Icons.Rounded.CalendarMonth; else -> Icons.Rounded.ShoppingBag }
 /** "Add a program", "Add an event". */
-internal fun addItemTitle(noun: String) = if (noun == "event") "Add an event" else "Add a $noun"
+internal fun addItemTitle(noun: String) = Str.get(when (noun) { "service" -> R.string.g8_add_service; "program" -> R.string.g8_add_program; "event" -> R.string.g8_add_event; else -> R.string.g8_add_product })
+/** One whole sentence per kind (word order differs by language, so nouns are never spliced in). */
+private fun kindStr(kind: String, @StringRes product: Int, @StringRes service: Int, @StringRes program: Int, @StringRes event: Int, vararg args: Any): String =
+    Str.get(when (kind) { "SERVICE" -> service; "PROGRAM" -> program; "EVENT" -> event; else -> product }, *args)
 /** What the switch on an item means, on and off, for each kind. */
 internal fun itemOnLabel(kind: String, on: Boolean) = when (kind) {
-    "SERVICE" -> if (on) "Available" else "Paused"
-    "PROGRAM" -> if (on) "Open" else "Closed"
-    "EVENT" -> if (on) "Shown" else "Hidden"
-    else -> if (on) "In stock" else "Out of stock"
+    "SERVICE" -> Str.get(if (on) R.string.g8_item_available else R.string.g8_item_paused)
+    "PROGRAM" -> Str.get(if (on) R.string.g8_item_open else R.string.g8_item_closed)
+    "EVENT" -> Str.get(if (on) R.string.g8_item_shown else R.string.g8_item_hidden)
+    else -> Str.get(if (on) R.string.g8_item_in_stock else R.string.g8_item_out_of_stock)
 }
 /** "₹1,500", or "Free" for a program or event at 0. Products and services keep the number. */
-internal fun itemPriceLabel(kind: String, price: Int) = if (price == 0 && (kind == "PROGRAM" || kind == "EVENT")) "Free" else rupees(price)
+internal fun itemPriceLabel(kind: String, price: Int) = if (price == 0 && (kind == "PROGRAM" || kind == "EVENT")) Str.get(R.string.g8_free) else rupees(price)
 internal fun itemEmptyCopy(kind: String) = when (kind) {
-    "SERVICE" -> "Add each service with a price, like \"Tap repair · ₹300 per visit\". People see them on your page and can book or ask about them."
+    "SERVICE" -> Str.get(R.string.g8_empty_service, Money.format(300))
     // Play Billing: only live or in-person teaching paid person to person; recorded courses and downloads would be digital goods.
-    "PROGRAM" -> "Add each class, batch or live course you teach in person or online, with a price or free, like \"Evening tuition · ₹1,500 per month\". People see them on your page and can enquire or join. Recorded courses, videos and downloads can't be sold on Bucks."
-    "EVENT" -> "Add upcoming events with the date and time, like \"Sunday clean-up · Sun 7am\". People see them on your page and turn up."
-    else -> "Add what you sell with a price and pack size, like \"Sugar · ₹45 · 1 kg\". Customers search by product name and order from your profile. Use groups to keep long lists tidy: Rice, Dals, Snacks."
+    "PROGRAM" -> Str.get(R.string.g8_empty_program, Money.format(1500))
+    "EVENT" -> Str.get(R.string.g8_empty_event)
+    else -> Str.get(R.string.g8_empty_product, Money.format(45))
 }
 /** How a program is charged. */
-internal val PROGRAM_UNITS = listOf("per month", "per batch", "per year", "per session", "free")
+internal val PROGRAM_UNITS get() = listOf(Str.get(R.string.g8_unit_per_month), Str.get(R.string.g8_unit_per_batch), Str.get(R.string.g8_unit_per_year), Str.get(R.string.g8_unit_per_session), Str.get(R.string.g8_unit_free))
 
 /** A listing's catalogue (products, services, programs or events by its type), grouped by section, with an inline switch. */
 @Composable
@@ -97,7 +105,7 @@ fun ItemsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit, onEdi
     val m = vm.myListings
     LaunchedEffect(listingId) { if (!m.loaded) m.refresh(); m.loadItems(listingId) }
     val l = m.listing(listingId); val itemKind = itemKindOf(l); val noun = itemNoun(itemKind)
-    val title = l?.let { PageTypes.catalogue(it).label } ?: "${noun.replaceFirstChar { it.uppercase() }}s"
+    val title = l?.let { PageTypes.catalogue(it).label } ?: kindStr(itemKind, R.string.g8_items_product, R.string.g8_items_service, R.string.g8_items_program, R.string.g8_items_event)
     val rows = m.items[listingId]
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
@@ -106,15 +114,15 @@ fun ItemsScreen(vm: BucksViewModel, listingId: String, onBack: () -> Unit, onEdi
             when {
                 rows == null -> CenteredLoading()
                 rows.isEmpty() -> BucksCard(Modifier.padding(Gutter)) {
-                    Text("No ${noun}s yet", style = MaterialTheme.typography.titleMedium)
+                    Text(kindStr(itemKind, R.string.g8_no_items_product, R.string.g8_no_items_service, R.string.g8_no_items_program, R.string.g8_no_items_event), style = MaterialTheme.typography.titleMedium)
                     Muted(itemEmptyCopy(itemKind), Modifier.padding(top = 4.dp))
                 }
                 else -> LazyColumn(contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
                     val groups = rows.groupBy { it.group.trim() }.entries.sortedWith(compareBy({ it.key.isBlank() }, { it.key.lowercase() }))
                     groups.forEach { (g, list) ->
-                        item(key = "group-$g") { SectionTitle(if (g.isBlank()) (if (groups.size > 1) "Other" else "All ${noun}s") else g, Modifier.padding(horizontal = Gutter, vertical = 8.dp)) }
+                        item(key = "group-$g") { SectionTitle(if (g.isBlank()) (if (groups.size > 1) stringResource(R.string.g8_other) else kindStr(itemKind, R.string.g8_all_items_product, R.string.g8_all_items_service, R.string.g8_all_items_program, R.string.g8_all_items_event)) else g, Modifier.padding(horizontal = Gutter, vertical = 8.dp)) }
                         items(list, key = { it.id ?: it.name }) { row ->
-                            val mrpNote = row.mrp?.takeIf { it > row.price }?.let { "  (MRP ₹$it)" } ?: ""
+                            val mrpNote = row.mrp?.takeIf { it > row.price }?.let { "  " + stringResource(R.string.g8_mrp_note, rupees(it)) } ?: ""
                             ListRow(row.name, listOfNotNull("${itemPriceLabel(row.kind, row.price)}$mrpNote", row.unit.ifBlank { null }).joinToString(" · "),
                                 leading = { PhotoOrIcon(row.photoUrl, itemIcon(row.kind), size = 48) },
                                 trailing = { Column(horizontalAlignment = Alignment.End) { Switch(checked = row.inStock, onCheckedChange = { on -> m.setInStock(row, on) }); Muted(itemOnLabel(row.kind, row.inStock)) } },
@@ -139,8 +147,8 @@ fun ItemEditScreen(vm: BucksViewModel, listingId: String, itemId: String?, onBac
     // A new entry takes the kind picked in the Add menu, when it is one this catalogue holds.
     val itemKind = existing?.kind ?: NewItemKind.next?.takeIf { k -> l == null || k in PageTypes.catalogue(l).kinds } ?: itemKindOf(l); val noun = itemNoun(itemKind)
     if (itemId != null && existing == null) {
-        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Edit $noun", onBack = onBack)
-            if (m.items[listingId] != null) Column(Modifier.padding(Gutter)) { Text("Not found", style = MaterialTheme.typography.titleMedium); Muted("This $noun was removed.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
+        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(kindStr(itemKind, R.string.g8_edit_item_product, R.string.g8_edit_item_service, R.string.g8_edit_item_program, R.string.g8_edit_item_event), onBack = onBack)
+            if (m.items[listingId] != null) Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g8_not_found), style = MaterialTheme.typography.titleMedium); Muted(kindStr(itemKind, R.string.g8_item_removed_product, R.string.g8_item_removed_service, R.string.g8_item_removed_program, R.string.g8_item_removed_event), Modifier.padding(top = 4.dp)); SmallButton(stringResource(R.string.g8_back), Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
             else CenteredLoading() }
         return
     }
@@ -148,7 +156,7 @@ fun ItemEditScreen(vm: BucksViewModel, listingId: String, itemId: String?, onBac
 }
 
 /** How a service is priced; stored in items.details.pricing and shown next to the price. */
-internal val SERVICE_PRICING = listOf("FIXED" to "Fixed price", "HOURLY" to "Per hour", "VISIT" to "Per visit", "FROM" to "Starting from", "QUOTE" to "On quote")
+internal val SERVICE_PRICING get() = listOf("FIXED" to Str.get(R.string.g8_pricing_fixed), "HOURLY" to Str.get(R.string.g8_pricing_hourly), "VISIT" to Str.get(R.string.g8_pricing_visit), "FROM" to Str.get(R.string.g8_pricing_from), "QUOTE" to Str.get(R.string.g8_pricing_quote))
 
 @Composable
 private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, existing: ItemRow?, onBack: () -> Unit, onAddOption: () -> Unit) {
@@ -181,7 +189,7 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(8)) { uris ->
         val room = 8 - keep.size - added.size
         val picked = uris.take(room.coerceAtLeast(0)).mapNotNull { u -> Upload.read(ctx, u)?.asListingPhoto()?.let { it to u } }
-        if (uris.size > room) vm.toast("Up to 8 photos per $noun.")
+        if (uris.size > room) vm.toast(kindStr(itemKind, R.string.g8_photos_limit_product, R.string.g8_photos_limit_service, R.string.g8_photos_limit_program, R.string.g8_photos_limit_event))
         added.addAll(picked)
     }
     val existingGroups = m.items[listingId].orEmpty().map { it.group.trim() }.filter { it.isNotBlank() }.distinct()
@@ -189,10 +197,10 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
     fun save(after: () -> Unit = onBack) {
         // A program or an event may be free: an empty price is 0 and shows as "Free".
         val n = name.trim(); val p = price.toIntOrNull() ?: if (program || event) 0 else null; val mp = if (product) mrp.toIntOrNull() else null; val st = stock.toIntOrNull()
-        if (n.isBlank()) { vm.toast("Give the $noun a name."); return }
-        if (p == null && !(service && pricing == "QUOTE")) { vm.toast("Enter the price in rupees."); return }
-        if (mp != null && p != null && mp < p) { vm.toast("MRP should be the same as or more than the selling price."); return }
-        if (product && countStock && st == null) { vm.toast("Enter how many you have, or switch off stock counting."); return }
+        if (n.isBlank()) { vm.toast(kindStr(itemKind, R.string.g8_name_needed_product, R.string.g8_name_needed_service, R.string.g8_name_needed_program, R.string.g8_name_needed_event)); return }
+        if (p == null && !(service && pricing == "QUOTE")) { vm.toast(Str.get(R.string.g8_enter_price)); return }
+        if (mp != null && p != null && mp < p) { vm.toast(Str.get(R.string.g8_mrp_too_low)); return }
+        if (product && countStock && st == null) { vm.toast(Str.get(R.string.g8_stock_needed)); return }
         val details = buildJsonObject {
             d.forEach { (k, v) -> if (k !in setOf("pricing", "duration", "brand", "variant", "product_id", "product")) put(k, v) }
             if (product) {
@@ -212,62 +220,62 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
 
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
-            BucksTopBar(if (existing == null) addItemTitle(noun) else "Edit $noun", onBack = onBack)
+            BucksTopBar(if (existing == null) addItemTitle(noun) else kindStr(itemKind, R.string.g8_edit_item_product, R.string.g8_edit_item_service, R.string.g8_edit_item_program, R.string.g8_edit_item_event), onBack = onBack)
             if (m.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(top = 8.dp, bottom = 16.dp)) {
                 // Photos first: they sell the item.
-                Label("Photos (up to 8, the first is the main one)")
+                Label(stringResource(R.string.g8_photos_label))
                 Row(Modifier.horizontalScrollIfNeeded().padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     keep.forEachIndexed { i, ph -> PhotoThumb(ph.url, main = i == 0, onMain = { keep.removeAt(i); keep.add(0, ph) }) { keep.removeAt(i) } }
                     added.forEachIndexed { i, (_, u) -> PhotoThumb(u, main = keep.isEmpty() && i == 0, onMain = null) { added.removeAt(i) } }
                     if (keep.size + added.size < 8) Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
                         .clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary); Text("Add", style = MaterialTheme.typography.labelSmall) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary); Text(stringResource(R.string.g8_add), style = MaterialTheme.typography.labelSmall) }
                     }
                 }
-                BucksField(name, { name = it.take(80) }, when (itemKind) { "SERVICE" -> "Service"; "PROGRAM" -> "Program name"; "EVENT" -> "Event name"; else -> "Product name" },
-                    when (itemKind) { "SERVICE" -> "Tap repair"; "PROGRAM" -> "Evening tuition, class 10"; "EVENT" -> "Sunday clean-up drive"; else -> "Sona masoori rice" })
-                BucksField(description, { description = it.take(1000) }, if (event) "Where to meet" else "Description (optional)",
-                    when (itemKind) { "SERVICE" -> "What's included, what isn't, how long it takes"; "PROGRAM" -> "What it covers, who it's for, how to join"; "EVENT" -> "Gate 2, Lalbagh. Bring gloves and water."; else -> "Size, material, taste, what's in the box" }, singleLine = false, minLines = 2)
-                if (service) { Label("Pricing"); ChipRow(SERVICE_PRICING.map { it.second }, SERVICE_PRICING.firstOrNull { it.first == pricing }?.second, Modifier.padding(bottom = 12.dp)) { picked -> pricing = SERVICE_PRICING.first { it.second == picked }.first } }
+                BucksField(name, { name = it.take(80) }, kindStr(itemKind, R.string.g8_name_label_product, R.string.g8_name_label_service, R.string.g8_name_label_program, R.string.g8_name_label_event),
+                    kindStr(itemKind, R.string.g8_name_hint_product, R.string.g8_name_hint_service, R.string.g8_name_hint_program, R.string.g8_name_hint_event))
+                BucksField(description, { description = it.take(1000) }, if (event) stringResource(R.string.g8_where_to_meet) else stringResource(R.string.g8_description_optional),
+                    kindStr(itemKind, R.string.g8_desc_hint_product, R.string.g8_desc_hint_service, R.string.g8_desc_hint_program, R.string.g8_desc_hint_event), singleLine = false, minLines = 2)
+                if (service) { Label(stringResource(R.string.g8_pricing)); ChipRow(SERVICE_PRICING.map { it.second }, SERVICE_PRICING.firstOrNull { it.first == pricing }?.second, Modifier.padding(bottom = 12.dp)) { picked -> pricing = SERVICE_PRICING.first { it.second == picked }.first } }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BucksField(price, { price = it.filter { c -> c.isDigit() }.take(7) }, when { service && pricing == "QUOTE" -> "Typical price (₹, optional)"; program || event -> "Price (₹, 0 for free)"; else -> "Price (₹)" },
+                    BucksField(price, { price = it.filter { c -> c.isDigit() }.take(7) }, when { service && pricing == "QUOTE" -> stringResource(R.string.g8_price_typical, Money.symbol); program || event -> stringResource(R.string.g8_price_free_ok, Money.symbol); else -> stringResource(R.string.g8_price, Money.symbol) },
                         when (itemKind) { "PROGRAM" -> "1500"; "EVENT" -> "0"; else -> "45" }, Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    if (product) BucksField(mrp, { mrp = it.filter { c -> c.isDigit() }.take(7) }, "MRP (₹, optional)", "50", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    if (product) BucksField(mrp, { mrp = it.filter { c -> c.isDigit() }.take(7) }, stringResource(R.string.g8_mrp_optional, Money.symbol), "50", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
-                if (product && (mrp.toIntOrNull() ?: 0) > (price.toIntOrNull() ?: 0) && price.isNotBlank()) Muted("Customers see the discount: ₹$price instead of ₹$mrp.", Modifier.padding(bottom = 10.dp))
-                if ((program || event) && (price.toIntOrNull() ?: 0) == 0) Muted("Shown as Free.", Modifier.padding(bottom = 10.dp))
-                BucksField(unit, { unit = it.take(30) }, when (itemKind) { "SERVICE", "PROGRAM" -> "Charged per"; "EVENT" -> "Date and time"; else -> "Pack size or unit" },
-                    when (itemKind) { "SERVICE" -> "per visit"; "PROGRAM" -> "per month / per batch / free"; "EVENT" -> "Sun 7am, or 15 Aug 6 pm"; else -> "1 kg" })
+                if (product && (mrp.toIntOrNull() ?: 0) > (price.toIntOrNull() ?: 0) && price.isNotBlank()) Muted(stringResource(R.string.g8_discount_note, rupees(price.toIntOrNull() ?: 0), rupees(mrp.toIntOrNull() ?: 0)), Modifier.padding(bottom = 10.dp))
+                if ((program || event) && (price.toIntOrNull() ?: 0) == 0) Muted(stringResource(R.string.g8_shown_free), Modifier.padding(bottom = 10.dp))
+                BucksField(unit, { unit = it.take(30) }, kindStr(itemKind, R.string.g8_unit_label_product, R.string.g8_unit_label_service, R.string.g8_unit_label_program, R.string.g8_unit_label_event),
+                    kindStr(itemKind, R.string.g8_unit_hint_product, R.string.g8_unit_hint_service, R.string.g8_unit_hint_program, R.string.g8_unit_hint_event))
                 val unitChips = when (itemKind) { "SERVICE" -> UNITS.filter { it.startsWith("per") }; "PROGRAM" -> PROGRAM_UNITS; "EVENT" -> emptyList(); else -> UNITS.filter { !it.startsWith("per") } }
                 if (unitChips.isNotEmpty()) ChipRow(unitChips, unit.ifBlank { null }, Modifier.padding(bottom = 14.dp)) { unit = it } else Spacer(Modifier.height(6.dp))
-                if (service) BucksField(duration, { duration = it.take(40) }, "Takes about (optional)", "1 hour, 2 days")
+                if (service) BucksField(duration, { duration = it.take(40) }, stringResource(R.string.g8_takes_about), stringResource(R.string.g8_takes_about_hint))
                 else if (product) {
-                    BucksField(variant, { variant = it.take(30) }, if (template != null || d.str("product_id").isNotBlank()) "This option" else "Option (optional)", "Small, Red, 500 g")
-                    BucksField(brand, { brand = it.take(40) }, "Brand (optional)", "Aashirvaad, Nandini")
+                    BucksField(variant, { variant = it.take(30) }, if (template != null || d.str("product_id").isNotBlank()) stringResource(R.string.g8_this_option) else stringResource(R.string.g8_option_optional), stringResource(R.string.g8_option_hint))
+                    BucksField(brand, { brand = it.take(40) }, stringResource(R.string.g8_brand_optional), "Aashirvaad, Nandini")
                 }
-                BucksField(group, { group = it.take(40) }, when (itemKind) { "SERVICE" -> "Group (optional)"; "PROGRAM", "EVENT" -> "Section (optional)"; else -> "Group or section (optional)" },
-                    when (itemKind) { "SERVICE" -> "Repairs"; "PROGRAM" -> "Classes"; "EVENT" -> "This month"; else -> "Rice and grains" })
+                BucksField(group, { group = it.take(40) }, kindStr(itemKind, R.string.g8_group_label_product, R.string.g8_group_label_service, R.string.g8_group_label_program, R.string.g8_group_label_event),
+                    kindStr(itemKind, R.string.g8_group_hint_product, R.string.g8_group_hint_service, R.string.g8_group_hint_program, R.string.g8_group_hint_event))
                 if (existingGroups.isNotEmpty()) ChipRow(existingGroups, group.trim().ifBlank { null }, Modifier.padding(bottom = 14.dp)) { group = it }
-                SectionTitle("Availability", Modifier.padding(top = 4.dp, bottom = 2.dp))
-                SwitchRow(when (itemKind) { "SERVICE" -> "Available now"; "PROGRAM" -> "Open to join"; "EVENT" -> "Shown on the page"; else -> "In stock" },
-                    when (itemKind) { "SERVICE" -> "Switch off when you can't take this work for a while."; "PROGRAM" -> "Switch off when the batch is full or the program has ended."; "EVENT" -> "Switch off once it's over, or remove it."; else -> "Out-of-stock products stay on your profile but can't be ordered." }, inStock) { inStock = it }
+                SectionTitle(stringResource(R.string.g8_availability), Modifier.padding(top = 4.dp, bottom = 2.dp))
+                SwitchRow(kindStr(itemKind, R.string.g8_switch_label_product, R.string.g8_switch_label_service, R.string.g8_switch_label_program, R.string.g8_switch_label_event),
+                    kindStr(itemKind, R.string.g8_switch_sub_product, R.string.g8_switch_sub_service, R.string.g8_switch_sub_program, R.string.g8_switch_sub_event), inStock) { inStock = it }
                 if (product) {
-                    SwitchRow("Count stock", "Bucks takes each order off the count and stops orders at 0. Cancelled orders go back.", countStock) { countStock = it }
-                    if (countStock) BucksField(stock, { stock = it.filter { c -> c.isDigit() }.take(6) }, "How many you have", "25", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    SwitchRow(stringResource(R.string.g8_count_stock), stringResource(R.string.g8_count_stock_sub), countStock) { countStock = it }
+                    if (countStock) BucksField(stock, { stock = it.filter { c -> c.isDigit() }.take(6) }, stringResource(R.string.g8_how_many), "25", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
             }
         }
         Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-            PrimaryButton(if (m.busy) "Saving…" else if (existing == null) addItemTitle(noun) else "Save changes", enabled = !m.busy) { save() }
+            PrimaryButton(if (m.busy) stringResource(R.string.g8_saving) else if (existing == null) addItemTitle(noun) else stringResource(R.string.g8_save_changes), enabled = !m.busy) { save() }
             // Sizes, colours, weights: each option is its own row (price, stock) shown together on one product card.
-            if (product && existing != null) SmallButton("Add another option (size, colour…)", Modifier.padding(bottom = 6.dp), tonal = true) {
-                if (variant.isBlank()) vm.toast("Name this option first (e.g. Small), then add the next.") else save { NewItemKind.next = "PRODUCT"; NewItemKind.optionOf = existing; onBack(); onAddOption() }
+            if (product && existing != null) SmallButton(stringResource(R.string.g8_add_option), Modifier.padding(bottom = 6.dp), tonal = true) {
+                if (variant.isBlank()) vm.toast(Str.get(R.string.g8_name_option_first)) else save { NewItemKind.next = "PRODUCT"; NewItemKind.optionOf = existing; onBack(); onAddOption() }
             }
-            if (existing != null) BadButton("Remove this $noun", Modifier.padding(top = 4.dp)) { confirmDelete = true }
+            if (existing != null) BadButton(kindStr(itemKind, R.string.g8_remove_item_product, R.string.g8_remove_item_service, R.string.g8_remove_item_program, R.string.g8_remove_item_event), Modifier.padding(top = 4.dp)) { confirmDelete = true }
         }
     }
-    if (confirmDelete && existing != null) ConfirmDialog("Remove ${existing.name}?", "It disappears from your profile and search. Orders already placed aren't affected.", "Remove",
+    if (confirmDelete && existing != null) ConfirmDialog(stringResource(R.string.g8_remove_name_q, existing.name), stringResource(R.string.g8_remove_item_body), stringResource(R.string.g8_remove),
         onConfirm = { m.deleteItem(existing) { onBack() } }, onDismiss = { confirmDelete = false })
 }
 
@@ -275,6 +283,6 @@ private fun ItemForm(vm: BucksViewModel, listingId: String, itemKind: String, ex
 @Composable
 private fun PhotoThumb(model: Any, main: Boolean, onMain: (() -> Unit)?, onRemove: () -> Unit) = Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).clickable(enabled = onMain != null && !main) { onMain?.invoke() }) {
     AsyncImage(model, null, Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer), contentScale = ContentScale.Crop)
-    if (main) Box(Modifier.align(Alignment.BottomStart).padding(4.dp)) { Pill("Main", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary) }
-    IconButton(onClick = onRemove, modifier = Modifier.align(Alignment.TopEnd).size(28.dp).padding(2.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) { Icon(Icons.Rounded.Close, "Remove photo", Modifier.size(16.dp), tint = Color.White) }
+    if (main) Box(Modifier.align(Alignment.BottomStart).padding(4.dp)) { Pill(stringResource(R.string.g8_main), MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary) }
+    IconButton(onClick = onRemove, modifier = Modifier.align(Alignment.TopEnd).size(28.dp).padding(2.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) { Icon(Icons.Rounded.Close, stringResource(R.string.g8_cd_remove_photo), Modifier.size(16.dp), tint = Color.White) }
 }

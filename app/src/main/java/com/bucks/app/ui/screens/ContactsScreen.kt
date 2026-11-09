@@ -1,5 +1,9 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.bucks.app.R
+import com.bucks.app.data.Str
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -51,34 +55,34 @@ fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, o
     fun reload() { scope.launch { contacts = null; contacts = PhoneContacts.load(ctx) } }
 
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Contacts", onBack = onBack, actions = {
-            if (granted) IconButton(onClick = { reload() }) { Icon(Icons.Rounded.Refresh, "Refresh from phonebook") }
-            IconButton(onClick = onSync) { Icon(Icons.Rounded.PersonAddAlt, "People I synced with") }
+        BucksTopBar(stringResource(R.string.g2_contacts_title), onBack = onBack, actions = {
+            if (granted) IconButton(onClick = { reload() }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.g2_cd_contacts_refresh)) }
+            IconButton(onClick = onSync) { Icon(Icons.Rounded.PersonAddAlt, stringResource(R.string.g2_cd_synced_people)) }
         })
         if (!granted) {
             Column(Modifier.padding(Gutter)) {
                 BucksCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Avatar(icon = Icons.Rounded.Group, size = 48)
-                        Column(Modifier.padding(start = 14.dp)) { Text("Bring in your phonebook", style = MaterialTheme.typography.titleMedium); Muted("See everyone you know in one searchable list, call or message them, and invite them to Bucks.") }
+                        Column(Modifier.padding(start = 14.dp)) { Text(stringResource(R.string.g2_contacts_bring_title), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g2_contacts_bring_body)) }
                     }
-                    Muted("Your phonebook is read on this phone and shown only to you; Bucks doesn't upload it. If you link a contact to someone on Bucks, the details you choose are saved to your account, visible only to you.", Modifier.padding(top = 12.dp))
-                    PrimaryButton(if (denied) "Allow in Settings" else "Allow contacts", Modifier.padding(top = 14.dp)) {
+                    Muted(stringResource(R.string.g2_contacts_disclosure), Modifier.padding(top = 12.dp))
+                    PrimaryButton(stringResource(if (denied) R.string.g2_allow_in_settings else R.string.g2_allow_contacts), Modifier.padding(top = 14.dp)) {
                         if (denied) ctx.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) else ask.launch(Manifest.permission.READ_CONTACTS)
                     }
                 }
-                if (denied) Muted("Contacts permission is off. Turn it on in the app's settings, then come back.", Modifier.padding(top = 10.dp))
+                if (denied) Muted(stringResource(R.string.g2_contacts_denied), Modifier.padding(top = 10.dp))
             }
             return@ContentColumn
         }
         attachFor?.let { PickSyncedPerson(vm, it) { attachFor = null } }
         val all = contacts
         if (all == null) { CenteredBox { BucksLoader() }; return@ContentColumn }
-        BucksField(q, { q = it }, placeholder = "Search name, number, email, company, place", modifier = Modifier.padding(horizontal = Gutter, vertical = 4.dp), keyboard = KeyboardOptions(keyboardType = KeyboardType.Text))
+        BucksField(q, { q = it }, placeholder = stringResource(R.string.g2_contacts_search_hint), modifier = Modifier.padding(horizontal = Gutter, vertical = 4.dp), keyboard = KeyboardOptions(keyboardType = KeyboardType.Text))
         val shown = remember(all, q) { val t = q.trim().lowercase(); if (t.isBlank()) all else { val d = t.filter { it.isDigit() }; all.filter { c -> t in c.haystack || (d.length >= 3 && c.digits.any { d in it }) } } }
-        Muted(if (q.isBlank()) "${all.size} contact${if (all.size == 1) "" else "s"}" else "${shown.size} of ${all.size}", Modifier.padding(horizontal = Gutter, vertical = 4.dp))
-        if (all.isEmpty()) Column(Modifier.padding(Gutter)) { Text("No contacts found", style = MaterialTheme.typography.titleMedium); Muted("Your phonebook is empty or has no numbers. Add contacts in your Phone app and tap refresh.", Modifier.padding(top = 4.dp)) }
-        else if (shown.isEmpty()) Muted("Nobody matches \"${q.trim()}\".", Modifier.padding(Gutter))
+        Muted(if (q.isBlank()) pluralStringResource(R.plurals.g2_contacts_count, all.size, all.size) else stringResource(R.string.g2_contacts_shown_of, shown.size, all.size), Modifier.padding(horizontal = Gutter, vertical = 4.dp))
+        if (all.isEmpty()) Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g2_contacts_none), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g2_contacts_none_body), Modifier.padding(top = 4.dp)) }
+        else if (shown.isEmpty()) Muted(stringResource(R.string.g2_nobody_matches, q.trim()), Modifier.padding(Gutter))
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(shown, key = { it.id }) { c -> ContactRow(c, expanded = open == c.id, onToggle = { open = if (open == c.id) null else c.id }, scope = scope,
                 person = c.phones.firstNotNullOfOrNull { byPhone[tail10(it)] }, onMessage = { p -> social.openDirect(p.id, onOpenChat) }, onAttach = { attachFor = c }, onMap = onMap); Divider() }
@@ -93,11 +97,11 @@ private fun CenteredBox(content: @Composable () -> Unit) = Box(Modifier.fillMaxW
 private fun ContactRow(c: PhoneContact, expanded: Boolean, onToggle: () -> Unit, scope: kotlinx.coroutines.CoroutineScope, person: com.bucks.app.data.ProfileRow?, onMessage: (com.bucks.app.data.ProfileRow) -> Unit, onAttach: () -> Unit, onMap: () -> Unit) {
     val ctx = LocalContext.current
     var inviteMenu by remember { mutableStateOf(false) }
-    fun start(i: Intent) { runCatching { ctx.startActivity(i) }.onFailure { android.widget.Toast.makeText(ctx, "No app on this phone can do that.", android.widget.Toast.LENGTH_SHORT).show() } }
+    fun start(i: Intent) { runCatching { ctx.startActivity(i) }.onFailure { android.widget.Toast.makeText(ctx, Str.get(R.string.g2_no_app_for_that), android.widget.Toast.LENGTH_SHORT).show() } }
     val first = c.phones.firstOrNull()
     fun invite(via: String) = scope.launch {
-        val link = Invite.link(); val text = "Hi ${c.name.substringBefore(' ')}, I'm on Bucks: rides, food, shops, skills and homes near you, run by locals. Join here: $link" +
-            if (Invite.PLAY_URL.isBlank()) "\n(Allow \"install unknown apps\" when asked; Bucks isn't on the Play Store yet.)" else ""
+        val link = Invite.link(); val text = Str.get(R.string.g2_invite_text, c.name.substringBefore(' '), link) +
+            if (Invite.PLAY_URL.isBlank()) "\n" + Str.get(R.string.g2_invite_sideload_note) else ""
         val num = first?.let { PhoneContacts.dialable(it) }
         when {
             via == "SMS" && num != null -> start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$num")).putExtra("sms_body", text))
@@ -110,24 +114,24 @@ private fun ContactRow(c: PhoneContact, expanded: Boolean, onToggle: () -> Unit,
             Avatar(c.initials, size = 44)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(c.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                Muted(listOfNotNull(if (person != null) "On Bucks as ${person.name}" else null, c.org.ifBlank { null }, first).joinToString(" · ").ifBlank { c.emails.firstOrNull().orEmpty() }, maxLines = 1)
+                Muted(listOfNotNull(if (person != null) stringResource(R.string.g2_on_bucks_as, person.name) else null, c.org.ifBlank { null }, first).joinToString(" · ").ifBlank { c.emails.firstOrNull().orEmpty() }, maxLines = 1)
             }
-            if (person != null) SmallButton("Message", tonal = true) { onMessage(person) } else Box {
-                SmallButton("Invite", tonal = true) { inviteMenu = true }
+            if (person != null) SmallButton(stringResource(R.string.g2_message), tonal = true) { onMessage(person) } else Box {
+                SmallButton(stringResource(R.string.g2_invite), tonal = true) { inviteMenu = true }
                 DropdownMenu(inviteMenu, { inviteMenu = false }) {
-                    if (first != null) { DropdownMenuItem({ Text("By SMS") }, { inviteMenu = false; invite("SMS") }, leadingIcon = { Icon(Icons.Rounded.Sms, null) }); DropdownMenuItem({ Text("On WhatsApp") }, { inviteMenu = false; invite("WA") }, leadingIcon = { Icon(Icons.Rounded.Send, null) }) }
-                    DropdownMenuItem({ Text("Other app…") }, { inviteMenu = false; invite("ANY") }, leadingIcon = { Icon(Icons.Rounded.IosShare, null) })
+                    if (first != null) { DropdownMenuItem({ Text(stringResource(R.string.g2_invite_sms)) }, { inviteMenu = false; invite("SMS") }, leadingIcon = { Icon(Icons.Rounded.Sms, null) }); DropdownMenuItem({ Text(stringResource(R.string.g2_invite_whatsapp)) }, { inviteMenu = false; invite("WA") }, leadingIcon = { Icon(Icons.Rounded.Send, null) }) }
+                    DropdownMenuItem({ Text(stringResource(R.string.g2_invite_other)) }, { inviteMenu = false; invite("ANY") }, leadingIcon = { Icon(Icons.Rounded.IosShare, null) })
                 }
             }
         }
         if (expanded) Column(Modifier.padding(start = 56.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (person == null) SmallButton("Attach to a synced person", tonal = true, onClick = onAttach)
+            if (person == null) SmallButton(stringResource(R.string.g2_attach_synced), tonal = true, onClick = onAttach)
             c.phones.forEach { p -> DetailRow(Icons.Rounded.Call, p, actions = {
-                IconButton({ start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${PhoneContacts.dialable(p)}"))) }) { Icon(Icons.Rounded.Call, "Call $p", tint = MaterialTheme.colorScheme.primary) }
-                IconButton({ start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${PhoneContacts.dialable(p)}"))) }) { Icon(Icons.Rounded.Sms, "Message $p", tint = MaterialTheme.colorScheme.primary) } }) }
-            c.emails.forEach { e -> DetailRow(Icons.Rounded.MailOutline, e, actions = { IconButton({ start(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$e"))) }) { Icon(Icons.Rounded.Send, "Email $e", tint = MaterialTheme.colorScheme.primary) } }) }
+                IconButton({ start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${PhoneContacts.dialable(p)}"))) }) { Icon(Icons.Rounded.Call, stringResource(R.string.g2_cd_call, p), tint = MaterialTheme.colorScheme.primary) }
+                IconButton({ start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${PhoneContacts.dialable(p)}"))) }) { Icon(Icons.Rounded.Sms, stringResource(R.string.g2_cd_message_to, p), tint = MaterialTheme.colorScheme.primary) } }) }
+            c.emails.forEach { e -> DetailRow(Icons.Rounded.MailOutline, e, actions = { IconButton({ start(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$e"))) }) { Icon(Icons.Rounded.Send, stringResource(R.string.g2_cd_email, e), tint = MaterialTheme.colorScheme.primary) } }) }
             if (c.org.isNotBlank()) DetailRow(Icons.Rounded.Work, listOfNotNull(c.org, c.title.ifBlank { null }).joinToString(" · "))
-            if (c.address.isNotBlank()) DetailRow(Icons.Rounded.LocationOn, c.address, actions = { IconButton({ com.bucks.app.ui.screens.MapsPick.query = c.address; onMap() }) { Icon(Icons.Rounded.Place, "Show on map", tint = MaterialTheme.colorScheme.primary) } })
+            if (c.address.isNotBlank()) DetailRow(Icons.Rounded.LocationOn, c.address, actions = { IconButton({ com.bucks.app.ui.screens.MapsPick.query = c.address; onMap() }) { Icon(Icons.Rounded.Place, stringResource(R.string.g2_cd_show_on_map), tint = MaterialTheme.colorScheme.primary) } })
         }
     }
 }

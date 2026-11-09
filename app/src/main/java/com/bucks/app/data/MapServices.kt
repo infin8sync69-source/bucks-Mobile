@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -129,18 +130,28 @@ object MapServices {
         return parseRoute(get("$host/route/v1/driving/$xy?overview=full&geometries=geojson&steps=true") as? JsonObject, from, to)
     }
 
+    private fun dir(mod: String): String = when (mod) {
+        "left" -> Str.get(R.string.g3_nav_dir_left); "right" -> Str.get(R.string.g3_nav_dir_right)
+        "slight left" -> Str.get(R.string.g3_nav_dir_slight_left); "slight right" -> Str.get(R.string.g3_nav_dir_slight_right)
+        "sharp left" -> Str.get(R.string.g3_nav_dir_sharp_left); "sharp right" -> Str.get(R.string.g3_nav_dir_sharp_right)
+        "straight" -> Str.get(R.string.g3_nav_dir_straight); "" -> Str.get(R.string.g3_nav_dir_ahead)
+        else -> mod
+    }
+
     private fun words(type: String, mod: String, name: String): String {
-        val onto = if (name.isNotBlank()) " onto $name" else ""
+        val on = name.isNotBlank()
         return when (type) {
-            "depart" -> if (name.isNotBlank()) "Head out on $name" else "Start"
-            "arrive" -> "You have arrived"
-            "roundabout", "rotary", "roundabout turn" -> "Take the roundabout$onto"
-            "merge" -> "Merge$onto"
-            "fork" -> "Keep ${mod.ifBlank { "straight" }} at the fork$onto"
-            "end of road" -> "At the end of the road, turn ${mod.ifBlank { "ahead" }}$onto"
-            "on ramp", "off ramp" -> "Take the ramp$onto"
-            "new name", "continue" -> if (mod == "uturn") "Make a U-turn" else "Continue$onto"
-            else -> if (mod == "uturn") "Make a U-turn" else if (mod.isBlank() || mod == "straight") "Continue straight$onto" else "Turn $mod$onto"
+            "depart" -> if (on) Str.get(R.string.g3_nav_head_out_on, name) else Str.get(R.string.g3_nav_start)
+            "arrive" -> Str.get(R.string.g3_nav_arrived)
+            "roundabout", "rotary", "roundabout turn" -> if (on) Str.get(R.string.g3_nav_roundabout_onto, name) else Str.get(R.string.g3_nav_roundabout)
+            "merge" -> if (on) Str.get(R.string.g3_nav_merge_onto, name) else Str.get(R.string.g3_nav_merge)
+            "fork" -> { val d = dir(mod.ifBlank { "straight" }); if (on) Str.get(R.string.g3_nav_fork_onto, d, name) else Str.get(R.string.g3_nav_fork, d) }
+            "end of road" -> { val d = dir(mod); if (on) Str.get(R.string.g3_nav_road_end_onto, d, name) else Str.get(R.string.g3_nav_road_end, d) }
+            "on ramp", "off ramp" -> if (on) Str.get(R.string.g3_nav_ramp_onto, name) else Str.get(R.string.g3_nav_ramp)
+            "new name", "continue" -> if (mod == "uturn") Str.get(R.string.g3_nav_uturn) else if (on) Str.get(R.string.g3_nav_continue_onto, name) else Str.get(R.string.g3_nav_continue)
+            else -> if (mod == "uturn") Str.get(R.string.g3_nav_uturn)
+                else if (mod.isBlank() || mod == "straight") { if (on) Str.get(R.string.g3_nav_straight_onto, name) else Str.get(R.string.g3_nav_straight) }
+                else { if (on) Str.get(R.string.g3_nav_turn_onto, dir(mod), name) else Str.get(R.string.g3_nav_turn, dir(mod)) }
         }
     }
 

@@ -26,6 +26,8 @@ import com.bucks.app.data.PhoneContacts
 import com.bucks.app.data.ProfileRow
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 
 /** How well a phonebook name matches a Bucks name: the number of name words they share. */
 private fun nameScore(a: String, b: String): Int { val x = a.lowercase().split(" ", ".").filter { it.length > 1 }; val y = b.lowercase(); return x.count { it in y } }
@@ -54,27 +56,28 @@ fun ContactLinkSheet(vm: BucksViewModel, person: ProfileRow, prefill: PhoneConta
     var note by remember { mutableStateOf(existing?.note.orEmpty()) }
     var picking by remember { mutableStateOf(false) }
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> granted = ok; if (ok) picking = true else vm.toast("Contacts permission is off. You can still type the details.") }
+    val msgPermOff = stringResource(R.string.g6_contact_perm_off)
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> granted = ok; if (ok) picking = true else vm.toast(msgPermOff) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
-            Text("Contact details for ${person.name}", style = MaterialTheme.typography.titleLarge)
-            Muted("Only you can see this. It doesn't change ${person.name.substringBefore(' ')}'s Bucks profile, and they aren't told.", Modifier.padding(top = 2.dp, bottom = 12.dp))
-            SmallButton("Pick from my phonebook", Modifier.padding(bottom = 12.dp), tonal = true) { if (granted) picking = true else ask.launch(Manifest.permission.READ_CONTACTS) }
-            BucksField(phones, { phones = it.take(200) }, "Mobile numbers", "98450 12345, 080 2222 3333", keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone))
-            BucksField(emails, { emails = it.take(300) }, "Emails", "name@example.com", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email))
+            Text(stringResource(R.string.g6_contact_title, person.name), style = MaterialTheme.typography.titleLarge)
+            Muted(stringResource(R.string.g6_contact_private, person.name.substringBefore(' ')), Modifier.padding(top = 2.dp, bottom = 12.dp))
+            SmallButton(stringResource(R.string.g6_contact_pick_phonebook), Modifier.padding(bottom = 12.dp), tonal = true) { if (granted) picking = true else ask.launch(Manifest.permission.READ_CONTACTS) }
+            BucksField(phones, { phones = it.take(200) }, stringResource(R.string.g6_contact_phones), stringResource(R.string.g6_contact_phones_hint), keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            BucksField(emails, { emails = it.take(300) }, stringResource(R.string.g6_contact_emails), stringResource(R.string.g6_contact_emails_hint), keyboard = KeyboardOptions(keyboardType = KeyboardType.Email))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BucksField(org, { org = it.take(120) }, "Organisation", "Bala Electricals", Modifier.weight(1f))
-                BucksField(title, { title = it.take(120) }, "Role", "Owner", Modifier.weight(1f))
+                BucksField(org, { org = it.take(120) }, stringResource(R.string.g6_contact_org), stringResource(R.string.g6_contact_org_hint), Modifier.weight(1f))
+                BucksField(title, { title = it.take(120) }, stringResource(R.string.g6_contact_role), stringResource(R.string.g6_contact_role_hint), Modifier.weight(1f))
             }
-            BucksField(address, { address = it.take(300) }, "Location", "JP Nagar 2nd Phase, Bengaluru")
-            BucksField(note, { note = it.take(500) }, "Note", "Met at the market, does home visits", singleLine = false, minLines = 2)
+            BucksField(address, { address = it.take(300) }, stringResource(R.string.g6_contact_location), stringResource(R.string.g6_contact_location_hint))
+            BucksField(note, { note = it.take(500) }, stringResource(R.string.g6_contact_note), stringResource(R.string.g6_contact_note_hint), singleLine = false, minLines = 2)
             val bad = splitList(emails).firstOrNull { !it.contains('@') || !it.contains('.') }
-            PrimaryButton("Save", enabled = bad == null) {
+            PrimaryButton(stringResource(R.string.g6_save), enabled = bad == null) {
                 social.saveLink(ContactLinkRow(person.id, splitList(phones).map { it.take(40) }, splitList(emails).map { it.take(120) }, org.trim(), title.trim(), address.trim(), note.trim()), then = onDismiss)
             }
-            if (bad != null) Muted("\"$bad\" isn't an email address.", Modifier.padding(top = 6.dp))
-            if (existing != null) BadButton("Remove these details", Modifier.padding(top = 4.dp)) { social.removeLink(person.id); onDismiss() }
+            if (bad != null) Muted(stringResource(R.string.g6_contact_bad_email, bad), Modifier.padding(top = 6.dp))
+            if (existing != null) BadButton(stringResource(R.string.g6_contact_remove), Modifier.padding(top = 4.dp)) { social.removeLink(person.id); onDismiss() }
         }
     }
     if (picking) PhonebookPicker(person.name, onDismiss = { picking = false }) { c ->
@@ -90,19 +93,19 @@ private fun PhonebookPicker(forName: String, onDismiss: () -> Unit, onPick: (Pho
     var all by remember { mutableStateOf<List<PhoneContact>?>(null) }; var q by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { all = PhoneContacts.load(ctx) }
     val list = all
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Pick from phonebook") }, confirmButton = { TextButton(onDismiss) { Text("Cancel") } }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.g6_contact_pick_title)) }, confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.g6_cancel)) } }, text = {
         Column(Modifier.heightIn(max = 420.dp)) {
-            BucksField(q, { q = it }, placeholder = "Search name, number or company")
+            BucksField(q, { q = it }, placeholder = stringResource(R.string.g6_contact_search_phonebook))
             when {
                 list == null -> Box(Modifier.fillMaxWidth().padding(24.dp)) { BucksLoader() }
                 else -> {
                     val t = q.trim().lowercase(); val d = t.filter { it.isDigit() }
                     val shown = list.filter { t.isBlank() || t in it.haystack || (d.length >= 3 && it.digits.any { x -> d in x }) }
                         .sortedWith(compareByDescending<PhoneContact> { if (t.isBlank()) nameScore(forName, it.name) else 0 }.thenBy { it.name.lowercase() })
-                    if (shown.isEmpty()) Muted("Nobody matches.")
+                    if (shown.isEmpty()) Muted(stringResource(R.string.g6_contact_no_match))
                     LazyColumn { items(shown.take(80), key = { it.id }) { c ->
                         val best = t.isBlank() && nameScore(forName, c.name) > 0
-                        ListRow(c.name, listOfNotNull(if (best) "Likely match" else null, c.org.ifBlank { null }, c.phones.firstOrNull()).joinToString(" · "), leading = { Avatar(c.initials, size = 36) }, onClick = { onPick(c) })
+                        ListRow(c.name, listOfNotNull(if (best) stringResource(R.string.g6_contact_likely_match) else null, c.org.ifBlank { null }, c.phones.firstOrNull()).joinToString(" · "), leading = { Avatar(c.initials, size = 36) }, onClick = { onPick(c) })
                         Divider()
                     } }
                 }
@@ -116,14 +119,14 @@ private fun PhonebookPicker(forName: String, onDismiss: () -> Unit, onPick: (Pho
 fun PickSyncedPerson(vm: BucksViewModel, contact: PhoneContact, onDismiss: () -> Unit) {
     val social = vm.social; var q by remember { mutableStateOf("") }
     val people = social.synced.filter { q.isBlank() || it.name.contains(q.trim(), true) }.sortedWith(compareByDescending<ProfileRow> { nameScore(contact.name, it.name) }.thenBy { it.name.lowercase() })
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Who is ${contact.name}?") }, confirmButton = { TextButton(onDismiss) { Text("Cancel") } }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.g6_contact_who_is, contact.name)) }, confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.g6_cancel)) } }, text = {
         Column(Modifier.heightIn(max = 420.dp)) {
-            if (social.synced.isEmpty()) Muted("Sync with them on Bucks first (Menu > Bucks Pro > Bucks ID, or the Sync screen), then attach their contact details here.")
+            if (social.synced.isEmpty()) Muted(stringResource(R.string.g6_contact_sync_first))
             else {
-                Muted("Attach ${contact.name}'s details to a person you're synced with. Only you see them.", Modifier.padding(bottom = 8.dp))
-                BucksField(q, { q = it }, placeholder = "Search your synced people")
+                Muted(stringResource(R.string.g6_contact_attach_hint, contact.name), Modifier.padding(bottom = 8.dp))
+                BucksField(q, { q = it }, placeholder = stringResource(R.string.g6_contact_search_synced))
                 LazyColumn { items(people, key = { it.id }) { p ->
-                    ListRow(p.name, listOfNotNull(if (nameScore(contact.name, p.name) > 0) "Likely match" else null, p.area.ifBlank { null }).joinToString(" · "), leading = { Avatar(initials(p.name), size = 36) }, onClick = {
+                    ListRow(p.name, listOfNotNull(if (nameScore(contact.name, p.name) > 0) stringResource(R.string.g6_contact_likely_match) else null, p.area.ifBlank { null }).joinToString(" · "), leading = { Avatar(initials(p.name), size = 36) }, onClick = {
                         social.saveLink(ContactLinkRow(p.id, contact.phones.take(5), contact.emails.take(5), contact.org.take(120), contact.title.take(120), contact.address.take(300), social.links[p.id]?.note.orEmpty()), then = onDismiss) })
                     Divider()
                 } }

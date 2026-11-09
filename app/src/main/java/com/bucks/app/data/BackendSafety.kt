@@ -1,5 +1,7 @@
 package com.bucks.app.data
 
+import androidx.annotation.StringRes
+import com.bucks.app.R
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import kotlinx.serialization.SerialName
@@ -47,15 +49,18 @@ object BackendSafety {
                                         val preview: String? = null)
 
 /** Report reasons, as the server's reports.reason check lists them, with the words people see. */
-enum class ReportReason(val label: String, val hint: String) {
-    SPAM("Spam", "Ads, scams to click, the same thing over and over"),
-    HARASSMENT("Bullying or harassment", "Picking on someone, threats, unwanted contact"),
-    HATE("Hate speech", "Attacks on people for who they are"),
-    NUDITY("Nudity or sexual content", "Photos, videos or messages that are sexual"),
-    VIOLENCE("Violence", "Threats, graphic violence, dangerous acts"),
-    SELF_HARM("Self-harm or suicide", "Someone may be at risk"),
-    CHILD_SAFETY("A child may be at risk", "Grooming, exploitation, a child in danger"),
-    SCAM("Fraud or scam", "Asking for money, fake offers"),
-    IMPERSONATION("Pretending to be someone", "A fake account of a real person"),
-    OTHER("Something else", ""),
+enum class ReportReason(@StringRes private val labelRes: Int, private val hintRes: Int?) {
+    SPAM(R.string.g3_report_spam, R.string.g3_report_spam_hint),
+    HARASSMENT(R.string.g3_report_harassment, R.string.g3_report_harassment_hint),
+    HATE(R.string.g3_report_hate, R.string.g3_report_hate_hint),
+    NUDITY(R.string.g3_report_nudity, R.string.g3_report_nudity_hint),
+    VIOLENCE(R.string.g3_report_violence, R.string.g3_report_violence_hint),
+    SELF_HARM(R.string.g3_report_self_harm, R.string.g3_report_self_harm_hint),
+    CHILD_SAFETY(R.string.g3_report_child_safety, R.string.g3_report_child_safety_hint),
+    SCAM(R.string.g3_report_scam, R.string.g3_report_scam_hint),
+    IMPERSONATION(R.string.g3_report_impersonation, R.string.g3_report_impersonation_hint),
+    OTHER(R.string.g3_report_other, null),
+    ;
+    val label: String get() = Str.get(labelRes)
+    val hint: String get() = hintRes?.let { Str.get(it) }.orEmpty()
 }

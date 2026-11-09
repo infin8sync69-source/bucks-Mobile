@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.commerce
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -25,10 +27,10 @@ fun AddressCard(a: AddressRow?, onChange: () -> Unit) = BucksCard(onClick = onCh
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            if (a == null) { Text("Add a delivery address", style = MaterialTheme.typography.titleMedium); Muted("Shops that ship need your name, number and full address.") }
-            else { Text(listOfNotNull(a.name, a.label.ifBlank { null }).joinToString(" · "), style = MaterialTheme.typography.titleMedium); Muted(a.oneLine); Muted("Mobile ${a.phone}") }
+            if (a == null) { Text(stringResource(R.string.g7_addr_add_delivery), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g7_addr_add_delivery_sub)) }
+            else { Text(listOfNotNull(a.name, a.label.ifBlank { null }).joinToString(" · "), style = MaterialTheme.typography.titleMedium); Muted(a.oneLine); Muted(stringResource(R.string.g7_addr_mobile, a.phone)) }
         }
-        Text(if (a == null) "Add" else "Change", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(if (a == null) stringResource(R.string.g7_addr_add) else stringResource(R.string.g7_addr_change), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -50,27 +52,27 @@ fun AddressSheet(vm: BucksViewModel, selectedId: String?, startNew: Boolean = fa
                     commerce.saveAddress(saved) { r -> adding = false; editing = null; onPick?.invoke(r); if (onPick != null) onDismiss() }
                 }
             } else {
-                Text(if (onPick != null) "Deliver to" else "My addresses", style = MaterialTheme.typography.titleLarge)
+                Text(if (onPick != null) stringResource(R.string.g7_addr_deliver_to) else stringResource(R.string.g7_addr_mine), style = MaterialTheme.typography.titleLarge)
                 if (!commerce.addressesLoaded) SkeletonLines(3, Modifier.padding(top = 16.dp))
-                else if (commerce.addresses.isEmpty()) Muted("No saved addresses yet.", Modifier.padding(top = 10.dp))
+                else if (commerce.addresses.isEmpty()) Muted(stringResource(R.string.g7_addr_none), Modifier.padding(top = 10.dp))
                 commerce.addresses.forEach { a ->
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp).then(if (onPick != null) Modifier.selectable(a.id == selectedId, role = Role.RadioButton, onClick = { onPick(a); onDismiss() }) else Modifier), verticalAlignment = Alignment.Top) {
                         if (onPick != null) RadioButton(a.id == selectedId, null, Modifier.padding(top = 2.dp, end = 8.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(listOfNotNull(a.name, a.label.ifBlank { null }, if (a.isDefault) "Default" else null).joinToString(" · "), style = MaterialTheme.typography.titleSmall)
-                            Muted(a.oneLine); Muted("Mobile ${a.phone}")
+                            Text(listOfNotNull(a.name, a.label.ifBlank { null }, if (a.isDefault) stringResource(R.string.g7_addr_default) else null).joinToString(" · "), style = MaterialTheme.typography.titleSmall)
+                            Muted(a.oneLine); Muted(stringResource(R.string.g7_addr_mobile, a.phone))
                         }
-                        IconButton({ editing = a }) { Icon(Icons.Rounded.Edit, "Edit address for ${a.name}") }
-                        IconButton({ confirmDelete = a }) { Icon(Icons.Rounded.DeleteOutline, "Delete address for ${a.name}", tint = MaterialTheme.colorScheme.error) }
+                        IconButton({ editing = a }) { Icon(Icons.Rounded.Edit, stringResource(R.string.g7_cd_addr_edit, a.name)) }
+                        IconButton({ confirmDelete = a }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.g7_cd_addr_delete, a.name), tint = MaterialTheme.colorScheme.error) }
                     }
                     HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                OutlinedButton({ adding = true }, Modifier.padding(top = 14.dp).fillMaxWidth().heightIn(min = 48.dp)) { Icon(Icons.Rounded.Add, null); Spacer(Modifier.width(8.dp)); Text("Add a new address") }
+                OutlinedButton({ adding = true }, Modifier.padding(top = 14.dp).fillMaxWidth().heightIn(min = 48.dp)) { Icon(Icons.Rounded.Add, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.g7_addr_add_new)) }
             }
         }
     }
-    confirmDelete?.let { a -> AlertDialog(onDismissRequest = { confirmDelete = null }, title = { Text("Delete this address?") }, text = { Text("${a.name}, ${a.oneLine}") },
-        confirmButton = { TextButton({ a.id?.let { commerce.deleteAddress(it) }; confirmDelete = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmDelete = null }) { Text("Keep") } }) }
+    confirmDelete?.let { a -> AlertDialog(onDismissRequest = { confirmDelete = null }, title = { Text(stringResource(R.string.g7_addr_delete_title)) }, text = { Text("${a.name}, ${a.oneLine}") },
+        confirmButton = { TextButton({ a.id?.let { commerce.deleteAddress(it) }; confirmDelete = null }) { Text(stringResource(R.string.g7_addr_delete), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmDelete = null }) { Text(stringResource(R.string.g7_addr_keep)) } }) }
 }
 
 /** Add or edit one address. Checks what the server checks (10-digit mobile, 6-digit pincode) and says what is wrong next to the field. */
@@ -87,36 +89,36 @@ private fun AddressForm(existing: AddressRow?, first: Boolean, here: com.bucks.a
     LaunchedEffect(pin) { if (pin.length == 6 && existing?.pincode != pin) { looking = true; Pincode.lookup(pin)?.let { (c, s) -> city = c; state = s }; looking = false } }
     val phoneOk = Regex("[6-9][0-9]{9}").matches(phone); val pinOk = Regex("[1-9][0-9]{5}").matches(pin)
     val valid = name.isNotBlank() && phoneOk && pinOk && line1.trim().length >= 3 && city.isNotBlank() && state.isNotBlank()
-    Text(if (existing == null) "New address" else "Edit address", style = MaterialTheme.typography.titleLarge)
-    Label("Save as")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Home", "Work", "Other").forEach { l -> Chip(l, selected = label == l) { label = if (label == l) "" else l } } }
+    Text(if (existing == null) stringResource(R.string.g7_addr_new) else stringResource(R.string.g7_addr_edit), style = MaterialTheme.typography.titleLarge)
+    Label(stringResource(R.string.g7_addr_save_as))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Home", "Work", "Other").forEach { l -> Chip(when (l) { "Home" -> stringResource(R.string.g7_addr_home); "Work" -> stringResource(R.string.g7_addr_work); else -> stringResource(R.string.g7_addr_other) }, selected = label == l) { label = if (label == l) "" else l } } }
     Spacer(Modifier.height(12.dp))
-    BucksField(name, { name = it.take(80) }, "Full name", "Who receives it")
-    if (tried && name.isBlank()) Muted("Enter the name of the person receiving it.", Modifier.padding(bottom = 8.dp))
-    BucksField(phone, { phone = it.filter { c -> c.isDigit() }.take(10) }, "Mobile number", "10 digits, the courier may call it", keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone))
-    if (tried && !phoneOk) Muted("Enter a 10-digit mobile number starting with 6, 7, 8 or 9.", Modifier.padding(bottom = 8.dp))
-    BucksField(pin, { pin = it.filter { c -> c.isDigit() }.take(6) }, "Pincode", "6 digits", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-    if (looking) Muted("Looking up the city…", Modifier.padding(bottom = 8.dp)) else if (tried && !pinOk) Muted("Enter a 6-digit pincode.", Modifier.padding(bottom = 8.dp))
-    BucksField(line1, { line1 = it.take(150) }, "House or flat number and street", "e.g. 12, 4th Cross, MG Road")
-    if (tried && line1.trim().length < 3) Muted("Enter the house or flat number and street.", Modifier.padding(bottom = 8.dp))
-    BucksField(line2, { line2 = it.take(150) }, "Area or landmark (optional)", "e.g. near the park")
+    BucksField(name, { name = it.take(80) }, stringResource(R.string.g7_addr_full_name), stringResource(R.string.g7_addr_full_name_hint))
+    if (tried && name.isBlank()) Muted(stringResource(R.string.g7_addr_err_name), Modifier.padding(bottom = 8.dp))
+    BucksField(phone, { phone = it.filter { c -> c.isDigit() }.take(10) }, stringResource(R.string.g7_addr_phone), stringResource(R.string.g7_addr_phone_hint), keyboard = KeyboardOptions(keyboardType = KeyboardType.Phone))
+    if (tried && !phoneOk) Muted(stringResource(R.string.g7_addr_err_phone), Modifier.padding(bottom = 8.dp))
+    BucksField(pin, { pin = it.filter { c -> c.isDigit() }.take(6) }, stringResource(R.string.g7_addr_pincode), stringResource(R.string.g7_addr_pincode_hint), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+    if (looking) Muted(stringResource(R.string.g7_addr_looking), Modifier.padding(bottom = 8.dp)) else if (tried && !pinOk) Muted(stringResource(R.string.g7_addr_err_pincode), Modifier.padding(bottom = 8.dp))
+    BucksField(line1, { line1 = it.take(150) }, stringResource(R.string.g7_addr_line1), stringResource(R.string.g7_addr_line1_hint))
+    if (tried && line1.trim().length < 3) Muted(stringResource(R.string.g7_addr_err_line1), Modifier.padding(bottom = 8.dp))
+    BucksField(line2, { line2 = it.take(150) }, stringResource(R.string.g7_addr_line2), stringResource(R.string.g7_addr_line2_hint))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Column(Modifier.weight(1f)) { BucksField(city, { city = it.take(60) }, "City", "") }
-        Column(Modifier.weight(1f)) { BucksField(state, { state = it.take(60) }, "State", "") }
+        Column(Modifier.weight(1f)) { BucksField(city, { city = it.take(60) }, stringResource(R.string.g7_addr_city), "") }
+        Column(Modifier.weight(1f)) { BucksField(state, { state = it.take(60) }, stringResource(R.string.g7_addr_state), "") }
     }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(default, role = Role.Switch, onClick = { default = !default }), verticalAlignment = Alignment.CenterVertically) {
-        Text("Make this my default address", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge); Switch(default, null)
+        Text(stringResource(R.string.g7_addr_make_default), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge); Switch(default, null)
     }
     if (here != null) Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(pinHere, role = Role.Switch, onClick = { pinHere = !pinHere }), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(if (existing?.pin != null) "Move the drop point to where I am" else "I'm here now: pin it for deliveries", style = MaterialTheme.typography.bodyLarge)
-            Muted(if (existing?.pin != null) "Riders already have a drop point for this address." else "Riders come to this exact spot when you order to this address from anywhere.")
+            Text(if (existing?.pin != null) stringResource(R.string.g7_addr_move_drop) else stringResource(R.string.g7_addr_pin_here), style = MaterialTheme.typography.bodyLarge)
+            Muted(if (existing?.pin != null) stringResource(R.string.g7_addr_has_drop) else stringResource(R.string.g7_addr_pin_here_sub))
         }
         Switch(pinHere, null)
     }
     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        OutlinedButton(onCancel, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Cancel") }
+        OutlinedButton(onCancel, Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(R.string.g7_addr_cancel)) }
         Button({ tried = true; if (valid) onSave(AddressRow(existing?.id, label, name.trim(), phone, line1.trim(), line2.trim(), city.trim(), state.trim(), pin, default,
-            lat = if (pinHere && here != null) here.lat else existing?.lat, lng = if (pinHere && here != null) here.lng else existing?.lng)) }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Save address") }
+            lat = if (pinHere && here != null) here.lat else existing?.lat, lng = if (pinHere && here != null) here.lng else existing?.lng)) }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(R.string.g7_addr_save)) }
     }
 }

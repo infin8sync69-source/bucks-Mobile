@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.manage
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,65 +39,66 @@ fun MembersScreen(vm: BucksViewModel, listingId: String? = null, vehicleId: Stri
     val pending = m.sentInvites.filter { if (listingId != null) it.listingId == listingId else it.vehicleId == vehicleId }
     var code by remember { mutableStateOf("") }; var role by remember { mutableStateOf("ADMIN") }
     var removeFor by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val notBucksId = stringResource(R.string.g8_not_bucks_id)
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar(if (vehicleMode) "Drivers" else "Members", onBack = onBack)
+        BucksTopBar(if (vehicleMode) stringResource(R.string.g8_drivers) else stringResource(R.string.g8_members), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            Muted(if (vehicleMode) "The owner and the drivers who can go online with this vehicle." else "The owner, admins who help run it, and the store's own delivery riders.")
-            SectionTitle("People", Modifier.padding(top = 20.dp, bottom = 4.dp))
+            Muted(if (vehicleMode) stringResource(R.string.g8_members_sub_vehicle) else stringResource(R.string.g8_members_sub_listing))
+            SectionTitle(stringResource(R.string.g8_people), Modifier.padding(top = 20.dp, bottom = 4.dp))
             when {
                 rows == null -> CenteredLoading()
-                rows.isEmpty() -> Muted("Only you so far.")
+                rows.isEmpty() -> Muted(stringResource(R.string.g8_only_you))
                 else -> rows.sortedWith(compareBy({ ROLE_ORDER[it.second] ?: 9 }, { social.nameOf(it.first).lowercase() })).forEach { (pid, r) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Avatar(initials(social.nameOf(pid).ifBlank { "?" }), size = 40)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(social.nameOf(pid) + if (pid == meId) " (you)" else "", style = MaterialTheme.typography.titleMedium)
+                            Text(if (pid == meId) stringResource(R.string.g8_name_you, social.nameOf(pid)) else social.nameOf(pid), style = MaterialTheme.typography.titleMedium)
                             Muted(roleLabel(r, vehicleMode) + " · " + roleExplain(r, vehicleMode), maxLines = 2)
                         }
-                        if (owner && r != "OWNER") IconButton(onClick = { removeFor = pid to r }) { Icon(Icons.Rounded.PersonRemove, "Remove") }
-                        else if (pid == meId && r != "OWNER") SmallButton("Leave", tonal = true) { removeFor = pid to r }
+                        if (owner && r != "OWNER") IconButton(onClick = { removeFor = pid to r }) { Icon(Icons.Rounded.PersonRemove, stringResource(R.string.g8_remove)) }
+                        else if (pid == meId && r != "OWNER") SmallButton(stringResource(R.string.g8_leave), tonal = true) { removeFor = pid to r }
                     }
                     Divider()
                 }
             }
             if (owner) {
-                SectionTitle(if (vehicleMode) "Invite a driver" else "Invite someone", Modifier.padding(top = 24.dp, bottom = 4.dp))
-                Muted("Ask for their Bucks ID (Account > Your Bucks ID) or scan it. They get an invite to accept under My listings > Invites.", Modifier.padding(bottom = 10.dp))
+                SectionTitle(if (vehicleMode) stringResource(R.string.g8_invite_driver) else stringResource(R.string.g8_invite_someone), Modifier.padding(top = 24.dp, bottom = 4.dp))
+                Muted(stringResource(R.string.g8_invite_how), Modifier.padding(bottom = 10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(8) }, placeholder = { Text("H6VF YWYF") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters))
                     Spacer(Modifier.width(8.dp))
-                    FilledTonalIconButton(onClick = { scanQr(ctx, onResult = { raw -> when (val s = BucksQr.parse(raw)) { is BucksQr.Scanned.BucksId -> code = s.code; else -> vm.toast("That isn't a Bucks ID code.") } }, onError = { vm.toast(it) }) }) { Icon(Icons.Rounded.QrCodeScanner, "Scan a Bucks ID") }
+                    FilledTonalIconButton(onClick = { scanQr(ctx, onResult = { raw -> when (val s = BucksQr.parse(raw)) { is BucksQr.Scanned.BucksId -> code = s.code; else -> vm.toast(notBucksId) } }, onError = { vm.toast(it) }) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.g8_cd_scan_bucks_id)) }
                 }
-                Label("Role")
-                if (vehicleMode) { Row { Chip("Driver", selected = true, icon = Icons.Rounded.DirectionsCar) {} }; Muted(roleExplain("ADMIN", true), Modifier.padding(top = 6.dp)) }
+                Label(stringResource(R.string.g8_role))
+                if (vehicleMode) { Row { Chip(stringResource(R.string.g8_driver), selected = true, icon = Icons.Rounded.DirectionsCar) {} }; Muted(roleExplain("ADMIN", true), Modifier.padding(top = 6.dp)) }
                 else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip("Admin", selected = role == "ADMIN") { role = "ADMIN" }; Chip("Store rider", selected = role == "STORE_RIDER") { role = "STORE_RIDER" } }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip(stringResource(R.string.g8_admin), selected = role == "ADMIN") { role = "ADMIN" }; Chip(stringResource(R.string.g8_store_rider), selected = role == "STORE_RIDER") { role = "STORE_RIDER" } }
                     Muted(roleExplain(role, false), Modifier.padding(top = 6.dp))
                 }
-                PrimaryButton("Send invite", Modifier.padding(top = 14.dp), enabled = BucksQr.looksLikeBucksId(code)) { m.invite(listingId, vehicleId, code, if (vehicleMode) "ADMIN" else role); code = "" }
+                PrimaryButton(stringResource(R.string.g8_send_invite), Modifier.padding(top = 14.dp), enabled = BucksQr.looksLikeBucksId(code)) { m.invite(listingId, vehicleId, code, if (vehicleMode) "ADMIN" else role); code = "" }
                 if (pending.isNotEmpty()) {
-                    SectionTitle("Invites sent", Modifier.padding(top = 24.dp, bottom = 4.dp))
+                    SectionTitle(stringResource(R.string.g8_invites_sent), Modifier.padding(top = 24.dp, bottom = 4.dp))
                     pending.forEach { i ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Avatar(initials(social.nameOf(i.inviteeId).ifBlank { "?" }), size = 40)
-                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(social.nameOf(i.inviteeId), style = MaterialTheme.typography.titleMedium); Muted("Invited as ${roleLabel(i.role, vehicleMode).lowercase()} · waiting for their answer") }
-                            TextButton({ m.revokeInvite(i.id) }) { Text("Cancel") }
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(social.nameOf(i.inviteeId), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g8_invited_as_waiting, roleLabel(i.role, vehicleMode).lowercase())) }
+                            TextButton({ m.revokeInvite(i.id) }) { Text(stringResource(R.string.g8_cancel)) }
                         }
                         Divider()
                     }
                 }
-            } else Notice("Only the owner can invite or remove people.", Modifier.padding(top = 20.dp))
+            } else Notice(stringResource(R.string.g8_only_owner_invites), Modifier.padding(top = 20.dp))
             Spacer(Modifier.height(16.dp))
         }
     }
     removeFor?.let { (pid, r) ->
         val self = pid == meId; val name = social.nameOf(pid)
-        ConfirmDialog(if (self) "Leave $title?" else "Remove $name?",
-            if (self) "You'll no longer be able to ${if (vehicleMode) "go online with this vehicle" else "manage this listing or take its orders"}. The owner can invite you again."
-            else "$name will no longer be ${roleLabel(r, vehicleMode).lowercase()} here. You can invite them again later.",
-            if (self) "Leave" else "Remove",
+        ConfirmDialog(if (self) stringResource(R.string.g8_leave_q, title) else stringResource(R.string.g8_remove_name_q, name),
+            if (self) (if (vehicleMode) stringResource(R.string.g8_leave_body_vehicle) else stringResource(R.string.g8_leave_body_listing))
+            else stringResource(R.string.g8_remove_member_body, name, roleLabel(r, vehicleMode).lowercase()),
+            if (self) stringResource(R.string.g8_leave) else stringResource(R.string.g8_remove),
             onConfirm = { if (listingId != null) m.removeMember(listingId, pid) else if (vehicleId != null) m.removeVehicleMember(vehicleId, pid); if (self) onBack() },
             onDismiss = { removeFor = null })
     }
@@ -107,12 +110,12 @@ fun InvitesScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val m = vm.myListings
     LaunchedEffect(Unit) { m.refreshInvites() }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Invites", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g8_invites), onBack = onBack)
         LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (m.invites.isEmpty()) item {
                 BucksCard {
-                    Text("No invites", style = MaterialTheme.typography.titleMedium)
-                    Muted("When a shop owner asks you to help run their listing or deliver their orders, or a vehicle owner asks you to drive for them, the invite shows up here. They need your Bucks ID to send one.", Modifier.padding(top = 4.dp))
+                    Text(stringResource(R.string.g8_no_invites), style = MaterialTheme.typography.titleMedium)
+                    Muted(stringResource(R.string.g8_no_invites_sub), Modifier.padding(top = 4.dp))
                 }
             }
             items(m.invites, key = { it.id }) { i ->
@@ -122,13 +125,13 @@ fun InvitesScreen(vm: BucksViewModel, onBack: () -> Unit) {
                         Avatar(icon = if (vehicle) Icons.Rounded.LocalTaxi else listingIcon(i.kind, ""), size = 48)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(i.title, style = MaterialTheme.typography.titleMedium)
-                            Muted(listOfNotNull("${i.inviterName.ifBlank { "Someone" }} invited you as ${roleLabel(i.role, vehicle).lowercase()}", i.createdAt.takeIf { it.isNotBlank() }?.let { ago(it) }).joinToString(" · "))
+                            Muted(listOfNotNull(stringResource(R.string.g8_invited_you_as, i.inviterName.ifBlank { stringResource(R.string.g8_someone) }, roleLabel(i.role, vehicle).lowercase()), i.createdAt.takeIf { it.isNotBlank() }?.let { ago(it) }).joinToString(" · "))
                         }
                     }
                     Muted(roleExplain(i.role, vehicle), Modifier.padding(top = 10.dp))
                     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SmallButton("Accept", Modifier.weight(1f)) { m.respondInvite(i, true) }
-                        SmallButton("Decline", Modifier.weight(1f), tonal = true) { m.respondInvite(i, false) }
+                        SmallButton(stringResource(R.string.g8_accept), Modifier.weight(1f)) { m.respondInvite(i, true) }
+                        SmallButton(stringResource(R.string.g8_decline), Modifier.weight(1f), tonal = true) { m.respondInvite(i, false) }
                     }
                 }
             }

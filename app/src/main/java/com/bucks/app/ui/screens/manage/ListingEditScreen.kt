@@ -11,7 +11,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.bucks.app.R
+import com.bucks.app.data.Money
+import com.bucks.app.data.Str
 import com.bucks.app.data.Geo
 import com.bucks.app.data.DeliveryBackend
 import com.bucks.app.ui.screens.areaOf
@@ -45,9 +49,9 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
     LaunchedEffect(Unit) { if (!m.loaded) m.refresh() }
     val existing = id?.let { m.listing(it) }
     if (id != null && existing == null) {
-        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Edit ${kindLabel(kind).lowercase()}", onBack = onBack)
+        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g4_le_edit_kind, kindLabel(kind).lowercase()), onBack = onBack)
             val err = m.error
-            if (m.loaded) Column(Modifier.padding(Gutter)) { Text("Listing not found", style = MaterialTheme.typography.titleMedium); Muted("It may have been deleted, or you're no longer part of it.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
+            if (m.loaded) Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g4_le_not_found), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g4_le_not_found_body), Modifier.padding(top = 4.dp)); SmallButton(stringResource(R.string.g4_cd_back), Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
             else if (err != null) LoadError(err, Modifier.padding(Gutter)) { m.refresh() }
             else CenteredLoading() }
         return
@@ -123,21 +127,21 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var photo by remember { mutableStateOf<Picked?>(null) }; var preview by remember { mutableStateOf<Uri?>(null) }
     var moveHere by remember { mutableStateOf(existing == null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val pick = rememberImagePicker(onUnusable = { vm.toast("Couldn't read that image. Try a JPG or PNG photo.") }) { p, u -> photo = p; preview = u }
+    val pick = rememberImagePicker(onUnusable = { vm.toast(Str.get(R.string.g4_le_bad_image)) }) { p, u -> photo = p; preview = u }
     val owner = existing == null || m.isOwner(existing.id)
-    val driverTitle = "${social.me?.name?.ifBlank { null } ?: "Driver"} - ${vehicleKindLabel(vehicleKind)}"
-    val screenTitle = when { existing == null && kind == "BUSINESS" -> if (orgPage) "Set up your page" else "Add a business"; existing == null && kind == "SKILL" -> "Add a skill"; existing == null && kind == "ASSET" -> "List an asset"; existing == null -> "Your driver profile"; else -> "Edit ${kindLabel(kind).lowercase()}" }
+    val driverTitle = "${social.me?.name?.ifBlank { null } ?: stringResource(R.string.g4_le_driver)} - ${vehicleKindLabel(vehicleKind)}"
+    val screenTitle = when { existing == null && kind == "BUSINESS" -> if (orgPage) stringResource(R.string.g4_le_title_page) else stringResource(R.string.g4_le_title_business); existing == null && kind == "SKILL" -> stringResource(R.string.g4_le_title_skill); existing == null && kind == "ASSET" -> stringResource(R.string.g4_le_title_asset); existing == null -> stringResource(R.string.g4_le_title_driver); else -> stringResource(R.string.g4_le_edit_kind, kindLabel(kind).lowercase()) }
 
     fun save() {
         val t = if (kind == "DRIVER") driverTitle else title.trim()
         // Every page is shown "by <name>": a profile without a name cannot run one.
-        if (social.me?.name.isNullOrBlank()) { vm.toast("Add your name to your profile first. Every page shows who runs it."); return }
-        if (t.isBlank()) { vm.toast(when { kind == "SKILL" -> "Name the skill, like Plumber or Maths tutor."; kind == "ASSET" -> "Give it a title, like 2BHK flat in 4th Block."; orgPage -> "Name the page."; else -> "Add the business name." }); return }
-        if (kind != "DRIVER" && category.isBlank()) { vm.toast(if (kind == "ASSET") "Pick what it is: house, flat, shop, vehicle…" else "Pick a category so people can find you."); return }
-        if (kind == "ASSET" && price.isNotBlank() && price.toLongOrNull() == null) { vm.toast("Enter the price in rupees, numbers only."); return }
-        if (kind == "ASSET" && year.isNotBlank() && (year.toIntOrNull() ?: 0) !in 1950..2100) { vm.toast("Enter the year it was made, like 2019."); return }
-        if (kind == "BUSINESS" && !orgPage && (radius.toIntOrNull() ?: 0) !in 1..50) { vm.toast("Delivery radius should be between 1 and 50 km."); return }
-        if ((kind == "BUSINESS" || kind == "SKILL") && catEffective.isEmpty()) { vm.toast("Pick at least one thing your catalogue tab lists."); return }
+        if (social.me?.name.isNullOrBlank()) { vm.toast(Str.get(R.string.g4_le_need_name)); return }
+        if (t.isBlank()) { vm.toast(when { kind == "SKILL" -> Str.get(R.string.g4_le_need_skill); kind == "ASSET" -> Str.get(R.string.g4_le_need_asset_title); orgPage -> Str.get(R.string.g4_le_need_page_name); else -> Str.get(R.string.g4_le_need_business_name) }); return }
+        if (kind != "DRIVER" && category.isBlank()) { vm.toast(if (kind == "ASSET") Str.get(R.string.g4_le_need_asset_type) else Str.get(R.string.g4_le_need_category)); return }
+        if (kind == "ASSET" && price.isNotBlank() && price.toLongOrNull() == null) { vm.toast(Str.get(R.string.g4_le_bad_price)); return }
+        if (kind == "ASSET" && year.isNotBlank() && (year.toIntOrNull() ?: 0) !in 1950..2100) { vm.toast(Str.get(R.string.g4_le_bad_year)); return }
+        if (kind == "BUSINESS" && !orgPage && (radius.toIntOrNull() ?: 0) !in 1..50) { vm.toast(Str.get(R.string.g4_le_bad_radius)); return }
+        if ((kind == "BUSINESS" || kind == "SKILL") && catEffective.isEmpty()) { vm.toast(Str.get(R.string.g4_le_need_catalogue)); return }
         val details = buildJsonObject {
             d.forEach { (k, v) -> put(k, v) }   // keep anything other features stored
             if (kind == "BUSINESS" || kind == "SKILL") put("show_phone", showPhone)
@@ -174,7 +178,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         }
         val cat = if (kind == "DRIVER") vehicleKindLabel(vehicleKind) else category
         if (existing == null) {
-            val at = fix ?: run { vm.toast("Turn on location so Bucks can save where your shop is."); return }
+            val at = fix ?: run { vm.toast(Str.get(R.string.g4_le_need_location)); return }
             // A new business or skill goes straight on to its documents: they are the other half of going live.
             // Only a shop sends its service (derived from the category); the server sets it from the type for every other page.
             m.createListing(kind, t, cat, description.trim(), area.trim(), at, details.withoutNulls(), photo, if (kind == "BUSINESS" && type.isShop) service else null, if (kind == "BUSINESS") typeKey else null) { row -> when { onCreated != null -> onCreated(row.id); kind == "DRIVER" -> onDone(); else -> onDocs(row.id) } }
@@ -194,114 +198,114 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                 when (kind) {
                     "BUSINESS" -> {
                         PageTypeCard(type, locked = serviceLocked) { pickType = true }
-                        BucksField(title, { title = it.take(80) }, if (orgPage) "Page name" else "Business name", pageNamePlaceholder(type))
+                        BucksField(title, { title = it.take(80) }, if (orgPage) stringResource(R.string.g4_le_page_name) else stringResource(R.string.g4_le_business_name), pageNamePlaceholder(type))
                         Label(pageCategoryLabel(type))
-                        CategoryField(category, if (orgPage) "Pick one, or add your own" else "Pick a type, or add your own") { pickCategory = true }
-                        Muted(if (orgPage) "Shows under ${PageTypes.group(type.group)?.label ?: "Services"} in Services." + (if (serviceLocked) " That can't change while you're live, but you can rename your category." else " The type decides the documents Bucks checks.")
-                              else "Shows under ${serviceDef(service)!!.label} in Services." + (if (serviceLocked) " That can't change while you're live, but you can rename your type." else " It decides the documents Bucks checks."), Modifier.padding(top = 6.dp, bottom = 4.dp))
+                        CategoryField(category, if (orgPage) stringResource(R.string.g4_le_pick_one) else stringResource(R.string.g4_le_pick_type)) { pickCategory = true }
+                        Muted(if (orgPage) (if (serviceLocked) stringResource(R.string.g4_le_shows_under_org_locked, PageTypes.group(type.group)?.label ?: stringResource(R.string.g4_tab_services)) else stringResource(R.string.g4_le_shows_under_org, PageTypes.group(type.group)?.label ?: stringResource(R.string.g4_tab_services)))
+                              else (if (serviceLocked) stringResource(R.string.g4_le_shows_under_shop_locked, serviceDef(service)!!.label) else stringResource(R.string.g4_le_shows_under_shop, serviceDef(service)!!.label)), Modifier.padding(top = 6.dp, bottom = 4.dp))
                         Spacer(Modifier.height(14.dp))
-                        BucksField(description, { description = it.take(600) }, if (orgPage) "About the page" else "About the business", if (orgPage) "What you do, who it's for, what you're known for" else "What you sell, what you're known for", singleLine = false, minLines = 3)
-                        BucksField(hours, { hours = it.take(80) }, if (orgPage) "Timings" else "Opening hours", if (orgPage) "Mon - Sat, 9 am - 5 pm" else "9 am - 9 pm, closed Sundays")
-                        BucksField(area, { area = it.take(60) }, "Area", "Jayanagar")
+                        BucksField(description, { description = it.take(600) }, if (orgPage) stringResource(R.string.g4_le_about_page) else stringResource(R.string.g4_le_about_business), if (orgPage) stringResource(R.string.g4_le_about_page_hint) else stringResource(R.string.g4_le_about_business_hint), singleLine = false, minLines = 3)
+                        BucksField(hours, { hours = it.take(80) }, if (orgPage) stringResource(R.string.g4_le_timings) else stringResource(R.string.g4_le_opening_hours), if (orgPage) stringResource(R.string.g4_le_timings_hint) else stringResource(R.string.g4_le_hours_hint))
+                        BucksField(area, { area = it.take(60) }, stringResource(R.string.g4_le_area), "Jayanagar")
                         CatalogueTabEditor(kind, catType, catLabel, catEffective, onLabel = { catLabel = it }, onKinds = { catKinds = it })
                         if (orgPage) {
-                            SectionTitle("Contact and registration", Modifier.padding(top = 6.dp, bottom = 4.dp))
-                            BucksField(registration, { registration = it.take(40) }, "${pageRegistrationLabel(type)} (optional)", if (type.key == "SCHOOL_COLLEGE") "Board or university affiliation number" else "Society, trust or company registration number")
-                            BucksField(website, { website = it.trim().take(120) }, "Website (optional)", "www.example.org", keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
-                            BucksField(email, { email = it.trim().take(120) }, "Email (optional)", "hello@example.org", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email))
-                            Muted("Shown on your page so people can reach you outside Bucks. People book, enquire or join through the page itself.", Modifier.padding(bottom = 8.dp))
+                            SectionTitle(stringResource(R.string.g4_le_contact_registration), Modifier.padding(top = 6.dp, bottom = 4.dp))
+                            BucksField(registration, { registration = it.take(40) }, stringResource(R.string.g4_le_optional_field, pageRegistrationLabel(type)), if (type.key == "SCHOOL_COLLEGE") stringResource(R.string.g4_le_affiliation_hint) else stringResource(R.string.g4_le_registration_hint))
+                            BucksField(website, { website = it.trim().take(120) }, stringResource(R.string.g4_le_website), "www.example.org", keyboard = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                            BucksField(email, { email = it.trim().take(120) }, stringResource(R.string.g4_le_email), "hello@example.org", keyboard = KeyboardOptions(keyboardType = KeyboardType.Email))
+                            Muted(stringResource(R.string.g4_le_contact_note), Modifier.padding(bottom = 8.dp))
                         } else {
-                            SectionTitle("Delivery and payment", Modifier.padding(top = 6.dp, bottom = 4.dp))
-                            SwitchRow("Free delivery", "You pay the rider's fee instead of the customer.", freeDelivery) { freeDelivery = it }
-                            BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, "Delivery radius (km)", "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            SwitchRow("Cash on delivery", "With your own store riders, or with the courier on shipped orders. You collect the cash.", cod) { cod = it }
+                            SectionTitle(stringResource(R.string.g4_le_delivery_payment), Modifier.padding(top = 6.dp, bottom = 4.dp))
+                            SwitchRow(stringResource(R.string.g4_le_free_delivery), stringResource(R.string.g4_le_free_delivery_note), freeDelivery) { freeDelivery = it }
+                            BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, stringResource(R.string.g4_le_radius), "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            SwitchRow(stringResource(R.string.g4_prov_cod), stringResource(R.string.g4_le_cod_note), cod) { cod = it }
                             // Bucks riders never carry cash, so without a store rider or courier shipping nobody can offer it.
-                            if (cod && !ships && riderCount == 0) Text("Customers won't see cash on delivery yet: add a store rider (Team), or turn on Ship by courier below.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 6.dp))
-                            SectionTitle("Ship across India", Modifier.padding(top = 14.dp, bottom = 4.dp))
-                            SwitchRow("Ship by courier", "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", ships) { ships = it }
+                            if (cod && !ships && riderCount == 0) Text(stringResource(R.string.g4_le_cod_hidden), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 6.dp))
+                            SectionTitle(stringResource(R.string.g4_le_ship_india), Modifier.padding(top = 14.dp, bottom = 4.dp))
+                            SwitchRow(stringResource(R.string.g4_le_ship_courier), stringResource(R.string.g4_le_ship_courier_note), ships) { ships = it }
                             if (ships) {
-                                BucksField(shipFee, { shipFee = it.filter { c -> c.isDigit() }.take(5) }, "Shipping fee (₹)", "99, or 0 for free shipping", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                                BucksField(freeAbove, { freeAbove = it.filter { c -> c.isDigit() }.take(6) }, "Free shipping above (₹)", "1999, or leave empty for none", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                                BucksField(dispatch, { dispatch = it.take(30) }, "Ships in (days)", "2 to 4")
-                                Muted("Buyers pay the items and the shipping to you (UPI, or cash on delivery if you turned it on). You have 24 hours to accept each order.", Modifier.padding(bottom = 8.dp))
+                                BucksField(shipFee, { shipFee = it.filter { c -> c.isDigit() }.take(5) }, stringResource(R.string.g4_le_ship_fee, Money.symbol), stringResource(R.string.g4_le_ship_fee_hint), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                BucksField(freeAbove, { freeAbove = it.filter { c -> c.isDigit() }.take(6) }, stringResource(R.string.g4_le_free_above, Money.symbol), stringResource(R.string.g4_le_free_above_hint), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                BucksField(dispatch, { dispatch = it.take(30) }, stringResource(R.string.g4_le_ships_in), stringResource(R.string.g4_le_ships_in_hint))
+                                Muted(stringResource(R.string.g4_le_ship_payment_note), Modifier.padding(bottom = 8.dp))
                             }
                         }
                     }
                     "SKILL" -> {
-                        BucksField(title, { title = it.take(80) }, "Skill", "Plumber, Maths tutor, Wedding photographer")
-                        Label("What do you do?"); CategoryField(category, "Pick a field, or add your own") { pickCategory = true }
+                        BucksField(title, { title = it.take(80) }, stringResource(R.string.g4_le_skill), stringResource(R.string.g4_le_skill_hint))
+                        Label(stringResource(R.string.g4_le_what_do_you_do)); CategoryField(category, stringResource(R.string.g4_le_pick_field)) { pickCategory = true }
                         Spacer(Modifier.height(14.dp))
-                        Label("Experience"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { LEVELS.forEach { Chip(it, selected = level == it) { level = it } } }
+                        Label(stringResource(R.string.g4_le_experience)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { LEVELS.forEach { Chip(it, selected = level == it) { level = it } } }
                         Spacer(Modifier.height(14.dp))
-                        BucksField(rate, { rate = it.take(60) }, "Rate", "₹300 per visit + parts")
-                        Label("Languages you speak"); FlowChips(LANGUAGES, languages) { languages = if (it in languages) languages - it else languages + it }
+                        BucksField(rate, { rate = it.take(60) }, stringResource(R.string.g4_prov_rate), stringResource(R.string.g4_le_rate_hint, Money.format(300)))
+                        Label(stringResource(R.string.g4_le_languages)); FlowChips(LANGUAGES, languages) { languages = if (it in languages) languages - it else languages + it }
                         Spacer(Modifier.height(14.dp))
-                        BucksField(description, { description = it.take(600) }, "About your work", "Years of experience, what you specialise in", singleLine = false, minLines = 3)
-                        BucksField(area, { area = it.take(60) }, "Area you work in", "Jayanagar")
+                        BucksField(description, { description = it.take(600) }, stringResource(R.string.g4_le_about_work), stringResource(R.string.g4_le_about_work_hint), singleLine = false, minLines = 3)
+                        BucksField(area, { area = it.take(60) }, stringResource(R.string.g4_le_area_work), "Jayanagar")
                         CatalogueTabEditor(kind, null, catLabel, catEffective, onLabel = { catLabel = it }, onKinds = { catKinds = it })
                     }
                     "ASSET" -> {
-                        Label("What is it?")
+                        Label(stringResource(R.string.g4_le_what_is_it))
                         FlowChips(ASSET_TYPES, setOf(category)) { category = it }
-                        Muted(if (category in PROPERTY_TYPES) "Property: Bucks checks the owner's ID (and RERA for builders) before it goes live. Files stay private." else "Vehicles and equipment need no documents to go live.", Modifier.padding(top = 6.dp, bottom = 14.dp))
-                        Label("You want to")
+                        Muted(if (category in PROPERTY_TYPES) stringResource(R.string.g4_le_property_docs) else stringResource(R.string.g4_le_vehicle_no_docs), Modifier.padding(top = 6.dp, bottom = 14.dp))
+                        Label(stringResource(R.string.g4_le_you_want_to))
                         Row(Modifier.horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ASSET_MODES.filter { (k, _) -> k != "PG" || category in RESIDENTIAL_TYPES }.forEach { (k, l) -> Chip(l, selected = mode == k) { mode = k; priceUnit = when (k) { "SELL" -> "TOTAL"; "LEASE" -> "YEAR"; else -> "MONTH" } } }
                         }
                         Spacer(Modifier.height(14.dp))
-                        BucksField(title, { title = it.take(80) }, "Title", when (category) { "Vehicle" -> "Honda Activa 2019, single owner"; "Plot / Land" -> "30x40 plot near Kanakapura Road"; "Shop", "Office", "Commercial space" -> "Ground-floor shop on 11th Main"; else -> "2BHK flat in 4th Block, east facing" })
+                        BucksField(title, { title = it.take(80) }, stringResource(R.string.g4_le_title), when (category) { "Vehicle" -> stringResource(R.string.g4_le_title_hint_vehicle); "Plot / Land" -> stringResource(R.string.g4_le_title_hint_plot); "Shop", "Office", "Commercial space" -> stringResource(R.string.g4_le_title_hint_shop); else -> stringResource(R.string.g4_le_title_hint_flat) })
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            BucksField(price, { price = it.filter { c -> c.isDigit() }.take(10) }, if (mode == "SELL") "Price (₹)" else "Rent (₹)", if (mode == "SELL") "4500000" else "28000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            if (mode != "SELL") BucksField(deposit, { deposit = it.filter { c -> c.isDigit() }.take(10) }, "Deposit (₹)", "150000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(price, { price = it.filter { c -> c.isDigit() }.take(10) }, if (mode == "SELL") stringResource(R.string.g4_le_price, Money.symbol) else stringResource(R.string.g4_le_rent, Money.symbol), if (mode == "SELL") "4500000" else "28000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            if (mode != "SELL") BucksField(deposit, { deposit = it.filter { c -> c.isDigit() }.take(10) }, stringResource(R.string.g4_le_deposit, Money.symbol), "150000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                         }
-                        price.toLongOrNull()?.takeIf { it > 0 }?.let { Muted(rupees(it) + (PRICE_UNITS.firstOrNull { u -> u.first == priceUnit }?.second?.takeIf { u -> u != "Total" }?.let { u -> " $u" } ?: ""), Modifier.padding(bottom = 6.dp)) }
-                            ?: Muted("Leave the price empty to show \"Price on request\".", Modifier.padding(bottom = 6.dp))
+                        price.toLongOrNull()?.takeIf { it > 0 }?.let { Muted(PRICE_UNITS.firstOrNull { u -> u.first == priceUnit }?.takeIf { u -> u.first != "TOTAL" }?.let { u -> stringResource(R.string.g4_le_price_per_unit, rupees(it), u.second) } ?: rupees(it), Modifier.padding(bottom = 6.dp)) }
+                            ?: Muted(stringResource(R.string.g4_le_price_empty), Modifier.padding(bottom = 6.dp))
                         ChipRow(PRICE_UNITS.map { it.second }, PRICE_UNITS.firstOrNull { it.first == priceUnit }?.second, Modifier.padding(bottom = 6.dp)) { picked -> priceUnit = PRICE_UNITS.first { it.second == picked }.first }
-                        SwitchRow("Price is negotiable", null, negotiable) { negotiable = it }
-                        SectionTitle("Details", Modifier.padding(top = 8.dp, bottom = 4.dp))
+                        SwitchRow(stringResource(R.string.g4_le_negotiable), null, negotiable) { negotiable = it }
+                        SectionTitle(stringResource(R.string.g4_prov_details), Modifier.padding(top = 8.dp, bottom = 4.dp))
                         if (category == "Vehicle") Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            BucksField(year, { year = it.filter { c -> c.isDigit() }.take(4) }, "Year", "2019", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            BucksField(kmDriven, { kmDriven = it.filter { c -> c.isDigit() }.take(7) }, "Km driven", "18000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(year, { year = it.filter { c -> c.isDigit() }.take(4) }, stringResource(R.string.g4_le_year), "2019", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(kmDriven, { kmDriven = it.filter { c -> c.isDigit() }.take(7) }, stringResource(R.string.g4_le_km_driven), "18000", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                         } else if (category !in setOf("Equipment", "Other")) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            BucksField(areaSqft, { areaSqft = it.filter { c -> c.isDigit() }.take(7) }, "Size (sq ft)", "1100", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            if (category in RESIDENTIAL_TYPES) BucksField(bedrooms, { bedrooms = it.filter { c -> c.isDigit() }.take(2) }, "Bedrooms", "2", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            BucksField(areaSqft, { areaSqft = it.filter { c -> c.isDigit() }.take(7) }, stringResource(R.string.g4_le_size_sqft), "1100", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            if (category in RESIDENTIAL_TYPES) BucksField(bedrooms, { bedrooms = it.filter { c -> c.isDigit() }.take(2) }, stringResource(R.string.g4_le_bedrooms), "2", Modifier.weight(1f), keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                         }
-                        if (category in RESIDENTIAL_TYPES || category in setOf("Office", "Shop", "Commercial space")) { Label("Furnishing"); ChipRow(FURNISHING, furnishing.ifBlank { null }, Modifier.padding(bottom = 14.dp)) { furnishing = if (furnishing == it) "" else it } }
-                        if (mode != "SELL") BucksField(availableFrom, { availableFrom = it.take(40) }, "Available from", "Immediately, or 1 November")
-                        BucksField(description, { description = it.take(600) }, "Description", "Condition, what's included, nearby landmarks, who it suits", singleLine = false, minLines = 3)
-                        BucksField(area, { area = it.take(60) }, "Area / locality", "Jayanagar 4th Block")
-                        Muted("Add more photos from the listing's Photos tab after saving.", Modifier.padding(bottom = 10.dp))
+                        if (category in RESIDENTIAL_TYPES || category in setOf("Office", "Shop", "Commercial space")) { Label(stringResource(R.string.g4_le_furnishing)); ChipRow(FURNISHING, furnishing.ifBlank { null }, Modifier.padding(bottom = 14.dp)) { furnishing = if (furnishing == it) "" else it } }
+                        if (mode != "SELL") BucksField(availableFrom, { availableFrom = it.take(40) }, stringResource(R.string.g4_le_available_from), stringResource(R.string.g4_le_available_from_hint))
+                        BucksField(description, { description = it.take(600) }, stringResource(R.string.g4_le_description), stringResource(R.string.g4_le_description_hint), singleLine = false, minLines = 3)
+                        BucksField(area, { area = it.take(60) }, stringResource(R.string.g4_le_area_locality), "Jayanagar 4th Block")
+                        Muted(stringResource(R.string.g4_le_more_photos), Modifier.padding(bottom = 10.dp))
                     }
                     else -> {
-                        BucksCard(Modifier.padding(bottom = 14.dp), padding = 12) { Muted("Shown to riders as"); Text(driverTitle, style = MaterialTheme.typography.titleMedium) }
-                        Label("What you drive"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { VEHICLE_KINDS.forEach { (k, l) -> Chip(l, selected = vehicleKind == k, icon = vehicleIcon(k)) { vehicleKind = k } } }
-                        Muted(if (vehicleKind == "BIKE") "Bikes carry parcels and food, never passengers." else "Passenger rides. Add the vehicle itself under Vehicles; it goes online after Bucks checks its documents.", Modifier.padding(top = 6.dp, bottom = 14.dp))
-                        BucksField(model, { model = it.take(60) }, "Vehicle model", "Bajaj RE, Maruti Dzire")
-                        Label("Languages you speak"); FlowChips(LANGUAGES, languages) { languages = if (it in languages) languages - it else languages + it }
+                        BucksCard(Modifier.padding(bottom = 14.dp), padding = 12) { Muted(stringResource(R.string.g4_le_shown_to_riders)); Text(driverTitle, style = MaterialTheme.typography.titleMedium) }
+                        Label(stringResource(R.string.g4_le_what_you_drive)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { VEHICLE_KINDS.forEach { (k, l) -> Chip(l, selected = vehicleKind == k, icon = vehicleIcon(k)) { vehicleKind = k } } }
+                        Muted(if (vehicleKind == "BIKE") stringResource(R.string.g4_le_bike_note) else stringResource(R.string.g4_le_passenger_note), Modifier.padding(top = 6.dp, bottom = 14.dp))
+                        BucksField(model, { model = it.take(60) }, stringResource(R.string.g4_le_vehicle_model), "Bajaj RE, Maruti Dzire")
+                        Label(stringResource(R.string.g4_le_languages)); FlowChips(LANGUAGES, languages) { languages = if (it in languages) languages - it else languages + it }
                         Spacer(Modifier.height(14.dp))
-                        BucksField(description, { description = it.take(600) }, "About you", "Years driving, areas you know well", singleLine = false, minLines = 3)
-                        BucksField(area, { area = it.take(60) }, "Home area", "Jayanagar")
+                        BucksField(description, { description = it.take(600) }, stringResource(R.string.g4_le_about_you), stringResource(R.string.g4_le_about_you_hint), singleLine = false, minLines = 3)
+                        BucksField(area, { area = it.take(60) }, stringResource(R.string.g4_le_home_area), "Jayanagar")
                     }
                 }
-                if (kind == "BUSINESS" || kind == "SKILL") SwitchRow("Show a Call button", "People can call your verified number from this page. Off: they message you on Bucks.", showPhone) { showPhone = it }
-                PhotoField(when (kind) { "BUSINESS" -> "Cover photo"; "ASSET" -> "Cover photo"; else -> "Profile photo" }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> type.icon; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
-                Label("Location")
+                if (kind == "BUSINESS" || kind == "SKILL") SwitchRow(stringResource(R.string.g4_le_show_call), stringResource(R.string.g4_le_show_call_note), showPhone) { showPhone = it }
+                PhotoField(when (kind) { "BUSINESS" -> stringResource(R.string.g4_le_cover_photo); "ASSET" -> stringResource(R.string.g4_le_cover_photo); else -> stringResource(R.string.g4_le_profile_photo) }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> type.icon; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
+                Label(stringResource(R.string.g4_prov_location))
                 when {
-                    existing == null && fix != null -> Muted("Saved as where you are now: near ${areaOf(st.hereLabel) ?: "your current location"}. People within 3 km of this spot can recommend you, so create it " + (if (kind == "ASSET") "at the property or where the asset is kept." else "at your shop or where you usually work."))
-                    existing == null -> Notice(if (st.locationGranted) "Waiting for your location… Bucks saves the listing where you are, so create it at your shop or where you usually work."
-                                               else "Turn on location so Bucks can save where your shop is. Neighbours within 3 km of that spot can recommend you, so create it at your shop or where you usually work.")
-                    fix != null -> SwitchRow("Move to where I am now", "Near ${areaOf(st.hereLabel) ?: "your current location"}. Leave off if you're not at the shop.", moveHere) { moveHere = it }
-                    else -> Muted(if (st.locationGranted) "Stays where it is. Waiting for your location before it can move to where you are now." else "Stays where it is. Turn on location to move it to where you are now.")
+                    existing == null && fix != null -> Muted(if (kind == "ASSET") stringResource(R.string.g4_le_saved_here_asset, areaOf(st.hereLabel) ?: stringResource(R.string.g4_le_your_current_location)) else stringResource(R.string.g4_le_saved_here, areaOf(st.hereLabel) ?: stringResource(R.string.g4_le_your_current_location)))
+                    existing == null -> Notice(if (st.locationGranted) stringResource(R.string.g4_le_waiting_location)
+                                               else stringResource(R.string.g4_le_turn_on_location))
+                    fix != null -> SwitchRow(stringResource(R.string.g4_le_move_here), stringResource(R.string.g4_le_move_here_note, areaOf(st.hereLabel) ?: stringResource(R.string.g4_le_your_current_location)), moveHere) { moveHere = it }
+                    else -> Muted(if (st.locationGranted) stringResource(R.string.g4_le_stays_waiting) else stringResource(R.string.g4_le_stays_turn_on))
                 }
             }
         }
         Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-            PrimaryButton(if (m.busy) "Saving…" else if (existing == null) "Save" else "Save changes", enabled = !m.busy && (existing != null || fix != null)) { save() }
-            if (existing != null && kind != "DRIVER" && m.canManage(existing.id)) SmallButton("Documents for Bucks to check", Modifier.padding(bottom = 6.dp), tonal = true) { onDocs(existing.id) }
-            if (existing != null && owner) BadButton("Delete this ${kindLabel(kind).lowercase()}", Modifier.padding(top = 4.dp)) { confirmDelete = true }
+            PrimaryButton(if (m.busy) stringResource(R.string.g4_saving) else if (existing == null) stringResource(R.string.g4_fb_save) else stringResource(R.string.g4_le_save_changes), enabled = !m.busy && (existing != null || fix != null)) { save() }
+            if (existing != null && kind != "DRIVER" && m.canManage(existing.id)) SmallButton(stringResource(R.string.g4_le_documents), Modifier.padding(bottom = 6.dp), tonal = true) { onDocs(existing.id) }
+            if (existing != null && owner) BadButton(stringResource(R.string.g4_le_delete_kind, kindLabel(kind).lowercase()), Modifier.padding(top = 4.dp)) { confirmDelete = true }
         }
     }
-    if (confirmDelete && existing != null) ConfirmDialog("Delete ${existing.title}?", "Its products, members, recommendations and reviews go with it. Orders customers already placed stay in their history. This can't be undone.", "Delete",
+    if (confirmDelete && existing != null) ConfirmDialog(stringResource(R.string.g4_le_delete_title, existing.title), stringResource(R.string.g4_le_delete_body), stringResource(R.string.g4_fb_delete),
         onConfirm = { m.deleteListing(existing.id) { onDone() } }, onDismiss = { confirmDelete = false })
 }
 
@@ -316,14 +320,14 @@ private fun JsonObject.withoutNulls() = JsonObject(filterValues { it !is JsonNul
 private fun CatalogueTabEditor(kind: String, type: PageType?, label: String, kinds: Set<String>, onLabel: (String) -> Unit, onKinds: (Set<String>) -> Unit) {
     val options = if (kind == "BUSINESS") PageTypes.itemKinds else PageTypes.itemKinds - "PRODUCT"
     val default = PageTypes.defaultLabel(kind, type, PageTypes.itemKinds.filter { it in kinds })
-    SectionTitle("Catalogue tab", Modifier.padding(top = 6.dp, bottom = 4.dp))
-    Muted("Your page shows Feed, About, Gallery, this tab, then Recommendations. Choose what it lists and, if you like, rename it.", Modifier.padding(bottom = 8.dp))
+    SectionTitle(stringResource(R.string.g4_le_catalogue_tab), Modifier.padding(top = 6.dp, bottom = 4.dp))
+    Muted(stringResource(R.string.g4_le_catalogue_note), Modifier.padding(bottom = 8.dp))
     FlowChips(options.map { PageTypes.kindPlural(it) }, kinds.map { PageTypes.kindPlural(it) }.toSet()) { picked ->
         val k = options.first { PageTypes.kindPlural(it) == picked }
         onKinds(if (k in kinds) kinds - k else kinds + k)
     }
-    BucksField(label, { onLabel(it.take(PageTypes.CATALOGUE_LABEL_MAX)) }, "Tab name (optional)", default)
-    Muted(listOf("Feed", "About", "Gallery", label.trim().ifBlank { default }, "Recommendations").joinToString(" · ") +
-        (if (kind == "BUSINESS" && "PRODUCT" !in kinds) "\nWithout Products, people can't order from this page." else ""), Modifier.padding(bottom = 10.dp))
+    BucksField(label, { onLabel(it.take(PageTypes.CATALOGUE_LABEL_MAX)) }, stringResource(R.string.g4_le_tab_name), default)
+    Muted(listOf(stringResource(R.string.g4_prov_tab_feed), stringResource(R.string.g4_prov_tab_about), stringResource(R.string.g4_le_tab_gallery), label.trim().ifBlank { default }, stringResource(R.string.g4_prov_tab_recommendations)).joinToString(" · ") +
+        (if (kind == "BUSINESS" && "PRODUCT" !in kinds) "\n" + stringResource(R.string.g4_le_no_products_note) else ""), Modifier.padding(bottom = 10.dp))
 }
 

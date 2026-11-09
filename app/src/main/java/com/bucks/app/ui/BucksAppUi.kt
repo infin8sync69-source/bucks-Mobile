@@ -56,6 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import com.bucks.app.data.DriverRideStatus
 import com.bucks.app.data.Here
 import com.bucks.app.data.Prefs
@@ -94,7 +96,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
         // Asked twice and still refused, Android stops showing the prompt: the only way left is the app's own settings page.
         val locPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { g -> if (g.values.any { it }) fetchLocation() else { vm.onLocationDenied()
-            val a = ctx.findActivity(); if (a != null && !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(a, Manifest.permission.ACCESS_FINE_LOCATION)) { toast("Location is blocked for Bucks. Allow it in the app's settings."); runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) } } } }
+            val a = ctx.findActivity(); if (a != null && !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(a, Manifest.permission.ACCESS_FINE_LOCATION)) { toast(com.bucks.app.data.Str.get(R.string.g3_loc_blocked)); runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) } } } }
         // Play policy: explain what location is used for before the system prompt appears.
         var locDisclosure by rememberSaveable { mutableStateOf(false) }
         LaunchedEffect(s.user != null, showIntro) { if (s.user != null && !showIntro) { if (hasLocation()) fetchLocation() else locDisclosure = true } }
@@ -104,34 +106,34 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         fun batteryOk() = (ctx.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(ctx.packageName)
         LaunchedEffect(s.vehicleOnline) { if (s.vehicleOnline && (!notifOk() || !batteryOk())) reachSheet = true }
         if (reachSheet) AlertDialog(onDismissRequest = { reachSheet = false },
-            title = { Text("Stay reachable while online") },
-            text = { Text("To ring you when a customer needs a ride, Bucks must be allowed to run in the background and send notifications.\n\n" +
-                (if (notifOk()) "\u2713 Notifications are on.\n" else "\u2717 Notifications are off.\n") + (if (batteryOk()) "\u2713 Battery: unrestricted." else "\u2717 Battery: the phone may put Bucks to sleep. Choose \"Allow\" or \"Unrestricted\".")) },
+            title = { Text(stringResource(R.string.g3_reach_title)) },
+            text = { Text(stringResource(R.string.g3_reach_body) + "\n\n" +
+                stringResource(if (notifOk()) R.string.g3_reach_notifs_on else R.string.g3_reach_notifs_off) + "\n" + stringResource(if (batteryOk()) R.string.g3_reach_battery_ok else R.string.g3_reach_battery_restricted)) },
             confirmButton = { TextButton({ reachSheet = false
                 if (!notifOk()) { if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)) }
                 // Play builds don't declare REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (release manifest), so they go straight to the settings list.
                 else if (!batteryOk()) runCatching { check(ctx.checkSelfPermission(Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)
                         ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${ctx.packageName}"))) }
-                    .onFailure { runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } } }) { Text("Fix now") } },
-            dismissButton = { TextButton({ reachSheet = false }) { Text("Later") } })
+                    .onFailure { runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } } }) { Text(stringResource(R.string.g3_fix_now)) } },
+            dismissButton = { TextButton({ reachSheet = false }) { Text(stringResource(R.string.g3_later)) } })
         // Back in the foreground: where the phone is now, not where it was when Bucks was last opened.
         LifecycleEventEffect(Lifecycle.Event.ON_START) { if (s.user != null && !showIntro && hasLocation()) fetchLocation() }
         // "Turn on location" from a booking screen: ask for the permission, open the phone's location switch, or look again.
         val enableLocation: () -> Unit = { when { !hasLocation() -> locDisclosure = true; !Here.switchedOn(ctx) -> runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }; else -> fetchLocation() } }
         if (locDisclosure) AlertDialog(onDismissRequest = { locDisclosure = false; vm.onLocationDenied() },
-            title = { Text("Use your location") },
-            text = { Text("Bucks uses your location to find riders, shops and services near you and to set your pick-up point. If you go online as a driver, Bucks keeps sharing your location while you're online, even when the app is closed, so nearby customers can ring you. It stops when you go offline.") },
-            confirmButton = { TextButton({ locDisclosure = false; locPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Text("Continue") } },
-            dismissButton = { TextButton({ locDisclosure = false; vm.onLocationDenied() }) { Text("Not now") } })
+            title = { Text(stringResource(R.string.g3_loc_disclosure_title)) },
+            text = { Text(stringResource(R.string.g3_loc_disclosure_body)) },
+            confirmButton = { TextButton({ locDisclosure = false; locPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Text(stringResource(R.string.g3_continue)) } },
+            dismissButton = { TextButton({ locDisclosure = false; vm.onLocationDenied() }) { Text(stringResource(R.string.g3_not_now)) } })
         // Foreground location service runs whenever a vehicle is online, whichever screen is showing. Without permission it can't start (Android 14 would crash), so go back offline.
-        LaunchedEffect(s.vehicleOnline) { when { !s.vehicleOnline -> com.bucks.app.data.DriverLocationService.stop(ctx); hasLocation() -> com.bucks.app.data.DriverLocationService.start(ctx); else -> { vm.setOnline(false); toast("Allow location to go online, so customers can find you."); locDisclosure = true } } }
+        LaunchedEffect(s.vehicleOnline) { when { !s.vehicleOnline -> com.bucks.app.data.DriverLocationService.stop(ctx); hasLocation() -> com.bucks.app.data.DriverLocationService.start(ctx); else -> { vm.setOnline(false); toast(com.bucks.app.data.Str.get(R.string.g3_loc_needed_online)); locDisclosure = true } } }
         // A request can only ring a driver outside the app through a notification: when those are blocked, say so as they go online (never blocks going online).
         var notifHelp by remember { mutableStateOf<RingAlert.Problem?>(null) }
         LaunchedEffect(s.vehicleOnline) { if (s.vehicleOnline) notifHelp = RingAlert.problem(ctx) }
-        notifHelp?.let { p -> AlertDialog(onDismissRequest = { notifHelp = null }, title = { Text("Turn on notifications") },
-            text = { Text("${p.message} Turn them on so requests reach you when Bucks is closed or the screen is off. You're online either way.") },
-            confirmButton = { TextButton({ notifHelp = null; runCatching { ctx.startActivity(RingAlert.settingsIntent(ctx, p)) } }) { Text("Open settings") } },
-            dismissButton = { TextButton({ notifHelp = null }) { Text("Not now") } }) }
+        notifHelp?.let { p -> AlertDialog(onDismissRequest = { notifHelp = null }, title = { Text(stringResource(R.string.g3_notifs_title)) },
+            text = { Text(stringResource(R.string.g3_notifs_body, p.message)) },
+            confirmButton = { TextButton({ notifHelp = null; runCatching { ctx.startActivity(RingAlert.settingsIntent(ctx, p)) } }) { Text(stringResource(R.string.g3_open_settings)) } },
+            dismissButton = { TextButton({ notifHelp = null }) { Text(stringResource(R.string.g3_not_now)) } }) }
         // Notifications: not on the first visit (people should see the app first); from the second launch on, once.
         LaunchedEffect(s.user != null, showIntro) { if (!showIntro && s.user != null && Prefs.launches >= 2 && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
         LaunchedEffect(Unit) { vm.nav.collect { route -> when {
@@ -190,40 +192,40 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                 Column(Modifier.fillMaxHeight()) { Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Bucks Pro", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                        IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close menu", tint = MaterialTheme.colorScheme.primary) }
+                        IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g3_cd_close_menu), tint = MaterialTheme.colorScheme.primary) }
                     }
                     // Pro profile: my professional side, one tap from the menu (adults only; the screen says so otherwise).
                     if (studio && vm.social.me != null) Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainer).clickable { closeMenu(); nav.navigate(Routes.PRO_PROFILE) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Avatar(initials(vm.social.me?.name.orEmpty().ifBlank { "?" }), size = 44, photoUrl = vm.social.me?.photoUrl)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text("Pro profile", style = MaterialTheme.typography.titleSmall)
-                            Text("Your work, skills and CV", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.g3_pro_profile), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.g3_pro_profile_sub), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.Rounded.ChevronRight, "Open Pro profile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Rounded.ChevronRight, stringResource(R.string.g3_cd_open_pro_profile), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.GridView, if (studio) "Bucks Pro home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
+                        DrawerItem(Icons.Rounded.GridView, stringResource(if (studio) R.string.g3_menu_pro_home else R.string.g3_menu_manage_listings), current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
                         // Quick access: every listing I run, one tap to its dashboard, and the switch right here when it's live.
                         if (studio) m.listings.sortedWith(compareBy({ it.status != "LIVE" }, { it.title.lowercase() })).forEach { l ->
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { closeMenu(); nav.navigate(Routes.studioListing(l.id)) }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 PhotoOrIcon(l.photoUrl ?: l.gallery.firstOrNull()?.url, studioIcon(l), size = 40)
                                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                     Text(l.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(when (l.status) { "LIVE" -> onlineLabel(l, l.online); "SUSPENDED" -> "Suspended"; else -> "${PageTypes.of(l)?.label ?: kindLabel(l.kind)} · not live yet" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                    Text(when (l.status) { "LIVE" -> onlineLabel(l, l.online); "SUSPENDED" -> stringResource(R.string.g3_listing_suspended); else -> stringResource(R.string.g3_listing_not_live, PageTypes.of(l)?.label ?: kindLabel(l.kind)) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                 }
                                 if (l.status == "LIVE" && m.canManage(l.id)) ListingSwitch(l.online) { on -> m.setOnline(l.id, on) }
                             }
                         }
                         // The vehicle and whether it's online; going online and offline happens in one place, on Home.
-                        if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(v.plate + if (s.online) " · Online" else "") }
-                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), onEdit = { closeMenu(); nav.navigate(Routes.vehicleEdit(cv.id)) }) { Muted(cv.plate + if (s.vehicleOnline) " · Online" else " · Go online from Home") }
-                        if (studio) DrawerItem(Icons.Rounded.Add, "Create a listing", false) { closeMenu(); nav.navigate(Routes.MY_LISTINGS) }
+                        if (v != null) ListingCard({ ListingThumb(v.kind.icon, size = 44) }, v.model, pill = v.mode.label, onEdit = { closeMenu(); nav.navigate("${Routes.VEHICLE_FORM}?id=${Uri.encode(v.id)}") }) { Muted(if (s.online) stringResource(R.string.g3_plate_online, v.plate) else v.plate) }
+                        if (cv != null) ListingCard({ ListingThumb(vehicleIcon(cv.kind), size = 44) }, cv.model.ifBlank { vehicleKindLabel(cv.kind) }, pill = vehicleKindLabel(cv.kind), onEdit = { closeMenu(); nav.navigate(Routes.vehicleEdit(cv.id)) }) { Muted(stringResource(if (s.vehicleOnline) R.string.g3_plate_online else R.string.g3_plate_go_online, cv.plate)) }
+                        if (studio) DrawerItem(Icons.Rounded.Add, stringResource(R.string.g3_menu_create_listing), false) { closeMenu(); nav.navigate(Routes.MY_LISTINGS) }
                     }
                     if (studio) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                         Column(Modifier.padding(12.dp)) {
-                            DrawerItem(Icons.Rounded.MailOutline, if (m.pendingCount > 0) "Invites (${m.pendingCount})" else "Invites", current == Routes.INVITES) { closeMenu(); nav.navigate(Routes.INVITES) }
+                            DrawerItem(Icons.Rounded.MailOutline, if (m.pendingCount > 0) stringResource(R.string.g3_menu_invites_count, m.pendingCount) else stringResource(R.string.g3_menu_invites), current == Routes.INVITES) { closeMenu(); nav.navigate(Routes.INVITES) }
                         }
                     }
                     }
@@ -239,9 +241,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         // The trip screen is Home; from any other screen a driver on a trip gets a way back to it (above the content, so no button is covered).
                         if (loggedIn && current != Routes.HOME && s.driverRide?.let { it.status != DriverRideStatus.RINGING } == true)
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary).clickable(onClickLabel = "Return to the trip") { home() }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Trip in progress", Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
-                                Text("Return", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge) }
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary).clickable(onClickLabel = stringResource(R.string.g3_cd_return_trip)) { home() }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.g3_trip_in_progress), Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+                                Text(stringResource(R.string.g3_return), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge) }
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                         NavHost(nav, startDestination = startDest,
                             enterTransition = { fadeIn(tween(220)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it / 20 } }, exitTransition = { fadeOut(tween(140)) },
@@ -436,7 +438,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
 
 /** Demo-mode fallback for the cloud-only jobs routes: say why and go back. */
 @Composable
-private fun JobsNeedCloud(vm: BucksViewModel, onBack: () -> Unit) { LaunchedEffect(Unit) { vm.toast("Jobs need the cloud build."); onBack() } }
+private fun JobsNeedCloud(vm: BucksViewModel, onBack: () -> Unit) { LaunchedEffect(Unit) { vm.toast(com.bucks.app.data.Str.get(R.string.g3_jobs_need_cloud)); onBack() } }
 
 @Composable
 private fun DrawerItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) = NavigationDrawerItem(icon = { Icon(icon, null) }, label = { Text(label, style = MaterialTheme.typography.bodyLarge) }, selected = selected, onClick = onClick, shape = MaterialTheme.shapes.small, modifier = Modifier.padding(vertical = 1.dp),

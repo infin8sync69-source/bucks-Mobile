@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.bucks.app.data.*
+import androidx.annotation.StringRes
+import com.bucks.app.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -18,30 +20,34 @@ import kotlinx.coroutines.launch
  * what only the app needs: the icon, what the supply side is asked to do, and the categories a business of it can pick.
  */
 data class ServiceDef(
-    val key: String, val label: String, val icon: ImageVector,
+    val key: String, @StringRes private val labelRes: Int, val icon: ImageVector,
     /** Button on the locked sheet that asks providers to join ("Run a restaurant? List it"). */
-    val joinPrompt: String, val joinAction: String,
+    @StringRes private val joinPromptRes: Int, @StringRes private val joinActionRes: Int,
     /** Categories a business of this service can pick (empty for services that are not businesses). */
     val categories: List<String> = emptyList(),
-)
+) {
+    val label: String get() = Str.get(labelRes)
+    val joinPrompt: String get() = Str.get(joinPromptRes)
+    val joinAction: String get() = Str.get(joinActionRes)
+}
 
 val SERVICE_CATALOG = listOf(
-    ServiceDef("TAXI", "Taxi", Icons.Rounded.LocalTaxi, "Drive a cab?", "Add your cab"),
-    ServiceDef("AUTO", "Auto", Icons.Rounded.ElectricRickshaw, "Drive an auto?", "Add your auto"),
-    ServiceDef("PARCEL", "Parcel", Icons.Rounded.DeliveryDining, "Ride a bike?", "Add your bike"),
-    ServiceDef("FOOD", "Food", Icons.Rounded.Restaurant, "Run a restaurant?", "List it", listOf("Restaurant", "Bakery", "Cafe", "Sweets", "Cloud kitchen", "Tiffin")),
-    ServiceDef("GROCERY", "Grocery", Icons.Rounded.LocalGroceryStore, "Run a grocery store?", "List it", listOf("Grocery", "Supermarket", "Dairy")),
-    ServiceDef("VEGETABLES", "Vegetables", Icons.Rounded.Eco, "Sell vegetables or fruit?", "List your stall", listOf("Vegetables", "Fruits")),
-    ServiceDef("MEAT", "Meat", Icons.Rounded.KebabDining, "Run a meat or fish shop?", "List it", listOf("Chicken", "Mutton", "Fish", "Eggs")),
-    ServiceDef("SHOPPING", "Shopping", Icons.Rounded.ShoppingBag, "Run a shop?", "List it", listOf("Electronics", "Mobile repair", "Hardware", "Furniture", "Clothing", "Stationery", "Salon", "Tailor", "Other")),
-    ServiceDef("GIGS", "Gigs", Icons.Rounded.Handyman, "Have a skill?", "Offer it"),
-    ServiceDef("JOBS", "Jobs", Icons.Rounded.Work, "Hiring?", "Post a job from your business"),
-    ServiceDef("PROPERTIES", "Properties", Icons.Rounded.Apartment, "Have a place to rent or sell?", "List it", listOf("Property owner", "Real estate agent", "Builder")),
+    ServiceDef("TAXI", R.string.g6_svc_taxi, Icons.Rounded.LocalTaxi, R.string.g6_svc_taxi_join, R.string.g6_svc_act_add_cab),
+    ServiceDef("AUTO", R.string.g6_svc_auto, Icons.Rounded.ElectricRickshaw, R.string.g6_svc_auto_join, R.string.g6_svc_act_add_auto),
+    ServiceDef("PARCEL", R.string.g6_svc_parcel, Icons.Rounded.DeliveryDining, R.string.g6_svc_parcel_join, R.string.g6_svc_act_add_bike),
+    ServiceDef("FOOD", R.string.g6_svc_food, Icons.Rounded.Restaurant, R.string.g6_svc_food_join, R.string.g6_svc_act_list_it, listOf("Restaurant", "Bakery", "Cafe", "Sweets", "Cloud kitchen", "Tiffin")),
+    ServiceDef("GROCERY", R.string.g6_svc_grocery, Icons.Rounded.LocalGroceryStore, R.string.g6_svc_grocery_join, R.string.g6_svc_act_list_it, listOf("Grocery", "Supermarket", "Dairy")),
+    ServiceDef("VEGETABLES", R.string.g6_svc_vegetables, Icons.Rounded.Eco, R.string.g6_svc_vegetables_join, R.string.g6_svc_act_list_stall, listOf("Vegetables", "Fruits")),
+    ServiceDef("MEAT", R.string.g6_svc_meat, Icons.Rounded.KebabDining, R.string.g6_svc_meat_join, R.string.g6_svc_act_list_it, listOf("Chicken", "Mutton", "Fish", "Eggs")),
+    ServiceDef("SHOPPING", R.string.g6_svc_shopping, Icons.Rounded.ShoppingBag, R.string.g6_svc_shopping_join, R.string.g6_svc_act_list_it, listOf("Electronics", "Mobile repair", "Hardware", "Furniture", "Clothing", "Stationery", "Salon", "Tailor", "Other")),
+    ServiceDef("GIGS", R.string.g6_svc_gigs, Icons.Rounded.Handyman, R.string.g6_svc_gigs_join, R.string.g6_svc_act_offer_it),
+    ServiceDef("JOBS", R.string.g6_svc_jobs, Icons.Rounded.Work, R.string.g6_svc_jobs_join, R.string.g6_svc_act_post_job),
+    ServiceDef("PROPERTIES", R.string.g6_svc_properties, Icons.Rounded.Apartment, R.string.g6_svc_properties_join, R.string.g6_svc_act_list_it, listOf("Property owner", "Real estate agent", "Builder")),
     // Page types beyond shops (ui/PageTypes.kt, migration page_types.sql): the tile opens search filtered to that service.
-    ServiceDef("LOCAL_SERVICES", "Local services", Icons.Rounded.ContentCut, "Run a salon, clinic or repair service?", "Set up your page"),
-    ServiceDef("BIZ_PRO", "Companies", Icons.Rounded.Code, "Run a company or a firm?", "Set up your page"),
-    ServiceDef("COMMUNITY", "NGOs and groups", Icons.Rounded.Groups, "Run an NGO or a community group?", "Set up your page"),
-    ServiceDef("INSTITUTIONS", "Institutions", Icons.Rounded.Apartment, "Run a school, college or association?", "Set up your page"),
+    ServiceDef("LOCAL_SERVICES", R.string.g6_svc_local_services, Icons.Rounded.ContentCut, R.string.g6_svc_local_services_join, R.string.g6_svc_act_setup_page),
+    ServiceDef("BIZ_PRO", R.string.g6_svc_biz_pro, Icons.Rounded.Code, R.string.g6_svc_biz_pro_join, R.string.g6_svc_act_setup_page),
+    ServiceDef("COMMUNITY", R.string.g6_svc_community, Icons.Rounded.Groups, R.string.g6_svc_community_join, R.string.g6_svc_act_setup_page),
+    ServiceDef("INSTITUTIONS", R.string.g6_svc_institutions, Icons.Rounded.Apartment, R.string.g6_svc_institutions_join, R.string.g6_svc_act_setup_page),
 )
 fun serviceDef(key: String?): ServiceDef? = SERVICE_CATALOG.firstOrNull { it.key == key }
 /** The services a BUSINESS listing can belong to (skills are always Gigs, drivers have none). */
@@ -84,7 +90,7 @@ class Services(private val scope: CoroutineScope, private val social: Social, pr
 
     private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: CancellationException) { throw e } catch (e: Exception) { toast(friendly(e)) } }
     private fun friendly(e: Exception): String = e.message?.lineSequence()?.firstOrNull()?.substringAfter("ERROR: ")?.takeIf { it.isNotBlank() && it.length < 160 }
-        ?.replaceFirstChar { it.uppercase() } ?: "Couldn't reach Bucks. Check your connection and try again."
+        ?.replaceFirstChar { it.uppercase() } ?: Str.get(R.string.g6_err_offline)
 
     fun state(key: String): ServiceState? = rows.firstOrNull { it.key == key }
 
@@ -101,8 +107,12 @@ class Services(private val scope: CoroutineScope, private val social: Social, pr
     fun toggleInterest(key: String) = go {
         val on = Backend.toggleServiceInterest(key, social.here)
         rows = rows.map { if (it.key == key) it.copy(mine = on, interested = (it.interested + if (on) 1 else -1).coerceAtLeast(0)) else it }
-        val label = serviceDef(key)?.label ?: "it"
-        toast(if (on) "We'll let you know when $label opens near you." else "You won't get a note about $label.")
+        val label = serviceDef(key)?.label
+        toast(when {
+            label == null -> Str.get(if (on) R.string.g6_svc_notify_on_generic else R.string.g6_svc_notify_off_generic)
+            on -> Str.get(R.string.g6_svc_notify_on, label)
+            else -> Str.get(R.string.g6_svc_notify_off, label)
+        })
     }
 
     // ---------- listing documents ----------
@@ -122,7 +132,7 @@ class Services(private val scope: CoroutineScope, private val social: Social, pr
             try { Backend.submitDocument(listingId, row.docType, path, number.trim(), expires) }
             catch (e: Exception) { runCatching { Backend.deleteFiles("docs", listOf(path)) }; throw e }
             row.path?.takeIf { it != path && it.startsWith("$me/") }?.let { old -> runCatching { Backend.deleteFiles("docs", listOf(old)) } }
-            toast("${row.label} sent. Bucks checks documents within two working days.")
+            toast(Str.get(R.string.g6_doc_sent, row.label))
             compliance[listingId] = Backend.listingCompliance(listingId)
             onDone()
         } finally { uploading = null }
@@ -133,7 +143,7 @@ class Services(private val scope: CoroutineScope, private val social: Social, pr
         val me = social.me?.id
         row.path?.takeIf { me != null && it.startsWith("$me/") }?.let { runCatching { Backend.deleteFiles("docs", listOf(it)) } }
         compliance[listingId] = Backend.listingCompliance(listingId)
-        toast("${row.label} removed.")
+        toast(Str.get(R.string.g6_doc_removed, row.label))
     }
 
     // ---------- Bucks staff: document review ----------
@@ -142,7 +152,7 @@ class Services(private val scope: CoroutineScope, private val social: Social, pr
     fun review(item: ReviewItem, approve: Boolean, note: String) = go {
         Backend.reviewDocument(item.id, approve, note)
         reviewQueue = reviewQueue.filterNot { it.id == item.id }
-        toast(if (approve) "${item.label} for ${item.listingTitle} approved." else "Rejected. They'll see your reason.")
+        toast(if (approve) Str.get(R.string.g6_doc_approved, item.label, item.listingTitle) else Str.get(R.string.g6_doc_rejected))
     }
 
     /** The next account on this phone starts clean. */

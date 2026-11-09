@@ -33,10 +33,13 @@ import androidx.compose.ui.unit.dp
 import com.bucks.app.data.*
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 @Composable
 fun PageHeader(title: String, onBack: () -> Unit) = Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 8.dp)) {
-    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", Modifier.size(26.dp)) }
+    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g6_cd_back), Modifier.size(26.dp)) }
     Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 16.dp))
 }
 
@@ -60,52 +63,53 @@ fun ListingCard(thumb: @Composable () -> Unit, title: String, pill: String? = nu
                 pill?.let { BrandPill(it) }
             }
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.Bottom) {
-                if (online != null) Column { ListingSwitch(online, onToggle); Muted(if (online) "Go offline" else "Go online") }
+                if (online != null) Column { ListingSwitch(online, onToggle); Muted(if (online) stringResource(R.string.g6_listing_go_offline) else stringResource(R.string.g6_listing_go_online)) }
                 Spacer(Modifier.weight(1f))
-                Row(Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onEdit).padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.EditNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp)); Text("Edit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp)) }
+                Row(Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onEdit).padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.EditNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp)); Text(stringResource(R.string.g6_edit), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp)) }
             }
         }
     }
 }
 
-private val LISTING_TABS = listOf("vehicles" to "Vehicles", "businesses" to "Businesses", "skills" to "Skillset")
+/** Tab key, its title and the add button's description. */
+private val LISTING_TABS = listOf(Triple("vehicles", R.string.g6_listing_tab_vehicles, R.string.g6_cd_add_vehicle), Triple("businesses", R.string.g6_listing_tab_businesses, R.string.g6_cd_add_business), Triple("skills", R.string.g6_listing_tab_skills, R.string.g6_cd_add_skill))
 
 @Composable
 fun ManageListingsScreen(vm: BucksViewModel, initialTab: String, onBack: () -> Unit, onVehicle: (String?) -> Unit, onBusiness: (Int?) -> Unit, onSkill: (String?) -> Unit) {
     val s by vm.state.collectAsState(); val providers by vm.repo.providers.collectAsState()
     var tab by rememberSaveable(initialTab) { mutableIntStateOf(LISTING_TABS.indexOfFirst { it.first == initialTab }.coerceAtLeast(0)) }
     ContentColumn(Modifier.fillMaxHeight()) {
-        PageHeader("Manage listings", onBack)
+        PageHeader(stringResource(R.string.g6_listing_manage_title), onBack)
         TabRow(tab, containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 8.dp),
             indicator = { pos -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(pos[tab]), height = 2.dp, color = MaterialTheme.colorScheme.primary) }, divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }) {
-            LISTING_TABS.forEachIndexed { i, (_, l) -> Tab(tab == i, onClick = { tab = i }, text = { Text(l, style = MaterialTheme.typography.bodyMedium) }) }
+            LISTING_TABS.forEachIndexed { i, (_, l, _) -> Tab(tab == i, onClick = { tab = i }, text = { Text(stringResource(l), style = MaterialTheme.typography.bodyMedium) }) }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (LISTING_TABS[tab].first) {
                 "vehicles" -> { val vs = s.pro?.vehicles.orEmpty()
-                    if (vs.isEmpty()) Muted("No vehicles yet. Tap + to list one. Once it's verified you can go online and take rides.")
+                    if (vs.isEmpty()) Muted(stringResource(R.string.g6_listing_no_vehicles))
                     vs.forEach { v -> val on = s.online && s.pro?.vehicle?.id == v.id
-                        ListingCard({ ListingThumb(v.kind.icon) }, v.model, pill = if (v.verified) v.mode.label else "In progress", online = if (v.verified) on else null, onToggle = { vm.setVehicleOnline(v.id, it) }, onEdit = { onVehicle(v.id) }) {
-                            Muted(v.plate); if (!v.verified) Muted("Documents are being verified", Modifier.padding(top = 2.dp)) } } }
+                        ListingCard({ ListingThumb(v.kind.icon) }, v.model, pill = if (v.verified) v.mode.label else stringResource(R.string.g6_listing_in_progress), online = if (v.verified) on else null, onToggle = { vm.setVehicleOnline(v.id, it) }, onEdit = { onVehicle(v.id) }) {
+                            Muted(v.plate); if (!v.verified) Muted(stringResource(R.string.g6_listing_docs_verifying), Modifier.padding(top = 2.dp)) } } }
                 "businesses" -> {
-                    if (s.businesses.isEmpty()) Muted("No businesses yet. Tap + to open one. Customers nearby find it in search once it's online.")
+                    if (s.businesses.isEmpty()) Muted(stringResource(R.string.g6_listing_no_businesses))
                     s.businesses.forEachIndexed { i, b ->
                         ListingCard({ ListingThumb(categoryIcon(b.category)) }, b.name, online = b.online, onToggle = { vm.setBusinessOnline(i, it) }, onEdit = { onBusiness(i) }) {
-                            Muted(b.area.ifBlank { b.category }); Muted("Followers: ${b.followers}", Modifier.padding(top = 2.dp)) } } }
+                            Muted(b.area.ifBlank { b.category }); Muted(stringResource(R.string.g6_listing_followers, b.followers.toString()), Modifier.padding(top = 2.dp)) } } }
                 else -> { val ks = s.pro?.skillListings.orEmpty()
-                    if (ks.isEmpty()) Muted("No skills yet. Tap + to add one. People nearby can book you once it's online.")
+                    if (ks.isEmpty()) Muted(stringResource(R.string.g6_listing_no_skills))
                     ks.forEach { k -> val trust = providers.firstOrNull { it.id == "me-${k.name}" }?.trust ?: Trust(0, 0)
                         ListingCard({ ListingThumb(categoryIcon(k.name)) }, k.name, online = k.online, onToggle = { vm.setSkillOnline(k.name, it) }, onEdit = { onSkill(k.name) }) {
-                            Muted(k.level.label); Muted("Portfolio items: ${k.portfolio}", Modifier.padding(top = 2.dp))
+                            Muted(k.level.label); Muted(stringResource(R.string.g6_listing_portfolio, k.portfolio.toString()), Modifier.padding(top = 2.dp))
                             Row(Modifier.padding(top = 6.dp)) { TrustBadge(trust, compact = true) } } } }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { when (LISTING_TABS[tab].first) { "vehicles" -> onVehicle(null); "businesses" -> onBusiness(null); else -> onSkill(null) } }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Add, "Add ${LISTING_TABS[tab].second.lowercase()}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Icon(Icons.Rounded.Add, stringResource(LISTING_TABS[tab].third), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             if (s.incoming.isNotEmpty()) {
-                SectionTitle("Incoming", Modifier.padding(top = 10.dp))
-                s.incoming.forEach { i -> BucksCard { Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(i.who), size = 36); Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(i.who, style = MaterialTheme.typography.titleMedium); Muted(i.text) }; SmallButton("Accept") { vm.acceptIncoming(i) } } } }
+                SectionTitle(stringResource(R.string.g6_listing_incoming), Modifier.padding(top = 10.dp))
+                s.incoming.forEach { i -> BucksCard { Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(i.who), size = 36); Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(i.who, style = MaterialTheme.typography.titleMedium); Muted(i.text) }; SmallButton(stringResource(R.string.g6_accept)) { vm.acceptIncoming(i) } } } }
             }
         }
     }
@@ -121,7 +125,7 @@ private fun PickerField(label: String, value: String, placeholder: String, optio
     }
 }
 
-private fun displayName(ctx: android.content.Context, uri: Uri): String = runCatching { ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: "Document"
+private fun displayName(ctx: android.content.Context, uri: Uri): String = runCatching { ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: Str.get(R.string.g6_listing_document)
 
 @Composable
 fun VehicleFormScreen(vm: BucksViewModel, editId: String?, onBack: () -> Unit, onDone: () -> Unit) {
@@ -132,23 +136,24 @@ fun VehicleFormScreen(vm: BucksViewModel, editId: String?, onBack: () -> Unit, o
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> uris.forEach { u -> if (docs.none { it.first == u }) docs.add(u to displayName(ctx, u)) } }
     val docCount = docs.size + (edit?.docs ?: 0)
     Column(Modifier.fillMaxSize()) {
-        PageHeader(if (edit == null) "List your vehicle" else "Edit vehicle", onBack)
+        PageHeader(if (edit == null) stringResource(R.string.g6_listing_vehicle_new) else stringResource(R.string.g6_listing_vehicle_edit), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            PickerField("Vehicle type", kind?.label ?: "", "eg., Car, Auto", VehicleKind.entries.map { "${it.label} · ${it.wheels} wheels" }, chevron = false) { kind = VehicleKind.entries[it] }
-            BucksField(model, { model = it }, "Model", "eg., Honda City")
-            BucksField(plate, { plate = it.uppercase() }, "License plate", "eg., KA00XX0000")
-            PickerField("Listing mode", mode?.label ?: "", "Select a mode", ListingMode.entries.map { it.label }, chevron = true) { mode = ListingMode.entries[it] }
-            Label("Upload your documents")
-            Muted("Registration certificate, insurance and driving licence.", Modifier.padding(bottom = 10.dp))
+            val wheelsFmt = VehicleKind.entries.map { stringResource(R.string.g6_listing_kind_wheels, it.label, it.wheels) }
+            PickerField(stringResource(R.string.g6_listing_vehicle_type), kind?.label ?: "", stringResource(R.string.g6_listing_vehicle_type_hint), wheelsFmt, chevron = false) { kind = VehicleKind.entries[it] }
+            BucksField(model, { model = it }, stringResource(R.string.g6_listing_model), stringResource(R.string.g6_listing_model_hint))
+            BucksField(plate, { plate = it.uppercase() }, stringResource(R.string.g6_listing_plate), stringResource(R.string.g6_listing_plate_hint))
+            PickerField(stringResource(R.string.g6_listing_mode), mode?.label ?: "", stringResource(R.string.g6_listing_mode_hint), ListingMode.entries.map { it.label }, chevron = true) { mode = ListingMode.entries[it] }
+            Label(stringResource(R.string.g6_listing_upload_docs))
+            Muted(stringResource(R.string.g6_listing_docs_needed), Modifier.padding(bottom = 10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 docs.forEachIndexed { i, (_, name) -> Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).padding(8.dp)) {
                     Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.primary); Text(name, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                    IconButton({ docs.removeAt(i) }, Modifier.align(Alignment.TopEnd).size(48.dp)) { Icon(Icons.Rounded.Close, "Remove", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } } }
-                Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { picker.launch(arrayOf("image/*", "application/pdf")) }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Add, "Upload a document", Modifier.size(32.dp)) }
+                    IconButton({ docs.removeAt(i) }, Modifier.align(Alignment.TopEnd).size(48.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.g6_cd_remove), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+                Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { picker.launch(arrayOf("image/*", "application/pdf")) }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Add, stringResource(R.string.g6_cd_upload_doc), Modifier.size(32.dp)) }
             }
-            if (edit != null && edit.docs > 0) Muted("${edit.docs} document${if (edit.docs == 1) "" else "s"} already on file", Modifier.padding(top = 8.dp))
+            if (edit != null && edit.docs > 0) Muted(pluralStringResource(R.plurals.g6_listing_docs_on_file, edit.docs, edit.docs), Modifier.padding(top = 8.dp))
         }
-        DarkButton("Verify and submit", Modifier.padding(20.dp), enabled = kind != null && plate.isNotBlank() && mode != null && docCount > 0) {
+        DarkButton(stringResource(R.string.g6_listing_verify_submit), Modifier.padding(20.dp), enabled = kind != null && plate.isNotBlank() && mode != null && docCount > 0) {
             vm.saveVehicle(kind!!, model.trim(), plate.trim(), mode!!, docCount, replacing = edit?.id); onDone() }
     }
 }
@@ -162,17 +167,17 @@ fun AddSkillScreen(vm: BucksViewModel, editName: String?, onBack: () -> Unit) {
     val have = s.pro?.skills.orEmpty().toSet()
     val suggestions = (SKILL_SUGGESTIONS + Seed.SKILLS).distinct().filter { it !in have && (skill.isBlank() || it.contains(skill.trim(), true)) && !it.equals(skill.trim(), true) }.take(if (skill.isBlank()) 8 else 12)
     Column(Modifier.fillMaxSize()) {
-        PageHeader(if (editName == null) "Add skill" else "Edit skill", onBack)
+        PageHeader(if (editName == null) stringResource(R.string.g6_listing_skill_add) else stringResource(R.string.g6_listing_skill_edit), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            BucksField(skill, { skill = it }, "Skill", "Skill (ex. web development)")
+            BucksField(skill, { skill = it }, stringResource(R.string.g6_listing_skill), stringResource(R.string.g6_listing_skill_hint))
             if (suggestions.isNotEmpty()) Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Skill suggestions", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 14.dp))
+                    Text(stringResource(R.string.g6_listing_skill_suggestions), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 14.dp))
                     FlowRowChips(suggestions) { skill = it }
                 }
             }
         }
-        DarkButton("Save", Modifier.padding(20.dp), enabled = skill.isNotBlank() && (skill.trim() !in have || skill.trim() == editName)) { vm.addSkill(skill, replacing = editName); onBack() }
+        DarkButton(stringResource(R.string.g6_save), Modifier.padding(20.dp), enabled = skill.isNotBlank() && (skill.trim() !in have || skill.trim() == editName)) { vm.addSkill(skill, replacing = editName); onBack() }
     }
 }
 

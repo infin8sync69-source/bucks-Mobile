@@ -1,5 +1,7 @@
 package com.bucks.app.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +24,7 @@ import androidx.compose.ui.unit.dp
 fun CancelSheet(
     title: String, message: String, reasons: List<Pair<String, String>>, requireReason: Boolean, confirmLabel: String,
     onConfirm: (code: String?, note: String) -> Unit, onDismiss: () -> Unit,
-    modifier: Modifier = Modifier, keepLabel: String = "Keep it", reasonTitle: String = "Why are you cancelling?", nudge: String? = null, busy: Boolean = false,
+    modifier: Modifier = Modifier, keepLabel: String = stringResource(R.string.g2_cancel_keep), reasonTitle: String = stringResource(R.string.g2_cancel_why), nudge: String? = null, busy: Boolean = false,
 ) {
     var sel by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf("") }
@@ -31,7 +33,7 @@ fun CancelSheet(
             Text(title, style = MaterialTheme.typography.titleLarge)
             Muted(message, Modifier.padding(top = 4.dp))
             if (nudge != null) Notice(nudge, Modifier.padding(top = 12.dp))
-            Text(if (requireReason) reasonTitle else "$reasonTitle (optional)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+            Text(if (requireReason) reasonTitle else stringResource(R.string.g2_cancel_optional, reasonTitle), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
             reasons.forEach { (code, label) ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.small).clickable(enabled = !busy) { sel = if (sel == code && !requireReason) null else code },
                     verticalAlignment = Alignment.CenterVertically) {
@@ -39,14 +41,14 @@ fun CancelSheet(
                     Text(label, style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            if (sel == "OTHER") OutlinedTextField(note, { note = it.take(200) }, Modifier.fillMaxWidth().padding(top = 8.dp), placeholder = { Text("Tell them in a few words (optional)") },
+            if (sel == "OTHER") OutlinedTextField(note, { note = it.take(200) }, Modifier.fillMaxWidth().padding(top = 8.dp), placeholder = { Text(stringResource(R.string.g2_cancel_note_hint)) },
                 minLines = 2, maxLines = 4, supportingText = { Text("${note.length}/200") })
             PrimaryButton(keepLabel, Modifier.padding(top = 16.dp), enabled = !busy) { onDismiss() }
             TextButton({ onConfirm(sel, note.trim()) }, Modifier.fillMaxWidth().height(48.dp), enabled = !busy && (!requireReason || sel != null),
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                Text(if (busy) "Cancelling…" else confirmLabel, style = MaterialTheme.typography.labelLarge)
+                Text(if (busy) stringResource(R.string.g2_cancel_cancelling) else confirmLabel, style = MaterialTheme.typography.labelLarge)
             }
-            if (requireReason && sel == null) Muted("Pick a reason to cancel.", Modifier.padding(top = 2.dp).align(Alignment.CenterHorizontally))
+            if (requireReason && sel == null) Muted(stringResource(R.string.g2_cancel_pick_reason), Modifier.padding(top = 2.dp).align(Alignment.CenterHorizontally))
         }
     }
 }

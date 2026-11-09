@@ -40,6 +40,8 @@ import com.bucks.app.ui.rememberCamera
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * The top of every profile, a person's or a page's: the cover photo across the top (a gradient until one is set) and the round
@@ -59,12 +61,13 @@ fun ProfileMediaHeader(
     var viewing by remember { mutableStateOf<ProfileMedia.Slot?>(null) }
     var menu by remember { mutableStateOf<ProfileMedia.Slot?>(null) }
     var picking by remember { mutableStateOf(ProfileMedia.Slot.PHOTO) }
+    val msgBadPhoto = stringResource(R.string.g6_media_bad_photo)
     fun accept(uri: Uri) {
         val slot = picking
         scope.launch {
             // A cover is shown full width, a profile picture never larger than a phone's width.
             val picked = withContext(Dispatchers.IO) { Upload.read(ctx, uri, maxPx = if (slot == ProfileMedia.Slot.COVER) 1920 else 1080) }
-            if (picked == null || !picked.isImage) vm.toast("Couldn't open that photo. Try another one.") else onPick(slot, picked)
+            if (picked == null || !picked.isImage) vm.toast(msgBadPhoto) else onPick(slot, picked)
         }
     }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(::accept) }
@@ -75,40 +78,40 @@ fun ProfileMediaHeader(
     Box(Modifier.fillMaxWidth().height(coverHeight + avatarSize / 2)) {
         // Cover
         Box(Modifier.fillMaxWidth().height(coverHeight).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimaryContainer)))
-            .clickable(enabled = coverUrl != null || editable, role = Role.Image, onClickLabel = if (coverUrl != null) "View cover photo" else "Add a cover photo") { tap(ProfileMedia.Slot.COVER) }) {
-            coverUrl?.let { AsyncImage(it, "Cover photo", Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            .clickable(enabled = coverUrl != null || editable, role = Role.Image, onClickLabel = if (coverUrl != null) stringResource(R.string.g6_media_view_cover) else stringResource(R.string.g6_media_add_cover)) { tap(ProfileMedia.Slot.COVER) }) {
+            coverUrl?.let { AsyncImage(it, stringResource(R.string.g6_media_cover), Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
             // Keeps the back and menu buttons readable over a bright photo.
             Box(Modifier.fillMaxWidth().height(72.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent))))
             if (busy == ProfileMedia.Slot.COVER) CircularProgressIndicator(Modifier.align(Alignment.Center).size(32.dp), color = Color.White, strokeWidth = 3.dp)
-            if (editable) EditBadge("Change cover photo", Modifier.align(Alignment.BottomEnd).padding(10.dp)) { menu = ProfileMedia.Slot.COVER }
+            if (editable) EditBadge(stringResource(R.string.g6_media_change_cover), Modifier.align(Alignment.BottomEnd).padding(10.dp)) { menu = ProfileMedia.Slot.COVER }
         }
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp)) { topStart(); Spacer(Modifier.weight(1f)); topEnd() }
         // Profile picture
         Box(Modifier.padding(start = Gutter).align(Alignment.BottomStart)) {
             Box(Modifier.size(avatarSize).clip(CircleShape).background(MaterialTheme.colorScheme.background).padding(4.dp).clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer)
-                .clickable(enabled = photoUrl != null || editable, role = Role.Image, onClickLabel = if (photoUrl != null) "View profile picture" else "Add a profile picture") { tap(ProfileMedia.Slot.PHOTO) },
+                .clickable(enabled = photoUrl != null || editable, role = Role.Image, onClickLabel = if (photoUrl != null) stringResource(R.string.g6_media_view_photo) else stringResource(R.string.g6_media_add_photo)) { tap(ProfileMedia.Slot.PHOTO) },
                 contentAlignment = Alignment.Center) {
                 if (fallbackIcon != null) Icon(fallbackIcon, null, Modifier.size(avatarSize * 0.45f), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 else Text(initials(name.ifBlank { "?" }), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                photoUrl?.let { AsyncImage(it, "Profile picture", Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+                photoUrl?.let { AsyncImage(it, stringResource(R.string.g6_media_photo), Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
                 if (busy == ProfileMedia.Slot.PHOTO) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(28.dp), color = Color.White, strokeWidth = 3.dp) }
             }
-            if (editable) EditBadge("Change profile picture", Modifier.align(Alignment.BottomEnd)) { menu = ProfileMedia.Slot.PHOTO }
+            if (editable) EditBadge(stringResource(R.string.g6_media_change_photo), Modifier.align(Alignment.BottomEnd)) { menu = ProfileMedia.Slot.PHOTO }
         }
     }
 
     menu?.let { slot ->
-        val what = if (slot == ProfileMedia.Slot.PHOTO) "profile picture" else "cover photo"
+        val isPhoto = slot == ProfileMedia.Slot.PHOTO
         val has = urlOf(slot) != null
         ModalBottomSheet(onDismissRequest = { menu = null }) {
             Column(Modifier.padding(bottom = 24.dp)) {
-                Text(what.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                SheetAction(Icons.Rounded.PhotoLibrary, "Choose from gallery") { menu = null; picking = slot; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                SheetAction(Icons.Rounded.PhotoCamera, "Take a photo") { menu = null; picking = slot; camera.takePhoto() }
-                if (has) SheetAction(Icons.Rounded.Fullscreen, "View $what") { menu = null; viewing = slot }
-                if (has) SheetAction(Icons.Rounded.Delete, "Remove $what", danger = true) { menu = null; onRemove(slot) }
+                Text(stringResource(if (isPhoto) R.string.g6_media_photo else R.string.g6_media_cover), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                SheetAction(Icons.Rounded.PhotoLibrary, stringResource(R.string.g6_media_gallery)) { menu = null; picking = slot; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                SheetAction(Icons.Rounded.PhotoCamera, stringResource(R.string.g6_media_take_photo)) { menu = null; picking = slot; camera.takePhoto() }
+                if (has) SheetAction(Icons.Rounded.Fullscreen, stringResource(if (isPhoto) R.string.g6_media_view_photo else R.string.g6_media_view_cover)) { menu = null; viewing = slot }
+                if (has) SheetAction(Icons.Rounded.Delete, stringResource(if (isPhoto) R.string.g6_media_remove_photo else R.string.g6_media_remove_cover), danger = true) { menu = null; onRemove(slot) }
             }
         }
     }

@@ -11,6 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.bucks.app.data.ForYouBackend
 import com.bucks.app.data.ForYouItem
 import com.bucks.app.ui.BucksViewModel
@@ -27,19 +30,19 @@ fun CloudForYouScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
     var filter by remember { mutableStateOf("ALL") }; var open by remember { mutableStateOf<ForYouItem?>(null) }
     LaunchedEffect(vm.social.me?.id) { runCatching { ForYouBackend.items() }.onSuccess { items = it; failed = false }.onFailure { failed = true; items = emptyList() } }
     val shown = items.orEmpty().filter { when (filter) { "POST" -> it.kind == "POST"; "LISTING" -> it.kind == "LISTING"; "PRODUCT" -> it.kind == "PRODUCT"; else -> true } }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("For you", onMenu = onMenu, unread = vm.social.unread, onChat = onMessages)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g3_foryou_title), onMenu = onMenu, unread = vm.social.unread, onChat = onMessages)
         Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("ALL" to "All", "POST" to "Posts", "LISTING" to "Places", "PRODUCT" to "Products").forEach { (k, l) -> Chip(l, selected = filter == k) { filter = k } }
+            listOf("ALL" to stringResource(R.string.g3_foryou_all), "POST" to stringResource(R.string.g3_foryou_posts), "LISTING" to stringResource(R.string.g3_foryou_places), "PRODUCT" to stringResource(R.string.g3_foryou_products)).forEach { (k, l) -> Chip(l, selected = filter == k) { filter = k } }
         }
         when {
             items == null -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = Gutter))
-            failed -> Notice("Couldn't load what your synced people recommend. Check your connection.", Modifier.padding(Gutter))
+            failed -> Notice(stringResource(R.string.g3_foryou_load_failed), Modifier.padding(Gutter))
             items!!.isEmpty() -> Column(Modifier.padding(Gutter)) {
-                Text("Nothing yet", style = MaterialTheme.typography.titleMedium)
-                Muted("Shops, pros, products and posts your synced people recommend show up here.", Modifier.padding(top = 4.dp))
-                SmallButton("Find people to sync with", Modifier.padding(top = 12.dp), tonal = true, onClick = onFindPeople)
+                Text(stringResource(R.string.g3_foryou_empty_title), style = MaterialTheme.typography.titleMedium)
+                Muted(stringResource(R.string.g3_foryou_empty_body), Modifier.padding(top = 4.dp))
+                SmallButton(stringResource(R.string.g3_foryou_find_people), Modifier.padding(top = 12.dp), tonal = true, onClick = onFindPeople)
             }
-            shown.isEmpty() -> Muted("Nothing in this filter yet.", Modifier.padding(Gutter))
+            shown.isEmpty() -> Muted(stringResource(R.string.g3_foryou_filter_empty), Modifier.padding(Gutter))
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(shown, key = { it.kind + it.id }) { r ->
                     Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable { if (r.kind == "POST" && r.listingId == null) open = r else r.listingId?.let(onListing) }
@@ -51,7 +54,7 @@ fun CloudForYouScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
                             if (r.subtitle.isNotBlank()) Muted(r.subtitle, maxLines = 2)
                             Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Rounded.ThumbUp, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                Text(" Recommended by ${r.recommenders} you're synced with", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                Text(" " + pluralStringResource(R.plurals.g3_foryou_recommended_by, r.recommenders, r.recommenders), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -61,5 +64,5 @@ fun CloudForYouScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> 
         }
     }
     open?.let { p -> AlertDialog(onDismissRequest = { open = null }, title = { Text(p.title) }, text = { Text(p.subtitle) },
-        confirmButton = { TextButton({ open = null }) { Text("Close") } }) }
+        confirmButton = { TextButton({ open = null }) { Text(stringResource(R.string.g3_close)) } }) }
 }

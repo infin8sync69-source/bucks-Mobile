@@ -2,7 +2,9 @@ package com.bucks.app.ui
 
 import android.content.Context
 import com.bucks.app.BuildConfig
+import com.bucks.app.R
 import com.bucks.app.data.AppUpdate
+import com.bucks.app.data.Str
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -18,10 +20,10 @@ object Invite {
 
     /** Shares [message] followed by the download link. */
     fun share(ctx: Context, scope: CoroutineScope, message: String) {
-        scope.launch { shareText(ctx, "$message\n\nGet Bucks for Android: ${link()}" + if (PLAY_URL.isBlank()) "\n(Allow \"install unknown apps\" when asked; Bucks isn't on the Play Store yet.)" else "") }
+        scope.launch { val url = link(); shareText(ctx, if (PLAY_URL.isBlank()) Str.get(R.string.g4_invite_share_apk, message, url) else Str.get(R.string.g4_invite_share_play, message, url)) }
     }
 
     /** What to say for a locked service: who we need more of, in plain words. */
     fun forService(label: String, supplyNoun: String) =
-        "I want $label on Bucks near me, but it needs more $supplyNoun here first. If you're one (or know one), join Bucks and get recommended by locals so it opens for all of us."
+        Str.get(R.string.g4_invite_for_service, label, supplyNoun)
 }

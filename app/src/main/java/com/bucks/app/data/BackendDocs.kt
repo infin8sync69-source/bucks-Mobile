@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.SerialName
@@ -50,18 +51,18 @@ private val docDb get() = Backend.client.postgrest
 
 /** The kinds a profile can show. "Other" lets the owner name it; the others suggest a name. */
 object ShowcaseKinds {
-    val all = listOf(
-        Triple("REGISTRATION", "Registration", "Company, society, trust or NGO registration"),
-        Triple("LICENCE", "Licence", "Trade licence, FSSAI, RERA or a professional licence"),
-        Triple("TAX", "Tax", "GST, 12A / 80G or other tax registration"),
-        Triple("CERTIFICATE", "Certificate", "Quality, training or safety certificate"),
-        Triple("AFFILIATION", "Affiliation", "Board, university or association"),
-        Triple("AWARD", "Award", "Awards and recognition"),
-        Triple("REPORT", "Report", "Annual or audited report"),
-        Triple("BROCHURE", "Brochure", "Brochure, catalogue or price list"),
-        Triple("OTHER", "Other", "Anything else; you choose the name"),
+    val all get() = listOf(
+        Triple("REGISTRATION", Str.get(R.string.g3_doc_registration), Str.get(R.string.g3_doc_registration_hint)),
+        Triple("LICENCE", Str.get(R.string.g3_doc_licence), Str.get(R.string.g3_doc_licence_hint)),
+        Triple("TAX", Str.get(R.string.g3_doc_tax), Str.get(R.string.g3_doc_tax_hint)),
+        Triple("CERTIFICATE", Str.get(R.string.g3_doc_certificate), Str.get(R.string.g3_doc_certificate_hint)),
+        Triple("AFFILIATION", Str.get(R.string.g3_doc_affiliation), Str.get(R.string.g3_doc_affiliation_hint)),
+        Triple("AWARD", Str.get(R.string.g3_doc_award), Str.get(R.string.g3_doc_award_hint)),
+        Triple("REPORT", Str.get(R.string.g3_doc_report), Str.get(R.string.g3_doc_report_hint)),
+        Triple("BROCHURE", Str.get(R.string.g3_doc_brochure), Str.get(R.string.g3_doc_brochure_hint)),
+        Triple("OTHER", Str.get(R.string.g3_doc_other), Str.get(R.string.g3_doc_other_hint)),
     )
-    fun label(kind: String) = all.firstOrNull { it.first == kind }?.second ?: "Document"
+    fun label(kind: String) = all.firstOrNull { it.first == kind }?.second ?: Str.get(R.string.g3_doc_document)
     /** Documents that usually carry a registration number the public can look up. */
     fun hasNumber(kind: String) = kind in setOf("REGISTRATION", "LICENCE", "TAX")
     /** Safe to show to everyone by default; the rest start as "on request". */
@@ -70,7 +71,7 @@ object ShowcaseKinds {
 
 /** Official registries a number can be checked against; the app opens the registry's own search, it does not check for you. */
 object Registries {
-    val all = listOf("GST" to "GST", "FSSAI" to "FSSAI", "MCA" to "Company (MCA)")
+    val all get() = listOf("GST" to "GST", "FSSAI" to "FSSAI", "MCA" to Str.get(R.string.g3_registry_mca))
     fun url(registry: String?): String? = when (registry) {
         "GST" -> "https://services.gst.gov.in/services/searchtp"
         "FSSAI" -> "https://foscos.fssai.gov.in/"

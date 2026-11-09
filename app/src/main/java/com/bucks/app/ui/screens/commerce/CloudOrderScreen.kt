@@ -29,6 +29,8 @@ import com.bucks.app.ui.screens.ago
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * The order page. For the buyer: lines and totals, a status timeline, pay the shop by UPI, call the shop, track the delivery,
@@ -75,14 +77,14 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
     }
 
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Order", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g6_order_title), onBack = onBack)
         when {
             missing -> Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("This order isn't here", style = MaterialTheme.typography.titleLarge); Muted("It may belong to another account. Your orders are under Account > Activity.", Modifier.padding(top = 6.dp), TextAlign.Center)
-                SmallButton("Go back", Modifier.padding(top = 18.dp), onClick = onBack) }
+                Text(stringResource(R.string.g6_order_missing), style = MaterialTheme.typography.titleLarge); Muted(stringResource(R.string.g6_order_missing_detail), Modifier.padding(top = 6.dp), TextAlign.Center)
+                SmallButton(stringResource(R.string.g6_go_back), Modifier.padding(top = 18.dp), onClick = onBack) }
             o == null && loadFailed -> Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Couldn't load this order", style = MaterialTheme.typography.titleLarge); Muted("Check your connection. We'll keep trying every few seconds.", Modifier.padding(top = 6.dp), TextAlign.Center)
-                SmallButton("Try again", Modifier.padding(top = 18.dp)) { loadFailed = false; attempt++ } }
+                Text(stringResource(R.string.g6_order_load_failed), style = MaterialTheme.typography.titleLarge); Muted(stringResource(R.string.g6_order_load_failed_detail), Modifier.padding(top = 6.dp), TextAlign.Center)
+                SmallButton(stringResource(R.string.g6_try_again), Modifier.padding(top = 18.dp)) { loadFailed = false; attempt++ } }
             o == null -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { BucksLoader() }
             else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
                 val title = commerce.titleOf(o.listingId); val acting = commerce.isActing(o.id)
@@ -91,11 +93,11 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 val customer = social.nameOf(o.buyerId).takeIf { it != "…" && it.isNotBlank() }
                 Row(Modifier.fillMaxWidth().clickable { onOpenListing(o.listingId) }, verticalAlignment = Alignment.CenterVertically) {
                     Avatar(icon = Icons.Rounded.Storefront, tinted = false)
-                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text(title, style = MaterialTheme.typography.titleLarge); Muted("Order ${shortOrderId(o.id)} · ${ago(o.createdAt)} · ${deliveryModeLabel(o.deliveryMode)}") }
-                    Icon(Icons.Rounded.ChevronRight, "Open shop", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text(title, style = MaterialTheme.typography.titleLarge); Muted(stringResource(R.string.g6_order_header_line, shortOrderId(o.id), ago(o.createdAt), deliveryModeLabel(o.deliveryMode))) }
+                    Icon(Icons.Rounded.ChevronRight, stringResource(R.string.g6_cd_open_shop), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (vendor) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Person, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(" For ${customer ?: "a customer"}", style = MaterialTheme.typography.titleSmall)
+                    Icon(Icons.Rounded.Person, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(" " + (if (customer != null) stringResource(R.string.g6_order_for_name, customer) else stringResource(R.string.g6_order_for_customer)), style = MaterialTheme.typography.titleSmall)
                 }
                 Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) { OrderStatusPill(o.status, o.deliveryMode); Spacer(Modifier.width(8.dp)); PillGrey(paymentLabel(o.payment)) }
 
@@ -107,7 +109,7 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
 
                 ShipToCard(o, Modifier.padding(top = 12.dp))
                 ShipmentCard(o, Modifier.padding(top = 12.dp))
-                SectionTitle("Progress", Modifier.padding(top = 22.dp, bottom = 10.dp))
+                SectionTitle(stringResource(R.string.g6_order_progress), Modifier.padding(top = 22.dp, bottom = 10.dp))
                 if (o.status == "PLACED" && !vendor) AcceptCountdown(o.acceptBy)
                 OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy, carrier = o.carrier, ringWindowS = vm.dispatch.ringWindowS)
                 if (!vendor && o.status == "DELIVERED") OrderReviewCard(vm, o.id, o.listingId, commerce.titleOf(o.listingId))
@@ -115,38 +117,40 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 if (!vendor) {
                     // The shop is paid for what it sells (and its own rider's fee); a Bucks rider's fee goes to the rider at the door.
                     val payable = o.payment == "UPI" && o.status in setOf("ACCEPTED", "READY", "PICKED_UP", "SHIPPED", "DELIVERED")
-                    val riderNote = if (o.feeAtDoor > 0) " The rider's ${rupees(o.feeAtDoor)} fee is paid to the rider at the door, not here." else ""
+                    val riderNote = if (o.feeAtDoor > 0) stringResource(R.string.g6_order_rider_note, rupees(o.feeAtDoor)) else ""
+                    fun withNote(text: String) = if (riderNote.isEmpty()) text else "$text $riderNote"
+                    val msgNoUpiApp = stringResource(R.string.g6_order_no_upi_app)
                     if (payable) {
                         val upi = contact?.upiUri
-                        PrimaryButton("Pay ${rupees(o.toShop)} by UPI", Modifier.padding(top = 18.dp), enabled = upi != null) {
+                        PrimaryButton(stringResource(R.string.g6_order_pay_upi_btn, rupees(o.toShop)), Modifier.padding(top = 18.dp), enabled = upi != null) {
                             if (upi == null) return@PrimaryButton
-                            if (!openUpi(ctx, upiPayUri(upi, o.toShop, "Bucks order ${shortOrderId(o.id)}"))) vm.toast("No UPI app found on this phone. Pay the shop directly.")
+                            if (!openUpi(ctx, upiPayUri(upi, o.toShop, "Bucks order ${shortOrderId(o.id)}"))) vm.toast(msgNoUpiApp)
                         }
-                        Muted(when { upi != null -> "Opens your UPI app with ${title}'s QR and the amount filled in.$riderNote"; contact == null -> "Getting the shop's payment details…"; else -> "${title} hasn't added a UPI QR yet. Pay them directly when you receive the order.$riderNote" }, Modifier.padding(top = 6.dp).fillMaxWidth(), TextAlign.Center)
-                    } else if (o.payment == "UPI" && o.status == "PLACED") Muted("You can pay by UPI once ${title} accepts.$riderNote", Modifier.padding(top = 18.dp).fillMaxWidth(), TextAlign.Center)
-                    else if (o.payment == "COD" && orderLive(o.status)) Notice("Keep ${rupees(o.total)} in cash ready for the store's rider.", Modifier.padding(top = 18.dp))
+                        Muted(when { upi != null -> withNote(stringResource(R.string.g6_order_upi_opens, title)); contact == null -> stringResource(R.string.g6_order_upi_loading); else -> withNote(stringResource(R.string.g6_order_upi_none, title)) }, Modifier.padding(top = 6.dp).fillMaxWidth(), TextAlign.Center)
+                    } else if (o.payment == "UPI" && o.status == "PLACED") Muted(withNote(stringResource(R.string.g6_order_upi_after_accept, title)), Modifier.padding(top = 18.dp).fillMaxWidth(), TextAlign.Center)
+                    else if (o.payment == "COD" && orderLive(o.status)) Notice(stringResource(R.string.g6_order_cod_ready, rupees(o.total)), Modifier.padding(top = 18.dp))
 
-                    if (o.shipped && o.status == "SHIPPED") PrimaryButton("I received it", Modifier.padding(top = 10.dp)) { commerce.markDelivered(o.id) }
+                    if (o.shipped && o.status == "SHIPPED") PrimaryButton(stringResource(R.string.g6_order_received), Modifier.padding(top = 10.dp)) { commerce.markDelivered(o.id) }
                     val t = task
-                    if (t != null && t.status != "COMPLETED" && t.status != "PAID" && t.status != "CANCELLED") TintButton("Track delivery", Modifier.padding(top = 10.dp)) { onTrack(t.id) }
+                    if (t != null && t.status != "COMPLETED" && t.status != "PAID" && t.status != "CANCELLED") TintButton(stringResource(R.string.g6_order_track), Modifier.padding(top = 10.dp)) { onTrack(t.id) }
                 } else when (o.status) {
                     "PLACED" -> Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SmallButton(if (acting) "Working…" else "Accept", Modifier.weight(1f), enabled = !acting) { commerce.respondOrder(o.id, true) }
-                        SmallButton("Reject", Modifier.weight(1f), tonal = true, enabled = !acting) { confirmReject = true }
+                        SmallButton(if (acting) stringResource(R.string.g6_order_working) else stringResource(R.string.g6_accept), Modifier.weight(1f), enabled = !acting) { commerce.respondOrder(o.id, true) }
+                        SmallButton(stringResource(R.string.g6_order_reject), Modifier.weight(1f), tonal = true, enabled = !acting) { confirmReject = true }
                     }
-                    "ACCEPTED" -> if (o.shipped) PrimaryButton(if (acting) "Working…" else "Mark shipped", Modifier.padding(top = 18.dp), enabled = !acting) { showShip = true }
-                                  else PrimaryButton(if (acting) "Working…" else if (o.deliveryMode == "PICKUP") "Ready to collect" else "Packed", Modifier.padding(top = 18.dp), enabled = !acting) { commerce.updateOrderStatus(o.id, "READY") }
-                    "SHIPPED" -> if (o.shipped) PrimaryButton(if (acting) "Working…" else "Mark delivered", Modifier.padding(top = 18.dp), enabled = !acting) { commerce.markDelivered(o.id) }
-                    "READY" -> if (o.deliveryMode == "PICKUP") PrimaryButton(if (acting) "Working…" else "Collected", Modifier.padding(top = 18.dp), enabled = !acting) { commerce.updateOrderStatus(o.id, "DELIVERED") }
+                    "ACCEPTED" -> if (o.shipped) PrimaryButton(if (acting) stringResource(R.string.g6_order_working) else stringResource(R.string.g6_order_mark_shipped), Modifier.padding(top = 18.dp), enabled = !acting) { showShip = true }
+                                  else PrimaryButton(if (acting) stringResource(R.string.g6_order_working) else if (o.deliveryMode == "PICKUP") stringResource(R.string.g6_order_btn_ready) else stringResource(R.string.g6_order_btn_packed), Modifier.padding(top = 18.dp), enabled = !acting) { commerce.updateOrderStatus(o.id, "READY") }
+                    "SHIPPED" -> if (o.shipped) PrimaryButton(if (acting) stringResource(R.string.g6_order_working) else stringResource(R.string.g6_order_mark_delivered), Modifier.padding(top = 18.dp), enabled = !acting) { commerce.markDelivered(o.id) }
+                    "READY" -> if (o.deliveryMode == "PICKUP") PrimaryButton(if (acting) stringResource(R.string.g6_order_working) else stringResource(R.string.g6_order_btn_collected), Modifier.padding(top = 18.dp), enabled = !acting) { commerce.updateOrderStatus(o.id, "DELIVERED") }
                     else -> {}
                 }
                 if (hasContact(o)) {
                     val phone = contact?.phone
-                    val who = if (vendor) (if (phone != null && customer != null) customer else "customer") else (if (phone != null) title else "shop")
-                    GhostButton("Call $who", Modifier.padding(top = 10.dp), enabled = phone != null) { phone?.let { dial(ctx, it) } }
+                    val who = if (vendor) (if (phone != null && customer != null) customer else null) else (if (phone != null) title else null)
+                    GhostButton(if (who != null) stringResource(R.string.g6_order_call_name, who) else stringResource(if (vendor) R.string.g6_order_call_customer else R.string.g6_order_call_shop), Modifier.padding(top = 10.dp), enabled = phone != null) { phone?.let { dial(ctx, it) } }
                 }
                 // Buyer: only before the shop answers. Shop: an accepted order no rider has taken (the server refuses once one has).
-                if ((!vendor && o.status == "PLACED") || (vendor && o.status in setOf("ACCEPTED", "READY"))) BadButton(if (acting) "Working…" else "Cancel order", Modifier.padding(top = 10.dp), enabled = !acting) { confirmCancel = true }
+                if ((!vendor && o.status == "PLACED") || (vendor && o.status in setOf("ACCEPTED", "READY"))) BadButton(if (acting) stringResource(R.string.g6_order_working) else stringResource(R.string.g6_order_cancel), Modifier.padding(top = 10.dp), enabled = !acting) { confirmCancel = true }
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -156,22 +160,22 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
     val shopSide = shopOrder != null
     var busy by remember { mutableStateOf(false) }
     if (confirmCancel) CancelSheet(
-        title = "Cancel this order?",
+        title = stringResource(R.string.g6_order_cancel_title),
         message = when {
-            shopOrder == null -> "The shop hasn't accepted it yet, so nothing is charged. Once they accept, it can't be cancelled."
-            shopOrder.shipped -> "Use this when you can't fulfil the order. The customer is told it was cancelled and the stock goes back." + (if (shopOrder.payment == "UPI") " If they already paid you by UPI, refund them." else "")
-            shopOrder.deliveryMode == "PICKUP" -> "Use this when the customer isn't coming to collect it. They'll be told it was cancelled." + (if (shopOrder.payment == "UPI") " If they already paid you by UPI, refund them." else "")
-            else -> "Use this when no rider has taken the delivery; once a rider has it, it can't be cancelled." + (if (shopOrder.payment == "UPI") " If the customer already paid you by UPI, refund them." else "")
+            shopOrder == null -> stringResource(R.string.g6_order_cancel_msg_buyer)
+            shopOrder.shipped -> stringResource(if (shopOrder.payment == "UPI") R.string.g6_order_cancel_msg_ship_upi else R.string.g6_order_cancel_msg_ship)
+            shopOrder.deliveryMode == "PICKUP" -> stringResource(if (shopOrder.payment == "UPI") R.string.g6_order_cancel_msg_pickup_upi else R.string.g6_order_cancel_msg_pickup)
+            else -> stringResource(if (shopOrder.payment == "UPI") R.string.g6_order_cancel_msg_rider_upi else R.string.g6_order_cancel_msg_rider)
         },
-        reasons = if (shopSide) CancelReasons.shop else CancelReasons.buyer, requireReason = shopSide, confirmLabel = "Cancel order", busy = busy,
+        reasons = if (shopSide) CancelReasons.shop else CancelReasons.buyer, requireReason = shopSide, confirmLabel = stringResource(R.string.g6_order_cancel), busy = busy,
         onConfirm = { code, _ -> busy = true
             val done = { ok: Boolean -> busy = false; if (ok) confirmCancel = false }
             if (shopSide) commerce.updateOrderStatus(orderId, "CANCELLED", code, done) else commerce.cancelOrder(orderId, code, done) },
         onDismiss = { confirmCancel = false })
     if (showShip) ShipSheet({ showShip = false }) { c, t, u -> showShip = false; commerce.shipOrder(orderId, c, t, u) }
     if (confirmReject) CancelSheet(
-        title = "Reject this order?", message = "The customer will be told the shop couldn't take it. Rejecting often lowers how high the shop shows in search.",
-        reasons = CancelReasons.shopReject, requireReason = true, confirmLabel = "Reject order", reasonTitle = "Why can't you take it?", busy = busy,
+        title = stringResource(R.string.g6_order_reject_title), message = stringResource(R.string.g6_order_reject_msg),
+        reasons = CancelReasons.shopReject, requireReason = true, confirmLabel = stringResource(R.string.g6_order_reject_btn), reasonTitle = stringResource(R.string.g6_order_reject_reason), busy = busy,
         onConfirm = { code, _ -> busy = true; commerce.respondOrder(orderId, false, code) { ok -> busy = false; if (ok) confirmReject = false } },
         onDismiss = { confirmReject = false })
 }
@@ -189,14 +193,14 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
     if (status == "REJECTED" || status == "CANCELLED") {
         val byShop = cancelledBy == "SHOP"
         val head = when {
-            status == "REJECTED" -> if (forShop) "This order wasn't taken" else "The shop didn't take this order"
-            byShop -> if (forShop) "You cancelled this order" else "The shop cancelled this order"
-            else -> if (forShop) "The customer cancelled this order" else "You cancelled this order"
+            status == "REJECTED" -> if (forShop) stringResource(R.string.g6_tl_rejected_shop) else stringResource(R.string.g6_tl_rejected_buyer)
+            byShop -> if (forShop) stringResource(R.string.g6_tl_you_cancelled) else stringResource(R.string.g6_tl_shop_cancelled)
+            else -> if (forShop) stringResource(R.string.g6_tl_customer_cancelled) else stringResource(R.string.g6_tl_you_cancelled)
         }
         val detail = when {
-            status == "REJECTED" -> if (forShop) "It was rejected or not accepted in time. The customer wasn't charged." else "Either they were too busy or they didn't respond in time. Nothing has been charged. Try another shop."
-            byShop -> if (forShop) "If the customer already paid you by UPI, refund them." else "If you already paid by UPI, the shop owes you a refund. Call them if it hasn't reached you."
-            else -> if (forShop) "They cancelled before you accepted, so nothing was charged." else "Nothing has been charged."
+            status == "REJECTED" -> if (forShop) stringResource(R.string.g6_tl_rejected_shop_detail) else stringResource(R.string.g6_tl_rejected_buyer_detail)
+            byShop -> if (forShop) stringResource(R.string.g6_tl_shop_cancelled_shop_detail) else stringResource(R.string.g6_tl_shop_cancelled_buyer_detail)
+            else -> if (forShop) stringResource(R.string.g6_tl_customer_cancelled_detail) else stringResource(R.string.g6_tl_nothing_charged)
         }
         BucksCard {
             Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.error); Text(head, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 10.dp)) }
@@ -205,9 +209,11 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
         return
     }
     val pickup = mode == "PICKUP"; val ship = mode == "SHIP"
-    val steps = if (ship) listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "SHIPPED" to "Shipped", "DELIVERED" to "Delivered")
-                else if (pickup) listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "READY" to "Ready to collect", "DELIVERED" to "Collected")
-                else listOf("PLACED" to "Order placed", "ACCEPTED" to "Shop accepted", "PICKED_UP" to "Rider picked it up", "DELIVERED" to "Delivered")
+    val sPlaced = stringResource(R.string.g6_tl_step_placed); val sAccepted = stringResource(R.string.g6_tl_step_accepted)
+    val sDelivered = stringResource(R.string.g6_order_st_delivered)
+    val steps = if (ship) listOf("PLACED" to sPlaced, "ACCEPTED" to sAccepted, "SHIPPED" to stringResource(R.string.g6_order_st_shipped), "DELIVERED" to sDelivered)
+                else if (pickup) listOf("PLACED" to sPlaced, "ACCEPTED" to sAccepted, "READY" to stringResource(R.string.g6_order_st_ready_pickup), "DELIVERED" to stringResource(R.string.g6_order_st_collected))
+                else listOf("PLACED" to sPlaced, "ACCEPTED" to sAccepted, "PICKED_UP" to stringResource(R.string.g6_tl_step_picked_up), "DELIVERED" to sDelivered)
     val order = listOf("PLACED", "ACCEPTED", "READY", "PICKED_UP", "SHIPPED", "DELIVERED")
     val at = order.indexOf(status).coerceAtLeast(0)
     val cur = if (!pickup && status == "READY") "ACCEPTED" else status
@@ -217,29 +223,29 @@ fun OrderTimeline(status: String, mode: String, task: TaskRow?, forShop: Boolean
         steps.forEachIndexed { i, (key, label) ->
             val idx = order.indexOf(key)
             val detail = when (key) {
-                "PLACED" -> if (ship) (if (forShop) "Accept or reject within 24 hours." else "The shop has 24 hours to accept.") else if (forShop) "Accept or reject within 5 minutes." else "The shop has 5 minutes to accept."
-                "SHIPPED" -> if (forShop) "With ${carrier.ifBlank { "the carrier" }}. Mark it delivered when it arrives, or the customer will confirm." else "On its way with ${carrier.ifBlank { "the carrier" }}. Tap I received it when it arrives."
+                "PLACED" -> if (ship) (if (forShop) stringResource(R.string.g6_tl_placed_ship_shop) else stringResource(R.string.g6_tl_placed_ship_buyer)) else if (forShop) stringResource(R.string.g6_tl_placed_shop) else stringResource(R.string.g6_tl_placed_buyer)
+                "SHIPPED" -> if (forShop) (if (carrier.isBlank()) stringResource(R.string.g6_tl_shipped_shop) else stringResource(R.string.g6_tl_shipped_shop_carrier, carrier)) else (if (carrier.isBlank()) stringResource(R.string.g6_tl_shipped_buyer) else stringResource(R.string.g6_tl_shipped_buyer_carrier, carrier))
                 "ACCEPTED" -> when {
-                    ship -> if (forShop) "Pack it and tap Mark shipped with the carrier and tracking number." else "They're packing it. You'll get the tracking number when it ships."
-                    pickup -> if (forShop) "Get it ready, then mark it ready to collect." else "They're getting it ready."
-                    forShop -> if (status == "READY") "Packed. Hand it to the rider; they enter the customer's PIN when collecting." else "A rider is being rung. Mark it packed when it's ready to hand over."
+                    ship -> if (forShop) stringResource(R.string.g6_tl_acc_ship_shop) else stringResource(R.string.g6_tl_acc_ship_buyer)
+                    pickup -> if (forShop) stringResource(R.string.g6_tl_acc_pickup_shop) else stringResource(R.string.g6_tl_acc_pickup_buyer)
+                    forShop -> if (status == "READY") stringResource(R.string.g6_tl_acc_ready_shop) else stringResource(R.string.g6_tl_acc_ringing_shop)
                     else -> {
                         // A request still SEARCHING past the ring window has run out, even before the server's expiry has marked it (same rule as the delivery tracker).
                         val stale = task?.status == "SEARCHING" && (secondsSince(task.statusAt.ifBlank { task.createdAt }) ?: 0) >= ringWindowS
                         val rider = when (if (stale) "NO_DRIVER" else task?.status) {
-                            null -> "Finding a rider near the shop."
-                            "SEARCHING" -> "Ringing riders near the shop."
-                            "NO_DRIVER" -> "No rider free right now. Call the shop: they can send their own rider or cancel the order."
-                            "CANCELLED" -> "The delivery was cancelled. Call the shop to sort it out."
-                            "ARRIVED" -> "The rider is at the shop."
-                            else -> "A rider is on the way to the shop."
+                            null -> stringResource(R.string.g6_tl_rider_finding)
+                            "SEARCHING" -> stringResource(R.string.g6_tl_rider_ringing)
+                            "NO_DRIVER" -> stringResource(R.string.g6_tl_rider_none)
+                            "CANCELLED" -> stringResource(R.string.g6_tl_rider_cancelled)
+                            "ARRIVED" -> stringResource(R.string.g6_tl_rider_at_shop)
+                            else -> stringResource(R.string.g6_tl_rider_coming)
                         }
-                        (if (status == "READY") "Packed. " else "") + rider + (pin?.let { " The rider will call you for PIN $it at the shop." } ?: "")
+                        listOfNotNull(if (status == "READY") stringResource(R.string.g6_tl_packed) else null, rider, pin?.let { stringResource(R.string.g6_tl_pin_note, it) }).joinToString(" ")
                     }
                 }
-                "READY" -> if (forShop) "Waiting for the customer. Tap Collected when they pick it up." else "Go to the shop and collect it."
-                "PICKED_UP" -> if (forShop) "On the way to the customer." else "On the way to you."
-                else -> if (forShop) "Done." else "Tell others how it went: tap an arrow below."
+                "READY" -> if (forShop) stringResource(R.string.g6_tl_ready_shop) else stringResource(R.string.g6_tl_ready_buyer)
+                "PICKED_UP" -> if (forShop) stringResource(R.string.g6_tl_picked_shop) else stringResource(R.string.g6_tl_picked_buyer)
+                else -> if (forShop) stringResource(R.string.g6_tl_done_shop) else stringResource(R.string.g6_tl_done_buyer)
             }
             StatusLine(label, detail, done = idx < at && key != cur, now = key == cur, last = i == steps.lastIndex)
         }
@@ -260,21 +266,22 @@ private fun OrderReviewCard(vm: BucksViewModel, orderId: String, listingId: Stri
     BucksCard(Modifier.padding(top = 16.dp)) {
         val v = mine
         if (v != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (v > 0) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (v > 0) "You recommended it" else "You didn't recommend it", tint = if (v > 0) MaterialTheme.status.good else MaterialTheme.status.bad)
-            Muted("  Thanks. Your vote counts as a verified customer's.")
+            Icon(if (v > 0) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (v > 0) stringResource(R.string.g6_cd_recommended) else stringResource(R.string.g6_cd_not_recommended), tint = if (v > 0) MaterialTheme.status.good else MaterialTheme.status.bad)
+            Muted("  " + stringResource(R.string.g6_review_thanks_verified))
         } else {
-            Text("How was it?", style = MaterialTheme.typography.titleMedium)
-            Muted("Votes from people who actually ordered count the most.", Modifier.padding(top = 2.dp))
+            Text(stringResource(R.string.g6_review_how), style = MaterialTheme.typography.titleMedium)
+            Muted(stringResource(R.string.g6_review_votes_hint), Modifier.padding(top = 2.dp))
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 VoteArrow(true, false, Modifier.weight(1f)) { voting = 1 }; VoteArrow(false, false, Modifier.weight(1f)) { voting = -1 }
             }
         }
     }
-    voting?.let { start -> VoteFeedbackSheet("Your order from $shop", start, busy = busy, askReason = true, onSubmit = { vote, text, reason ->
+    val msgPosted = stringResource(R.string.g6_review_posted); val msgSendFailed = stringResource(R.string.g6_review_send_failed)
+    voting?.let { start -> VoteFeedbackSheet(stringResource(R.string.g6_review_sheet_title, shop), start, busy = busy, askReason = true, onSubmit = { vote, text, reason ->
         scope.launch { busy = true
             runCatching { Backend.review(listingId, null, orderId, vote > 0, text, reason) }
-                .onSuccess { mine = vote; voting = null; vm.toast("Thanks. Your vote is posted.") }
-                .onFailure { vm.toast(it.message?.substringAfter("message\":\"")?.substringBefore('"')?.takeIf { m -> m.length in 3..120 } ?: "Couldn't send that. Try again.") }
+                .onSuccess { mine = vote; voting = null; vm.toast(msgPosted) }
+                .onFailure { vm.toast(it.message?.substringAfter("message\":\"")?.substringBefore('"')?.takeIf { m -> m.length in 3..120 } ?: msgSendFailed) }
             busy = false } }, onDismiss = { voting = null }) }
 }
 
@@ -288,7 +295,7 @@ private fun AcceptCountdown(acceptBy: String) {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.HourglassTop, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text(if (left <= 0) "The shop didn't answer in time, so the order will be cancelled." else "Shop has ${if (left > 3_600_000) "${left / 3_600_000}h ${left / 60_000 % 60}m" else mmss(left)} to accept",
+            Text(if (left <= 0) stringResource(R.string.g6_order_accept_timeout) else stringResource(R.string.g6_order_accept_left, if (left > 3_600_000) stringResource(R.string.g6_order_dur_hm, (left / 3_600_000).toInt(), (left / 60_000 % 60).toInt()) else mmss(left)),
                 style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(start = 10.dp))
         }
     }

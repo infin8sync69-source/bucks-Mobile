@@ -1,5 +1,9 @@
 package com.bucks.app.ui.screens.manage
 
+import com.bucks.app.data.Str
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -59,12 +63,12 @@ private enum class DashTab { OVERVIEW, ITEMS, PHOTOS, FEED, REVIEWS }
  * with Overview (edit, documents, team, About) first. The catalogue tab carries the name the owner gave it.
  */
 private fun tabsFor(l: ListingRow, manage: Boolean): List<Pair<DashTab, String>> {
-    if (!manage) return listOf(DashTab.OVERVIEW to "Overview", DashTab.REVIEWS to "Recommendations")
+    if (!manage) return listOf(DashTab.OVERVIEW to Str.get(R.string.g7_dash_tab_overview), DashTab.REVIEWS to Str.get(R.string.g7_dash_tab_recs))
     val cat = PageTypes.catalogue(l)
     return buildList {
-        add(DashTab.OVERVIEW to "Overview"); add(DashTab.FEED to "Feed"); add(DashTab.PHOTOS to "Gallery")
+        add(DashTab.OVERVIEW to Str.get(R.string.g7_dash_tab_overview)); add(DashTab.FEED to Str.get(R.string.g7_dash_tab_feed)); add(DashTab.PHOTOS to Str.get(R.string.g7_dash_tab_gallery))
         if (l.kind == "BUSINESS" || l.kind == "SKILL") add(DashTab.ITEMS to cat.label)
-        add(DashTab.REVIEWS to "Recommendations")
+        add(DashTab.REVIEWS to Str.get(R.string.g7_dash_tab_recs))
     }
 }
 
@@ -80,9 +84,9 @@ fun ListingDashboardScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, o
     LaunchedEffect(id) { if (!m.loaded) m.refresh(); m.loadCounts(id) }
     val l = m.listing(id)
     if (l == null) {
-        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Listing", onBack = onBack)
+        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g7_dash_listing), onBack = onBack)
             val err = m.error
-            when { m.loaded -> Column(Modifier.padding(Gutter)) { Text("Listing not found", style = MaterialTheme.typography.titleMedium); Muted("It may have been deleted, or you're no longer part of it.", Modifier.padding(top = 4.dp)) }
+            when { m.loaded -> Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g7_dash_not_found), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g7_dash_not_found_sub), Modifier.padding(top = 4.dp)) }
                    err != null -> LoadError(err, Modifier.padding(Gutter)) { m.refresh() }
                    else -> CenteredLoading() } }
         return
@@ -95,15 +99,15 @@ fun ListingDashboardScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, o
 
     Column(Modifier.fillMaxSize()) {
         BucksTopBar(l.title, onBack = onBack, actions = {
-            IconButton(onClick = { onOpenProfile(id) }) { Icon(Icons.Rounded.Visibility, "See it as customers do") }
-            IconButton(onClick = { shareText(ctx, "${l.title} on Bucks" + listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) "" else " · $it" }) }) { Icon(Icons.Rounded.IosShare, "Share") }
+            IconButton(onClick = { onOpenProfile(id) }) { Icon(Icons.Rounded.Visibility, stringResource(R.string.g7_cd_dash_customer_view)) }
+            IconButton(onClick = { shareText(ctx, listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) Str.get(R.string.g7_dash_share_text, l.title) else Str.get(R.string.g7_dash_share_text_detail, l.title, it) }) }) { Icon(Icons.Rounded.IosShare, stringResource(R.string.g7_cd_share)) }
             if (manage) Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.g7_cd_more)) }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text("Edit details") }, { menu = false; onEdit(l.kind, id) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) })
-                    if (l.kind != "DRIVER") DropdownMenuItem({ Text("Documents") }, { menu = false; onDocs(id) }, leadingIcon = { Icon(Icons.Rounded.Description, null) })
-                    if (l.kind != "DRIVER") DropdownMenuItem({ Text("Team") }, { menu = false; onMembers(id) }, leadingIcon = { Icon(Icons.Rounded.Groups, null) })
-                    if (owner) DropdownMenuItem({ Text("Delete", color = MaterialTheme.colorScheme.error) }, { menu = false; confirmDelete = true }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) })
+                    DropdownMenuItem({ Text(stringResource(R.string.g7_dash_edit_details)) }, { menu = false; onEdit(l.kind, id) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) })
+                    if (l.kind != "DRIVER") DropdownMenuItem({ Text(stringResource(R.string.g7_dash_documents)) }, { menu = false; onDocs(id) }, leadingIcon = { Icon(Icons.Rounded.Description, null) })
+                    if (l.kind != "DRIVER") DropdownMenuItem({ Text(stringResource(R.string.g7_dash_team)) }, { menu = false; onMembers(id) }, leadingIcon = { Icon(Icons.Rounded.Groups, null) })
+                    if (owner) DropdownMenuItem({ Text(stringResource(R.string.g7_dash_delete), color = MaterialTheme.colorScheme.error) }, { menu = false; confirmDelete = true }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) })
                 }
             }
         })
@@ -125,7 +129,7 @@ fun ListingDashboardScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, o
             }
         }
     }
-    if (confirmDelete) ConfirmDialog("Delete ${l.title}?", "Its products, photos, members, recommendations and reviews go with it. Orders customers already placed stay in their history. This can't be undone.", "Delete",
+    if (confirmDelete) ConfirmDialog(stringResource(R.string.g7_dash_delete_title, l.title), stringResource(R.string.g7_dash_delete_body), stringResource(R.string.g7_dash_delete),
         onConfirm = { m.deleteListing(id) { onBack() } }, onDismiss = { confirmDelete = false })
 }
 
@@ -136,9 +140,9 @@ private fun StatusStrip(m: MyListings, l: ListingRow, manage: Boolean) {
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = Gutter, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             when (l.status) {
-                "LIVE" -> { Text(onlineLabel(l, l.online), style = MaterialTheme.typography.titleSmall); Muted(if (l.online) "People nearby can find and reach you now." else "Live, but hidden from search until you switch it on.") }
-                "SUSPENDED" -> { Text(if (l.complianceHold) "Paused for documents" else "Suspended", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error); Muted(if (l.complianceHold) "A document expired or is missing. Upload it and it comes back on its own." else "Hidden from customers. Contact Bucks support.") }
-                else -> { Text("Not live yet", style = MaterialTheme.typography.titleSmall); Muted("$recs of $NEEDED recommendations. See the checklist in Overview.") }
+                "LIVE" -> { Text(onlineLabel(l, l.online), style = MaterialTheme.typography.titleSmall); Muted(if (l.online) stringResource(R.string.g7_dash_live_on) else stringResource(R.string.g7_dash_live_off)) }
+                "SUSPENDED" -> { Text(if (l.complianceHold) stringResource(R.string.g7_dash_paused_docs) else stringResource(R.string.g7_dash_suspended), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error); Muted(if (l.complianceHold) stringResource(R.string.g7_dash_paused_docs_sub) else stringResource(R.string.g7_dash_suspended_sub)) }
+                else -> { Text(stringResource(R.string.g7_dash_not_live), style = MaterialTheme.typography.titleSmall); Muted(stringResource(R.string.g7_dash_recs_of, recs, NEEDED)) }
             }
         }
         if (l.status == "LIVE" && manage) ListingSwitch(l.online) { m.setOnline(l.id, it) } else ListingStatusPill(l, recs)
@@ -172,41 +176,41 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
             val done = steps.count { it.done }
             BucksCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Go live", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); Muted("$done of ${steps.size} done")
+                    Text(stringResource(R.string.g7_dash_go_live), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); Muted(stringResource(R.string.g7_dash_steps_done, done, steps.size))
                 }
                 LinearProgressIndicator(progress = { done.toFloat() / steps.size }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp).height(6.dp).clip(CircleShape))
-                Muted("Two things take it live: $NEEDED people nearby recommending it in person and Bucks checking any documents it needs. The rest makes people pick you.", Modifier.padding(bottom = 4.dp))
+                Muted(pluralStringResource(R.plurals.g7_dash_go_live_note, NEEDED, NEEDED), Modifier.padding(bottom = 4.dp))
                 steps.forEach { s -> GoLiveRow(s) { goTo(s.target) } }
             }
         }
         if (manage && sells && noUpi && owner) item {
-            Notice("Add your UPI QR so customers can pay your orders by UPI. Until then they have to pay you directly.")
-            SmallButton("Add payment QR", Modifier.padding(top = 8.dp)) { goTo("PAYMENT") }
+            Notice(stringResource(R.string.g7_dash_add_qr_note))
+            SmallButton(stringResource(R.string.g7_dash_add_qr), Modifier.padding(top = 8.dp)) { goTo("PAYMENT") }
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(Modifier.weight(1f), "$recs", "Recommended")
-                StatTile(Modifier.weight(1f), "${c?.syncs ?: "–"}", "Synced")
-                StatTile(Modifier.weight(1f), trustPct(l.trustUp, l.trustDown), "Positive")
-                if (l.kind != "DRIVER") StatTile(Modifier.weight(1f), "${c?.members ?: "–"}", "Team")
+                StatTile(Modifier.weight(1f), "$recs", stringResource(R.string.g7_dash_stat_recommended))
+                StatTile(Modifier.weight(1f), "${c?.syncs ?: "–"}", stringResource(R.string.g7_dash_stat_synced))
+                StatTile(Modifier.weight(1f), trustPct(l.trustUp, l.trustDown), stringResource(R.string.g7_dash_stat_positive))
+                if (l.kind != "DRIVER") StatTile(Modifier.weight(1f), "${c?.members ?: "–"}", stringResource(R.string.g7_dash_team))
             }
         }
         item { AboutCard(l, manage) { goTo("EDIT") } }
         if (manage) item { ShowcaseDocsCard(l.id) { goTo("SHOWCASE") } }
         if (manage) item {
-            SectionTitle("Manage", Modifier.padding(bottom = 4.dp))
+            SectionTitle(stringResource(R.string.g7_dash_manage), Modifier.padding(bottom = 4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ManageTile(Icons.Rounded.Edit, "Edit details") { goTo("EDIT") }
-                if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Description, "Documents") { goTo("DOCS") }
-                if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Groups, "Team") { goTo("MEMBERS") }
-                if (sells) ManageTile(Icons.Rounded.Assignment, "Orders") { goTo("ORDERS") }
-                if (l.kind == "BUSINESS") ManageTile(Icons.Rounded.Work, if (type?.key == "NGO_CHARITY") "Volunteers" else "Jobs") { goTo("JOBS") }
-                if (sells && owner) ManageTile(Icons.Rounded.QrCode2, "Payment QR") { goTo("PAYMENT") }
-                if (l.kind == "DRIVER") ManageTile(Icons.Rounded.TwoWheeler, "Vehicles") { goTo("VEHICLES") }
-                ManageTile(Icons.Rounded.ArrowUpward, if (l.status == "PENDING") "Get recommended" else "Recommend code") { goTo("RECOMMEND") }
-                ManageTile(Icons.Rounded.Visibility, "Customer view") { goTo("PROFILE") }
+                ManageTile(Icons.Rounded.Edit, stringResource(R.string.g7_dash_edit_details)) { goTo("EDIT") }
+                if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Description, stringResource(R.string.g7_dash_documents)) { goTo("DOCS") }
+                if (l.kind != "DRIVER") ManageTile(Icons.Rounded.Groups, stringResource(R.string.g7_dash_team)) { goTo("MEMBERS") }
+                if (sells) ManageTile(Icons.Rounded.Assignment, stringResource(R.string.g7_dash_orders)) { goTo("ORDERS") }
+                if (l.kind == "BUSINESS") ManageTile(Icons.Rounded.Work, if (type?.key == "NGO_CHARITY") stringResource(R.string.g7_dash_volunteers) else stringResource(R.string.g7_dash_jobs)) { goTo("JOBS") }
+                if (sells && owner) ManageTile(Icons.Rounded.QrCode2, stringResource(R.string.g7_dash_payment_qr)) { goTo("PAYMENT") }
+                if (l.kind == "DRIVER") ManageTile(Icons.Rounded.TwoWheeler, stringResource(R.string.g7_dash_vehicles)) { goTo("VEHICLES") }
+                ManageTile(Icons.Rounded.ArrowUpward, if (l.status == "PENDING") stringResource(R.string.g7_dash_get_recommended) else stringResource(R.string.g7_dash_recommend_code)) { goTo("RECOMMEND") }
+                ManageTile(Icons.Rounded.Visibility, stringResource(R.string.g7_dash_customer_view)) { goTo("PROFILE") }
             }
-        } else item { Notice("You're a store rider here: you deliver its orders. Only the owner and admins change the listing.") }
+        } else item { Notice(stringResource(R.string.g7_dash_store_rider_note)) }
     }
 }
 
@@ -217,14 +221,14 @@ private fun ShowcaseDocsCard(listingId: String, onClick: () -> Unit) {
     LaunchedEffect(listingId) { waiting = runCatching { Backend.showcaseDocs(listingId).sumOf { it.pendingRequests } }.getOrDefault(0) }
     BucksCard(onClick = onClick, padding = 14) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Documents to show", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-            if (waiting > 0) PillWarn("$waiting waiting")
+            Text(stringResource(R.string.g7_dash_docs_to_show), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (waiting > 0) PillWarn(stringResource(R.string.g7_dash_waiting, waiting))
         }
-        Muted("Registrations, licences and certificates you show on your profile, and who may open each. Separate from the documents Bucks checks to take you live.", Modifier.padding(top = 4.dp))
+        Muted(stringResource(R.string.g7_dash_docs_to_show_sub), Modifier.padding(top = 4.dp))
     }
 }
 
-private fun trustPct(up: Int, down: Int) = if (up + down == 0) "–" else "${(up * 100) / (up + down)}%"
+private fun trustPct(up: Int, down: Int) = if (up + down == 0) "–" else Str.get(R.string.g7_dash_pct, (up * 100) / (up + down))
 
 @Composable
 private fun StatTile(modifier: Modifier, value: String, label: String) = Column(modifier.clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -241,22 +245,22 @@ private fun ManageTile(icon: ImageVector, label: String, onClick: () -> Unit) = 
 @Composable
 private fun AboutCard(l: ListingRow, manage: Boolean, onEdit: () -> Unit) = BucksCard {
     val d = l.details
-    Row(verticalAlignment = Alignment.CenterVertically) { Text("About", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); if (manage) TextButton(onClick = onEdit) { Text("Edit") } }
-    if (l.description.isNotBlank()) Text(l.description, style = MaterialTheme.typography.bodyMedium) else Muted("No description yet. A few lines about what you offer helps people choose you.")
+    Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g7_dash_about), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); if (manage) TextButton(onClick = onEdit) { Text(stringResource(R.string.g7_dash_edit)) } }
+    if (l.description.isNotBlank()) Text(l.description, style = MaterialTheme.typography.bodyMedium) else Muted(stringResource(R.string.g7_dash_no_description))
     val facts = buildList<Pair<String, String>> {
         when (l.kind) {
             "BUSINESS" -> { val t = PageTypes.of(l); val shop = t == null || t.isShop
-                d.str("hours").ifBlank { null }?.let { add((if (shop) "Hours" else "Timings") to it) }
-                if (shop) { d.int("delivery_radius_km")?.let { add("Delivers within" to "$it km") }
-                    add("Delivery" to if (d.bool("free_delivery")) "Free for customers" else "Customer pays"); if (d.bool("cod")) add("Cash on delivery" to "With your own riders") }
-                else { d.str("registration").ifBlank { null }?.let { add(pageRegistrationLabel(t) to it) }; d.str("website").ifBlank { null }?.let { add("Website" to it) }; d.str("email").ifBlank { null }?.let { add("Email" to it) } } }
-            "SKILL" -> { d.str("rate").ifBlank { null }?.let { add("Rate" to it) }; d.str("level").ifBlank { null }?.let { add("Experience" to it) }; d.strings("languages").takeIf { it.isNotEmpty() }?.let { add("Languages" to it.joinToString(", ")) } }
-            "ASSET" -> { add("Listing" to assetPriceLine(d)); d.num("deposit")?.takeIf { it > 0 }?.let { add("Deposit" to rupees(it.toLong())) }
-                d.num("area_sqft")?.takeIf { it > 0 }?.let { add("Size" to "${it.toLong()} sq ft") }; d.int("bedrooms")?.let { add("Bedrooms" to "$it") }
-                d.str("furnishing").ifBlank { null }?.let { add("Furnishing" to it) }; d.str("available_from").ifBlank { null }?.let { add("Available from" to it) }
-                d.int("year")?.let { add("Year" to "$it") }; d.int("km_driven")?.let { add("Driven" to "${rupees(it).removePrefix("₹")} km") }
-                if (d.bool("negotiable")) add("Price" to "Negotiable") }
-            "DRIVER" -> { d.str("vehicle_kind").ifBlank { null }?.let { add("Drives" to vehicleKindLabel(it)) }; d.str("model").ifBlank { null }?.let { add("Model" to it) }; d.strings("languages").takeIf { it.isNotEmpty() }?.let { add("Languages" to it.joinToString(", ")) } }
+                d.str("hours").ifBlank { null }?.let { add((if (shop) stringResource(R.string.g7_dash_f_hours) else stringResource(R.string.g7_dash_f_timings)) to it) }
+                if (shop) { d.int("delivery_radius_km")?.let { add(stringResource(R.string.g7_dash_f_delivers_within) to stringResource(R.string.g7_dist_km, it.toString())) }
+                    add(stringResource(R.string.g7_dash_f_delivery) to if (d.bool("free_delivery")) stringResource(R.string.g7_dash_f_free_customers) else stringResource(R.string.g7_dash_f_customer_pays)); if (d.bool("cod")) add(stringResource(R.string.g7_dash_f_cod) to stringResource(R.string.g7_dash_f_own_riders)) }
+                else { d.str("registration").ifBlank { null }?.let { add(pageRegistrationLabel(t) to it) }; d.str("website").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_website) to it) }; d.str("email").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_email) to it) } } }
+            "SKILL" -> { d.str("rate").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_rate) to it) }; d.str("level").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_experience) to it) }; d.strings("languages").takeIf { it.isNotEmpty() }?.let { add(stringResource(R.string.g7_dash_f_languages) to it.joinToString(", ")) } }
+            "ASSET" -> { add(stringResource(R.string.g7_dash_f_listing) to assetPriceLine(d)); d.num("deposit")?.takeIf { it > 0 }?.let { add(stringResource(R.string.g7_dash_f_deposit) to rupees(it.toLong())) }
+                d.num("area_sqft")?.takeIf { it > 0 }?.let { add(stringResource(R.string.g7_dash_f_size) to stringResource(R.string.g7_dash_sqft, it.toLong().toString())) }; d.int("bedrooms")?.let { add(stringResource(R.string.g7_dash_f_bedrooms) to "$it") }
+                d.str("furnishing").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_furnishing) to it) }; d.str("available_from").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_available_from) to it) }
+                d.int("year")?.let { add(stringResource(R.string.g7_dash_f_year) to "$it") }; d.int("km_driven")?.let { add(stringResource(R.string.g7_dash_f_driven) to stringResource(R.string.g7_dist_km, rupees(it).removePrefix("₹"))) }
+                if (d.bool("negotiable")) add(stringResource(R.string.g7_dash_f_price) to stringResource(R.string.g7_dash_f_negotiable)) }
+            "DRIVER" -> { d.str("vehicle_kind").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_drives) to vehicleKindLabel(it)) }; d.str("model").ifBlank { null }?.let { add(stringResource(R.string.g7_dash_f_model) to it) }; d.strings("languages").takeIf { it.isNotEmpty() }?.let { add(stringResource(R.string.g7_dash_f_languages) to it.joinToString(", ")) } }
         }
     }
     facts.forEach { (k, v) -> Row(Modifier.padding(top = 8.dp)) { Muted(k, Modifier.width(120.dp)); Text(v, style = MaterialTheme.typography.bodyMedium) } }
@@ -276,24 +280,24 @@ private fun ItemsTab(m: MyListings, l: ListingRow, onItem: (String, String?) -> 
         item {
             Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
                 AddItemButton(l) { onItem(l.id, null) }
-                if (rows.orEmpty().size > 6) BucksField(q, { q = it }, placeholder = "Search your ${noun}s", modifier = Modifier.padding(top = 12.dp))
-                if (groups.size > 1) ChipRow(listOf("All") + groups, group ?: "All", Modifier.padding(top = 4.dp)) { group = if (it == "All") null else it }
-                if (rows != null && rows.isNotEmpty()) Muted("${rows.size} ${noun}s · ${rows.count { it.inStock }} ${itemOnLabel(itemKind, true).lowercase()}", Modifier.padding(top = 8.dp))
+                if (rows.orEmpty().size > 6) BucksField(q, { q = it }, placeholder = when (itemKind) { "SERVICE" -> stringResource(R.string.g7_dash_search_services); "PROGRAM" -> stringResource(R.string.g7_dash_search_programs); "EVENT" -> stringResource(R.string.g7_dash_search_events); else -> stringResource(R.string.g7_dash_search_products) }, modifier = Modifier.padding(top = 12.dp))
+                if (groups.size > 1) { val all = stringResource(R.string.g7_dash_all); ChipRow(listOf(all) + groups, group ?: all, Modifier.padding(top = 4.dp)) { group = if (it == all) null else it } }
+                if (rows != null && rows.isNotEmpty()) Muted(stringResource(R.string.g7_dash_items_count_line, when (itemKind) { "SERVICE" -> pluralStringResource(R.plurals.g7_dash_n_services, rows.size, rows.size); "PROGRAM" -> pluralStringResource(R.plurals.g7_dash_n_programs, rows.size, rows.size); "EVENT" -> pluralStringResource(R.plurals.g7_dash_n_events, rows.size, rows.size); else -> pluralStringResource(R.plurals.g7_dash_n_products, rows.size, rows.size) }, rows.count { it.inStock }, itemOnLabel(itemKind, true).lowercase()), Modifier.padding(top = 8.dp))
             }
         }
         when {
             rows == null -> item { CenteredLoading() }
             rows.isEmpty() -> item {
                 BucksCard(Modifier.padding(horizontal = Gutter)) {
-                    Text("No ${noun}s yet", style = MaterialTheme.typography.titleMedium)
+                    Text(when (itemKind) { "SERVICE" -> stringResource(R.string.g7_dash_no_services); "PROGRAM" -> stringResource(R.string.g7_dash_no_programs); "EVENT" -> stringResource(R.string.g7_dash_no_events); else -> stringResource(R.string.g7_dash_no_products) }, style = MaterialTheme.typography.titleMedium)
                     Muted(itemEmptyCopy(itemKind), Modifier.padding(top = 4.dp))
                 }
             }
-            shown.isEmpty() -> item { Muted("Nothing matches.", Modifier.padding(Gutter)) }
+            shown.isEmpty() -> item { Muted(stringResource(R.string.g7_dash_nothing_matches), Modifier.padding(Gutter)) }
             else -> items(shown, key = { it.id ?: it.name }) { row -> ItemManageRow(m, row, onEdit = { onItem(l.id, row.id) }, onDelete = { deleting = row }); Divider() }
         }
     }
-    deleting?.let { r -> ConfirmDialog("Remove ${r.name}?", "It disappears from your profile and search. Orders already placed aren't affected.", "Remove", onConfirm = { m.deleteItem(r) {} }, onDismiss = { deleting = null }) }
+    deleting?.let { r -> ConfirmDialog(stringResource(R.string.g7_dash_remove_item_title, r.name), stringResource(R.string.g7_dash_remove_item_body), stringResource(R.string.g7_dash_remove), onConfirm = { m.deleteItem(r) {} }, onDismiss = { deleting = null }) }
 }
 
 @Composable
@@ -308,15 +312,15 @@ private fun ItemManageRow(m: MyListings, row: ItemRow, onEdit: () -> Unit, onDel
                 row.mrp?.takeIf { it > row.price }?.let { Text(rupees(it), style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (row.unit.isNotBlank()) Muted(row.unit, maxLines = 1)
             }
-            Muted(listOfNotNull(row.group.ifBlank { null }, row.stock?.let { if (it == 0) "Sold out" else "$it left" }, if (row.photos.size > 1) "${row.photos.size} photos" else null).joinToString(" · "), maxLines = 1)
+            Muted(listOfNotNull(row.group.ifBlank { null }, row.stock?.let { if (it == 0) stringResource(R.string.g7_dash_sold_out) else stringResource(R.string.g7_dash_n_left, it) }, if (row.photos.size > 1) pluralStringResource(R.plurals.g7_dash_n_photos, row.photos.size, row.photos.size) else null).joinToString(" · "), maxLines = 1)
         }
         Switch(checked = row.inStock, onCheckedChange = { on -> m.setInStock(row, on) })
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.g7_cd_more)) }
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem({ Text("Edit") }, { menu = false; onEdit() }, leadingIcon = { Icon(Icons.Rounded.Edit, null) })
-                DropdownMenuItem({ Text("Duplicate") }, { menu = false; m.duplicateItem(row) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
-                DropdownMenuItem({ Text("Remove", color = MaterialTheme.colorScheme.error) }, { menu = false; onDelete() }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) })
+                DropdownMenuItem({ Text(stringResource(R.string.g7_dash_edit)) }, { menu = false; onEdit() }, leadingIcon = { Icon(Icons.Rounded.Edit, null) })
+                DropdownMenuItem({ Text(stringResource(R.string.g7_dash_duplicate)) }, { menu = false; m.duplicateItem(row) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
+                DropdownMenuItem({ Text(stringResource(R.string.g7_dash_remove), color = MaterialTheme.colorScheme.error) }, { menu = false; onDelete() }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) })
             }
         }
     }
@@ -330,7 +334,7 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
     val m = vm.myListings; val ctx = LocalContext.current
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         val picked = uris.mapNotNull { u -> Upload.read(ctx, u)?.asListingPhoto() }
-        if (uris.isNotEmpty() && picked.isEmpty()) vm.toast("Couldn't read those images. Try JPG or PNG photos.")
+        if (uris.isNotEmpty() && picked.isEmpty()) vm.toast(Str.get(R.string.g7_dash_images_unreadable))
         if (picked.isNotEmpty()) m.addGalleryPhotos(l.id, picked)
     }
     var open by remember { mutableStateOf<MediaPhoto?>(null) }
@@ -338,22 +342,22 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
     LazyVerticalGrid(GridCells.Adaptive(112.dp), contentPadding = PaddingValues(Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             Column(Modifier.padding(bottom = 6.dp)) {
-                Text(if (l.kind == "SKILL") "Portfolio" else type?.let { pagePhotosLabel(it) } ?: "Photos", style = MaterialTheme.typography.titleMedium)
-                Muted(when { l.kind == "SKILL" -> "Photos of work you've done, with a line about each. Customers see them on your profile."
-                    l.kind == "ASSET" -> "Every room or angle, in daylight. The cover is the first thing people see."
-                    type != null && !type.isShop -> "The place, the people, the work. Tap a photo to caption it, reorder it or make it the cover."
-                    else -> "The shop front, the inside, your best products. Tap a photo to caption it, reorder it or make it the cover." } + " ${g.size} of 20.")
+                Text(if (l.kind == "SKILL") stringResource(R.string.g7_dash_portfolio) else type?.let { pagePhotosLabel(it) } ?: stringResource(R.string.g7_dash_photos), style = MaterialTheme.typography.titleMedium)
+                Muted(when { l.kind == "SKILL" -> stringResource(R.string.g7_dash_photos_skill)
+                    l.kind == "ASSET" -> stringResource(R.string.g7_dash_photos_asset)
+                    type != null && !type.isShop -> stringResource(R.string.g7_dash_photos_place)
+                    else -> stringResource(R.string.g7_dash_photos_shop) } + " " + stringResource(R.string.g7_dash_photos_count, g.size))
                 if (m.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
             }
         }
         if (g.size < 20) item {
             Box(Modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium).clickable(enabled = !m.busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary); Text("Add photos", style = MaterialTheme.typography.labelMedium) } }
+                contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary); Text(stringResource(R.string.g7_dash_add_photos), style = MaterialTheme.typography.labelMedium) } }
         }
         items(g, key = { it.url }) { p ->
             Box(Modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium).clickable { open = p }) {
                 AsyncImage(p.url, p.caption.ifBlank { null }, Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer), contentScale = ContentScale.Crop)
-                if (p.url == l.photoUrl) Box(Modifier.padding(6.dp)) { Pill("Cover", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary) }
+                if (p.url == l.photoUrl) Box(Modifier.padding(6.dp)) { Pill(stringResource(R.string.g7_dash_cover), MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary) }
                 if (p.caption.isNotBlank()) Text(p.caption, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f)).padding(horizontal = 6.dp, vertical = 3.dp))
             }
@@ -365,17 +369,17 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
         ModalBottomSheet(onDismissRequest = { open = null }, dragHandle = { SheetCloseHandle({ open = null }) }) {
             Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
                 AsyncImage(p.url, null, Modifier.fillMaxWidth().heightIn(max = 320.dp).clip(MaterialTheme.shapes.medium), contentScale = ContentScale.Fit)
-                BucksField(caption, { caption = it.take(200) }, if (l.kind == "SKILL") "What was the job?" else "Caption", if (l.kind == "SKILL") "Bathroom re-tiling, Koramangala" else "Optional", Modifier.padding(top = 12.dp))
-                PrimaryButton("Save caption", enabled = caption.trim() != p.caption) { m.setCaption(l.id, p.url, caption); open = null }
+                BucksField(caption, { caption = it.take(200) }, if (l.kind == "SKILL") stringResource(R.string.g7_dash_what_job) else stringResource(R.string.g7_dash_caption), if (l.kind == "SKILL") stringResource(R.string.g7_dash_what_job_hint) else stringResource(R.string.g7_dash_optional), Modifier.padding(top = 12.dp))
+                PrimaryButton(stringResource(R.string.g7_dash_save_caption), enabled = caption.trim() != p.caption) { m.setCaption(l.id, p.url, caption); open = null }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SmallButton("Make cover", Modifier.weight(1f), tonal = true, enabled = p.url != l.photoUrl) { m.setCover(l.id, p.url); open = null }
-                    IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, -1); open = null }, enabled = i > 0) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Move earlier") }
-                    IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, 1); open = null }, enabled = i in 0 until g.lastIndex) { Icon(Icons.Rounded.ChevronRight, "Move later") }
+                    SmallButton(stringResource(R.string.g7_dash_make_cover), Modifier.weight(1f), tonal = true, enabled = p.url != l.photoUrl) { m.setCover(l.id, p.url); open = null }
+                    IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, -1); open = null }, enabled = i > 0) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g7_cd_dash_move_earlier)) }
+                    IconButton(onClick = { m.moveGalleryPhoto(l.id, p.url, 1); open = null }, enabled = i in 0 until g.lastIndex) { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.g7_cd_dash_move_later)) }
                 }
-                BadButton("Remove photo", Modifier.padding(top = 4.dp)) { confirm = true }
+                BadButton(stringResource(R.string.g7_dash_remove_photo), Modifier.padding(top = 4.dp)) { confirm = true }
             }
         }
-        if (confirm) ConfirmDialog("Remove this photo?", if (p.url == l.photoUrl) "It stays as the cover until you pick another." else "It's deleted from your listing.", "Remove",
+        if (confirm) ConfirmDialog(stringResource(R.string.g7_dash_remove_photo_title), if (p.url == l.photoUrl) stringResource(R.string.g7_dash_remove_photo_cover) else stringResource(R.string.g7_dash_remove_photo_body), stringResource(R.string.g7_dash_remove),
             onConfirm = { m.removeGalleryPhoto(l.id, p.url); open = null }, onDismiss = { confirm = false })
     }
 }
@@ -388,41 +392,41 @@ private fun FeedManageTab(vm: BucksViewModel, l: ListingRow) {
     LaunchedEffect(l.id) { m.loadPosts(l.id) }
     var text by rememberSaveable(l.id) { mutableStateOf("") }; var photo by remember { mutableStateOf<Picked?>(null) }; var preview by remember { mutableStateOf<Uri?>(null) }
     var deleting by remember { mutableStateOf<PostRow?>(null) }
-    val pick = rememberImagePicker(onUnusable = { vm.toast("Couldn't read that image. Try a JPG or PNG photo.") }) { p, u -> photo = p; preview = u }
+    val pick = rememberImagePicker(onUnusable = { vm.toast(Str.get(R.string.g7_dash_image_unreadable)) }) { p, u -> photo = p; preview = u }
     val posts = m.posts[l.id]
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             BucksCard(Modifier.padding(Gutter)) {
-                Text("Post as ${l.title}", style = MaterialTheme.typography.titleMedium)
-                Muted("Offers, new stock, finished work. People nearby and everyone synced with you see it in their feed.", Modifier.padding(bottom = 8.dp))
-                BucksField(text, { text = it.take(1000) }, placeholder = if (l.kind == "SKILL") "Just finished a kitchen rewiring in Jayanagar…" else "Fresh stock in today…", singleLine = false, minLines = 3)
+                Text(stringResource(R.string.g7_dash_post_as, l.title), style = MaterialTheme.typography.titleMedium)
+                Muted(stringResource(R.string.g7_dash_post_note), Modifier.padding(bottom = 8.dp))
+                BucksField(text, { text = it.take(1000) }, placeholder = if (l.kind == "SKILL") stringResource(R.string.g7_dash_post_hint_skill) else stringResource(R.string.g7_dash_post_hint_shop), singleLine = false, minLines = 3)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (preview != null) Box { AsyncImage(preview, null, Modifier.size(64.dp).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
-                        IconButton(onClick = { photo = null; preview = null }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) { Icon(Icons.Rounded.Close, "Remove photo", Modifier.size(16.dp)) } }
-                    else SmallButton("Add photo", tonal = true, onClick = pick)
+                        IconButton(onClick = { photo = null; preview = null }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.g7_dash_remove_photo), Modifier.size(16.dp)) } }
+                    else SmallButton(stringResource(R.string.g7_dash_add_photo), tonal = true, onClick = pick)
                     Spacer(Modifier.weight(1f))
-                    SmallButton(if (m.busy) "Posting…" else "Post", enabled = !m.busy && (text.isNotBlank() || photo != null)) { m.postAs(l.id, text, photo) { text = ""; photo = null; preview = null } }
+                    SmallButton(if (m.busy) stringResource(R.string.g7_dash_posting) else stringResource(R.string.g7_dash_post), enabled = !m.busy && (text.isNotBlank() || photo != null)) { m.postAs(l.id, text, photo) { text = ""; photo = null; preview = null } }
                 }
             }
         }
         when {
             posts == null -> item { CenteredLoading() }
-            posts.isEmpty() -> item { Muted("Nothing posted yet. Your first post shows here and on your profile.", Modifier.padding(horizontal = Gutter)) }
+            posts.isEmpty() -> item { Muted(stringResource(R.string.g7_dash_no_posts), Modifier.padding(horizontal = Gutter)) }
             else -> items(posts, key = { it.id }) { p ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Muted(listOfNotNull(ago(p.createdAt), vm.social.nameOf(p.authorId).takeIf { it != "…" }?.let { "by $it" }).joinToString(" · "), Modifier.weight(1f))
-                        IconButton(onClick = { deleting = p }) { Icon(Icons.Rounded.DeleteOutline, "Delete post") }
+                        Muted(listOfNotNull(ago(p.createdAt), vm.social.nameOf(p.authorId).takeIf { it != "…" }?.let { stringResource(R.string.g7_dash_by, it) }).joinToString(" · "), Modifier.weight(1f))
+                        IconButton(onClick = { deleting = p }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.g7_cd_dash_delete_post)) }
                     }
                     if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyMedium)
                     (p.media.firstOrNull() as? JsonObject)?.str("path")?.takeIf { it.isNotBlank() }?.let { path -> SignedImage(vm, "posts", path, Modifier.padding(top = 8.dp).fillMaxWidth().height(220.dp).clip(MaterialTheme.shapes.medium)) }
-                    Muted("${p.up} up · ${p.down} down · ${p.comments} comments", Modifier.padding(top = 6.dp))
+                    Muted(stringResource(R.string.g7_dash_post_stats, p.up.toString(), p.down.toString(), p.comments.toString()), Modifier.padding(top = 6.dp))
                 }
                 Divider()
             }
         }
     }
-    deleting?.let { p -> ConfirmDialog("Delete this post?", "It leaves your profile and everyone's feed.", "Delete", onConfirm = { m.deletePost(p) }, onDismiss = { deleting = null }) }
+    deleting?.let { p -> ConfirmDialog(stringResource(R.string.g7_dash_delete_post_title), stringResource(R.string.g7_dash_delete_post_body), stringResource(R.string.g7_dash_delete), onConfirm = { m.deletePost(p) }, onDismiss = { deleting = null }) }
 }
 
 /* ---------- Reviews and recommendations ---------- */
@@ -435,21 +439,21 @@ private fun ReviewsManageTab(vm: BucksViewModel, l: ListingRow) {
     LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(Modifier.weight(1f), trustPct(l.trustUp, l.trustDown), "Positive")
-                StatTile(Modifier.weight(1f), "${l.trustUp}", "Recommend")
-                StatTile(Modifier.weight(1f), "${l.trustDown}", "Don't")
+                StatTile(Modifier.weight(1f), trustPct(l.trustUp, l.trustDown), stringResource(R.string.g7_dash_stat_positive))
+                StatTile(Modifier.weight(1f), "${l.trustUp}", stringResource(R.string.g7_dash_stat_recommend))
+                StatTile(Modifier.weight(1f), "${l.trustDown}", stringResource(R.string.g7_dash_stat_dont))
             }
         }
         item {
             BucksCard(tint = true) {
-                Text("$recs ${if (recs == 1) "person" else "people"} nearby recommended you in person", style = MaterialTheme.typography.titleSmall)
-                Muted(if (l.status == "PENDING") "${(NEEDED - recs).coerceAtLeast(0)} more take you live. Show your code to people who know your work." else "Recommendations are how you went live. Reviews below come from completed orders and trips.")
+                Text(pluralStringResource(R.plurals.g7_dash_recs_people, recs, recs), style = MaterialTheme.typography.titleSmall)
+                Muted(if (l.status == "PENDING") pluralStringResource(R.plurals.g7_dash_recs_more, (NEEDED - recs).coerceAtLeast(0), (NEEDED - recs).coerceAtLeast(0)) else stringResource(R.string.g7_dash_recs_live))
             }
         }
-        item { Notice("Reviews come only from customers after a completed order, visit or trip. Nobody can add or remove them by hand, including you.") }
+        item { Notice(stringResource(R.string.g7_dash_reviews_note)) }
         when {
             rows == null -> item { CenteredLoading() }
-            rows.isEmpty() -> item { Muted("No reviews yet. They arrive as customers complete orders and trips with you.") }
+            rows.isEmpty() -> item { Muted(stringResource(R.string.g7_dash_no_reviews)) }
             else -> items(rows, key = { it.id }) { r ->
                 val up = r.vote > 0
                 Row(verticalAlignment = Alignment.Top) {
@@ -458,7 +462,7 @@ private fun ReviewsManageTab(vm: BucksViewModel, l: ListingRow) {
                         Text(vm.social.nameOf(r.authorId), style = MaterialTheme.typography.titleSmall); Muted(ago(r.createdAt))
                         Text(r.comment, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
                     }
-                    Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", tint = if (up) st.good else st.bad)
+                    Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) stringResource(R.string.g7_cd_dash_recommends) else stringResource(R.string.g7_cd_dash_not_recommends), tint = if (up) st.good else st.bad)
                 }
             }
         }

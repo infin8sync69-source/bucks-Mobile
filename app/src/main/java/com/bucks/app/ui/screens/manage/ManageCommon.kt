@@ -36,6 +36,9 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import java.io.ByteArrayOutputStream
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.data.Str
 
 /* Shared bits for the Manage screens: category lists, details helpers, small composables. */
 
@@ -45,7 +48,7 @@ internal val SKILL_CATEGORIES = listOf("Plumber", "Electrician", "Tutor", "Docto
 internal val LANGUAGES = listOf("Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam", "Urdu")
 internal val LEVELS = listOf("Amateur", "Intermediate", "Expert")
 internal val UNITS = listOf("1 kg", "500 g", "1 piece", "1 plate", "1 litre", "per hour", "per visit", "per day")
-internal val VEHICLE_KINDS = listOf("AUTO" to "Auto", "CAB" to "Cab", "BIKE" to "Bike (delivery only)")
+internal val VEHICLE_KINDS: List<Pair<String, String>> get() = listOf("AUTO" to Str.get(R.string.g6_vk_auto), "CAB" to Str.get(R.string.g6_vk_cab), "BIKE" to Str.get(R.string.g6_vk_bike_delivery))
 internal val NEEDED: Int get() = MyListings.NEEDED
 
 internal fun JsonObject.str(k: String): String = (this[k] as? JsonPrimitive)?.contentOrNull ?: ""
@@ -53,8 +56,8 @@ internal fun JsonObject.bool(k: String): Boolean = (this[k] as? JsonPrimitive)?.
 internal fun JsonObject.int(k: String): Int? = (this[k] as? JsonPrimitive)?.intOrNull
 internal fun JsonObject.strings(k: String): List<String> = (this[k] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
 
-internal fun kindLabel(kind: String) = when (kind) { "BUSINESS" -> "Business"; "SKILL" -> "Skill"; "DRIVER" -> "Driver"; "ASSET" -> "Asset"; else -> "Listing" }
-internal fun vehicleKindLabel(k: String) = when (k) { "AUTO" -> "Auto"; "CAB" -> "Cab"; "BIKE" -> "Bike"; else -> k }
+internal fun kindLabel(kind: String) = when (kind) { "BUSINESS" -> Str.get(R.string.g6_kind_business); "SKILL" -> Str.get(R.string.g6_kind_skill); "DRIVER" -> Str.get(R.string.g6_kind_driver); "ASSET" -> Str.get(R.string.g6_kind_asset); else -> Str.get(R.string.g6_kind_listing) }
+internal fun vehicleKindLabel(k: String) = when (k) { "AUTO" -> Str.get(R.string.g6_vk_auto); "CAB" -> Str.get(R.string.g6_vk_cab); "BIKE" -> Str.get(R.string.g6_vk_bike); else -> k }
 internal fun vehicleIcon(k: String): ImageVector = when (k) { "BIKE" -> Icons.Rounded.TwoWheeler; "AUTO" -> Icons.Rounded.ElectricRickshaw; else -> Icons.Rounded.LocalTaxi }
 internal fun listingIcon(kind: String, category: String): ImageVector = when (kind) {
     "DRIVER" -> Icons.Rounded.LocalTaxi
@@ -64,22 +67,22 @@ internal fun listingIcon(kind: String, category: String): ImageVector = when (ki
 }
 /** What a listing's online switch means to its owner. [type] is the page type of a BUSINESS: shops take orders, every other page takes requests. */
 internal fun onlineLabel(kind: String, on: Boolean, type: PageType? = null) = when (kind) {
-    "BUSINESS" -> if (type != null && !type.isShop) (if (on) "Taking requests" else "Not taking requests") else (if (on) "Open for orders" else "Closed")
-    "SKILL" -> if (on) "Taking requests" else "Not taking requests"
-    "ASSET" -> if (on) "Available" else "Not available"
-    else -> if (on) "Available" else "Unavailable"
+    "BUSINESS" -> if (type != null && !type.isShop) (if (on) Str.get(R.string.g6_online_taking) else Str.get(R.string.g6_online_not_taking)) else (if (on) Str.get(R.string.g6_online_open) else Str.get(R.string.g6_online_closed))
+    "SKILL" -> if (on) Str.get(R.string.g6_online_taking) else Str.get(R.string.g6_online_not_taking)
+    "ASSET" -> if (on) Str.get(R.string.g6_online_available) else Str.get(R.string.g6_online_not_available)
+    else -> if (on) Str.get(R.string.g6_online_available) else Str.get(R.string.g6_online_unavailable)
 }
 internal fun onlineLabel(l: ListingRow, on: Boolean) = onlineLabel(l.kind, on, PageTypes.of(l))
 internal fun roleLabel(role: String, vehicle: Boolean) = when (role) {
-    "OWNER" -> "Owner"
-    "ADMIN" -> if (vehicle) "Driver" else "Admin"
-    "STORE_RIDER" -> "Store rider"
+    "OWNER" -> Str.get(R.string.g6_role_owner)
+    "ADMIN" -> if (vehicle) Str.get(R.string.g6_kind_driver) else Str.get(R.string.g6_role_admin)
+    "STORE_RIDER" -> Str.get(R.string.g6_role_store_rider)
     else -> role
 }
 internal fun roleExplain(role: String, vehicle: Boolean) = when (role) {
-    "OWNER" -> "Can do everything, including deleting it."
-    "ADMIN" -> if (vehicle) "Can go online with this vehicle: deliveries on a bike, rides in an auto or cab." else "Runs it with you: edits details, products, accepts orders and posts jobs. Cannot delete it or invite people."
-    "STORE_RIDER" -> "Delivers your orders. Cash-on-delivery orders go only to store riders."
+    "OWNER" -> Str.get(R.string.g6_role_owner_explain)
+    "ADMIN" -> if (vehicle) Str.get(R.string.g6_role_driver_explain) else Str.get(R.string.g6_role_admin_explain)
+    "STORE_RIDER" -> Str.get(R.string.g6_role_store_rider_explain)
     else -> ""
 }
 
@@ -113,9 +116,9 @@ internal fun rememberImagePicker(onUnusable: () -> Unit = {}, onPicked: (Picked,
 @Composable
 internal fun LoadError(message: String, modifier: Modifier = Modifier, onRetry: () -> Unit) {
     BucksCard(modifier) {
-        Text("Couldn't load your listings", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.g6_manage_load_failed), style = MaterialTheme.typography.titleMedium)
         Muted(message, Modifier.padding(top = 4.dp))
-        SmallButton("Try again", Modifier.padding(top = 12.dp), tonal = true, onClick = onRetry)
+        SmallButton(stringResource(R.string.g6_try_again), Modifier.padding(top = 12.dp), tonal = true, onClick = onRetry)
     }
 }
 
@@ -129,8 +132,8 @@ internal fun PhotoField(label: String, url: String?, preview: Uri?, icon: ImageV
             if (model == null) Box(Modifier.size(72.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onPick), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(30.dp)) }
             else AsyncImage(model, null, Modifier.size(72.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).clickable(onClick = onPick), contentScale = ContentScale.Crop)
             Column(Modifier.padding(start = 14.dp)) {
-                SmallButton(if (model == null) "Add photo" else "Change photo", tonal = true, onClick = onPick)
-                if (preview != null && onClear != null) TextButton(onClick = onClear, contentPadding = PaddingValues(0.dp)) { Text("Remove") }
+                SmallButton(if (model == null) stringResource(R.string.g6_add_photo) else stringResource(R.string.g6_change_photo), tonal = true, onClick = onPick)
+                if (preview != null && onClear != null) TextButton(onClick = onClear, contentPadding = PaddingValues(0.dp)) { Text(stringResource(R.string.g6_remove)) }
             }
         }
     }
@@ -150,7 +153,7 @@ internal fun SwitchRow(title: String, detail: String?, on: Boolean, onChange: (B
 internal fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) =
     AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(text) },
         confirmButton = { TextButton({ onDismiss(); onConfirm() }) { Text(confirm, color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } })
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.g6_cancel)) } })
 
 /** A short explanation with a title and an icon, for empty states and rules. */
 @Composable
@@ -167,8 +170,8 @@ internal fun CenteredLoading() = Box(Modifier.fillMaxWidth().padding(40.dp), con
 /** The rules for who may recommend a listing, in plain words. Shown on both recommendation screens. */
 @Composable
 internal fun RecommendRules() {
-    InfoRow(Icons.Rounded.Home, "Lives within 3 km", "Their home on Bucks must be near where the listing is.")
-    InfoRow(Icons.Rounded.CalendarMonth, "Account older than 14 days", "New accounts can't recommend yet.")
-    InfoRow(Icons.Rounded.QrCodeScanner, "Scanned in person", "They must be standing near the shop or worker while scanning. Photos of the code don't work.")
-    InfoRow(Icons.Rounded.Groups, "Not part of the team", "Owners, admins and store riders can't recommend their own listing.")
+    InfoRow(Icons.Rounded.Home, stringResource(R.string.g6_rec_near), stringResource(R.string.g6_rec_near_detail))
+    InfoRow(Icons.Rounded.CalendarMonth, stringResource(R.string.g6_rec_age), stringResource(R.string.g6_rec_age_detail))
+    InfoRow(Icons.Rounded.QrCodeScanner, stringResource(R.string.g6_rec_scan), stringResource(R.string.g6_rec_scan_detail))
+    InfoRow(Icons.Rounded.Groups, stringResource(R.string.g6_rec_team), stringResource(R.string.g6_rec_team_detail))
 }
