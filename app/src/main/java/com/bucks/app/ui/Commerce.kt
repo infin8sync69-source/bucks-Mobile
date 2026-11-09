@@ -27,8 +27,10 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     data class Choice(val mode: String, val payment: String, val dropLabel: String, val address: AddressRow? = null)
 
     // ---------- cart ----------
-    /** The cart, by store, in the order the first item from each was added. Empty while nothing is in it. */
-    var stores by mutableStateOf<List<StoreCart>>(emptyList()); private set
+    /** The cart, by store, in the order the first item from each was added. Empty while nothing is in it. Saved on the phone, so it
+     *  survives the app being closed (the server prices every line again when the order is placed). */
+    var stores by mutableStateOf<List<StoreCart>>(restoreCart()); private set
+    private fun putStores(v: List<StoreCart>) { stores = v; saveCart(v) }
     /** Total number of pieces in the cart across every store, for the cart badge. */
     val count: Int get() = stores.sumOf { it.count }
     val subtotal: Int get() = stores.sumOf { it.amount }
@@ -50,15 +52,15 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
             old.any { it.item.id == id } -> old.map { if (it.item.id == id) it.copy(qty = next) else it }
             else -> old + Line(item, next)
         }
-        stores = when {
+        putStores(when {
             lines.isEmpty() -> stores.filterNot { it.listing.id == listing.id }
             cur == null -> stores + StoreCart(listing, lines)
             else -> stores.map { if (it.listing.id == listing.id) it.copy(lines = lines) else it }
-        }
+        })
     }
-    fun remove(itemId: String) { stores = stores.mapNotNull { st -> val ls = st.lines.filterNot { it.item.id == itemId }; if (ls.isEmpty()) null else st.copy(lines = ls) } }
-    fun clearStore(listingId: String) { stores = stores.filterNot { it.listing.id == listingId } }
-    fun clear() { stores = emptyList() }
+    fun remove(itemId: String) { putStores(stores.mapNotNull { st -> val ls = st.lines.filterNot { it.item.id == itemId }; if (ls.isEmpty()) null else st.copy(lines = ls) }) }
+    fun clearStore(listingId: String) { putStores(stores.filterNot { it.listing.id == listingId }) }
+    fun clear() { putStores(emptyList()) }
     /** Kept so older call sites compile; the cart no longer asks to switch stores. */
     fun confirmSwitch() {}
     fun dismissSwitch() {}
@@ -71,8 +73,16 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
      * real location (null until a fix arrives; only pick-up can be placed without it). A store whose order fails stays in the cart with
      * its reason in a toast; the ones that went through are removed. [onDone] gets the ids of the orders placed, in order.
      */
+    /** The server's delivery fee settings (delivery_base_fee, delivery_fee_per_km), for the estimate in the cart; null until read. */
+    var feeRule by mutableStateOf<Pair<Double, Double>?>(null); private set
+    fun loadFeeRule() { if (feeRule == null) go { val base = Backend.settingValue("delivery_base_fee"); val perKm = Backend.settingValue("delivery_fee_per_km"); if (base != null && perKm != null) feeRule = base to perKm } }
+    /** What place_order will charge for a local delivery over [straightKm]: the road is taken as 1.3x the straight line, to 0.1 km. */
+    fun deliveryFee(straightKm: Double): Int? = feeRule?.let { (base, perKm) -> (base + perKm * (Math.round(straightKm * 1.3 * 10) / 10.0)).toInt() }
+
     fun checkoutAll(choices: Map<String, Choice>, drop: LatLng?, onDone: (List<String>) -> Unit) = go {
         if (placing) return@go
+        // Next time this shop's order starts on the same delivery and payment.
+        choices.forEach { (id, c) -> Prefs.rememberCheckout(id, c.mode, c.payment) }
         val todo = stores.toList()
         if (todo.isEmpty()) { toast("Your cart is empty."); return@go }
         placing = true
@@ -242,4 +252,17 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         catch (e: Exception) { toast(friendlyError(e)); runCatching { refreshVendorOrder(id); order(id) }; done(false) }
         finally { actingOn = actingOn - id }
     }
+}
+
+/** The cart as saved on the phone between app runs. */
+@kotlinx.serialization.Serializable private data class SavedLine(val item: ItemRow, val qty: Int)
+@kotlinx.serialization.Serializable private data class SavedStore(val listing: ListingRow, val lines: List<SavedLine>)
+private val cartJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+private fun restoreCart(): List<Commerce.StoreCart> = runCatching {
+    Prefs.cartJson?.let { s -> cartJson.decodeFromString<List<SavedStore>>(s).map { st -> Commerce.StoreCart(st.listing, st.lines.map { Commerce.Line(it.item, it.qty) }) } }
+}.getOrNull().orEmpty()
+
+private fun saveCart(v: List<Commerce.StoreCart>) {
+    Prefs.cartJson = if (v.isEmpty()) null else runCatching { cartJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(SavedStore.serializer()), v.map { st -> SavedStore(st.listing, st.lines.map { SavedLine(it.item, it.qty) }) }) }.getOrNull()
 }

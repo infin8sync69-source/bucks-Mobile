@@ -78,7 +78,7 @@ internal fun roleLabel(role: String, vehicle: Boolean) = when (role) {
 }
 internal fun roleExplain(role: String, vehicle: Boolean) = when (role) {
     "OWNER" -> "Can do everything, including deleting it."
-    "ADMIN" -> if (vehicle) "Can go online with this vehicle and take rides or deliveries." else "Runs it with you: edits details, products, accepts orders and posts jobs. Cannot delete it or invite people."
+    "ADMIN" -> if (vehicle) "Can go online with this vehicle: deliveries on a bike, rides in an auto or cab." else "Runs it with you: edits details, products, accepts orders and posts jobs. Cannot delete it or invite people."
     "STORE_RIDER" -> "Delivers your orders. Cash-on-delivery orders go only to store riders."
     else -> ""
 }

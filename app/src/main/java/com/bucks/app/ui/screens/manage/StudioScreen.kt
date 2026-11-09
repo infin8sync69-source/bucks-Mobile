@@ -38,8 +38,8 @@ internal val CREATE_OPTIONS = listOf(
     CreateOption("BUSINESS", "Business or organisation", "Shop, service, company, NGO, school, association. Pick what it is, then fill the page.", Icons.Rounded.Storefront),
     CreateOption("SKILL", "Skill profile", "Plumber, tutor, designer. Your services, prices and portfolio.", Icons.Rounded.Handyman),
     CreateOption("ASSET", "Asset to sell, rent or lease", "House, flat, plot, shop, office, vehicle, equipment.", Icons.Rounded.Apartment),
-    CreateOption("VEHICLE", "Vehicle", "Bike, auto or cab for rides and deliveries, with its documents.", Icons.Rounded.TwoWheeler),
-    CreateOption("DRIVER", "Driver profile", "Take rides and deliveries with a checked vehicle.", Icons.Rounded.LocalTaxi),
+    CreateOption("VEHICLE", "Vehicle", "A bike for deliveries, or an auto or cab for rides, with its documents.", Icons.Rounded.TwoWheeler),
+    CreateOption("DRIVER", "Driver profile", "Rides in an auto or cab, deliveries on a bike, with a checked vehicle.", Icons.Rounded.LocalTaxi),
 )
 
 /**
@@ -134,7 +134,7 @@ private fun StudioEmpty(filter: StudioFilter, onCreate: (String) -> Unit) = Buck
         StudioFilter.BUSINESS -> Triple("No business or organisation yet", "A shop, a service, a company, an NGO, a school or an association. Pick what it is, fill the page, and people nearby can find it.", "BUSINESS")
         StudioFilter.SKILL -> Triple("No skill profile yet", "Show what you do, what you charge and photos of your work. Neighbours request you directly.", "SKILL")
         StudioFilter.ASSET -> Triple("No assets listed", "Sell, rent or lease a house, flat, plot, shop, vehicle or equipment to people nearby.", "ASSET")
-        StudioFilter.DRIVING -> Triple("Not driving yet", "Add your vehicle with its documents, then your driver profile, to take rides and deliveries.", "VEHICLE")
+        StudioFilter.DRIVING -> Triple("Not driving yet", "Add your vehicle with its documents, then your driver profile, to take rides (auto, cab) or deliveries (bike).", "VEHICLE")
         StudioFilter.ALL -> Triple("Start your professional space", "Pick what you want to offer. Every listing goes live once people nearby recommend it in person and Bucks checks any documents it needs.", "")
     }
     Text(title, style = MaterialTheme.typography.titleMedium); Muted(text, Modifier.padding(top = 4.dp))

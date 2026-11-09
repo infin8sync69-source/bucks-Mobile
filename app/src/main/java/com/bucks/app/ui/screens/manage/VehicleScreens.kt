@@ -49,7 +49,7 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
                 if (m.vehicles.isEmpty() && m.loaded) item {
                     BucksCard {
                         Text("No vehicles yet", style = MaterialTheme.typography.titleMedium)
-                        Muted("Add the bike, auto or cab you drive with its RC, insurance and permit photos. Bucks checks them, then you can go online and take rides or deliveries. You can also invite other drivers to use your vehicle.", Modifier.padding(top = 4.dp))
+                        Muted("Add the bike, auto or cab you drive with its RC, insurance and permit photos. Bucks checks them, then you can go online: a bike takes deliveries, an auto or cab takes rides. You can also invite other drivers to use your vehicle.", Modifier.padding(top = 4.dp))
                     }
                 }
                 items(m.vehicles, key = { it.id }) { v ->
@@ -64,7 +64,7 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
                             }
                         }
                         Muted(when (v.status) {
-                            "ACTIVE" -> "Ready. Go online from Home to take " + (if (v.kind == "BIKE") "deliveries." else "rides and deliveries.")
+                            "ACTIVE" -> "Ready. Go online from Home to take " + (if (v.kind == "BIKE") "deliveries." else "rides.")
                             "SUSPENDED" -> "Suspended: it can't go online. Contact Bucks support."
                             else -> vehicleDocKinds(v.kind).filter { dk -> dk.required && docs.none { it.kind == dk.key } }.takeIf { it.isNotEmpty() && owner }
                                 ?.let { missing -> "Still needed: ${missing.joinToString(", ") { it.label }}. Bucks checks them before the vehicle can go online." }

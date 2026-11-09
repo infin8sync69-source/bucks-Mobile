@@ -383,3 +383,10 @@ fun ReasonChips(selected: String?, onPick: (String?) -> Unit) =
     FlowChips(VOTE_REASONS.map { it.second }, setOfNotNull(VOTE_REASONS.firstOrNull { it.first == selected }?.second)) { label ->
         val code = VOTE_REASONS.first { it.second == label }.first; onPick(if (code == selected) null else code) }
 
+
+/** One sign-up progress bar used by every setup step: [step] of [of] segments filled, so the steps read as one journey. */
+@Composable fun SetupProgress(step: Int, of: Int, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (1..of).forEach { i -> Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)) }
+    }
+}

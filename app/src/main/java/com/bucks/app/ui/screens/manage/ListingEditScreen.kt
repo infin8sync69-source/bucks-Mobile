@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.Geo
+import com.bucks.app.data.DeliveryBackend
 import com.bucks.app.ui.screens.areaOf
 import com.bucks.app.data.ListingRow
 import com.bucks.app.data.Picked
@@ -92,6 +93,9 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var freeDelivery by remember { mutableStateOf(d.bool("free_delivery")) }
     var radius by remember { mutableStateOf(d.int("delivery_radius_km")?.toString() ?: "3") }
     var cod by remember { mutableStateOf(d.bool("cod")) }
+    /** The shop's store riders, for the cash-on-delivery note; null while unknown (no warning then). */
+    var riderCount by remember { mutableStateOf<Int?>(if (existing == null) 0 else null) }
+    LaunchedEffect(existing?.id) { existing?.id?.let { id -> riderCount = runCatching { DeliveryBackend.storeRiders(id).size }.getOrNull() } }
     // E-commerce: ship anywhere in India by courier (customers far away can only order this way).
     var ships by remember { mutableStateOf(d.bool("ships_india")) }
     var shipFee by remember { mutableStateOf(d.int("ship_fee")?.toString() ?: "") }
@@ -208,6 +212,8 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                             SwitchRow("Free delivery", "You pay the rider's fee instead of the customer.", freeDelivery) { freeDelivery = it }
                             BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, "Delivery radius (km)", "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                             SwitchRow("Cash on delivery", "With your own store riders, or with the courier on shipped orders. You collect the cash.", cod) { cod = it }
+                            // Bucks riders never carry cash, so without a store rider or courier shipping nobody can offer it.
+                            if (cod && !ships && riderCount == 0) Text("Customers won't see cash on delivery yet: add a store rider (Team), or turn on Ship by courier below.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 6.dp))
                             SectionTitle("Ship across India", Modifier.padding(top = 14.dp, bottom = 4.dp))
                             SwitchRow("Ship by courier", "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", ships) { ships = it }
                             if (ships) {
@@ -266,7 +272,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                     else -> {
                         BucksCard(Modifier.padding(bottom = 14.dp), padding = 12) { Muted("Shown to riders as"); Text(driverTitle, style = MaterialTheme.typography.titleMedium) }
                         Label("What you drive"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { VEHICLE_KINDS.forEach { (k, l) -> Chip(l, selected = vehicleKind == k, icon = vehicleIcon(k)) { vehicleKind = k } } }
-                        Muted(if (vehicleKind == "BIKE") "Bikes carry parcels and food, never passengers." else "Rides and deliveries. Add the vehicle itself under Vehicles; it goes online after Bucks checks its documents.", Modifier.padding(top = 6.dp, bottom = 14.dp))
+                        Muted(if (vehicleKind == "BIKE") "Bikes carry parcels and food, never passengers." else "Passenger rides. Add the vehicle itself under Vehicles; it goes online after Bucks checks its documents.", Modifier.padding(top = 6.dp, bottom = 14.dp))
                         BucksField(model, { model = it.take(60) }, "Vehicle model", "Bajaj RE, Maruti Dzire")
                         Label("Languages you speak"); FlowChips(LANGUAGES, languages) { languages = if (it in languages) languages - it else languages + it }
                         Spacer(Modifier.height(14.dp))

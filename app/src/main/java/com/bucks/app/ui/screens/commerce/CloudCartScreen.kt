@@ -19,6 +19,7 @@ import com.bucks.app.data.AddressRow
 import com.bucks.app.data.Backend
 import com.bucks.app.data.Geo
 import com.bucks.app.data.LatLng
+import com.bucks.app.data.Prefs
 import com.bucks.app.data.Trust
 import com.bucks.app.data.listingPoint
 import com.bucks.app.ui.BucksViewModel
@@ -44,7 +45,7 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     LaunchedEffect(ids) {
         ids.filter { it !in hasRiders }.forEach { id -> hasRiders[id] = runCatching { commerce.hasStoreRiders(id) }.getOrDefault(false) }
         ids.filter { it !in points }.forEach { id -> runCatching { Backend.listingPoint(id) }.getOrNull()?.let { points[id] = it } }
-        commerce.loadAddresses()
+        commerce.loadAddresses(); commerce.loadFeeRule()
     }
     val here = s.me
     // A shop is "near" when it is inside its own delivery radius (5 km when it hasn't set one); farther away only shipping works.
@@ -57,7 +58,8 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     /** What the shop charges to ship this part of the cart: its flat fee, free once the items reach its free-shipping line. */
     fun shipFee(st: Commerce.StoreCart): Int { val above = num(st, "free_ship_above"); return if (above > 0 && st.amount >= above) 0 else num(st, "ship_fee") }
     fun modeOf(st: Commerce.StoreCart): String {
-        val m = modes[st.listing.id] ?: if (!near(st) && ships(st)) "SHIP" else "MARKETPLACE"
+        // What I chose last time at this shop comes first (fewer taps); otherwise ship when it's far, else a Bucks rider.
+        val m = modes[st.listing.id] ?: Prefs.checkoutMode(st.listing.id) ?: if (!near(st) && ships(st)) "SHIP" else "MARKETPLACE"
         return when {
             m == "SHIP" && !ships(st) -> "MARKETPLACE"
             m == "STORE_RIDER" && hasRiders[st.listing.id] != true -> "MARKETPLACE"
@@ -65,7 +67,7 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
             else -> m
         }
     }
-    fun paymentOf(st: Commerce.StoreCart): String = (payments[st.listing.id] ?: "UPI").let { if (it == "COD" && !(modeOf(st) in setOf("STORE_RIDER", "SHIP") && st.listing.details.flag("cod"))) "UPI" else it }
+    fun paymentOf(st: Commerce.StoreCart): String = (payments[st.listing.id] ?: Prefs.checkoutPayment(st.listing.id) ?: "UPI").let { if (it == "COD" && !(modeOf(st) in setOf("STORE_RIDER", "SHIP") && st.listing.details.flag("cod"))) "UPI" else it }
     var addressId by rememberSaveable { mutableStateOf<String?>(null) }; var addressSheet by remember { mutableStateOf(false) }
     val addressList = commerce.addresses
     val address: AddressRow? = addressList.firstOrNull { it.id == addressId } ?: addressList.firstOrNull { it.isDefault } ?: addressList.firstOrNull()
@@ -73,7 +75,15 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     fun blocked(st: Commerce.StoreCart) = !near(st) && !ships(st)
     val needsDrop = stores.any { modeOf(it) in setOf("MARKETPLACE", "STORE_RIDER") }
     val needsAddress = stores.any { modeOf(it) == "SHIP" }
-    val grand = commerce.subtotal + stores.filter { modeOf(it) == "SHIP" }.sumOf { shipFee(it) }
+    /** The local delivery fee the customer pays for [st] (the server works out the same from the drop point); 0 when the shop pays it. */
+    fun localFee(st: Commerce.StoreCart): Int? {
+        if (modeOf(st) !in setOf("MARKETPLACE", "STORE_RIDER") || st.listing.details.flag("free_delivery")) return 0
+        val at = points[st.listing.id] ?: return null; val drop = here ?: return null
+        return commerce.deliveryFee(Geo.distanceKm(drop, at))
+    }
+    val fees = stores.map { localFee(it) }
+    val grand = commerce.subtotal + stores.filter { modeOf(it) == "SHIP" }.sumOf { shipFee(it) } + fees.sumOf { it ?: 0 }
+    val feeUnknown = fees.any { it == null }
 
     ContentColumn(Modifier.fillMaxHeight().imePadding()) {
         BucksTopBar("Cart", onBack = onBack, actions = { if (stores.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteOutline, "Empty the cart") } })
@@ -125,9 +135,10 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
                             " ${shop.title} has 24 hours to accept, then ships it with a tracking number."
                         mode == "PICKUP" -> "No delivery fee. Collect it from ${shop.title}" + (if (shop.area.isBlank()) "" else " in ${shop.area}") + " once they mark it ready."
                         freeDelivery -> "Free delivery: ${shop.title} pays the rider's fee on this order. You pay for the items only."
-                        mode == "STORE_RIDER" -> "Delivery fee is ₹20 + ₹8 per km from the shop to your drop point. It goes to ${shop.title} with the items, since it's their rider."
-                        else -> "Delivery fee is ₹20 + ₹8 per km from the shop to your drop point. You pay it to the Bucks rider at the door (UPI or cash); the order page shows the amount."
+                        mode == "STORE_RIDER" -> "Delivery ${localFee(st)?.let { rupees(it) } ?: "fee"} to your drop point. It goes to ${shop.title} with the items, since it's their rider."
+                        else -> "Delivery ${localFee(st)?.let { rupees(it) } ?: "fee"} to your drop point. You pay it to the Bucks rider at the door (UPI or cash)."
                     }, Modifier.padding(top = 12.dp, bottom = 12.dp))
+                    localFee(st)?.takeIf { it > 0 }?.let { f -> Row(Modifier.padding(top = 8.dp)) { Muted("Items ${rupees(st.amount)} + delivery ${rupees(f)}", Modifier.weight(1f)); Text(rupees(st.amount + f), style = MaterialTheme.typography.titleSmall) } }
                     if (mode == "SHIP") Row(Modifier.padding(top = 8.dp)) { Muted("Items ${rupees(st.amount)} + shipping ${if (shipFee(st) == 0) "free" else rupees(shipFee(st))}", Modifier.weight(1f)); Text(rupees(st.amount + shipFee(st)), style = MaterialTheme.typography.titleSmall) }
                     Label("Pay ${shop.title} with")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -157,7 +168,9 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
         }
         Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp)) {
-                PrimaryButton(if (commerce.placing) "Placing…" else if (stores.size == 1) "Place order · ${rupees(grand)}" else "Place ${stores.size} orders · ${rupees(grand)}",
+                // The total includes delivery; "about" while the drop point or the fee rule isn't known yet.
+                val total = (if (feeUnknown && needsDrop) "about " else "") + rupees(grand)
+                PrimaryButton(if (commerce.placing) "Placing…" else if (stores.size == 1) "Place order · $total" else "Place ${stores.size} orders · $total",
                     enabled = !commerce.placing && stores.none { blocked(it) } && (!needsDrop || (dropLabel.isNotBlank() && here != null)) && (!needsAddress || address != null)) {
                     val choices = stores.associate { st -> st.listing.id to Commerce.Choice(modeOf(st), paymentOf(st), if (modeOf(st) == "PICKUP") st.listing.area else dropLabel, if (modeOf(st) == "SHIP") address else null) }
                     commerce.checkoutAll(choices, here, onPlaced)

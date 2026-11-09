@@ -156,7 +156,8 @@ fun CreateProfileScreen(vm: BucksViewModel, onDone: () -> Unit, showToast: (Stri
     var gender by remember { mutableStateOf(u?.gender ?: "") }; val interests = remember { mutableStateListOf<String>().apply { addAll(u?.interests ?: emptyList()) } }
     ContentColumn { BucksTopBar(onBack = if (step > 1) ({ step -= 1 }) else null)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { (1..3).forEach { i -> Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)) } }
+            // Signing up, this continues the bar the age check started (step 1 of 4); editing, it's just these three.
+            if (u == null) SetupProgress(step + 1, 4, Modifier.padding(bottom = 20.dp)) else SetupProgress(step, 3, Modifier.padding(bottom = 20.dp))
             when (step) {
                 1 -> {
                     Headline(if (u == null) "What should we call you?" else "Edit your profile"); Muted("This is what people and providers nearby see.", Modifier.padding(top = 8.dp, bottom = 24.dp))
