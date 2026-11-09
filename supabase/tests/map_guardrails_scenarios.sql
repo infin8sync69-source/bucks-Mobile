@@ -8,6 +8,13 @@ create or replace function pg_temp.expect_fail(sql text, want text) returns text
 begin execute sql; return 'FAIL (no error): ' || want; exception when others then return case when sqlerrm ilike '%' || want || '%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 -- Everything in a box around Hindupur.
 create or replace function pg_temp.pins() returns table (name text, posts int) language sql as $$ select name, posts from public.map_pins(13.5, 77.2, 14.2, 77.8) $$;
+-- Backdate posts (as the database owner) so the locality delay has passed; the trigger recomputes the map columns from created_at.
+create or replace function pg_temp.backdate(pat text) returns void language plpgsql as $$
+begin
+  perform set_config('bucks.map_backfill', 'on', true);
+  update public.posts set created_at = now() - interval '1 hour' where body like pat;
+  perform set_config('bucks.map_backfill', 'off', true);
+end $$;
 create or replace function pg_temp.post(b text) returns public.posts language sql security definer as $$ select * from public.posts where body = b $$;
 
 insert into localities (name, district, state, pincode, lat, lng) values
@@ -29,7 +36,7 @@ update posts set map_point = geo(13.9, 77.6), map_off_by = 'AUTHOR', map_after =
 select pg_temp.check('a client can''t move its pin or change its map state', (select st_y(map_point::geometry) = 13.829 and map_off_by is null and map_after < now() + interval '1 hour' from pg_temp.post('Best masala dosa at the corner')));
 
 \echo '== Consent first, and a delay for locality pins'
-reset role; update posts set map_after = now() - interval '1 minute' where body = 'Best masala dosa at the corner'; set role authenticated;
+reset role; select pg_temp.backdate('Best masala dosa at the corner'); set role authenticated;
 select pg_temp.as_user('mv');
 select pg_temp.check('not on the map before the author agrees', (select count(*) from pg_temp.pins()) = 0);
 select pg_temp.as_user('ma'); select set_map_consent(true);
@@ -46,7 +53,7 @@ select pg_temp.as_user('ma'); select set_map_consent(true);
 select pg_temp.as_user('mt');
 select 'a teen agreeing -> ' || pg_temp.expect_fail($$select set_map_consent(true)$$, '18 and over');
 insert into posts (author_id, body, visibility, location) values (me(), 'Our college fest', 'PUBLIC', geo(13.83, 77.49));
-reset role; update posts set map_after = now() - interval '1 minute' where body = 'Our college fest';
+reset role; select pg_temp.backdate('Our college fest');
 insert into map_consent (profile_id, allowed) select id, true from profiles where auth_uid = 'mt' on conflict (profile_id) do update set allowed = true; set role authenticated;
 select pg_temp.as_user('mv');
 select pg_temp.check('a teen''s post stays off even with a consent row', (select coalesce(sum(posts), 0) from pg_temp.pins()) = 1);
@@ -82,7 +89,7 @@ reset role; update settings set value = 1 where key = 'map_enabled'; set role au
 \echo '== One author can''t fill a place'
 select pg_temp.as_user('ma');
 insert into posts (author_id, body, visibility, location) select me(), 'Spam ' || g, 'PUBLIC', geo(13.83, 77.49) from generate_series(1, 6) g;
-reset role; update posts set map_after = now() - interval '1 minute' where body like 'Spam %'; set role authenticated;
+reset role; select pg_temp.backdate('Spam %'); set role authenticated;
 select pg_temp.as_user('mv');
 select pg_temp.check('at most 3 of their posts count per place', (select posts from pg_temp.pins() where name = 'Hindupur') = 3);
 
