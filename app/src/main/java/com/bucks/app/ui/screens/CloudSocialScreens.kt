@@ -188,7 +188,7 @@ private fun MomentRing(unseen: Boolean, has: Boolean, content: @Composable () ->
 fun MutedMomentsSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
     val social = vm.social
     LaunchedEffect(Unit) { social.refreshMutedMoments() }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) {
         Text("Muted moments", style = MaterialTheme.typography.titleLarge)
         Muted("People here stay synced with you; only their moments are hidden from the row.", Modifier.padding(top = 4.dp, bottom = 10.dp))
         if (social.mutedMoments.isEmpty()) Muted("Nobody is muted. Press and hold someone's circle in the Moments row to hide their moments.", Modifier.padding(vertical = 12.dp))
@@ -233,7 +233,7 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
 fun CloudCommentsSheet(vm: BucksViewModel, postId: String, onDismiss: () -> Unit) {
     val social = vm.social; var rows by remember { mutableStateOf<List<CommentRow>>(emptyList()) }; var reply by remember { mutableStateOf("") }; var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(postId, tick) { rows = runCatching { social.comments(postId) }.getOrDefault(emptyList()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("Comments", style = MaterialTheme.typography.titleLarge)
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("Comments", style = MaterialTheme.typography.titleLarge)
         if (rows.isEmpty()) Muted("Be the first to reply.", Modifier.padding(vertical = 12.dp)) else rows.forEach { c -> Column(Modifier.padding(vertical = 10.dp)) { Row { Text(social.nameOf(c.authorId), style = MaterialTheme.typography.titleSmall); Muted("  ${ago(c.createdAt)}") }; Text(c.body, style = MaterialTheme.typography.bodyMedium) }; Divider() }
         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) { OutlinedTextField(reply, { reply = it }, placeholder = { Text("Reply") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, singleLine = true); Spacer(Modifier.width(8.dp))
             FilledIconButton(onClick = { val t = reply.trim(); if (t.isNotEmpty()) social.comment(postId, t) { reply = ""; tick++ } }, enabled = reply.isNotBlank()) { Icon(Icons.AutoMirrored.Rounded.Send, "Send") } } } }
@@ -269,7 +269,7 @@ fun NewPostSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
         Upload.read(ctx, u)?.let { photos = photos + it } ?: vm.toast("Couldn't open what the camera saved. Try again.")
     }
     val camera = com.bucks.app.ui.rememberCamera(maxVideoBytes = Social.MAX_POST_VIDEO_BYTES.toLong(), onError = { vm.toast(it) }, onPhoto = { addCaptured(it, false) }, onVideo = { addCaptured(it, true) })
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) {
         Text("New post", style = MaterialTheme.typography.titleLarge)
         BucksField(text, { text = it }, placeholder = "Ask for a recommendation, share a deal, thank a provider", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 4)
         Label("Who can see it"); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LOCAL" to "Nearby", "SYNCED" to "Synced only", "PUBLIC" to "Everyone").forEach { (k, l) -> Chip(l, selected = visibility == k) { visibility = k } } }
@@ -594,7 +594,7 @@ private fun MembersSheet(vm: BucksViewModel, conv: String, kind: String, title: 
     val iAmAdmin = members.any { it.profileId == meId && it.role == "ADMIN" }; val group = kind == "GROUP"
     var rename by remember { mutableStateOf<String?>(null) }; var adding by remember { mutableStateOf(false) }; var removeFor by remember { mutableStateOf<ConversationMemberRow?>(null) }; var leaving by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { onReload(); if (group) social.refreshSyncs() }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) { Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (group) IconButton({ rename = title }) { Icon(Icons.Rounded.Edit, "Rename group") } }
         Muted(if (group) "${members.size} people · only people synced with you can be added" else "The shop or pro and everyone who runs it share this chat with you.", Modifier.padding(bottom = 8.dp))
@@ -623,7 +623,7 @@ private fun MembersSheet(vm: BucksViewModel, conv: String, kind: String, title: 
 private fun AddPeopleSheet(vm: BucksViewModel, conv: String, already: Set<String>, onAdded: () -> Unit, onDismiss: () -> Unit) {
     val social = vm.social; var selected by remember { mutableStateOf<Set<String>>(emptySet()) }; var busy by remember { mutableStateOf(false) }
     val candidates = social.synced.filter { it.id !in already }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(bottom = 24.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(bottom = 24.dp)) {
         Text("Add people", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Gutter))
         Muted("People synced with you who aren't in the group yet.", Modifier.padding(horizontal = Gutter, vertical = 6.dp))
         PeoplePicker(candidates, selected, onToggle = { id -> selected = if (id in selected) selected - id else selected + id }, modifier = Modifier.heightIn(max = 420.dp),

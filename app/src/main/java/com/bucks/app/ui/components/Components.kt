@@ -361,7 +361,7 @@ fun VoteArrow(up: Boolean, on: Boolean, modifier: Modifier = Modifier, onClick: 
 @Composable
 fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", busy: Boolean = false, askReason: Boolean = false, onSubmit: (Int, String, String?) -> Unit, onDismiss: () -> Unit) {
     var vote by remember { mutableIntStateOf(initial) }; var text by remember { mutableStateOf(initialText) }; var reason by remember { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -388,5 +388,13 @@ fun ReasonChips(selected: String?, onPick: (String?) -> Unit) =
 @Composable fun SetupProgress(step: Int, of: Int, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         (1..of).forEach { i -> Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)) }
+    }
+}
+
+/** A bottom sheet's top bar: the drag handle, plus a visible 48 dp close button (swiping down is easy to miss, and some can't). */
+@Composable fun SheetCloseHandle(onClose: () -> Unit) {
+    Box(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
+        IconButton(onClose, Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).size(48.dp)) { Icon(Icons.Rounded.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }

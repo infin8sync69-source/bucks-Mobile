@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.*
@@ -44,6 +46,8 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
     val d = vm.discover; val s by vm.state.collectAsState()
     val focus = remember { FocusRequester() }
     var pickArea by remember { mutableStateOf(false) }
+    // Say it instead of typing (in the voice language set in Settings): the words become the search.
+    val (voice, listen) = com.bucks.app.ui.rememberVoiceInput(s.voiceLang, onResult = { heard -> d.query = heard }, onError = { vm.toast(it) })
     // A query typed on Home or Services arrives through the view model; take it once, then it's ours.
     LaunchedEffect(Unit) {
         val q = vm.s.query.trim()
@@ -65,8 +69,9 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
             Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)); Spacer(Modifier.width(14.dp))
             BasicTextField(d.query, { d.query = it }, Modifier.weight(1f).focusRequester(focus), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { d.search() }),
-                decorationBox = { inner -> Box { if (d.query.isEmpty()) Text("Shops, services, pros or an item, like sugar", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
+                decorationBox = { inner -> Box { if (d.query.isEmpty()) Text(if (voice.listening) voice.partial.ifBlank { "Listening…" } else "Shops, services, pros or an item, like sugar", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
             if (d.query.isNotEmpty()) IconButton({ d.clear() }) { Icon(Icons.Rounded.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            else IconButton(onClick = listen) { Icon(if (voice.listening) Icons.Rounded.GraphicEq else Icons.Rounded.Mic, "Search by voice", tint = if (voice.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Opened from a Services tile: that service is the first chip; tapping it widens the search to everything.
@@ -138,7 +143,7 @@ private fun EmptyResults(vm: BucksViewModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AreaSheet(current: String, fix: com.bucks.app.data.LatLng?, fixLabel: String?, onPick: (String, com.bucks.app.data.LatLng) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             Text("Search in an area", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 12.dp))
             com.bucks.app.ui.screens.LocationPicker(current, fix, fixLabel, onPick)

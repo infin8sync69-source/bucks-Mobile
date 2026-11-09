@@ -54,7 +54,7 @@ fun OwnerSheet(vm: BucksViewModel, l: ListingRow, owner: OwnerRow?, onDismiss: (
     var pages by remember(l.ownerId) { mutableStateOf<List<ListingRow>?>(null) }
     LaunchedEffect(l.ownerId) { pages = runCatching { Backend.livePagesOf(l.ownerId) }.getOrDefault(emptyList()) }
     val name = owner?.name ?: "Bucks member"
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(initials(name).ifBlank { "?" }, size = 56)

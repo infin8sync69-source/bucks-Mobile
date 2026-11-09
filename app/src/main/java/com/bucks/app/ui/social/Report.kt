@@ -49,7 +49,7 @@ fun ReportSheet(vm: BucksViewModel, target: ReportTarget, onDismiss: () -> Unit)
     val scope = rememberCoroutineScope()
     val canBlock = target.ownerId != null && target.ownerId != vm.social.me?.id
     var alsoBlock by remember { mutableStateOf(target.kind == "PROFILE" || target.kind == "MESSAGE") }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Flag, null, tint = MaterialTheme.colorScheme.error)

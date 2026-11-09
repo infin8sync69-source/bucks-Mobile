@@ -362,7 +362,7 @@ private fun PhotosTab(vm: BucksViewModel, l: ListingRow) {
     open?.let { p ->
         var caption by remember(p.url) { mutableStateOf(p.caption) }; var confirm by remember(p.url) { mutableStateOf(false) }
         val i = g.indexOfFirst { it.url == p.url }
-        ModalBottomSheet(onDismissRequest = { open = null }) {
+        ModalBottomSheet(onDismissRequest = { open = null }, dragHandle = { SheetCloseHandle({ open = null }) }) {
             Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
                 AsyncImage(p.url, null, Modifier.fillMaxWidth().heightIn(max = 320.dp).clip(MaterialTheme.shapes.medium), contentScale = ContentScale.Fit)
                 BucksField(caption, { caption = it.take(200) }, if (l.kind == "SKILL") "What was the job?" else "Caption", if (l.kind == "SKILL") "Bathroom re-tiling, Koramangala" else "Optional", Modifier.padding(top = 12.dp))

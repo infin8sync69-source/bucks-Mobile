@@ -296,6 +296,6 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun MapButton(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, busy: Boolean = false, onClick: () -> Unit) =
-    Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable(enabled = !busy, onClick = onClick)) {
+    Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(48.dp).clickable(enabled = !busy, onClick = onClick)) {
         Box(contentAlignment = Alignment.Center) { if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Icon(icon, desc) }
     }

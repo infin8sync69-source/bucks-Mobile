@@ -151,7 +151,7 @@ private fun CreateRow(o: CreateOption, onClick: () -> Unit) = Row(Modifier.fillM
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun CreateSheet(hasDriver: Boolean, onDismiss: () -> Unit, onPick: (String) -> Unit) = ModalBottomSheet(onDismissRequest = onDismiss) {
+internal fun CreateSheet(hasDriver: Boolean, onDismiss: () -> Unit, onPick: (String) -> Unit) = ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
     Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
         Text("Create", style = MaterialTheme.typography.titleLarge); Muted("What do you want to offer?", Modifier.padding(bottom = 8.dp))
         CREATE_OPTIONS.filter { it.kind != "DRIVER" || !hasDriver }.forEach { o -> CreateRow(o) { onPick(o.kind) } }

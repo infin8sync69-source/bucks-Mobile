@@ -175,7 +175,7 @@ private fun ApplySheet(vm: BucksViewModel, job: JobPageRow, onDismiss: () -> Uni
     LaunchedEffect(Unit) { jobs.loadMySkills() }
     val skills = jobs.mySkills
     LaunchedEffect(skills.size) { if (selected.isEmpty() && skills.size == 1) selected = setOf(skills.first().id) }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(Gutter).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(Gutter).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
         Text("Apply: ${job.title}", style = MaterialTheme.typography.titleLarge)
         Muted("${job.listingTitle} · ${job.pay.ifBlank { "Pay on request" }}", Modifier.padding(top = 2.dp, bottom = 14.dp))
         Label("Apply with")

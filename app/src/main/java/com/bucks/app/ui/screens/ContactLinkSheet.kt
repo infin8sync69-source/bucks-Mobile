@@ -56,7 +56,7 @@ fun ContactLinkSheet(vm: BucksViewModel, person: ProfileRow, prefill: PhoneConta
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> granted = ok; if (ok) picking = true else vm.toast("Contacts permission is off. You can still type the details.") }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Text("Contact details for ${person.name}", style = MaterialTheme.typography.titleLarge)
             Muted("Only you can see this. It doesn't change ${person.name.substringBefore(' ')}'s Bucks profile, and they aren't told.", Modifier.padding(top = 2.dp, bottom = 12.dp))

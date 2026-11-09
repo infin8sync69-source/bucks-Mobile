@@ -50,7 +50,7 @@ fun FeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, s
             items(posts, key = { it.id }) { p -> PostCard(p, s.postVotes[p.id] ?: 0, onVote = { vm.votePost(p.id, it) }, onComments = { comments = p.id }, onShare = { sharePost(ctx, p) }) }
         }
     }
-    if (compose) ModalBottomSheet(onDismissRequest = { compose = false }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("New post", style = MaterialTheme.typography.titleLarge); BucksField(text, { text = it }, placeholder = "Ask for a recommendation, share a deal, thank a provider", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 4); PrimaryButton("Post") { vm.addPost(text.trim()); if (text.isNotBlank()) { text = ""; compose = false } } } }
+    if (compose) ModalBottomSheet(onDismissRequest = { compose = false }, dragHandle = { SheetCloseHandle({ compose = false }) }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("New post", style = MaterialTheme.typography.titleLarge); BucksField(text, { text = it }, placeholder = "Ask for a recommendation, share a deal, thank a provider", modifier = Modifier.padding(top = 14.dp), singleLine = false, minLines = 4); PrimaryButton("Post") { vm.addPost(text.trim()); if (text.isNotBlank()) { text = ""; compose = false } } } }
     comments?.let { id -> PostCommentsSheet(vm, id) { comments = null } }
     viewing?.let { id -> DemoMomentViewer(vm.demoMoments, id, myName, onReply = { showToast("Replies to Moments open in the online version.") }, onClose = { viewing = null }) }
     if (composingMoment) DemoMomentComposer(onShare = { t, c -> vm.demoMoments.add(t, c); composingMoment = false; showToast("Shared for 24 hours.") }, onDismiss = { composingMoment = false })
@@ -60,7 +60,7 @@ fun FeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, s
 @Composable
 fun PostCommentsSheet(vm: BucksViewModel, id: String, onDismiss: () -> Unit) {
     val posts by vm.repo.posts.collectAsState(); val p = posts.firstOrNull { it.id == id } ?: return; var reply by remember { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("Comments", style = MaterialTheme.typography.titleLarge)
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text("Comments", style = MaterialTheme.typography.titleLarge)
         if (p.comments.isEmpty()) Muted("Be the first to reply.", Modifier.padding(vertical = 12.dp)) else p.comments.forEach { cm -> Column(Modifier.padding(vertical = 10.dp)) { Text(cm.first, style = MaterialTheme.typography.titleSmall); Text(cm.second, style = MaterialTheme.typography.bodyMedium) }; Divider() }
         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) { OutlinedTextField(reply, { reply = it }, placeholder = { Text("Reply") }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, singleLine = true); Spacer(Modifier.width(8.dp)); FilledIconButton(onClick = { vm.addComment(p.id, reply.trim()); reply = "" }) { Icon(Icons.AutoMirrored.Rounded.Send, "Send") } } } }
 }

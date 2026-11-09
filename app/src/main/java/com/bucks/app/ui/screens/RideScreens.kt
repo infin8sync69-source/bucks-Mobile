@@ -222,7 +222,7 @@ fun ConfirmPickupScreen(vm: BucksViewModel, onBack: () -> Unit, onEnableLocation
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             Row(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Spacer(Modifier.weight(1f))
-                Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(44.dp).clickable { chosen = false; cmds.moveTo(vm.mePos, 16.0) }) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MyLocation, "Use my location") } }
+                Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(48.dp).clickable { chosen = false; cmds.moveTo(vm.mePos, 16.0) }) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.MyLocation, "Use my location") } }
             }
             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { MapAttribution() }
             Sheet {

@@ -120,7 +120,7 @@ private fun OnlineFabCore(onClick: () -> Unit) = Box(Modifier.size(72.dp).shadow
 fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Unit, onEarnings: () -> Unit) {
     // Cloud builds: the vehicle comes from My vehicles on the server (checked ones only); demo builds use the local one.
     val s by vm.state.collectAsState(); val cloud = vm.dispatch.enabled; val v = if (cloud) null else s.pro?.vehicle; val cv = vm.cloudVehicle
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
         Text(if (vm.providerOnline) "You're online" else "You're offline", style = MaterialTheme.typography.titleLarge); Muted("Only online listings receive rides, orders and service requests.")
         Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (v != null) OnlineRow(v.kind.icon, "${v.model} · ${v.plate}", if (s.vehicleOnline) "Receiving ride requests" else "Offline", s.vehicleOnline) { vm.setVehicleOnline(v.id, it) }

@@ -143,7 +143,7 @@ fun VehicleFormScreen(vm: BucksViewModel, editId: String?, onBack: () -> Unit, o
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 docs.forEachIndexed { i, (_, name) -> Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).padding(8.dp)) {
                     Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.primary); Text(name, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                    Icon(Icons.Rounded.Close, "Remove", Modifier.align(Alignment.TopEnd).size(16.dp).clickable { docs.removeAt(i) }, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                    IconButton({ docs.removeAt(i) }, Modifier.align(Alignment.TopEnd).size(48.dp)) { Icon(Icons.Rounded.Close, "Remove", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                 Box(Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { picker.launch(arrayOf("image/*", "application/pdf")) }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Add, "Upload a document", Modifier.size(32.dp)) }
             }
             if (edit != null && edit.docs > 0) Muted("${edit.docs} document${if (edit.docs == 1) "" else "s"} already on file", Modifier.padding(top = 8.dp))

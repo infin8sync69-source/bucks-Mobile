@@ -43,7 +43,7 @@ fun AddressSheet(vm: BucksViewModel, selectedId: String?, startNew: Boolean = fa
     LaunchedEffect(Unit) { commerce.loadAddresses() }
     var editing by remember { mutableStateOf<AddressRow?>(null) }; var adding by remember { mutableStateOf(startNew) }
     var confirmDelete by remember { mutableStateOf<AddressRow?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             if (adding || editing != null) {
                 AddressForm(editing, first = commerce.addresses.isEmpty(), here = vm.state.value.me, onCancel = { adding = false; editing = null }) { saved ->

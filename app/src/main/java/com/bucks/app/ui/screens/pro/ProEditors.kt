@@ -206,7 +206,7 @@ internal fun CertificationSheet(x: ProCertification?, busy: Boolean, onDismiss: 
 @Composable
 private fun EditorSheet(title: String, busy: Boolean, onDismiss: () -> Unit, canSave: Boolean, onSave: () -> Unit, onDelete: (() -> Unit)? = null, hint: String? = null, content: @Composable ColumnScope.() -> Unit) {
     var confirm by remember { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 14.dp))
             content()

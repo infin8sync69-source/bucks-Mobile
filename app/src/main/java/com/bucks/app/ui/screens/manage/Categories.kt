@@ -92,7 +92,7 @@ internal fun CategoryPickerSheet(kind: String, selected: String, onPick: (String
     val shown = if (query.isEmpty()) all else all.map { (g, items) -> g to items.filter { it.contains(query, ignoreCase = true) } }.filter { it.second.isNotEmpty() }
     val own = cleanCategory(query)
     val exact = own != null && all.any { (_, items) -> items.any { it.equals(own, ignoreCase = true) } }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Gutter).imePadding()) {
             Text(if (kind == "SKILL") "What do you do?" else "What kind of business?", style = MaterialTheme.typography.titleLarge)
             Muted("Pick the closest one, or type your own and add it.", Modifier.padding(top = 2.dp))

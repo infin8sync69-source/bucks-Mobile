@@ -92,7 +92,7 @@ fun ActivityFab(items: List<ActivityItem>, modifier: Modifier = Modifier, onClic
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivitySheet(items: List<ActivityItem>, onOpen: (ActivityItem) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             Text("Your activity", style = MaterialTheme.typography.titleLarge)
             Muted("Tap one to see where it stands.", Modifier.padding(top = 2.dp, bottom = 8.dp))

@@ -207,7 +207,7 @@ fun CommentsSheet(vm: BucksViewModel, postId: String, onDismiss: () -> Unit) {
     val social = vm.social; val report = LocalReporter.current; val openPerson = LocalOpenPerson.current
     var rows by remember { mutableStateOf<List<CommentRow>?>(null) }; var reply by remember { mutableStateOf("") }; var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(postId, tick) { rows = runCatching { social.comments(postId) }.getOrDefault(emptyList()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 16.dp).imePadding()) {
             Text("Comments", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 8.dp).semantics { heading() })
             when {

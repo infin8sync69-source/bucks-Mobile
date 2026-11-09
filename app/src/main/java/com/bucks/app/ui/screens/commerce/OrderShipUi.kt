@@ -29,7 +29,7 @@ fun ShipSheet(onDismiss: () -> Unit, onShip: (carrier: String, tracking: String,
     var pick by remember { mutableStateOf("Delhivery") }; var other by remember { mutableStateOf("") }; var tracking by remember { mutableStateOf("") }; var url by remember { mutableStateOf("") }
     val carrier = if (pick == "Other") other.trim() else pick
     val urlOk = url.isBlank() || Regex("https?://\\S+").matches(url.trim())
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Text("Mark as shipped", style = MaterialTheme.typography.titleLarge)
             Muted("The customer is told and sees the carrier and tracking number.", Modifier.padding(top = 4.dp, bottom = 8.dp))

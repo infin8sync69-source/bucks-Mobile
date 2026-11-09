@@ -120,7 +120,7 @@ private fun FeedbackCard(r: FeedbackRow, staff: Boolean, onVote: () -> Unit, onS
 private fun ComposeFeedbackSheet(vm: BucksViewModel, onDismiss: () -> Unit, onPosted: () -> Unit) {
     val scope = rememberCoroutineScope()
     var title by remember { mutableStateOf("") }; var body by remember { mutableStateOf("") }; var category by remember { mutableStateOf("IDEA") }; var busy by remember { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp).imePadding()) {
             Text("Share feedback", style = MaterialTheme.typography.titleLarge)
             Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { CATEGORY.forEach { (k, l) -> FilterChip(category == k, { category = k }, { Text(l) }) } }
@@ -145,7 +145,7 @@ private fun ComposeFeedbackSheet(vm: BucksViewModel, onDismiss: () -> Unit, onPo
 private fun StaffStatusSheet(vm: BucksViewModel, r: FeedbackRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf(r.status) }; var note by remember { mutableStateOf(r.staffNote) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp).imePadding()) {
             Text("Set status", style = MaterialTheme.typography.titleLarge)
             Text(r.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))

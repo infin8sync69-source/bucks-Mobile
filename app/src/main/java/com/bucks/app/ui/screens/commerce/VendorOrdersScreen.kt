@@ -201,7 +201,7 @@ private fun DeliveryLine(d: OrderDelivery?, busy: Boolean, hasRiders: Boolean, o
 @Composable
 private fun RiderSheet(riders: List<StoreRider>, preselect: String?, accept: Boolean, busy: Boolean, onDismiss: () -> Unit, onPick: (StoreRider) -> Unit) {
     var picked by remember { mutableStateOf(riders.firstOrNull { it.profileId == preselect } ?: riders.firstOrNull { it.online } ?: riders.firstOrNull()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             Text(if (accept) "Accept and send your rider" else "Send your rider", style = MaterialTheme.typography.titleLarge)
             Muted("They get it alone for a minute. If they don't take it, Bucks rings your other riders${if (accept) " (or riders nearby)" else ""}.", Modifier.padding(top = 4.dp, bottom = 8.dp))

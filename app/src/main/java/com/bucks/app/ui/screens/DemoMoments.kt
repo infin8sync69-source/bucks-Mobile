@@ -129,7 +129,7 @@ fun DemoMomentViewer(m: DemoMoments, startId: String, myName: String, onReply: (
 @Composable
 fun DemoMomentComposer(onShare: (String, List<Color>) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }; var colors by remember { mutableStateOf(MOMENT_COLORS.first()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
         Text("New moment", style = MaterialTheme.typography.titleLarge)
         Muted("Disappears after 24 hours.", Modifier.padding(top = 2.dp, bottom = 12.dp))
         Box(Modifier.fillMaxWidth().height(180.dp).clip(MaterialTheme.shapes.medium).background(Brush.verticalGradient(colors)).padding(18.dp), contentAlignment = Alignment.Center) {

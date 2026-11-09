@@ -270,7 +270,7 @@ private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, r
     val loaded = full
     val photos = ((loaded?.let { photosOf(it) } ?: photosOf(item)) + pr.photos).distinct().take(8)
     val about = (loaded?.description ?: "").trim().removePrefix(pr.title).trim().replace(Regex("\n{3,}"), "\n\n")
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             if (photos.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 photos.forEachIndexed { i, u -> ShimmerImage(sized(u, 900), "${pr.title}, photo ${i + 1} of ${photos.size}", Modifier.size(if (photos.size == 1) 300.dp else 240.dp).clip(MaterialTheme.shapes.medium)) }

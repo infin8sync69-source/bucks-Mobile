@@ -72,7 +72,7 @@ internal fun pageRegistrationLabel(t: PageType): String = if (t.key == "SCHOOL_C
 @Composable
 internal fun PageTypePickerSheet(initialGroup: String? = null, selected: String? = null, onSkill: (() -> Unit)? = null, onPick: (PageType) -> Unit, onDismiss: () -> Unit) {
     var group by remember { mutableStateOf(PageTypes.group(initialGroup)) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Gutter)) {
             val g = group
             if (g == null) {

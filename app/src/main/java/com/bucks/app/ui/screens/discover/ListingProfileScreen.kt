@@ -265,7 +265,7 @@ private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, 
     var text by remember { mutableStateOf(mine?.comment.orEmpty()) }; var reason by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope(); val st = MaterialTheme.status
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.padding(Gutter).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             Text(if (mine != null) "Your recommendation for ${l.title}" else "Recommend ${l.title}?", style = MaterialTheme.typography.titleLarge)
             Muted("Your vote and comment are shown in Reviews for everyone.", Modifier.padding(top = 4.dp))

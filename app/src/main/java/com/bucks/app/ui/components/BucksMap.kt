@@ -7,6 +7,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -53,7 +59,7 @@ class MapCommands {
 /** Real street map. Pins keep the app's 0–100 percent coordinates and are projected through [Geo.fromPercent]. */
 @Composable
 fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 13.0, route: List<LatLng> = emptyList(), circle: Pair<LatLng, Double>? = null, onCenter: ((LatLng) -> Unit)? = null,
-    commands: MapCommands? = null, satellite: Boolean = false, onLongPress: ((LatLng) -> Unit)? = null, onUserMove: (() -> Unit)? = null) {
+    commands: MapCommands? = null, satellite: Boolean = false, onLongPress: ((LatLng) -> Unit)? = null, onUserMove: (() -> Unit)? = null, zoomButtons: Boolean = true) {
     val brand = Brand.toArgb()
     val ctx = LocalContext.current; val density = LocalDensity.current.density
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -80,7 +86,9 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
         val l = onCenter?.let { cb -> object : MapListener { override fun onScroll(e: ScrollEvent?) = true.also { map.mapCenter.let { c -> cb(LatLng(c.latitude, c.longitude)) } }; override fun onZoom(e: ZoomEvent?) = false } }
         l?.let { map.addMapListener(it); map.mapCenter.let { c -> onCenter(LatLng(c.latitude, c.longitude)) } }
         onDispose { l?.let { map.removeMapListener(it) } } }
-    AndroidView(factory = { map }, modifier = modifier.clipToBounds(), update = { mv ->
+    // + and − buttons (48 dp) so zooming never needs a pinch: one hand, or a first-time smartphone user.
+    androidx.compose.foundation.layout.Box(modifier) {
+    AndroidView(factory = { map }, modifier = Modifier.matchParentSize().clipToBounds(), update = { mv ->
         mv.overlayManager.tilesOverlay.setColorFilter(if (satellite) null else mutedTiles(dark))
         mv.overlays.clear()
         onLongPress?.let { cb -> mv.overlays.add(org.osmdroid.views.overlay.MapEventsOverlay(object : org.osmdroid.events.MapEventsReceiver {
@@ -98,6 +106,17 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
         }
         mv.invalidate()
     })
+    if (zoomButtons) androidx.compose.foundation.layout.Column(Modifier.align(androidx.compose.ui.Alignment.CenterEnd).padding(end = 10.dp)) {
+        listOf(true to "Zoom in", false to "Zoom out").forEach { (zin, label) ->
+            androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.padding(vertical = 4.dp).size(48.dp).clickable(onClickLabel = label) { if (zin) map.controller.zoomIn() else map.controller.zoomOut() }) {
+                androidx.compose.foundation.layout.Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    androidx.compose.material3.Icon(if (zin) androidx.compose.material.icons.Icons.Rounded.Add else androidx.compose.material.icons.Icons.Rounded.Remove, label, tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+    }
 }
 
 /** Tile attribution required by OpenStreetMap. */
