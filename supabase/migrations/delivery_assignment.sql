@@ -113,6 +113,30 @@ begin
 end $$;
 
 -- Ring the riders a request widens to (or a reassigned rider): the notify function rings on this, not only on a status change.
+-- push_notify from push.sql, plus: an update that keeps the status but starts a fresh round (status_at moved: a reassigned or widened
+-- delivery) is reported too. Every other table behaves as before.
+create or replace function public.push_notify() returns trigger language plpgsql security definer set search_path = public, extensions as $$
+declare secret text; payload jsonb;
+begin
+  if to_regproc('net.http_post') is null then return null; end if;
+  select value into secret from push_config where key = 'webhook_secret';
+  if secret is null or secret = '' then return null; end if;
+  -- On UPDATE, tables with a status column only report a change of status (or of status_at: a fresh ringing round); tables without one
+  -- (a reaction on a moment) report every update.
+  if tg_op = 'UPDATE' and (to_jsonb(new) ? 'status') then
+    if (to_jsonb(new) -> 'status') is not distinct from (to_jsonb(old) -> 'status')
+       and (to_jsonb(new) -> 'status_at') is not distinct from (to_jsonb(old) -> 'status_at') then return null; end if;
+  end if;
+  payload := jsonb_build_object('table', tg_table_name, 'type', tg_op, 'record', to_jsonb(new),
+                                'old_record', case when tg_op = 'UPDATE' then to_jsonb(old) else null end);
+  perform net.http_post(url := notify_url(), body := payload,
+                        headers := jsonb_build_object('Content-Type', 'application/json', 'x-bucks-secret', secret),
+                        timeout_milliseconds := 5000);
+  return null;
+exception when others then
+  return null;
+end $$;
+revoke execute on function public.push_notify() from public, anon, authenticated;
 drop trigger if exists push_tasks on public.tasks;
 create trigger push_tasks after insert or update of status, only_riders on public.tasks for each row execute function public.push_notify();
 
