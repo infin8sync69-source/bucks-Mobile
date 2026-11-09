@@ -25,8 +25,8 @@ select pg_temp.as_user('ma');
 insert into posts (author_id, body, visibility, area, location) values (me(), 'Best masala dosa at the corner', 'PUBLIC', 'Hindupur', geo(13.83137, 77.49261));
 select pg_temp.check('snapped to the Hindupur locality centre', (select map_place = 'LOCALITY' and st_y(map_point::geometry) = 13.829 and map_district = 'Anantapur' from pg_temp.post('Best masala dosa at the corner')));
 select pg_temp.check('the phone''s exact point isn''t kept', (select abs(st_y(location::geometry) - 13.83137) > 1e-6 from pg_temp.post('Best masala dosa at the corner')));
-select pg_temp.check('a client can''t move its pin', (with u as (update posts set map_point = geo(13.9, 77.6), map_off_by = null where body = 'Best masala dosa at the corner' returning 1) select count(*) = 1 from u)
-  and (select st_y(map_point::geometry) = 13.829 from pg_temp.post('Best masala dosa at the corner')));
+update posts set map_point = geo(13.9, 77.6), map_off_by = 'AUTHOR', map_after = now() + interval '9 days' where body = 'Best masala dosa at the corner';
+select pg_temp.check('a client can''t move its pin or change its map state', (select st_y(map_point::geometry) = 13.829 and map_off_by is null and map_after < now() + interval '1 hour' from pg_temp.post('Best masala dosa at the corner')));
 
 \echo '== Consent first, and a delay for locality pins'
 reset role; update posts set map_after = now() - interval '1 minute' where body = 'Best masala dosa at the corner'; set role authenticated;
