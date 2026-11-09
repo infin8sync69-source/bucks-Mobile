@@ -93,6 +93,8 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var freeDelivery by remember { mutableStateOf(d.bool("free_delivery")) }
     var radius by remember { mutableStateOf(d.int("delivery_radius_km")?.toString() ?: "3") }
     var cod by remember { mutableStateOf(d.bool("cod")) }
+    // Off by default: people message first; the owner opts in to calls (listing_phone shows their verified number only then).
+    var showPhone by remember { mutableStateOf(d.bool("show_phone")) }
     /** The shop's store riders, for the cash-on-delivery note; null while unknown (no warning then). */
     var riderCount by remember { mutableStateOf<Int?>(if (existing == null) 0 else null) }
     LaunchedEffect(existing?.id) { existing?.id?.let { id -> riderCount = runCatching { DeliveryBackend.storeRiders(id).size }.getOrNull() } }
@@ -138,6 +140,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
         if ((kind == "BUSINESS" || kind == "SKILL") && catEffective.isEmpty()) { vm.toast("Pick at least one thing your catalogue tab lists."); return }
         val details = buildJsonObject {
             d.forEach { (k, v) -> put(k, v) }   // keep anything other features stored
+            if (kind == "BUSINESS" || kind == "SKILL") put("show_phone", showPhone)
             if (kind == "BUSINESS" || kind == "SKILL") {
                 // Saved only when the owner changed them, so a page keeps following its type's defaults until then.
                 if (catLabel.isNotBlank()) put("catalogue_label", catLabel.trim().take(PageTypes.CATALOGUE_LABEL_MAX)) else put("catalogue_label", JsonNull)
@@ -280,6 +283,7 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                         BucksField(area, { area = it.take(60) }, "Home area", "Jayanagar")
                     }
                 }
+                if (kind == "BUSINESS" || kind == "SKILL") SwitchRow("Show a Call button", "People can call your verified number from this page. Off: they message you on Bucks.", showPhone) { showPhone = it }
                 PhotoField(when (kind) { "BUSINESS" -> "Cover photo"; "ASSET" -> "Cover photo"; else -> "Profile photo" }, existing?.photoUrl, preview, when (kind) { "BUSINESS" -> type.icon; "ASSET" -> assetIcon(category); else -> Icons.Rounded.Person }, onPick = pick, onClear = { photo = null; preview = null })
                 Label("Location")
                 when {

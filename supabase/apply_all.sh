@@ -52,6 +52,7 @@ files=(
   migrations/own_post_votes.sql
   migrations/pro_profile.sql
   migrations/delivery_assignment.sql
+  migrations/search_quality.sql
 )
 
 case "${1:-}" in

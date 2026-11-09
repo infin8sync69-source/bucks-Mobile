@@ -53,6 +53,12 @@ suspend fun Backend.publicMembers(listingId: String): List<MemberRow> =
 suspend fun Backend.listingPoint(listingId: String): LatLng? =
     client.postgrest.from("listing_points").select { filter { eq("id", listingId) } }.decodeSingleOrNull<ListingPoint>()?.let { LatLng(it.lat, it.lng) }
 
+/** The owner's verified phone when they turned on the Call button (search_quality.sql), else null. */
+suspend fun Backend.listingPhone(listingId: String): String? = runCatching {
+    client.postgrest.rpc("listing_phone", buildJsonObject { put("p_listing", listingId) })
+        .data.trim().trim('"').takeIf { it.isNotBlank() && it != "null" }
+}.getOrNull()
+
 // ---------- photos ----------
 /** A listing or product photo: photo_url is either a full URL or a path inside the public listing-media bucket. */
 fun Backend.listingPhoto(photoUrl: String?): String? =

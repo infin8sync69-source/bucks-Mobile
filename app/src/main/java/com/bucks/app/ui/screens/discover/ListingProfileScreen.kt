@@ -104,6 +104,9 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val synced = d.isSynced(id)
     fun share() = shareText(ctx, "${l.title} on Bucks" + listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) "" else " · $it" } + ". Open Bucks and search \"${l.title}\".")
     fun message() = d.startListingChat(id, onOpenChat)
+    // Shown only when the owner turned calls on; the number is fetched, never part of the page.
+    var phone by remember(id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(id, l.details) { phone = if (!p.mine && l.details["show_phone"]?.toString()?.trim('"') == "true") Backend.listingPhone(id) else null }
     fun directions() { p.at?.let { at -> com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
 
     Box(Modifier.fillMaxSize()) {
@@ -154,6 +157,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                         Button({ message() }, Modifier.weight(1f).height(44.dp), enabled = !d.chatStarting, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
                             Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text("Message", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
                         SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
+                        phone?.let { num -> HeaderIcon(Icons.Rounded.Call, "Call") { com.bucks.app.ui.dial(ctx, num) } }
                         HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
                         if (p.at != null) HeaderIcon(Icons.Rounded.Place, "Directions") { directions() }
                         if (sellsProducts && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }

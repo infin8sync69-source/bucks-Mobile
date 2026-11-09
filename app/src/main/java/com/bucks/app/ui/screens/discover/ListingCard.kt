@@ -66,14 +66,15 @@ fun ListingCard(hit: SearchHit, onClick: () -> Unit) {
  */
 private fun kindLine(h: SearchHit): String = when (h.kind) {
     "BUSINESS" -> businessLine(h, PageTypes.of(h))
-    "SKILL" -> listOfNotNull(h.matchedItem, proRate(h.details, h.minPrice)).joinToString(" · ")
+    "SKILL" -> listOfNotNull(h.matchedItem?.let { n -> h.matchedPrice?.let { "$n ₹$it" } ?: n }, proRate(h.details, h.minPrice)).joinToString(" · ")
     "DRIVER" -> driverKind(h.details, h.category)?.let { k -> listOfNotNull("${k.label} · ₹${k.farePerKm}/km", h.details.str("model")).joinToString(" · ") } ?: "Driver"
     else -> h.description.take(80)
 }
 
 /** What a business page's card says under the name: by type, with the matched item first when the query hit one. */
 private fun businessLine(h: SearchHit, t: PageType?): String {
-    val matched = h.matchedItem; val from = h.minPrice
+    // The matched product with its own price ("Basmati Rice ₹120") when the server sent it.
+    val matched = h.matchedItem?.let { n -> h.matchedPrice?.let { "$n ₹$it" } ?: n }; val from = h.minPrice
     return when (t?.key) {
         "LOCAL_SERVICE", "HOSPITAL" -> listOfNotNull(matched?.let { "Offers $it" }, from?.let { "services from ₹$it" } ?: "book a visit").joinToString(" · ").replaceFirstChar { it.uppercase() }
         "IT_COMPANY", "COLLECTIVE", "PRO_FIRM", "MANUFACTURER" -> listOfNotNull(matched?.let { "Offers $it" }, from?.let { "from ₹$it" } ?: "quotes on request").joinToString(" · ").replaceFirstChar { it.uppercase() }

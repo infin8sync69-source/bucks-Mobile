@@ -360,7 +360,9 @@ object Backend {
     @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null,
     @SerialName("type_key") val typeKey: String? = null, @SerialName("group_key") val groupKey: String? = null,
     /** The person who runs the page; every page belongs to a phone-verified human (search_listings joins profiles). */
-    @SerialName("owner_id") val ownerId: String? = null, @SerialName("owner_name") val ownerName: String? = null)
+    @SerialName("owner_id") val ownerId: String? = null, @SerialName("owner_name") val ownerName: String? = null,
+    /** The price of [matchedItem] itself (search_quality.sql); null for free items or before that migration. */
+    @SerialName("matched_price") val matchedPrice: Int? = null)
 /** One line of the Notifications tab (studio: notifications.sql). [route] is where a tap goes, checked by Push.safeRoute. */
 @Serializable data class NotificationRow(val id: String, val kind: String, val title: String, val body: String = "", val route: String? = null,
     @SerialName("created_at") val createdAt: String = "", @SerialName("read_at") val readAt: String? = null)

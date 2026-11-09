@@ -43,6 +43,7 @@ private val RIDE_WORDS = Regex("\\b(auto|cab|taxi|ride|rickshaw)\\b", RegexOptio
 fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (String) -> Unit, onRide: (VehicleKind) -> Unit, onPlace: () -> Unit = {}) {
     val d = vm.discover; val s by vm.state.collectAsState()
     val focus = remember { FocusRequester() }
+    var pickArea by remember { mutableStateOf(false) }
     // A query typed on Home or Services arrives through the view model; take it once, then it's ours.
     LaunchedEffect(Unit) {
         val q = vm.s.query.trim()
@@ -75,7 +76,10 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
         d.service?.let { vm.services.state(it) }?.takeIf { it.delivery && !it.deliveryNow }?.let {
             Notice("No Bucks riders are online near you right now. Order for pickup, or from shops with their own riders.", Modifier.padding(start = Gutter, end = Gutter, top = 10.dp))
         }
+        if (pickArea) AreaSheet(d.area?.first ?: "", s.me, s.hereLabel, onPick = { label, at -> pickArea = false; d.chooseArea(label, at) }) { pickArea = false }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = Gutter, end = Gutter, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Where to search: near me, or any area picked by name (tier 2/3 towns, a relative's locality).
+            Chip(d.area?.let { "${it.first} ✕" } ?: "Near me", selected = d.area != null, icon = androidx.compose.material.icons.Icons.Rounded.Place) { if (d.area != null) d.chooseArea(null, null) else pickArea = true }
             Muted("Within"); RADIUS_CHOICES.forEach { km -> Chip("$km km", selected = d.radiusKm == km) { d.setRadius(km) } }
         }
         // Fixed-height slot so the list doesn't jump while a search runs.
@@ -93,7 +97,7 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
             item {
                 Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (d.query.isBlank()) "Everything nearby" else "Results for “${d.query.trim()}”", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    if (d.results.isNotEmpty()) Muted("${d.results.size} within ${d.radiusKm} km")
+                    if (d.results.isNotEmpty()) Muted("${d.results.size} within ${d.radiusKm} km" + (d.area?.let { " of ${it.first}" } ?: ""))
                 }
             }
             items(d.results, key = { it.id }) { h -> Box(Modifier.padding(start = Gutter, end = Gutter, bottom = 12.dp)) { ListingCard(h) { onOpenListing(h.id) } } }
@@ -127,5 +131,17 @@ private fun EmptyResults(vm: BucksViewModel) {
         }, Modifier.padding(top = 6.dp), align = TextAlign.Center)
         if (wider != null) SmallButton("Search within $wider km", Modifier.padding(top = 14.dp)) { d.setRadius(wider) }
         if (d.kind != KindFilter.ALL) TextButton({ d.selectKind(KindFilter.ALL) }, Modifier.heightIn(min = 48.dp)) { Text("Show everything") }
+    }
+}
+
+/** Pick an area to search around (LocationPicker in a sheet). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AreaSheet(current: String, fix: com.bucks.app.data.LatLng?, fixLabel: String?, onPick: (String, com.bucks.app.data.LatLng) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
+            Text("Search in an area", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 12.dp))
+            com.bucks.app.ui.screens.LocationPicker(current, fix, fixLabel, onPick)
+        }
     }
 }

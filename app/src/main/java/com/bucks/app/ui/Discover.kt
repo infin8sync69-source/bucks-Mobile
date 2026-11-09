@@ -76,6 +76,9 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     /** The selected kind chip; change it through [selectKind], which also re-runs the search. */
     var kind by mutableStateOf(KindFilter.ALL); private set
     var radiusKm by mutableIntStateOf(DEFAULT_RADIUS_KM)
+    /** An area chosen on the search screen (label, point) to search around instead of where the phone is; null = near me. */
+    var area by mutableStateOf<Pair<String, LatLng>?>(null); private set
+    fun chooseArea(label: String?, at: LatLng?) { area = if (label != null && at != null) label to at else null; search() }
     /** A service tile (FOOD, GROCERY, ...) the search is limited to, or null. Set through [useService]. */
     var service by mutableStateOf<String?>(null); private set
     var results by mutableStateOf<List<SearchHit>>(emptyList()); private set
@@ -115,7 +118,7 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
         val n = ++searchSeq
         searchJob = scope.launch {
             searching = true
-            try { results = Backend.search(query.trim(), social.here, radiusKm * 1000, kind.kinds, service?.let { listOf(it) } ?: kind.services); searched = true }
+            try { results = Backend.search(query.trim(), area?.second ?: social.here, radiusKm * 1000, kind.kinds, service?.let { listOf(it) } ?: kind.services); searched = true }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { toast(friendly(e)) }
             finally { if (n == searchSeq) searching = false }
