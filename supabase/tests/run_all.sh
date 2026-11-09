@@ -16,6 +16,8 @@ if ! out="$(DATABASE_URL="postgresql:///$db" "$here/../apply_all.sh" 2>&1)"; the
   grep -v NOTICE <<<"$out"; echo "::error::apply_all.sh failed"; exit 1
 fi
 grep -v NOTICE <<<"$out"
+# Suites written before age_enforcement.sql create people without a birth date; age_enforcement_scenarios.sql turns it back on.
+psql -d "$db" -X -q -c "update public.settings set value = 0 where key = 'enforce_age'" >/dev/null || exit 1
 
 failed=0
 report() {   # name, output

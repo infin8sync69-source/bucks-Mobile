@@ -207,7 +207,10 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun logout() { if (s.online) setOnline(false); val off = dispatch.signedOut(); social.signedOut(); safety.signedOut(); jobs.signedOut(); signedOutCloud(); repo.clearSession(); _s.value = freshState()
         // Take presence off and remove this phone from my profile while the Firebase user can still sign those requests, then sign out (each gives up after a few seconds offline).
         viewModelScope.launch { try { withTimeoutOrNull(4_000) { off?.join() }; Push.unregister() } finally { Cloud.signOut() } } }
-    fun deleteAccount() { val meId = social.me?.id; autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); safety.signedOut(); jobs.signedOut(); signedOutCloud()
+    fun deleteAccount() {
+        // Old session: delete nothing yet; a fresh sign-in lets both the server data and the sign-in go in one step.
+        if (Cloud.needsFreshSignIn()) { toast("For your safety, sign in again, then delete your account. Nothing was deleted."); logout(); return }
+        val meId = social.me?.id; autoRingJob?.cancel(); if (s.online) setOnline(false); dispatch.signedOut(); social.signedOut(); safety.signedOut(); jobs.signedOut(); signedOutCloud()
         // Server first, while the Firebase user still exists to sign the request: this phone's push token, then presence, open tasks,
         // phone, UPI link and profile (delete_my_account). Only then the Firebase user; if the server part failed, keep it so deleting again works.
         viewModelScope.launch {

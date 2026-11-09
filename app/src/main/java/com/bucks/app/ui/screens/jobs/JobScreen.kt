@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.OutlinedFlag
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +35,10 @@ fun JobScreen(vm: BucksViewModel, jobId: String, onBack: () -> Unit, onOpenListi
     var applySheet by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar(job?.title ?: "Job", onBack = onBack, actions = { IconButton({ jobs.loadJob(jobId) }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
+        val report = com.bucks.app.ui.social.LocalReporter.current
+        BucksTopBar(job?.title ?: "Job", onBack = onBack, actions = {
+            job?.let { j -> if (report != null && !vm.myListings.listings.any { it.id == j.listingId }) IconButton({ report(com.bucks.app.ui.social.ReportTarget("JOB", j.id, null, j.title)) }) { Icon(Icons.Rounded.OutlinedFlag, "Report this job") } }
+            IconButton({ jobs.loadJob(jobId) }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
         when {
             job == null && jobs.jobMissing == jobId -> Column(Modifier.padding(Gutter)) {
                 Text("This job isn't available", style = MaterialTheme.typography.titleMedium)

@@ -58,18 +58,18 @@ Legend: ✅ done · 🔧 fixed in this audit · ⬜ open. Owner: **You**, **Code
 |---|---|---|
 | D1 | Revert the pilot test settings: run the revert block in `supabase/pilot_test_settings.sql`. Fixes 12 of the 13 failing checks (min_recommendations 1→7, account age 0→14 days, min_supply per service). Then re-run `supabase/launch_checklist.sql` until every row says ok | You (or Code with your OK) |
 | D2 | Firebase console items listed at the top of `supabase/launch_checklist.sql`: delete test numbers (keep the reviewer one until approval), SMS region India only, API key restrictions, budget alert | You |
-| D3 | Set `search_path` on 4 functions (`cancel_reason_label`, `cancel_reason_ok`, `item_product_key`, `showcase_check_fields`) | Code |
+| D3 | 🔧 `search_path` pinned on the 4 flagged functions (`supabase/migrations/search_path_fixes.sql`) | Code: apply to live after CI passes |
 
 **App (P1 from the audit)**
 
 | # | Item | Owner |
 |---|---|---|
-| A1 | Report on business listings, reviews and recommendations, jobs and the feedback board (now only posts, comments, Moments, messages and profiles) | Code |
-| A2 | Firebase App Check with Play Integrity (blocks SMS-pumping fraud and scripted sign-ups) | Code + You (console) |
-| A3 | Server-side age enforcement: posting, messaging and booking refused until a date of birth is set | Code |
-| A4 | Account deletion: re-authenticate first, so older sessions don't fail with "requires recent login" | Code |
-| A5 | Check that teens can't go online as drivers or book rides alone | Code |
-| A6 | The PROGRAM item type: make it in-person only, so online courses don't need Play Billing | Code |
+| A1 | 🔧 Report on business pages, recommendations and reviews, jobs and feedback posts; staff takedowns suspend the page, delete the review or feedback, or close the job (`report_more_kinds.sql`). Product ratings stay out (no row id) | Code: apply to live after CI passes |
+| A2 | 🔧 App Check (Play Integrity) installed in Play builds. **You:** Firebase console → App Check → register `com.bucks.app` with Play Integrity (needs the Play app-signing SHA-256); watch the metrics in *monitor* mode, and **enforce only after the pilot APKs are retired** (they can't pass Play Integrity) | Code ✅ + You |
+| A3 | 🔧 The database refuses posts, comments, Moments, messages, reviews, feedback, orders, bookings, pages, vehicles, jobs and applications until the date of birth (and, for under-18s, guardian consent) is set (`age_enforcement.sql`). Kill switch: `settings.enforce_age = 0` | Code: apply to live after CI passes |
+| A4 | 🔧 Deletion checks the sign-in is recent first; if not, nothing is deleted and the person signs in again, so they're never half-deleted | Code ✅ |
+| A5 | 🔧 Teens can't add vehicles, go online, book rides, create pages or post jobs (database triggers). They can order from shops and apply to jobs: **check both with a lawyer** (child labour rules for job applications) | Code ✅ + Legal |
+| A6 | 🔧 Program form: only live classes (in person or online), "recorded courses, videos and downloads can't be sold on Bucks" | Code ✅ |
 
 ## 5. On-device test plan
 

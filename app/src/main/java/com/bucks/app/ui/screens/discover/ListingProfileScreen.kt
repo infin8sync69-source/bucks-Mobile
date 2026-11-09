@@ -159,6 +159,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                         SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
                         phone?.let { num -> HeaderIcon(Icons.Rounded.Call, "Call") { com.bucks.app.ui.dial(ctx, num) } }
                         HeaderIcon(Icons.Rounded.IosShare, "Share") { share() }
+                        if (!p.mine) com.bucks.app.ui.social.LocalReporter.current?.let { rep -> HeaderIcon(Icons.Rounded.OutlinedFlag, "Report this page") { rep(com.bucks.app.ui.social.ReportTarget("LISTING", id, l.ownerId, l.title)) } }
                         if (p.at != null) HeaderIcon(Icons.Rounded.Place, "Directions") { directions() }
                         if (sellsProducts && cartHere && l.online) BadgedBox(badge = { Badge { Text("$cartCount") } }) { HeaderIcon(Icons.Rounded.ShoppingCart, "Order", on = true, onClick = onCart) }
                     }
@@ -605,6 +606,9 @@ private fun ReviewsTab(vm: BucksViewModel, p: ListingProfile, mine: ReviewRow?, 
             }
             Column(horizontalAlignment = Alignment.End) {
                 Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) "Recommends" else "Doesn't recommend", Modifier.size(20.dp), tint = if (up) st.good else st.bad)
+                if (r.authorId != vm.social.me?.id && r.comment.isNotBlank()) com.bucks.app.ui.social.LocalReporter.current?.let { rep ->
+                    IconButton({ rep(com.bucks.app.ui.social.ReportTarget("REVIEW", r.id, r.authorId, vm.social.nameOf(r.authorId))) }, Modifier.size(40.dp)) {
+                        Icon(Icons.Rounded.OutlinedFlag, "Report this recommendation", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
 
             }
         }

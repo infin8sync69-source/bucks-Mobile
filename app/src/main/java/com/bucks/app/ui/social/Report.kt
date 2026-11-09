@@ -24,9 +24,9 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import kotlinx.coroutines.launch
 
-/** What is being reported. [kind]: POST, COMMENT, MOMENT, MESSAGE or PROFILE. [ownerId] lets the sheet offer "also block". */
+/** What is being reported. [kind]: POST, COMMENT, MOMENT, MESSAGE, PROFILE, LISTING, REVIEW, JOB or FEEDBACK. [ownerId] lets the sheet offer "also block". */
 data class ReportTarget(val kind: String, val id: String, val ownerId: String?, val ownerName: String) {
-    val noun get() = when (kind) { "POST" -> "post"; "COMMENT" -> "comment"; "MOMENT" -> "moment"; "MESSAGE" -> "message"; else -> "account" }
+    val noun get() = when (kind) { "POST" -> "post"; "COMMENT" -> "comment"; "MOMENT" -> "moment"; "MESSAGE" -> "message"; "LISTING" -> "page"; "REVIEW" -> "recommendation"; "JOB" -> "job"; "FEEDBACK" -> "feedback post"; else -> "account" }
 }
 
 /**

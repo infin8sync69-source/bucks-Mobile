@@ -37,6 +37,7 @@ private val CATEGORY = mapOf("IDEA" to "Idea", "BUG" to "Bug", "OTHER" to "Other
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedbackBoardScreen(vm: BucksViewModel, onBack: () -> Unit) {
+    val reporter = LocalReporter.current
     val scope = rememberCoroutineScope()
     var sort by rememberSaveable { mutableStateOf("TOP") }; var filter by rememberSaveable { mutableStateOf("ALL") }
     var rows by remember { mutableStateOf<List<FeedbackRow>?>(null) }; var composing by remember { mutableStateOf(false) }
@@ -70,7 +71,8 @@ fun FeedbackBoardScreen(vm: BucksViewModel, onBack: () -> Unit) {
                 rows == null -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
                 rows!!.isEmpty() -> item { Muted(if (filter == "MINE") "You haven't posted yet. Tap Suggest to share an idea." else "Nothing here yet. Be the first to suggest something.", Modifier.padding(Gutter)) }
                 else -> items(rows!!, key = { it.id }) { r -> FeedbackCard(r, staff = vm.services.isStaff, onVote = { vote(r) }, onStaff = { staffFor = r },
-                    onDelete = { scope.launch { runCatching { BackendFeedback.delete(r.id) }.onSuccess { rows = rows?.filterNot { it.id == r.id } }.onFailure { vm.toast("Couldn't delete it.") } } }) }
+                    onDelete = { scope.launch { runCatching { BackendFeedback.delete(r.id) }.onSuccess { rows = rows?.filterNot { it.id == r.id } }.onFailure { vm.toast("Couldn't delete it.") } } },
+                    onReport = reporter?.let { rep -> { rep(ReportTarget("FEEDBACK", r.id, null, r.authorName)) } }) }
             }
         }
     }
@@ -79,7 +81,7 @@ fun FeedbackBoardScreen(vm: BucksViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun FeedbackCard(r: FeedbackRow, staff: Boolean, onVote: () -> Unit, onStaff: () -> Unit, onDelete: () -> Unit) {
+private fun FeedbackCard(r: FeedbackRow, staff: Boolean, onVote: () -> Unit, onStaff: () -> Unit, onDelete: () -> Unit, onReport: (() -> Unit)? = null) {
     var menu by remember { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
@@ -95,11 +97,12 @@ private fun FeedbackCard(r: FeedbackRow, staff: Boolean, onVote: () -> Unit, onS
                     when (r.status) { "DONE" -> PillGood(STATUS[r.status]!!); "PLANNED", "IN_PROGRESS" -> PillPurple(STATUS[r.status]!!); "DECLINED" -> PillGrey(STATUS[r.status]!!); else -> PillGrey(STATUS[r.status] ?: r.status) }
                     Spacer(Modifier.width(6.dp)); PillGrey(CATEGORY[r.category] ?: r.category)
                     Spacer(Modifier.weight(1f))
-                    if (r.isMine || staff) Box {
-                        IconButton({ menu = true }, Modifier.size(32.dp)) { Icon(Icons.Rounded.MoreHoriz, "More options") }
+                    if (r.isMine || staff || onReport != null) Box {
+                        IconButton({ menu = true }, Modifier.size(48.dp)) { Icon(Icons.Rounded.MoreHoriz, "More options") }
                         DropdownMenu(menu, { menu = false }) {
                             if (staff) DropdownMenuItem({ Text("Set status") }, { menu = false; onStaff() })
-                            DropdownMenuItem({ Text("Delete", color = MaterialTheme.colorScheme.error) }, { menu = false; onDelete() })
+                            if (!r.isMine && onReport != null) DropdownMenuItem({ Text("Report") }, { menu = false; onReport() }, leadingIcon = { Icon(Icons.Rounded.OutlinedFlag, null) })
+                            if (r.isMine || staff) DropdownMenuItem({ Text("Delete", color = MaterialTheme.colorScheme.error) }, { menu = false; onDelete() })
                         }
                     }
                 }

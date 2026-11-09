@@ -22,7 +22,16 @@ import java.util.concurrent.TimeUnit
  */
 object Cloud {
     var enabled = false; private set
-    fun init(ctx: Context) { enabled = FirebaseApp.getApps(ctx).isNotEmpty() }
+    fun init(ctx: Context) {
+        enabled = FirebaseApp.getApps(ctx).isNotEmpty()
+        // App Check: Play builds prove they are the genuine app from Play (Play Integrity), so Firebase can refuse scripted sign-ups and
+        // SMS-pumping once enforcement is switched on in the console. Pilot APKs are not from Play and attach no token: switch
+        // enforcement on only when no pilot build is in use (docs/GO_LIVE_CHECKLIST.md).
+        if (enabled && !com.bucks.app.BuildConfig.DEBUG) runCatching {
+            com.google.firebase.appcheck.FirebaseAppCheck.getInstance()
+                .installAppCheckProviderFactory(com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance())
+        }
+    }
 
     private val auth get() = FirebaseAuth.getInstance()
     val uid: String? get() = if (enabled) auth.currentUser?.uid else null
@@ -80,6 +89,15 @@ object Cloud {
      * Removes the Firebase account. Firebase may ask for a fresh sign-in first. Nothing on Supabase goes with it: call
      * `Backend.deleteMyAccount()` (delete_my_account in dispatch.sql) first, while this user can still sign the request.
      */
+    /**
+     * Firebase refuses to delete a user whose last sign-in is older than about five minutes ("requires recent login"). Checked before
+     * anything is deleted, so an old session never ends up with the server data gone but the sign-in still there.
+     */
+    fun needsFreshSignIn(): Boolean {
+        val user = (if (enabled) auth.currentUser else null) ?: return false
+        val last = user.metadata?.lastSignInTimestamp ?: return false
+        return System.currentTimeMillis() - last > 4 * 60_000L
+    }
     fun deleteAccount(onDone: (Boolean) -> Unit) {
         val user = if (enabled) auth.currentUser else null
         if (user == null) { onDone(true); return }

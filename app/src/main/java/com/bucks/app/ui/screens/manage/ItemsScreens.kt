@@ -83,7 +83,8 @@ internal fun itemOnLabel(kind: String, on: Boolean) = when (kind) {
 internal fun itemPriceLabel(kind: String, price: Int) = if (price == 0 && (kind == "PROGRAM" || kind == "EVENT")) "Free" else rupees(price)
 internal fun itemEmptyCopy(kind: String) = when (kind) {
     "SERVICE" -> "Add each service with a price, like \"Tap repair · ₹300 per visit\". People see them on your page and can book or ask about them."
-    "PROGRAM" -> "Add each program, course or class with a price or free, like \"Evening tuition · ₹1,500 per month\". People see them on your page and can enquire or join."
+    // Play Billing: only live or in-person teaching paid person to person; recorded courses and downloads would be digital goods.
+    "PROGRAM" -> "Add each class, batch or live course you teach in person or online, with a price or free, like \"Evening tuition · ₹1,500 per month\". People see them on your page and can enquire or join. Recorded courses, videos and downloads can't be sold on Bucks."
     "EVENT" -> "Add upcoming events with the date and time, like \"Sunday clean-up · Sun 7am\". People see them on your page and turn up."
     else -> "Add what you sell with a price and pack size, like \"Sugar · ₹45 · 1 kg\". Customers search by product name and order from your profile. Use groups to keep long lists tidy: Rice, Dals, Snacks."
 }
