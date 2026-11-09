@@ -114,9 +114,9 @@ grant execute on function public.search_singular(text), public.search_item_match
 -- A page's owner can show a Call button (details.show_phone). Then the page gives their verified phone, and only that: never
 -- to anyone they blocked or who blocked them, and nothing when the switch is off or the page isn't live.
 create or replace function public.listing_phone(p_listing uuid) returns text language sql stable security definer set search_path = public, extensions as $$
-  select o.phone from listings l join profiles o on o.id = l.owner_id
+  select pp.phone from listings l join profile_private pp on pp.profile_id = l.owner_id
   where l.id = p_listing and l.status = 'LIVE' and l.kind in ('BUSINESS', 'SKILL')
-    and lower(coalesce(l.details->>'show_phone', '')) = 'true' and nullif(o.phone, '') is not null
+    and lower(coalesce(l.details->>'show_phone', '')) = 'true' and nullif(pp.phone, '') is not null
     and public.me() is not null and not public.blocked_between(public.me(), l.owner_id)
 $$;
 revoke all on function public.listing_phone(uuid) from public, anon;
