@@ -72,14 +72,15 @@ select pg_temp.as_user('do'); select respond_order(current_setting('t.o2')::uuid
 select pg_temp.check('auto: the shop''s riders, no window', (pg_temp.task('t.o2')).only_riders = array[pg_temp.pid('dr')] and (pg_temp.task('t.o2')).exclusive_until is null);
 
 \echo '== 6. Vehicle review: staff approve, the owner can go online; others can''t decide'
-reset role; insert into vehicles (owner_id, kind, model, plate, docs) values (pg_temp.pid('dr'), 'BIKE', 'Splendor', 'KA05XY1234', '[{"kind": "RC", "path": "x/rc.pdf"}]'); set role authenticated;
+reset role; insert into vehicles (owner_id, kind, model, plate, docs) values (pg_temp.pid('dr'), 'BIKE', 'Splendor', 'KA05XY1234', '[{"kind": "RC", "path": "x/rc.pdf"}]')
+  returning set_config('t.v', id::text, false) is not null; set role authenticated;
 select pg_temp.as_user('dx');
 select pg_temp.check('a non-staff person sees no queue', (select count(*) from vehicles_to_review()) = 0);
-select 'a non-staff person approves -> ' || pg_temp.expect_fail($$select review_vehicle((select id from vehicles where plate = 'KA05XY1234'), true)$$, 'staff only');
+select 'a non-staff person approves -> ' || pg_temp.expect_fail($$select review_vehicle(current_setting('t.v')::uuid, true)$$, 'staff only');
 select pg_temp.as_user('ds');
 select pg_temp.check('staff see the pending bike', (select count(*) from vehicles_to_review() where plate = 'KA05XY1234') = 1);
-select 'a rejection without a note -> ' || pg_temp.expect_fail($$select review_vehicle((select id from vehicles where plate = 'KA05XY1234'), false, '')$$, 'what the owner needs to fix');
-select review_vehicle((select id from vehicles where plate = 'KA05XY1234'), true);
+select 'a rejection without a note -> ' || pg_temp.expect_fail($$select review_vehicle(current_setting('t.v')::uuid, false, '')$$, 'what the owner needs to fix');
+select review_vehicle(current_setting('t.v')::uuid, true);
 reset role;
 select pg_temp.check('approved: ACTIVE', (select status from vehicles where plate = 'KA05XY1234') = 'ACTIVE');
 select pg_temp.check('and the owner is told', exists (select 1 from notifications where profile_id = pg_temp.pid('dr') and kind = 'VEHICLE_REVIEW'));
