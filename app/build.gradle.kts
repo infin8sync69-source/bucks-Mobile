@@ -66,6 +66,8 @@ android {
         release {
             if (uploadKeystore != null) signingConfig = signingConfigs.getByName("upload")
             buildConfigField("boolean", "SELF_UPDATE", "false")
+            // Never ship a raw Gemini key in a Play build (it would be extractable); release uses the on-device rules only.
+            buildConfigField("String", "GEMINI_API_KEY", "\"\"")
             // R8 shrinks and optimises the release build; Compose is several times faster than in a debug build.
             isMinifyEnabled = true
             isShrinkResources = true

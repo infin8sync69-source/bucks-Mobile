@@ -1,5 +1,7 @@
 # Bucks 1.0 on Google Play: social-first release plan
 
+> **Superseded on 9 November 2026:** the owner decided to ship the full super-app in 1.0 (rides, driver mode, shops, services, jobs and social). The `SOCIAL_ONLY` flag no longer exists. The current form answers and launch steps are in `store/PLAY_CONSOLE.md` and `docs/GO_LIVE_CHECKLIST.md`.
+
 Decided with the product owner on 8 November 2026:
 
 - **Scope:** social only. Feed, Moments, chat and groups, Sync (connections), profiles, notifications, search for people.

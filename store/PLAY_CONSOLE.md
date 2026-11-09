@@ -77,7 +77,7 @@ Report any post, comment, message or profile. Teen accounts need a parent's cons
 
 ### Data safety
 
-Encrypted in transit: **Yes**. Users can request deletion: **Yes**. Data shared with third parties: **No** (Firebase, Supabase and Mapbox are service providers acting for us, which Play doesn't count as sharing).
+Encrypted in transit: **Yes**. Users can request deletion: **Yes**. Data shared with third parties: **No** (Firebase, Supabase, Mapbox and the OpenStreetMap and pincode lookup services act as service providers, which Play doesn't count as sharing). Location shown to a driver or customer during a trip is user-initiated transfer, which Play doesn't count as sharing either.
 
 | Data type | Collected | Optional | Purposes |
 |---|---|---|---|
@@ -96,7 +96,8 @@ Encrypted in transit: **Yes**. Users can request deletion: **Yes**. Data shared 
 | App activity → App interactions | Yes (adults only) | Yes | Analytics |
 | App info and performance → Crash logs, Diagnostics | Yes | No | App functionality |
 | Device or other IDs (push token) | Yes | No | App functionality |
-| Contacts | **No** (read on the phone, never uploaded) | | |
+| Contacts | **Yes**: only the details a person chooses to link to a Bucks profile (the phonebook itself is never uploaded) | Yes | App functionality |
+| Financial info → Other financial info (UPI ID / payment QR of drivers and shops) | Yes | Yes | App functionality |
 
 Audio is **not** collected: voice search uses the phone's speech recogniser and Bucks receives only text.
 
@@ -107,7 +108,7 @@ Audio is **not** collected: voice search uses the phone's speech recogniser and 
 | `ACCESS_FINE_LOCATION` | Not a separate form (foreground only; no `ACCESS_BACKGROUND_LOCATION`) | Covered by Data safety → Precise location |
 | `FOREGROUND_SERVICE_LOCATION` (`DriverLocationService`) | **App content → Foreground service permissions** | Type: *Location*. Use: "Drivers who go online share their live location so nearby ride and delivery requests can be offered to them and the customer can follow the trip. Runs only while the driver is online, with a persistent notification; stops when they go offline." **Video:** 30–60 s screen recording: Menu → vehicle → Go online → notification appears → accept a request → Go offline → notification disappears. Upload to YouTube as unlisted and paste the link |
 | `RECORD_AUDIO` | None (runtime permission, declared in Data safety as not collected) | — |
-| `READ_CONTACTS` | None | Data safety: not collected (stays on the phone) |
+| `READ_CONTACTS` | None | Data safety: Contacts collected, optional (linked details only) |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Removed from Play builds | — |
 
 ## Release (Test and release)

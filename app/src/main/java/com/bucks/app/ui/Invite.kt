@@ -1,16 +1,17 @@
 package com.bucks.app.ui
 
 import android.content.Context
+import com.bucks.app.BuildConfig
 import com.bucks.app.data.AppUpdate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Invite people to Bucks through any app (WhatsApp, SMS, Telegram…). There is no Play Store listing yet, so the link is the
- * newest pilot APK of this branch; when Bucks is on Play, set [PLAY_URL] and every invite uses it instead.
+ * Invite people to Bucks through any app (WhatsApp, SMS, Telegram…). Play builds always link to the Play Store listing (Play's
+ * policy forbids pointing people at an APK); pilot builds that update themselves (SELF_UPDATE) link to the newest pilot APK.
  */
 object Invite {
-    const val PLAY_URL = ""
+    val PLAY_URL: String get() = if (BuildConfig.SELF_UPDATE) "" else "https://play.google.com/store/apps/details?id=com.bucks.app"
     private const val RELEASES = "https://github.com/infin8sync69-source/bucks-Mobile/releases"
 
     suspend fun link(): String = PLAY_URL.ifBlank { null } ?: runCatching { AppUpdate.newest()?.apkUrl }.getOrNull() ?: RELEASES

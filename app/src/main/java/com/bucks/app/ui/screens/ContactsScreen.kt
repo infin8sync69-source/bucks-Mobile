@@ -32,7 +32,8 @@ import kotlinx.coroutines.launch
 /**
  * Contacts: the phone's address book, searchable, with what each person has (numbers, emails, organisation, address), a way to call,
  * message or email them through the phone's own apps, and Invite for people who aren't on Bucks yet. Sync (Bucks people) is separate.
- * The address book is read here on the phone and never uploaded.
+ * The address book is read here on the phone and never uploaded as a whole; only the details a person chooses to keep with a
+ * Bucks person (ContactLinkSheet) are saved, to their own account.
  */
 @Composable
 fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, onOpenChat: (String) -> Unit = {}, onMap: () -> Unit = {}) {
@@ -61,7 +62,7 @@ fun ContactsScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit, o
                         Avatar(icon = Icons.Rounded.Group, size = 48)
                         Column(Modifier.padding(start = 14.dp)) { Text("Bring in your phonebook", style = MaterialTheme.typography.titleMedium); Muted("See everyone you know in one searchable list, call or message them, and invite them to Bucks.") }
                     }
-                    Muted("Your contacts are read on this phone and shown only to you. Bucks doesn't upload or store them.", Modifier.padding(top = 12.dp))
+                    Muted("Your phonebook is read on this phone and shown only to you; Bucks doesn't upload it. If you link a contact to someone on Bucks, the details you choose are saved to your account, visible only to you.", Modifier.padding(top = 12.dp))
                     PrimaryButton(if (denied) "Allow in Settings" else "Allow contacts", Modifier.padding(top = 14.dp)) {
                         if (denied) ctx.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) else ask.launch(Manifest.permission.READ_CONTACTS)
                     }

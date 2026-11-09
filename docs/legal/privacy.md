@@ -22,7 +22,8 @@ Bucks is an app for people, local services and shops near you, run by **Bucks Te
 | **Syncs, blocks, close friends, settings** | Running your network and privacy choices | Nobody (a sync is visible to the other person) |
 | **Recommendations and reviews you give** | Ranking local shops and people by real recommendations | Other Bucks users see the counts; the business sees who recommended it |
 | **Approximate location (about 2 km)** | Nearby posts, Moments and services, suggestions | Not shown to anyone. Your exact location isn't stored for posts |
-| **Phone contacts** | Shows which of your contacts are on Bucks | Read on your phone only. **Not uploaded** |
+| **Phone contacts** | Shows which of your contacts are on Bucks, and lets you call, message or invite them | Your phonebook is read on your phone and **not uploaded** |
+| **Contact details you link to a Bucks person** (only if you choose to: their phone numbers, emails, organisation, address, a note) | Keeping what you know about someone together with their Bucks profile | Saved to your account and visible only to you. Deleted with your account |
 | **Reports you make** | Safety review | Our moderation team. The person reported isn't told who reported them |
 | **Feedback board posts** | Improving Bucks | Other Bucks users (under-18s shown as "Bucks member") |
 
@@ -55,7 +56,8 @@ Bucks does not process card or UPI payments itself: payments go directly from th
 | **Crash reports** | Fixing bugs. No user identifier | Firebase Crashlytics (Google) |
 | **Usage statistics** (adults only, and you can turn it off) | Seeing which features are used | Google Analytics for Firebase. No advertising ID, no user ID, never for anyone under 18 |
 | **Voice search** (only when you tap the microphone) | Turning what you say into a search | Your phone's speech service (for example Google) converts it to text. Bucks receives only the text, never the audio |
-| **Map and place searches** | Showing maps, finding places and routes | Mapbox, which receives the search text and map area, not your identity |
+| **Map and place searches, routes** | Showing maps, finding places and working out routes | Mapbox; and, when Mapbox has no answer, OpenStreetMap services (Photon by Komoot, Nominatim, OSRM). They receive the search text or the points of the route, not your identity |
+| **Pincode lookups** | Filling in city and state when you type a pincode | api.postalpincode.in receives the pincode only |
 
 We don't sell personal data, show ads or use an advertising ID.
 

@@ -31,7 +31,11 @@ class Safety(private val scope: CoroutineScope, private val toast: (String) -> U
 
     fun refresh(then: () -> Unit = {}) = scope.launch {
         if (!Backend.enabled) { then(); return@launch }
-        runCatching { BackendSafety.mySafety() }.onSuccess { state = it }
+        // Retry: while state is null the onboarding gate can't tell an adult from someone who hasn't given a date of birth yet.
+        for (wait in longArrayOf(0, 2_000, 5_000, 15_000, 30_000)) {
+            if (wait > 0) kotlinx.coroutines.delay(wait)
+            if (runCatching { BackendSafety.mySafety() }.onSuccess { state = it }.isSuccess) break
+        }
         applyAnalytics()
         then()
     }

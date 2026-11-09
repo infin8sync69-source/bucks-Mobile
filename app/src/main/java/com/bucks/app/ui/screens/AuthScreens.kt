@@ -96,7 +96,13 @@ fun LoginScreen(vm: BucksViewModel, onSent: () -> Unit, onSignedIn: () -> Unit, 
                 TextButton(onClick = { showToast("Reset link sent to $email") }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Forgot password?") }
             }
             if (!vm.cloud) Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Muted("New to Bucks?"); TextButton(onClick = onSignUp) { Text("Create an account") } }
-            Muted("By continuing you agree to the community rules: review honestly, one account per person.", Modifier.padding(top = 8.dp).fillMaxWidth(), TextAlign.Center)
+            // Play's UGC policy: people accept the terms before they can post. The links open the published pages (docs/legal).
+            val legalCtx = LocalContext.current
+            Muted("By continuing you agree to the Bucks Terms and Community Guidelines, and confirm you have read the Privacy Policy.", Modifier.padding(top = 8.dp).fillMaxWidth(), TextAlign.Center)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                TextButton({ com.bucks.app.ui.social.Legal.open(legalCtx, com.bucks.app.ui.social.Legal.TERMS) }) { Text("Terms") }
+                TextButton({ com.bucks.app.ui.social.Legal.open(legalCtx, com.bucks.app.ui.social.Legal.GUIDELINES) }) { Text("Guidelines") }
+                TextButton({ com.bucks.app.ui.social.Legal.open(legalCtx, com.bucks.app.ui.social.Legal.PRIVACY) }) { Text("Privacy") } }
         }
     }
 }
