@@ -10,8 +10,8 @@
 --   5. Kill switches: one for the whole map (setting map_enabled) and one per district (map_kill_zones), for orders or unrest.
 --   6. One author can't fill a map: at most 3 of their posts per place show (map_pins applies it).
 -- map_pins is the only way to read the map; it returns places, never authors.
---   7. Posts stop keeping the phone's exact GPS: the server snaps first, then stores the point rounded to about 1 km (0.01 degree),
---      which is all the feed's "near me" needs. Existing posts are snapped and rounded once, at the end of this file.
+--   7. Existing posts get their place once, at the end of this file. (Post points are already stored on a ~500 m grid, 2 km for
+--      teens: hardening_platform.sql, social_safety.sql. The pin is the place's own point, never that grid point.)
 -- Safe to run more than once. Apply after places.sql (supabase/apply_all.sh does).
 set search_path = public, extensions;
 
@@ -96,10 +96,6 @@ begin
       new.map_point := geo(x.lat, x.lng); new.map_place := 'LOCALITY'; new.map_place_id := x.id::text;
       new.map_district := x.district; new.map_after := new.created_at + interval '45 minutes';
     end if;
-  end if;
-  -- Never keep where the phone was: the feed's "near me" only needs about a kilometre (0.01 degree).
-  if new.location is not null then
-    new.location := geo(round(st_y(new.location::geometry)::numeric, 2)::double precision, round(st_x(new.location::geometry)::numeric, 2)::double precision);
   end if;
   return new;
 end $$;
@@ -204,7 +200,7 @@ grant execute on function public.set_map_consent(boolean), public.set_post_on_ma
   public.staff_post_map(uuid, boolean), public.staff_map_district(text, boolean, text), public.my_map_posts(),
   public.map_pins(double precision, double precision, double precision, double precision, int) to authenticated;
 
--- ---------- 7. existing posts: snap to a place, then round the stored point (one-time; a rerun changes nothing) ----------
+-- ---------- 7. existing posts: give each a place (one-time; a rerun only retries posts that had none) ----------
 select set_config('bucks.map_backfill', 'on', true);
 update public.posts set location = location where location is not null and map_point is null;
 select set_config('bucks.map_backfill', 'off', true);

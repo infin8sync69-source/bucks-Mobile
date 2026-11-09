@@ -9,7 +9,7 @@ object Routes {
     const val DESTINATION = "destination"; const val CHOOSE_RIDE = "chooseRide"; const val CONFIRM_PICKUP = "confirmPickup"; const val SEARCHING = "searching"; const val DRIVER_FOUND = "driverFound"; const val IN_RIDE = "inRide"; const val PAY = "pay"; const val RATE_RIDE = "rateRide"
     const val PRO_CREATE = "proCreate"; const val LISTINGS = "listings"; const val VEHICLE_FORM = "vehicle"; const val ADD_SKILL = "skill"; const val EARNINGS = "earnings"
     const val SYNC = "sync"; const val MOMENTS = "moments/{author}"; const val MOMENT_NEW = "moment/new"
-    const val SETTINGS_PRIVACY = "settings/privacy"; const val SETTINGS_NOTIFS = "settings/notifications"; const val SETTINGS_APPEARANCE = "settings/appearance"; const val SETTINGS_BLOCKED = "settings/blocked"; const val SETTINGS_CLOSE = "settings/close"
+    const val SETTINGS_PRIVACY = "settings/privacy"; const val SETTINGS_NOTIFS = "settings/notifications"; const val SETTINGS_APPEARANCE = "settings/appearance"; const val SETTINGS_BLOCKED = "settings/blocked"; const val SETTINGS_MAP = "settings/map"; const val SETTINGS_CLOSE = "settings/close"
     fun moments(author: String) = "moments/${Uri.encode(author)}"
     // ---- cloud marketplace (reserved names; each feature owns its screens, see docs/FEATURE_CONTRACT.md) ----
     const val LISTING = "l/{id}"; fun listing(id: String) = "l/${Uri.encode(id)}"                       // universal profile: business / skill / driver

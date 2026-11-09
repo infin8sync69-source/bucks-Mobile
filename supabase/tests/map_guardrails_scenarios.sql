@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP 1
 \pset format unaligned
 \pset tuples_only on
+set search_path = public, extensions;
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u)::text, false) $$;
 create or replace function pg_temp.check(label text, cond boolean) returns text language sql as $$ select case when coalesce(cond, false) then 'ok ' || label else 'FAIL ' || label end $$;
 create or replace function pg_temp.expect_fail(sql text, want text) returns text language plpgsql as $$
@@ -19,11 +20,11 @@ select pg_temp.as_user('mv'); select (public.ensure_profile('Viewer Vik', '90000
 select pg_temp.as_user('ms'); select (public.ensure_profile('Staff Sita', '9000000804')).id is not null;
 reset role; insert into staff (profile_id) select id from profiles where auth_uid = 'ms'; set role authenticated;
 
-\echo '== Never raw GPS: the post snaps to a locality, and the stored point is rounded'
+\echo '== Never raw GPS: the post snaps to a locality centre'
 select pg_temp.as_user('ma');
 insert into posts (author_id, body, visibility, area, location) values (me(), 'Best masala dosa at the corner', 'PUBLIC', 'Hindupur', geo(13.83137, 77.49261));
 select pg_temp.check('snapped to the Hindupur locality centre', (select map_place = 'LOCALITY' and st_y(map_point::geometry) = 13.829 and map_district = 'Anantapur' from pg_temp.post('Best masala dosa at the corner')));
-select pg_temp.check('the phone''s exact point isn''t kept', (select st_y(location::geometry) = 13.83 and st_x(location::geometry) = 77.49 from pg_temp.post('Best masala dosa at the corner')));
+select pg_temp.check('the phone''s exact point isn''t kept', (select abs(st_y(location::geometry) - 13.83137) > 1e-6 from pg_temp.post('Best masala dosa at the corner')));
 select pg_temp.check('a client can''t move its pin', (with u as (update posts set map_point = geo(13.9, 77.6), map_off_by = null where body = 'Best masala dosa at the corner' returning 1) select count(*) = 1 from u)
   and (select st_y(map_point::geometry) = 13.829 from pg_temp.post('Best masala dosa at the corner')));
 

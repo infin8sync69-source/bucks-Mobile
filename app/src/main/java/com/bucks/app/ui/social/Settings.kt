@@ -43,6 +43,7 @@ fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
             Item(Icons.Rounded.Shield, "Safety centre", "How Bucks keeps you safe, and your reports") { onOpen(Routes.SAFETY_CENTER) }
             Item(Icons.Rounded.Lock, "Privacy", "Who can message you, sync with you and see your Moments") { onOpen(Routes.SETTINGS_PRIVACY) }
             Item(Icons.Rounded.Block, "Blocked people", null) { onOpen(Routes.SETTINGS_BLOCKED) }
+            Item(Icons.Rounded.Place, "Posts on the map", "Whether your posts show as places on the map") { onOpen(Routes.SETTINGS_MAP) }
             Item(Icons.Rounded.Favorite, "Close friends", "Who sees Moments you share with close friends") { onOpen(Routes.SETTINGS_CLOSE) }
             Group("App")
             Item(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { onOpen(Routes.SETTINGS_NOTIFS) }
@@ -106,6 +107,7 @@ fun SafetyCenterScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) 
             Spacer(Modifier.height(12.dp))
             Item(Icons.Rounded.Lock, "Privacy settings", null) { onOpen(Routes.SETTINGS_PRIVACY) }
             Item(Icons.Rounded.Block, "Blocked people", null) { onOpen(Routes.SETTINGS_BLOCKED) }
+            Item(Icons.Rounded.Place, "Posts on the map", "Whether your posts show as places on the map") { onOpen(Routes.SETTINGS_MAP) }
             Item(Icons.Rounded.ChildCare, "Child safety standards", null) { Legal.open(ctx, Legal.CHILD_SAFETY) }
             Item(Icons.Rounded.Gavel, "Community guidelines", null) { Legal.open(ctx, Legal.GUIDELINES) }
             Text("Need help now?", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp).semantics { heading() })

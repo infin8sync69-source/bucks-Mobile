@@ -343,6 +343,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             composable(Routes.SETTINGS_NOTIFS) { NotificationsScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_APPEARANCE) { AppearanceScreen(onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_BLOCKED) { BlockedScreen(vm, onBack = { nav.popBackStack() }) }
+                            composable(Routes.SETTINGS_MAP) { com.bucks.app.ui.screens.MapPrivacyScreen(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.SETTINGS_CLOSE) { CloseFriendsScreen(vm, onBack = { nav.popBackStack() }) }
                             // Dispatch (cloud-only): a buyer following a delivery, and the driver's UPI payment QR (opened through vm.open(Routes.PAYMENT_QR)).
                             composable(Routes.DELIVERY_TRACK, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> DeliveryTrackScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }) }
