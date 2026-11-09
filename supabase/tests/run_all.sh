@@ -16,6 +16,13 @@ if ! out="$(DATABASE_URL="postgresql:///$db" "$here/../apply_all.sh" 2>&1)"; the
   grep -v NOTICE <<<"$out"; echo "::error::apply_all.sh failed"; exit 1
 fi
 grep -v NOTICE <<<"$out"
+# security_hardening.sql's rules (rate limits, recommend cooldown, blurred pages and driver pins, fare floor, private auth_uid) are
+# switched off for the suites written before it; security_hardening_scenarios.sql switches them back on.
+psql -d "$db" -X -q -v ON_ERROR_STOP=1 >/dev/null <<'SQL' || exit 1
+update public.settings set value = 0 where key in ('rate_limits_on', 'recommend_home_cooldown_days', 'listing_blur_m', 'drivers_map_blur_m');
+update public.settings set value = 0.8 where key = 'ride_min_km_factor';
+grant select (auth_uid) on public.profiles to authenticated;
+SQL
 
 failed=0
 report() {   # name, output

@@ -8,21 +8,32 @@ begin execute sql; return 'FAIL (no error): ' || want; exception when others the
 
 set role authenticated;
 select pg_temp.as_user('ana'); select (public.ensure_profile('Ana', '+34600000001')).id is not null;
+select pg_temp.as_user('kid'); select (public.ensure_profile('Kid', '+34600000002')).id is not null;
 
-\echo '== 1. 18+ confirmation with the terms version sets the ADULT band, no birth date needed'
-select confirm_adult('2026-11-09');
-select pg_temp.check('band is ADULT', (select age_band = 'ADULT' and not birth_date_set from my_safety()));
-select pg_temp.check('terms recorded', (select terms_version = '2026-11-09' and terms_accepted_at is not null from profile_safety where profile_id = me()));
-select confirm_adult('2026-12-01');
-select pg_temp.check('accepting newer terms updates the version', (select terms_version = '2026-12-01' from profile_safety where profile_id = me()));
+\echo '== 1. 13 and over: adults get ADULT, 13 to 17 TEEN with private defaults; under 13 is refused and nothing is stored'
+select pg_temp.as_user('ana');
+select pg_temp.check('adult', set_birth_date((current_date - interval '30 years')::date) = 'ADULT');
+select pg_temp.check('same date again is fine', set_birth_date((current_date - interval '30 years')::date) = 'ADULT');
+select pg_temp.check('my_safety', (select age_band = 'ADULT' and birth_date_set from my_safety()));
+select pg_temp.as_user('teen'); select (public.ensure_profile('Teen', '+34600000003')).id is not null;
+select pg_temp.check('15 is a teen', set_birth_date((current_date - interval '15 years')::date) = 'TEEN');
+select pg_temp.check('teen: only syncs can message', (select who_can_message = 'SYNCED' and moments_audience = 'SYNCED' from user_settings where profile_id = me()));
+select pg_temp.as_user('kid');
+select '12 -> ' || pg_temp.expect_fail(format('select set_birth_date(%L)', (current_date - interval '12 years')::date), 'not eligible');
+select pg_temp.check('nothing stored for an under-13', (select not birth_date_set from my_safety()));
 
-\echo '== 2. Country and language on the profile'
+\echo '== 2. Terms version'
+select pg_temp.as_user('ana');
+select record_terms('2026-11-09');
+select pg_temp.check('terms recorded', (select terms_version = '2026-11-09' and terms_accepted_at is not null from profiles where id = me()));
+
+\echo '== 3. Country and language on the profile'
 select set_my_locale('es', 'es');
 select pg_temp.check('country and language saved', (select country = 'ES' and language = 'es' from profiles where id = me()));
 select set_my_locale(null, 'pt-BR');
 select pg_temp.check('null keeps the country', (select country = 'ES' and language = 'pt-BR' from profiles where id = me()));
 select 'bad country -> ' || pg_temp.expect_fail($$select set_my_locale('Spain', 'es')$$, 'check');
 
-\echo '== 3. Signed out: refused'
+\echo '== 4. Signed out: refused'
 select set_config('request.jwt.claims', '{}', false);
-select 'signed out -> ' || pg_temp.expect_fail($$select confirm_adult('x')$$, 'not signed in');
+select 'signed out -> ' || pg_temp.expect_fail($$select record_terms('x')$$, 'not signed in');

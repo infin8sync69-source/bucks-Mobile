@@ -46,6 +46,7 @@ import com.bucks.app.ui.components.*
 import com.bucks.app.ui.findActivity
 import com.bucks.app.ui.social.Legal
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /*
  * Onboarding v2 (research: docs/ONBOARDING.md). Four short screens and no progress bar: Language → Phone → Code → Name → Home.
@@ -97,7 +98,7 @@ fun LanguageScreen(onContinue: () -> Unit) {
     }
 }
 
-/** 2. Phone: country (from the SIM) + number, and "I'm 18 or older and agree to the Terms". One button. */
+/** 2. Phone: country (from the SIM) + number, and "I agree to the Terms". One button. */
 @Composable
 fun PhoneScreen(vm: BucksViewModel, onSent: () -> Unit, onLanguage: () -> Unit, onUseEmail: (() -> Unit)?) {
     val ctx = LocalContext.current
@@ -108,13 +109,14 @@ fun PhoneScreen(vm: BucksViewModel, onSent: () -> Unit, onLanguage: () -> Unit, 
     val e164 = remember(iso, number) { Countries.e164(country, number) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    if (Prefs.ageBlocked) { BlockedScreen(); return }
     val send = { tried = true; if (e164 != null && adult) { Prefs.countryIso = iso; Prefs.acceptedTerms = Legal.TERMS_VERSION; vm.setPhone(e164); onSent() } }
     OnboardingFrame(stringResource(R.string.onb_phone_title), stringResource(R.string.onb_phone_hint), onBack = null,
         topEnd = { TextButton(onLanguage) { Icon(Icons.Rounded.Language, null, Modifier.size(18.dp)); Text(" " + AppLanguages.current().native) } },
         bottom = {
             Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).toggleable(adult, role = Role.Checkbox) { adult = it }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
                 Checkbox(adult, null, Modifier.padding(end = 10.dp))
-                Text(stringResource(R.string.onb_adult_terms), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+                Text(stringResource(R.string.onb_agree_terms), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
             }
             Row(Modifier.padding(start = 34.dp)) {
                 TextButton({ Legal.open(ctx, Legal.TERMS) }) { Text(stringResource(R.string.onb_terms)) }
@@ -209,18 +211,53 @@ fun CodeScreen(vm: BucksViewModel, phone: String, onEdit: () -> Unit, onVerified
     }
 }
 
-/** 4. Name, then Home. Where you are comes from location on Home; bio, interests and photo wait for Profile. */
+/**
+ * 4. Name and date of birth, then Home. Bucks is for 18 and over; the date is checked on the server (set_birth_date), and the screen
+ * doesn't say where the line is (a neutral age gate). People who signed up before dates of birth only see the birthday part.
+ */
 @Composable
-fun NameScreen(vm: BucksViewModel, onDone: () -> Unit) {
+fun NameScreen(vm: BucksViewModel, onDone: () -> Unit, onBlocked: () -> Unit) {
     val s by vm.state.collectAsState()
-    var name by rememberSaveable { mutableStateOf("") }
+    val existing = s.user != null
+    var name by rememberSaveable { mutableStateOf(s.user?.name.orEmpty()) }
+    var dd by rememberSaveable { mutableStateOf("") }; var mm by rememberSaveable { mutableStateOf("") }; var yyyy by rememberSaveable { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }; var tried by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
+    val date = remember(dd, mm, yyyy) { runCatching { java.time.LocalDate.of(yyyy.toInt(), mm.toInt(), dd.toInt()) }.getOrNull()?.takeIf { yyyy.length == 4 && it.isBefore(java.time.LocalDate.now()) && it.year >= 1900 } }
+    val ready = (existing || name.isNotBlank()) && date != null && !busy
+    val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    val done = { if (name.isNotBlank()) { vm.createProfile(name.trim(), "", "", home = s.me); onDone() } }
-    OnboardingFrame(stringResource(R.string.onb_name_title), stringResource(R.string.onb_name_hint), onBack = null,
-        bottom = { PrimaryButton(stringResource(R.string.onb_name_cta), enabled = name.isNotBlank()) { done() } }) {
-        OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(stringResource(R.string.onb_name_label)) },
+    val done: () -> Unit = done@{
+        tried = true; val d = date ?: return@done
+        if (!existing && name.isBlank()) return@done
+        busy = true; error = null
+        scope.launch {
+            val r = if (com.bucks.app.data.Backend.enabled) runCatching { com.bucks.app.data.BackendSafety.setBirthDate(d.toString()) } else Result.success("ADULT")
+            busy = false
+            r.onSuccess { vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone() }
+                .onFailure { e -> if (e.message?.contains("not eligible") == true) { Prefs.ageBlocked = true; onBlocked() } else error = e.message?.substringAfter("message\":\"")?.substringBefore("\"")?.take(140) ?: "Try again." }
+        }
+    }
+    OnboardingFrame(stringResource(if (existing) R.string.onb_dob_title else R.string.onb_name_title), stringResource(if (existing) R.string.onb_dob_hint else R.string.onb_name_hint), onBack = null,
+        bottom = { PrimaryButton(stringResource(R.string.onb_name_cta), enabled = ready) { done() } }) {
+        if (!existing) OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(stringResource(R.string.onb_name_label)) },
             singleLine = true, shape = MaterialTheme.shapes.medium, textStyle = MaterialTheme.typography.titleMedium,
             keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words))
+        Text(stringResource(R.string.onb_dob_label), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = if (existing) 0.dp else 20.dp, bottom = 8.dp))
+        // Free entry, no default and no picker limited to "allowed" years: the neutral way to ask.
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val num = KeyboardOptions(keyboardType = KeyboardType.Number)
+            OutlinedTextField(dd, { dd = it.filter(Char::isDigit).take(2) }, Modifier.width(76.dp).then(if (existing) Modifier.focusRequester(focus) else Modifier), placeholder = { Text(stringResource(R.string.onb_dob_day)) }, singleLine = true, keyboardOptions = num, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(mm, { mm = it.filter(Char::isDigit).take(2) }, Modifier.width(76.dp), placeholder = { Text(stringResource(R.string.onb_dob_month)) }, singleLine = true, keyboardOptions = num, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(yyyy, { yyyy = it.filter(Char::isDigit).take(4) }, Modifier.width(104.dp), placeholder = { Text(stringResource(R.string.onb_dob_year)) }, singleLine = true, keyboardOptions = num, shape = MaterialTheme.shapes.medium)
+        }
+        if (tried && date == null) Text(stringResource(R.string.onb_dob_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp)) }
     }
+}
+
+/** Shown after a date of birth under 18, and on every later visit from this phone: neutral, no way round it. */
+@Composable
+fun BlockedScreen() {
+    OnboardingFrame(stringResource(R.string.onb_blocked_title), stringResource(R.string.onb_blocked_hint), onBack = null, bottom = {}) {}
 }

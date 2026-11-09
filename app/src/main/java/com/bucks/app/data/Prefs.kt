@@ -69,8 +69,10 @@ object Prefs {
     var languageChosen: Boolean get() = ::sp.isInitialized && sp.getBoolean("languageChosen", false); private set(v) { sp.edit().putBoolean("languageChosen", v).apply() }
     /** The country picked at sign-in (ISO code), or null before that; drives the dial code, currency and UPI. */
     var countryIso: String? get() = if (::sp.isInitialized) sp.getString("country", null) else null; set(v) { sp.edit().putString("country", v).apply(); v?.let { Money.country = Countries.of(it) } }
-    /** The terms version accepted with "I'm 18 or older" on the phone screen (sent to the server after sign-in), or null. */
+    /** The terms version accepted on the phone screen (sent to the server after sign-in), or null. */
     var acceptedTerms: String? get() = if (::sp.isInitialized) sp.getString("acceptedTerms", null) else null; set(v) { sp.edit().putString("acceptedTerms", v).apply() }
+    /** Set when a date of birth under 18 was entered: sign-up stays closed on this phone (no back-button retry). */
+    var ageBlocked: Boolean get() = ::sp.isInitialized && sp.getBoolean("ageBlocked", false); set(v) { sp.edit().putBoolean("ageBlocked", v).apply() }
     /** Launches since install: the notification prompt waits for the second visit instead of greeting a new person. */
     val launches: Int get() = if (::sp.isInitialized) sp.getInt("launches", 0) else 0
     fun countLaunch() { if (::sp.isInitialized) sp.edit().putInt("launches", launches + 1).apply() }

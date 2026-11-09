@@ -152,6 +152,10 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         // Analytics only for adults who haven't opted out; screen names are route patterns (no ids).
         LaunchedEffect(Prefs.shareUsage, safety.band) { safety.applyAnalytics() }
         LaunchedEffect(current) { com.bucks.app.data.Analytics.screen(current.substringBefore('/').substringBefore('?')) }
+        // Accounts made before onboarding asked for a date of birth: the birthday screen once, then on as usual.
+        LaunchedEffect(safety.state?.birthDateSet, current) {
+            if (safety.state?.birthDateSet == false && s.user != null && current !in listOf(Routes.NAME, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.SPLASH))
+                nav.navigate(Routes.NAME) { popUpTo(0); launchSingleTop = true } }
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
         val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.NAME, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
         // A driver trip in progress is full-screen, like the design (no bottom navigation).
@@ -250,7 +254,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onUseEmail = if (vm.cloud) null else ({ nav.navigate(Routes.SIGNUP_EMAIL) })) }
                             composable(Routes.SIGNUP_EMAIL) { SignUpEmailScreen(vm, onBack = { nav.popBackStack() }, onCreated = { nav.navigate(Routes.NAME) }, onUseMobile = { nav.popBackStack() }) }
                             composable(Routes.OTP) { com.bucks.app.ui.onboarding.CodeScreen(vm, s.tempPhone, onEdit = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.NAME) { popUpTo(0) } }) }
-                            composable(Routes.NAME) { com.bucks.app.ui.onboarding.NameScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }) }
+                            composable(Routes.NAME) { com.bucks.app.ui.onboarding.NameScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } },
+                                onBlocked = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call, onPlace = { nav.navigate(Routes.MAPS) }, onReturnToRide = returnToRide) }
                             composable(Routes.SERVICES) {

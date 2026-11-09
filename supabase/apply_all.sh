@@ -60,6 +60,7 @@ files=(
   migrations/report_more_kinds.sql
   migrations/search_path_fixes.sql
   migrations/onboarding_v2.sql
+  migrations/security_hardening.sql
 )
 
 case "${1:-}" in
