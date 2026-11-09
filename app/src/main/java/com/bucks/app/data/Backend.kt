@@ -294,6 +294,11 @@ object Backend {
     // ---------- feed ----------
     suspend fun feed(at: LatLng, beforeIso: String? = null): List<FeedRow> =
         db.rpc("feed", buildJsonObject { put("lat", at.lat); put("lng", at.lng); beforeIso?.let { put("before", it) } }).decodeList()
+    /** The Feed tab: posts from people and pages I'm synced with, and mine (social_lenses.sql). Before that is on the server, the old
+     *  feed filtered to the same people (a page I sync with can't be told apart there, so its posts wait for the server function). */
+    suspend fun feedSynced(at: LatLng, me: String?, beforeIso: String? = null): List<FeedRow> =
+        runCatching { db.rpc("feed_synced", buildJsonObject { beforeIso?.let { put("before", it) } }).decodeList<FeedRow>() }
+            .getOrElse { feed(at, beforeIso).filter { it.synced || it.authorId == me } }
     /** [media]: storage path in the posts bucket to its mime type (image/jpeg, video/mp4), so the feed knows what to show. */
     suspend fun post(me: String, body: String, media: List<Pair<String, String>>, visibility: String, at: LatLng?, area: String, listingId: String? = null) {
         db.from("posts").insert(buildJsonObject {

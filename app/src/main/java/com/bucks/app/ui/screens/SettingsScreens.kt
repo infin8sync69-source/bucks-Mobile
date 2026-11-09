@@ -55,9 +55,7 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
     LaunchedEffect(cloud) { if (cloud) vm.services.checkStaff() }
     if (vm.services.isStaff) SettingRow(Icons.Rounded.FactCheck, "Review documents", "Bucks staff: shop and pro documents waiting for a check") { onOpen(Routes.STAFF_REVIEW) }
     if (vm.dispatch.enabled) ListRow("Payment QR", "How customers pay you by UPI: rides, deliveries and shop orders", leading = { Avatar(icon = Icons.Rounded.QrCode2) }, trailing = { Icon(Icons.Rounded.ChevronRight, null) }) { onOpen(Routes.PAYMENT_QR) }
-    SectionTitle("Voice and AI", Modifier.padding(top = 22.dp, bottom = 10.dp))
-    BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
-        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Cloud understanding", style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." else "Off. The built-in rules work offline.") }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+    VoiceAiCard(vm)
     SectionTitle("About", Modifier.padding(top = 22.dp, bottom = 6.dp))
     val ctx = androidx.compose.ui.platform.LocalContext.current
     SettingRow(Icons.Rounded.SystemUpdate, "App version", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + if (com.bucks.app.data.AppUpdate.enabled) (if (vm.updates.checking) " · Checking…" else " · Switch to the latest build") else " · updates through the Play Store") { onOpen(com.bucks.app.ui.nav.Routes.APP_VERSIONS) }
@@ -176,4 +174,12 @@ private fun PhoneNotificationStatus() {
             if (enabled) SmallButton("Send a test", tonal = true) { com.bucks.app.data.Push.show(ctx, "social", "Test from Bucks", "If you can read this, notifications work on this phone.", null, false) }
         }
     }
+}
+
+/** Voice language and whether free-form commands go to the cloud; in both settings lists. */
+@Composable fun VoiceAiCard(vm: BucksViewModel, modifier: Modifier = Modifier) {
+    val s by vm.state.collectAsState()
+    SectionTitle("Voice and AI", modifier.padding(top = 22.dp, bottom = 10.dp))
+    BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
+        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Cloud understanding", style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." else "Off. The built-in rules work offline.") }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
 }

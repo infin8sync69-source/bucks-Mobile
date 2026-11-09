@@ -1,6 +1,7 @@
 package com.bucks.app.data
 
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -27,4 +28,13 @@ object MapBackend {
     suspend fun setPostOnMap(postId: String, on: Boolean) { db.rpc("set_post_on_map", buildJsonObject { put("p_post", postId); put("p_on", on) }) }
     /** "This shows my home or me": off the map at once, and a report for staff. */
     suspend fun reportLocation(postId: String, detail: String) { db.rpc("report_map_location", buildJsonObject { put("p_post", postId); put("p_detail", detail) }) }
+}
+
+/** One thing my synced people recommend (social_lenses.sql: for_you). [kind]: POST, LISTING or PRODUCT; for a PRODUCT [id] is its
+ *  product key and [listingId] its shop. [photoUrl] is a public URL for pages and products, a "posts" bucket path for posts. */
+@Serializable data class ForYouItem(val kind: String, val id: String, @SerialName("listing_id") val listingId: String? = null, val title: String = "",
+    val subtitle: String = "", @SerialName("photo_url") val photoUrl: String? = null, val recommenders: Int = 0, val latest: String = "")
+
+object ForYouBackend {
+    suspend fun items(): List<ForYouItem> = Backend.client.postgrest.rpc("for_you").decodeList()
 }

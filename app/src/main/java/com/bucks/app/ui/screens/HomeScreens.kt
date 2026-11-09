@@ -279,73 +279,33 @@ private fun ServiceLockSheet(vm: BucksViewModel, def: ServiceDef, st: ServiceSta
 @Composable
 fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit,
                    onOpenService: (String) -> Unit = {}, onListService: (String) -> Unit = {}, onRecommend: () -> Unit = {}) {
-    val s by vm.state.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
+    val s by vm.state.collectAsState(); val chats by vm.repo.chats.collectAsState()
     // Which services are open here: read when the screen opens and whenever I move a real distance (the counts are per place).
-    // Without a real fix the map's default centre would stand in for "here", so nothing is checked until one arrives.
     LaunchedEffect(s.me?.let { (it.lat * 200).toInt() to (it.lng * 200).toInt() }) { if (s.me != null) vm.services.refresh() }
     var sheetFor by remember { mutableStateOf<String?>(null) }
-    DisposableEffect(Unit) { vm.dispatch.mapShown(); onDispose { vm.dispatch.mapHidden() } }
-    val cats = if (vm.social.enabled) CLOUD_CATEGORIES else providers.map { it.category }.distinct()
-    val shopPins = providers.filter { it.scope == Scope.LOCAL }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // Natural height up to ~60% of the screen, and never tall enough (with the footer) to reach the top bar on short screens.
-        val sheetMax = (maxHeight * 0.6f).coerceAtMost(maxHeight - 120.dp).coerceAtLeast(0.dp)
-        BucksMap(Modifier.fillMaxSize(), listOf(pinAt(vm.mePos, "You", MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) })
-        BucksTopBar(onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
-        // Same footer as Home (legend + OSM attribution) sitting on the map just above the sheet; this map has no rider pins.
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-            MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), riders = false, shops = shopPins.isNotEmpty())
-            // Drag the handle (or keep scrolling down past the top of the list) to fold the panel away and see the map; drag up or tap to open.
-            var folded by rememberSaveable { mutableStateOf(false) }
-            var pull by remember { mutableFloatStateOf(0f) }
-            val dragState = rememberDraggableState { d -> pull += d }
-            val foldOnPull = remember { object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset { if (available.y < 0) pull = 0f; return Offset.Zero }
-                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                    if (available.y > 0) { pull += available.y; if (pull > 160f) { folded = true; pull = 0f } }
-                    return Offset.Zero
-                }
-            } }
-            val open = SERVICE_CATALOG.count { vm.services.state(it.key)?.usable == true }
-            Surface(Modifier.fillMaxWidth().heightIn(max = sheetMax).animateContentSize(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
-              Column(Modifier.padding(horizontal = 20.dp).padding(bottom = if (folded) 12.dp else 16.dp)) {
-                Column(Modifier.fillMaxWidth().draggable(dragState, Orientation.Vertical, onDragStopped = { if (pull > 60f) folded = true else if (pull < -60f) folded = false; pull = 0f })
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { folded = !folded }.padding(top = 12.dp)) {
-                    Box(Modifier.align(Alignment.CenterHorizontally).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
-                    Row(Modifier.padding(top = 12.dp, bottom = if (folded) 0.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Services near you", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        if (folded && vm.social.enabled) Muted("$open of ${SERVICE_CATALOG.size} open", Modifier.padding(end = 6.dp))
-                        Icon(if (folded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, if (folded) "Show services" else "Hide services", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (!folded) Column(Modifier.weight(1f, fill = false).nestedScroll(foldOnPull).verticalScroll(rememberScrollState())) {
-                // Every service gets a tile, 5 per row (the last row padded so tiles keep their width). Locked ones open a sheet saying
-                // what unlocks them here; open ones go straight in; quiet ones go in with a word about nobody being online.
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { SERVICE_CATALOG.chunked(5).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        row.forEach { def -> val st = vm.services.state(def.key)
-                            ServiceTile(def, st, SERVICE_CATALOG.indexOf(def), Modifier.weight(1f)) {
-                                when {
-                                    st == null || !st.usable -> sheetFor = def.key
-                                    st.state == "QUIET" && st.minOnline > 0 -> { vm.toast(if (st.delivery) "Most ${st.supplyNoun} near you are closed right now." else "No ${st.supplyNoun} online near you right now. Try again in a few minutes."); onOpenService(def.key) }
-                                    else -> onOpenService(def.key)
-                                }
+    // Services is for booking and buying: one small icon per service, each opening its own flow. Finding anything else is Home's search.
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Services", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
+            if (vm.social.enabled) {
+                val open = SERVICE_CATALOG.count { vm.services.state(it.key)?.usable == true }
+                Muted(if (s.me == null) "Turn on location to see which services are open where you are." else "$open of ${SERVICE_CATALOG.size} open near you", Modifier.padding(top = 4.dp, bottom = 12.dp))
+            }
+            // Locked tiles open a sheet saying what unlocks them here; open ones go straight in; quiet ones go in with a word about nobody online.
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { SERVICE_CATALOG.chunked(4).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { def -> val st = vm.services.state(def.key)
+                        ServiceTile(def, st, SERVICE_CATALOG.indexOf(def), Modifier.weight(1f)) {
+                            when {
+                                st == null || !st.usable -> sheetFor = def.key
+                                st.state == "QUIET" && st.minOnline > 0 -> { vm.toast(if (st.delivery) "Most ${st.supplyNoun} near you are closed right now." else "No ${st.supplyNoun} online near you right now. Try again in a few minutes."); onOpenService(def.key) }
+                                else -> onOpenService(def.key)
                             }
                         }
-                        repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
-                } }
-                vm.services.error?.let { Muted("Couldn't check which services are open here. $it", Modifier.padding(top = 8.dp)) }
-                if (vm.social.enabled && s.me == null) Muted("Turn on location to see which services are open where you are.", Modifier.padding(top = 8.dp))
-                SearchBar("Search or ask anything", Modifier.padding(top = 14.dp), onClick = onSearch)
-                SectionTitle("Categories", Modifier.padding(top = 18.dp, bottom = 10.dp))
-                FlowChips(cats) { onQuery(it.lowercase()) }
-                SectionTitle("Skills A to Z", Modifier.padding(top = 18.dp, bottom = 10.dp))
-                FlowChips(Seed.SKILLS.take(18)) { onQuery(it.lowercase()) }
-                // Room under the last chip row so scrolling to the end never leaves it sliced by the sheet edge.
-                Spacer(Modifier.height(24.dp))
-              } }
-            }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            } }
+            vm.services.error?.let { Muted("Couldn't check which services are open here. $it", Modifier.padding(top = 8.dp)) }
         }
     }
     sheetFor?.let { key -> serviceDef(key)?.let { def -> ServiceLockSheet(vm, def, vm.services.state(key), onDismiss = { sheetFor = null }, onList = { sheetFor = null; onListService(key) }, onRecommend = { sheetFor = null; onRecommend() }) } }

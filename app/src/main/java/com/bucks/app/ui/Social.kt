@@ -165,8 +165,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun leaveConversation(conv: String, then: () -> Unit = {}) = go { val p = me ?: return@go; Backend.leaveConversation(conv, p.id); inbox = inbox.filterNot { it.conversationId == conv }; toast("You left the group."); then() }
 
     // ---------- feed ----------
-    fun refreshFeed() = go { feed = Backend.feed(here); feedEnd = feed.size < 30; refreshTray(); runCatching { namesFor(feed.map { it.authorId }) } }
-    fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feed(here, last.createdAt); feed = feed + more; feedEnd = more.size < 30; runCatching { namesFor(more.map { it.authorId }) } }
+    fun refreshFeed() = go { feed = Backend.feedSynced(here, me?.id); feedEnd = feed.size < 30; refreshTray(); runCatching { namesFor(feed.map { it.authorId }) } }
+    fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feedSynced(here, me?.id, last.createdAt); feed = feed + more; feedEnd = more.size < 30; runCatching { namesFor(more.map { it.authorId }) } }
     fun post(body: String, media: List<Picked>, visibility: String, area: String) = go { val p = me ?: return@go; busy = true
         try { val paths = media.map { f -> "${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime }
               Backend.post(p.id, body, paths, visibility, here, area); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_CREATED, "visibility" to visibility, "media" to paths.size); toast("Posted."); refreshFeed() } finally { busy = false } }

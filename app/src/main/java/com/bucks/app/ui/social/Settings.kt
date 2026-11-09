@@ -30,15 +30,26 @@ import com.bucks.app.ui.screens.ago
 /** Settings for the social app: account, privacy and safety, notifications, appearance, help and legal, then sign-out and deletion. */
 @Composable
 fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> Unit, onEditProfile: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit) {
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Settings", onBack = onBack)
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) { SettingsList(vm, onOpen, onEditProfile, onLogout, onDeleted) }
+    }
+}
+
+/**
+ * The one list of settings, shown in Profile > Settings and at the Settings route: account, privacy and safety, app, help and legal,
+ * Bucks team tools, then sign-out and deletion. Edge to edge (each row has its own gutter).
+ */
+@Composable
+fun SettingsList(vm: BucksViewModel, onOpen: (String) -> Unit, onEditProfile: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit) {
     val ctx = LocalContext.current; val social = vm.social
     var deleteDialog by remember { mutableStateOf(false) }; var logoutDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.services.checkStaff() }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Settings", onBack = onBack)
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
+        Column {
             Group("Account")
             Item(Icons.Rounded.Person, "Edit profile", "Name, area and bio", onClick = onEditProfile)
             Item(Icons.Rounded.QrCode2, "Bucks ID", "Your card and QR for syncing") { onOpen(Routes.BUCKS_ID) }
             Item(Icons.Rounded.Sync, "Synced people and requests", null) { onOpen(Routes.SYNC) }
+            if (vm.dispatch.enabled) Item(Icons.Rounded.QrCode2, "Payment QR", "How customers pay you by UPI: rides, deliveries and shop orders") { onOpen(Routes.PAYMENT_QR) }
             Group("Privacy and safety")
             Item(Icons.Rounded.Shield, "Safety centre", "How Bucks keeps you safe, and your reports") { onOpen(Routes.SAFETY_CENTER) }
             Item(Icons.Rounded.Lock, "Privacy", "Who can message you, sync with you and see your Moments") { onOpen(Routes.SETTINGS_PRIVACY) }
@@ -48,6 +59,7 @@ fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
             Group("App")
             Item(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { onOpen(Routes.SETTINGS_NOTIFS) }
             Item(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
+            com.bucks.app.ui.screens.VoiceAiCard(vm, Modifier.padding(horizontal = Gutter))
             Item(Icons.Rounded.SystemUpdate, "App versions", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + when {
                 !com.bucks.app.data.AppUpdate.enabled -> " · updates through the Play Store"
                 vm.updates.available != null -> " · build ${vm.updates.available?.build} is ready"
@@ -68,7 +80,6 @@ fun SocialSettingsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String
             Item(Icons.Rounded.DeleteOutline, "Delete account", "Removes your profile, posts, Moments and messages", danger = true) { deleteDialog = true }
             Muted("Bucks ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})" + (social.me?.let { " · ${it.shortCode}" } ?: ""), Modifier.padding(horizontal = Gutter, vertical = 16.dp))
         }
-    }
     if (logoutDialog) AlertDialog(onDismissRequest = { logoutDialog = false }, title = { Text("Log out?") }, text = { Text("You can sign back in any time with your mobile number.") },
         confirmButton = { TextButton({ logoutDialog = false; onLogout() }) { Text("Log out") } }, dismissButton = { TextButton({ logoutDialog = false }) { Text("Cancel") } })
     if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, icon = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) }, title = { Text("Delete your account?") },

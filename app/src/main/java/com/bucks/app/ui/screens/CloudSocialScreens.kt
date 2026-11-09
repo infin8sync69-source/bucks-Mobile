@@ -129,7 +129,7 @@ fun MomentVideo(url: String, paused: Boolean, modifier: Modifier = Modifier, loo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CloudFeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onOpenMoments: (String) -> Unit, onNewMoment: () -> Unit) {
+fun CloudFeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onOpenMoments: (String) -> Unit, onNewMoment: () -> Unit, onFindPeople: () -> Unit = {}) {
     val social = vm.social; val ctx = LocalContext.current
     var compose by remember { mutableStateOf(false) }; var comments by remember { mutableStateOf<String?>(null) }
     var muteFor by remember { mutableStateOf<TrayRow?>(null) }; var showMuted by remember { mutableStateOf(false) }
@@ -139,7 +139,10 @@ fun CloudFeedScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Un
             item { MomentsTray(social.tray, myName = social.me?.name ?: "You", onOpen = onOpenMoments, onNew = onNewMoment, onMute = { muteFor = it }, onMore = { showMuted = true }) }
             item { Box(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) { Surface(Modifier.fillMaxWidth().height(56.dp).clip(MaterialTheme.shapes.medium).clickable { compose = true }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                 Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Edit, null, Modifier.size(24.dp)); Spacer(Modifier.width(16.dp)); Text("Share with your neighbours", style = MaterialTheme.typography.bodyLarge) } } } }
-            if (social.feed.isEmpty()) item { Muted("Nothing here yet. Sync with people nearby, or be the first to post.", Modifier.padding(Gutter)) }
+            // The Feed is the people you've synced with (and pages you sync with); strangers' posts never land here.
+            if (social.feed.isEmpty()) item { Column(Modifier.padding(Gutter)) {
+                Muted("Posts from people you've synced with show here.")
+                SmallButton("Find people to sync with", Modifier.padding(top = 10.dp), tonal = true, onClick = onFindPeople) } }
             items(social.feed, key = { it.id }) { p -> CloudPostCard(vm, p, onVote = { social.vote(p.id, it) }, onComments = { comments = p.id }, onShare = { shareText(ctx, "${p.authorName} on Bucks: ${p.body}") }, onDelete = { social.deletePost(p.id) }) }
             if (social.feed.isNotEmpty() && !social.feedEnd) item { TextButton({ social.loadMoreFeed() }, Modifier.fillMaxWidth().padding(8.dp)) { Text("Load more") } }
             item { Spacer(Modifier.height(24.dp)) }

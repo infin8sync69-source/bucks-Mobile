@@ -39,7 +39,8 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
     if (tab == "profile") { if (vm.social.enabled) CloudPersonalProfile(vm, onEditProfile, onOpen) else PersonalProfile(vm, onEditProfile, onCreatePost); return }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Account", onMenu = onMenu, unread = vm.unreadCount(chats), onChat = onMessages)
         PrimaryTabRow(selectedTabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) { tabs.forEach { (k, l) -> Tab(selected = tab == k, onClick = { tab = k }, text = { Text(l, style = MaterialTheme.typography.labelLarge) }) } }
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
+        // Settings is the shared list, edge to edge; the activity tab keeps the page gutter.
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(if (tab == "settings" && vm.social.enabled) 0.dp else Gutter)) {
             when (tab) {
                 "activity" -> {
                     SectionTitle("Rides", Modifier.padding(bottom = 4.dp))
@@ -51,10 +52,16 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
                         else vm.commerce.myOrders.take(5).forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, vm.commerce.titleOf(o.listingId), "₹${o.subtotal + if (o.feePaidBy == "BUYER") o.deliveryFee else 0} · ${com.bucks.app.ui.screens.commerce.orderStatusLabel(o.status, o.deliveryMode)}") { onOpen(Routes.cloudOrder(o.id)) } }
                     } else if (s.orders.isEmpty()) Muted("No orders yet. Search for food, groceries or anything nearby.") else s.orders.forEach { o -> ListRowCompact(Icons.Rounded.ShoppingBag, o.providerName, "₹${o.total} · ${o.status.label}") { onOrder(o.id) } }
                     if (vm.social.enabled) { SectionTitle("Jobs", Modifier.padding(top = 20.dp, bottom = 4.dp)); ListRowCompact(Icons.Rounded.Work, "My applications", "Jobs you applied to and where they stand") { onOpen(Routes.MY_APPLICATIONS) } }
+                    if (vm.social.enabled) { SectionTitle("People", Modifier.padding(top = 20.dp, bottom = 4.dp))
+                        ListRowCompact(Icons.Rounded.QrCodeScanner, "Recommend a local", "Scan a shop or pro's QR when you've used them") { onOpen(Routes.RECOMMEND_SCAN) }
+                        ListRowCompact(Icons.Rounded.PersonSearch, "Find people", "People you may know nearby") { onOpen(Routes.DISCOVER) } }
                     SectionTitle("Service requests", Modifier.padding(top = 20.dp, bottom = 4.dp))
                     if (s.requests.isEmpty()) Muted("No service requests yet. Search for a plumber, tutor or any skill.") else s.requests.forEach { r -> ListRowCompact(Icons.Rounded.Handyman, r.providerName, "${r.category} · ${r.status.label}") { onRequest(r.id) } }
                 }
-                else -> SettingsHub(vm, identity = { if (vm.social.enabled) BucksIdCard(vm) { onOpen(Routes.SYNC) } else VerificationCard(vm, u.id, u.verified) }, onOpen = onOpen, onEditProfile = onEditProfile, onLogout = onLogout, onDeleted = onDeleted, showToast = showToast)
+                else -> if (vm.social.enabled) {
+                    Box(Modifier.padding(Gutter)) { BucksIdCard(vm) { onOpen(Routes.SYNC) } }
+                    com.bucks.app.ui.social.SettingsList(vm, onOpen, onEditProfile, onLogout, onDeleted)
+                } else SettingsHub(vm, identity = { if (vm.social.enabled) BucksIdCard(vm) { onOpen(Routes.SYNC) } else VerificationCard(vm, u.id, u.verified) }, onOpen = onOpen, onEditProfile = onEditProfile, onLogout = onLogout, onDeleted = onDeleted, showToast = showToast)
             }
         }
     }

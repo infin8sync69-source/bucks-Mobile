@@ -183,7 +183,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                 // Demo builds keep the local vehicle; cloud builds use my checked vehicle on the server (never in s.pro).
                 val v = if (vm.dispatch.enabled) null else s.pro?.vehicle; val cv = vm.cloudVehicle
                 val studio = vm.social.enabled; val m = vm.myListings
-                // The menu is the professional side (Studio); the personal profile lives in the bottom bar. Fresh numbers each time it opens.
+                // The menu is the professional side (Studio) only; the personal side lives under Profile. Fresh numbers each time it opens.
                 LaunchedEffect(drawer.isOpen) { if (drawer.isOpen && studio && vm.social.me != null) m.refresh() }
                 Column(Modifier.fillMaxHeight()) { Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -199,21 +199,6 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                             Text("Your work, skills and CV", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Rounded.ChevronRight, "Open Pro profile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    // Bucks ID: a mini card that opens the full card with QR and barcode.
-                    vm.social.me?.takeIf { studio }?.let { me ->
-                        val info = BucksIdCardInfo.of(me.idIssuedAt)
-                        Row(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF811FF0), androidx.compose.ui.graphics.Color(0xFF4A0AA6))))
-                            .clickable { closeMenu(); nav.navigate(Routes.BUCKS_ID) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.QrCode2, null, tint = androidx.compose.ui.graphics.Color.White)
-                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                Text("Bucks ID  ${pretty(me.shortCode)}", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleSmall)
-                                Text(when { info == null -> "Tap to show your card"; info.expired -> "Expired · tap to renew"; info.renewable -> "Renew soon · valid till ${info.validTill}"; else -> "Valid till ${info.validTill}" },
-                                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
-                            }
-                            Icon(Icons.Rounded.ChevronRight, "Show card", tint = androidx.compose.ui.graphics.Color.White)
-                        }
                     }
                     Column(Modifier.padding(12.dp)) {
                         DrawerItem(Icons.Rounded.GridView, if (studio) "Bucks Pro home" else "Manage listings", current == Routes.MY_LISTINGS || current.startsWith("studio/") || current.startsWith(Routes.LISTINGS) || current.startsWith(Routes.VEHICLE_FORM) || current.startsWith(Routes.ADD_SKILL) || current == Routes.MY_VEHICLES) { closeMenu(); nav.navigate(if (studio) Routes.MY_LISTINGS else Routes.LISTINGS) }
@@ -237,21 +222,11 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                         Column(Modifier.padding(12.dp)) {
                             DrawerItem(Icons.Rounded.MailOutline, if (m.pendingCount > 0) "Invites (${m.pendingCount})" else "Invites", current == Routes.INVITES) { closeMenu(); nav.navigate(Routes.INVITES) }
-                            DrawerItem(Icons.Rounded.ShoppingBag, "My orders", current == Routes.MY_ORDERS) { closeMenu(); nav.navigate(Routes.MY_ORDERS) }
-                            DrawerItem(Icons.Rounded.Work, "Jobs and applications", current == Routes.MY_APPLICATIONS) { closeMenu(); nav.navigate(Routes.MY_APPLICATIONS) }
-                            DrawerItem(Icons.Rounded.QrCodeScanner, "Recommend a local", current == Routes.RECOMMEND_SCAN) { closeMenu(); nav.navigate(Routes.RECOMMEND_SCAN) }
                         }
                     }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                    Column(Modifier.padding(12.dp)) {
-                        DrawerItem(Icons.Rounded.PersonSearch, "Find people", current == Routes.DISCOVER) { closeMenu(); nav.navigate(Routes.DISCOVER) }
-                        DrawerItem(Icons.Rounded.Settings, "Settings", current == Routes.SETTINGS) { closeMenu(); nav.navigate(Routes.SETTINGS) }
-                        DrawerItem(Icons.Rounded.HelpOutline, "Help", current == Routes.HELP) { closeMenu(); nav.navigate(Routes.HELP) }
-                        // Test builds: switch to the newest build of any branch from here (Play builds update through the Play Store).
-                        if (com.bucks.app.data.AppUpdate.enabled) DrawerItem(Icons.Rounded.SystemUpdate, if (vm.updates.available != null) "App versions · update ready" else "App versions", current == Routes.APP_VERSIONS) { closeMenu(); nav.navigate(Routes.APP_VERSIONS) }
-                        DrawerItem(Icons.AutoMirrored.Rounded.Logout, "Logout", false) { closeMenu(); logout() }
-                    }
+                    // The menu is only for running Pro accounts: pages, vehicles and their team. Personal things (orders, applications,
+                    // settings, help, Bucks ID, log out) live under Profile.
                 }
             } }
         }) {
@@ -294,8 +269,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                     key == "JOBS" -> nav.navigate(Routes.MY_LISTINGS)
                                     else -> { val group = PageTypes.groups.firstOrNull { it.key != "SHOPS" && key in it.services }
                                         if (group != null) pickGroup = group.key else nav.navigate(Routes.listingEdit(null, "BUSINESS", key)) } } }) }
-                            composable(Routes.FEED) { if (vm.social.enabled) CloudFeedScreen(vm, openMenu, messages, onOpenMoments = { nav.navigate(Routes.moments(it)) }, onNewMoment = { nav.navigate(Routes.MOMENT_NEW) }) else FeedScreen(vm, openMenu, messages, toast) }
-                            composable(Routes.RECOMMENDED) { RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith, onListing = { nav.navigate(Routes.listing(it)) }) }
+                            composable(Routes.FEED) { if (vm.social.enabled) CloudFeedScreen(vm, openMenu, messages, onOpenMoments = { nav.navigate(Routes.moments(it)) }, onNewMoment = { nav.navigate(Routes.MOMENT_NEW) }, onFindPeople = { nav.navigate(Routes.DISCOVER) }) else FeedScreen(vm, openMenu, messages, toast) }
+                            composable(Routes.RECOMMENDED) { if (vm.social.enabled) com.bucks.app.ui.screens.CloudForYouScreen(vm, openMenu, messages, onListing = { nav.navigate(Routes.listing(it)) }, onFindPeople = { nav.navigate(Routes.DISCOVER) }) else RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith, onListing = { nav.navigate(Routes.listing(it)) }) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
                                 AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { nav.navigate(Routes.SETTINGS_APPEARANCE) }, onOpen = { nav.navigate(it) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
                             composable(Routes.SEARCH) { if (vm.social.enabled) CloudSearchScreen(vm, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onPlace = { nav.navigate(Routes.MAPS) }) else SearchScreen(vm, onBack = { nav.popBackStack() }, onProvider = { id, t -> nav.navigate(Routes.provider(id, t)) }, onRequest = { nav.navigate(Routes.request(it)) }, onMessages = messages, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, showToast = toast) }
