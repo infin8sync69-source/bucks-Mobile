@@ -61,7 +61,7 @@ object Cloud {
             }
             override fun onCodeSent(id: String, token: PhoneAuthProvider.ForceResendingToken) { verificationId = id; resendToken = token; onSent() }
         }
-        val options = PhoneAuthOptions.newBuilder(auth).setPhoneNumber("+91$phone").setTimeout(60L, TimeUnit.SECONDS).setActivity(activity).setCallbacks(callbacks)
+        val options = PhoneAuthOptions.newBuilder(auth).setPhoneNumber(if (phone.startsWith("+")) phone else "+91$phone").setTimeout(60L, TimeUnit.SECONDS).setActivity(activity).setCallbacks(callbacks)
         if (resend) resendToken?.let { options.setForceResendingToken(it) }
         PhoneAuthProvider.verifyPhoneNumber(options.build())
     }

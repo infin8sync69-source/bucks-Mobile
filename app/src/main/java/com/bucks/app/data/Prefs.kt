@@ -27,6 +27,7 @@ object Prefs {
         language = sp.getString("language", "en") ?: "en"
         askedLocationFlag = sp.getBoolean("askedLocation", false)
         shareUsage = sp.getBoolean("shareUsage", true)
+        sp.getString("country", null)?.let { Money.country = Countries.of(it) }
     }
 
     var theme by mutableStateOf(Theme.SYSTEM); private set
@@ -62,7 +63,15 @@ object Prefs {
     /** Adults can turn off usage analytics (Settings → Appearance and data). Under-18s are never tracked, whatever this says. */
     var shareUsage by mutableStateOf(true); private set
     fun enableShareUsage(v: Boolean) { shareUsage = v; sp.edit().putBoolean("shareUsage", v).apply() }
-    fun chooseLanguage(tag: String) { language = tag; sp.edit().putString("language", tag).apply() }
-
-    val LANGUAGES = listOf("en" to "English", "kn" to "ಕನ್ನಡ", "hi" to "हिन्दी", "ta" to "தமிழ்", "te" to "తెలుగు", "ml" to "മലയാളം")
+    /** App language: applied through AppCompat (see data/Locales.kt); kept here too so the server profile can be told. */
+    fun chooseLanguage(tag: String) { language = tag; languageChosen = true; sp.edit().putString("language", tag).putBoolean("languageChosen", true).apply(); AppLanguages.apply(tag) }
+    /** Onboarding: the language screen shows until a language is picked once. */
+    var languageChosen: Boolean get() = ::sp.isInitialized && sp.getBoolean("languageChosen", false); private set(v) { sp.edit().putBoolean("languageChosen", v).apply() }
+    /** The country picked at sign-in (ISO code), or null before that; drives the dial code, currency and UPI. */
+    var countryIso: String? get() = if (::sp.isInitialized) sp.getString("country", null) else null; set(v) { sp.edit().putString("country", v).apply(); v?.let { Money.country = Countries.of(it) } }
+    /** The terms version accepted with "I'm 18 or older" on the phone screen (sent to the server after sign-in), or null. */
+    var acceptedTerms: String? get() = if (::sp.isInitialized) sp.getString("acceptedTerms", null) else null; set(v) { sp.edit().putString("acceptedTerms", v).apply() }
+    /** Launches since install: the notification prompt waits for the second visit instead of greeting a new person. */
+    val launches: Int get() = if (::sp.isInitialized) sp.getInt("launches", 0) else 0
+    fun countLaunch() { if (::sp.isInitialized) sp.edit().putInt("launches", launches + 1).apply() }
 }

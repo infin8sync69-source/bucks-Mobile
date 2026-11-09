@@ -71,7 +71,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
     val sysDark = isSystemInDarkTheme()
     val dark = when (Prefs.theme) { Prefs.Theme.LIGHT -> false; Prefs.Theme.DARK -> true; else -> sysDark }
     BucksTheme(dark = dark, textScale = Prefs.textSize.scale) {
-        val startDest = remember { if (vm.isLoggedIn) Routes.HOME else Routes.SPLASH }
+        val startDest = remember { when { vm.isLoggedIn -> Routes.HOME; !Prefs.languageChosen -> Routes.LANGUAGE; else -> Routes.LOGIN } }
         val nav = rememberNavController(); val snack = remember { SnackbarHostState() }; val scope = rememberCoroutineScope()
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()
@@ -132,7 +132,8 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             text = { Text("${p.message} Turn them on so requests reach you when Bucks is closed or the screen is off. You're online either way.") },
             confirmButton = { TextButton({ notifHelp = null; runCatching { ctx.startActivity(RingAlert.settingsIntent(ctx, p)) } }) { Text("Open settings") } },
             dismissButton = { TextButton({ notifHelp = null }) { Text("Not now") } }) }
-        LaunchedEffect(s.user != null, showIntro) { if (!showIntro && s.user != null && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        // Notifications: not on the first visit (people should see the app first); from the second launch on, once.
+        LaunchedEffect(s.user != null, showIntro) { if (!showIntro && s.user != null && Prefs.launches >= 2 && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
         LaunchedEffect(Unit) { vm.nav.collect { route -> when {
             route == Routes.HOME || route == Routes.FEED || route == Routes.ACTIVITY -> nav.navigate(route) { popUpTo(Routes.HOME) { inclusive = route == Routes.HOME } }
             route in RIDE_STAGES -> nav.navigate(route) { popUpTo(Routes.HOME); launchSingleTop = true }
@@ -142,22 +143,17 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         LaunchedEffect(startRoute, s.user != null) { val r = startRoute ?: return@LaunchedEffect; if (s.user == null) return@LaunchedEffect
             runCatching { nav.navigate(if (r.startsWith("doc-requests/")) Routes.showcaseDocs(r.removePrefix("doc-requests/")) else r) { launchSingleTop = true; if (r == Routes.HOME) popUpTo(Routes.HOME) } }; onStartRouteHandled() }
         val backEntry by nav.currentBackStackEntryAsState(); val current = backEntry?.destination?.route ?: Routes.SPLASH
-        // Onboarding gate: the server says what it still needs (date of birth, a guardian's consent for under-18s) before the app opens up.
+        // The band only drives adult-only analytics now: onboarding records "I'm 18 or older" (confirm_adult) instead of a date of birth.
         val safety = vm.safety
+        // Where I'm based comes from location on Home (onboarding no longer asks): the first fix names my area and sets my home point.
+        LaunchedEffect(s.hereLabel, s.user?.area) { val u = s.user ?: return@LaunchedEffect; val a = com.bucks.app.ui.screens.areaOf(s.hereLabel)
+            val at = s.me; if (u.area.isBlank() && a != null && at != null) vm.setHomeArea(a, at) }
         LaunchedEffect(vm.social.me?.id) { if (vm.social.me != null) safety.refresh() }
         // Analytics only for adults who haven't opted out; screen names are route patterns (no ids).
         LaunchedEffect(Prefs.shareUsage, safety.band) { safety.applyAnalytics() }
         LaunchedEffect(current) { com.bucks.app.data.Analytics.screen(current.substringBefore('/').substringBefore('?')) }
-        LaunchedEffect(safety.pendingStep, current) {
-            val step = safety.pendingStep ?: return@LaunchedEffect
-            if (current in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL)) return@LaunchedEffect
-            val target = if (step == Safety.STEP_BIRTH) Routes.AGE else Routes.GUARDIAN
-            if (current != target) nav.navigate(target) { popUpTo(0); launchSingleTop = true }
-        }
-        /** Where onboarding goes once the server is satisfied: profile setup for a new person, else Home. */
-        val afterGate: () -> Unit = { if (!vm.isLoggedIn) nav.navigate(Routes.PROFILE) { popUpTo(0) } else nav.navigate(Routes.HOME) { popUpTo(0) } }
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
-        val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LOGIN, Routes.OTP, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
+        val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.NAME, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
         // A driver trip in progress is full-screen, like the design (no bottom navigation).
         val onTrip = s.driverRide != null && s.driverRide?.status != com.bucks.app.data.DriverRideStatus.RINGING && current == Routes.HOME
         val showBottomBar = !onTrip && width == Width.COMPACT && (current in listOf(Routes.HOME, Routes.FEED, Routes.SERVICES, Routes.RECOMMENDED, Routes.SEARCH) || current.startsWith("provider/") || current.startsWith("account"))
@@ -246,10 +242,15 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                         NavHost(nav, startDestination = startDest,
                             enterTransition = { fadeIn(tween(220)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it / 20 } }, exitTransition = { fadeOut(tween(140)) },
                             popEnterTransition = { fadeIn(tween(200)) }, popExitTransition = { fadeOut(tween(160)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 20 } }) {
-                            composable(Routes.SPLASH) { SplashScreen { nav.navigate(Routes.LOGIN) } }
-                            composable(Routes.LOGIN) { LoginScreen(vm, onSent = { val st = vm.state.value; if (st.tempEmail.isNotBlank() && st.tempPhone.isBlank()) nav.navigate(Routes.PROFILE) else nav.navigate(Routes.OTP) }, onSignedIn = { nav.navigate(Routes.HOME) { popUpTo(0) } }, onSignUp = { nav.navigate(Routes.SIGNUP_EMAIL) }, showToast = toast) }
-                            composable(Routes.SIGNUP_EMAIL) { SignUpEmailScreen(vm, onBack = { nav.popBackStack() }, onCreated = { nav.navigate(Routes.PROFILE) }, onUseMobile = { nav.popBackStack() }) }
-                            composable(Routes.OTP) { OtpScreen(vm, s.tempPhone, onBack = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.PROFILE) }, showToast = toast) }
+                            // Onboarding v2: Language → Phone → Code → Name → Home (ui/onboarding/OnboardingScreens.kt).
+                            val toPhone: () -> Unit = { if (nav.previousBackStackEntry != null) nav.popBackStack() else nav.navigate(Routes.LOGIN) { popUpTo(0) } }
+                            composable(Routes.SPLASH) { com.bucks.app.ui.onboarding.LanguageScreen(onContinue = toPhone) }
+                            composable(Routes.LANGUAGE) { com.bucks.app.ui.onboarding.LanguageScreen(onContinue = toPhone) }
+                            composable(Routes.LOGIN) { com.bucks.app.ui.onboarding.PhoneScreen(vm, onSent = { nav.navigate(Routes.OTP) }, onLanguage = { nav.navigate(Routes.LANGUAGE) },
+                                onUseEmail = if (vm.cloud) null else ({ nav.navigate(Routes.SIGNUP_EMAIL) })) }
+                            composable(Routes.SIGNUP_EMAIL) { SignUpEmailScreen(vm, onBack = { nav.popBackStack() }, onCreated = { nav.navigate(Routes.NAME) }, onUseMobile = { nav.popBackStack() }) }
+                            composable(Routes.OTP) { com.bucks.app.ui.onboarding.CodeScreen(vm, s.tempPhone, onEdit = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.NAME) { popUpTo(0) } }) }
+                            composable(Routes.NAME) { com.bucks.app.ui.onboarding.NameScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call, onPlace = { nav.navigate(Routes.MAPS) }, onReturnToRide = returnToRide) }
                             composable(Routes.SERVICES) {
@@ -394,8 +395,6 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 if (vm.social.enabled) JobScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onOpenChat = { nav.navigate(Routes.chat(it)) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                             composable(Routes.MY_APPLICATIONS) { if (vm.social.enabled) MyApplicationsScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.job(it)) }, onNear = { nav.navigate(Routes.JOBS_NEAR) }) else JobsNeedCloud(vm, onBack = { nav.popBackStack() }) }
                             // ---- onboarding, people, notifications, settings, safety and help (from the social build) ----
-                            composable(Routes.AGE) { com.bucks.app.ui.social.AgeScreen(vm, onDone = { band -> if (band == "ADULT") afterGate() else nav.navigate(Routes.GUARDIAN) { popUpTo(0); launchSingleTop = true } }, onSignOut = logout) }
-                            composable(Routes.GUARDIAN) { com.bucks.app.ui.social.GuardianScreen(vm, onDone = afterGate, onSignOut = logout) }
                             composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.StringType })) { e -> com.bucks.app.ui.social.PersonScreen(vm, e.arguments!!.getString("id")!!, onBack = { nav.popBackStack() }, onOpenChat = { nav.navigate(Routes.chat(it)) }, onOpenPro = { nav.navigate(Routes.proPerson(it)) }) }
                             composable(Routes.DISCOVER) { com.bucks.app.ui.social.DiscoverScreen(vm, onOpenPerson = openPerson, onContacts = { nav.navigate(Routes.CONTACTS) }, onBucksId = { nav.navigate(Routes.SYNC) }) }
                             composable(Routes.NOTIFICATIONS) { CloudMessagesScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.chat(it)) }, onSync = { nav.navigate(Routes.SYNC) }, onNewGroup = { nav.navigate(Routes.GROUP_NEW) }, initialTab = 1, onRoute = { r -> com.bucks.app.data.Push.safeRoute(r)?.let { runCatching { nav.navigate(it) } } }) }

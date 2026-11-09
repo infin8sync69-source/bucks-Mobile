@@ -16,6 +16,8 @@ object Legal {
     const val CHILD_SAFETY = "child-safety"
     const val DELETE_ACCOUNT = "delete-account"
     const val GRIEVANCE = "grievance"
+    /** Bump when the Terms or Privacy Policy change in a way people must accept again; the server records which version each person accepted. */
+    const val TERMS_VERSION = "2026-11-09"
 
     fun url(page: String) = "${BuildConfig.LEGAL_BASE_URL.trimEnd('/')}/$page"
     fun open(ctx: Context, page: String) { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url(page)))) } }

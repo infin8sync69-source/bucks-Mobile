@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">Choose your language</string>
+    <string name="onb_language_hint">You can change it later in Settings.</string>
+    <string name="onb_continue">Continue</string>
+
+    <string name="onb_phone_title">What\'s your number?</string>
+    <string name="onb_phone_hint">We\'ll text you a code.</string>
+    <string name="onb_phone_number">Phone number</string>
+    <string name="onb_phone_invalid">Check the number</string>
+    <string name="onb_adult_terms">I\'m 18 or older and agree to the Terms and Privacy Policy.</string>
+    <string name="onb_terms">Terms</string>
+    <string name="onb_privacy">Privacy</string>
+    <string name="onb_guidelines">Guidelines</string>
+    <string name="onb_get_code">Get code</string>
+    <string name="onb_use_email">Use email instead</string>
+
+    <string name="onb_country_title">Country</string>
+    <string name="onb_country_search">Search</string>
+    <string name="onb_country_change">Change country, now %1$s</string>
+
+    <string name="onb_code_title">Enter the code</string>
+    <string name="onb_code_sent_to">Sent to %1$s</string>
+    <string name="onb_code_edit">Edit</string>
+    <string name="onb_code_demo">Demo code: 1234</string>
+    <string name="onb_code_verify">Verify</string>
+    <string name="onb_code_checking">Checking…</string>
+    <string name="onb_code_resend">Resend code</string>
+    <string name="onb_code_resend_in">Resend in %1$d s</string>
+    <string name="onb_code_field">Verification code</string>
+
+    <string name="onb_name_title">What\'s your name?</string>
+    <string name="onb_name_hint">Shown on your profile.</string>
+    <string name="onb_name_label">Your name</string>
+    <string name="onb_name_cta">Let\'s go</string>
+</resources>

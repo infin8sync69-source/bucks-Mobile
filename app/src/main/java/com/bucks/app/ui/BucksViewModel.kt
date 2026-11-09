@@ -150,26 +150,26 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     val isLoggedIn get() = s.user != null
 
     // ---------- auth & verification ----------
+    /** [p]: the full international number (+919876543210) from the phone screen. */
     fun setPhone(p: String) = _s.update { it.copy(tempPhone = p, tempEmail = "") }
     /** Firebase texts a real 6-digit code. Some phones verify on their own, which calls [onSignedIn] with no code typed. */
     fun sendOtp(activity: Activity, resend: Boolean = false, onSignedIn: () -> Unit) {
         if (!cloud) return
-        otpStatus.value = "Asking Firebase to send the code…"
-        Cloud.sendCode(activity, s.tempPhone, resend, onSent = { otpStatus.value = "Code sent. Enter it below."; toast("Code sent to +91 ${s.tempPhone}") },
-            onSignedIn = { otpStatus.value = "Signed in"; onPhoneVerified(); onSignedIn() },
-            onError = { otpStatus.value = "Couldn't send the code: $it"; toast(it) },
-            onRetry = { otpStatus.value = "App check failed; trying again as a test number…" })
+        otpStatus.value = "Sending…"
+        Cloud.sendCode(activity, s.tempPhone, resend, onSent = { otpStatus.value = "" },
+            onSignedIn = { otpStatus.value = ""; onPhoneVerified(); onSignedIn() },
+            onError = { otpStatus.value = "Couldn't send the code. $it" },
+            onRetry = { otpStatus.value = "Sending…" })
         // Firebase sometimes never answers (a reCAPTCHA page that didn't open or return): say so instead of waiting silently.
         val asked = otpStatus.value
-        viewModelScope.launch { kotlinx.coroutines.delay(30_000); if (otpStatus.value == asked || otpStatus.value.startsWith("App check failed"))
-            otpStatus.value = "No reply from Firebase after 30 seconds. Tap Resend code, and send a screenshot of this screen." }
+        viewModelScope.launch { kotlinx.coroutines.delay(30_000); if (otpStatus.value == asked) otpStatus.value = "No code yet? Resend it." }
     }
     /** What the phone sign-in is doing right now, shown under the code box so a tester can report it. */
     val otpStatus = kotlinx.coroutines.flow.MutableStateFlow("")
     /** Without Firebase (demo build) the code is 1234, and only in debug builds. */
     fun verifyOtp(code: String, onResult: (Boolean) -> Unit) {
-        if (cloud) { otpStatus.value = "Checking the code…"
-            Cloud.verifyCode(code, { otpStatus.value = "Signed in"; onPhoneVerified(); onResult(true) }, { otpStatus.value = "Code not accepted: $it"; toast(it); onResult(false) }); return }
+        if (cloud) { otpStatus.value = ""
+            Cloud.verifyCode(code, { otpStatus.value = ""; onPhoneVerified(); onResult(true) }, { otpStatus.value = "Wrong code. Try again."; onResult(false) }); return }
         if (!BuildConfig.DEBUG) { toast("Sign-in isn't set up in this build."); onResult(false); return }
         if (code != "1234") { toast("Wrong code. Try 1234."); onResult(false); return }
         onPhoneVerified(); onResult(true)
@@ -180,6 +180,9 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         _s.update { it.copy(user = it.user?.copy(phone = it.tempPhone.ifBlank { it.user.phone }, verified = it.user.verified + VerificationLevel.PHONE)) }; persist()
         if (dispatch.enabled) dispatch.startDriversFeed()
         if (Backend.enabled) { social.signedIn(s.user?.name ?: "", s.tempPhone.ifBlank { s.user?.phone ?: "" }); dispatch.resume() } }
+    /** Quietly sets where I'm based from my first location fix (onboarding no longer asks for an area). */
+    fun setHomeArea(area: String, at: LatLng) { val u = s.user ?: return
+        _s.update { it.copy(user = u.copy(area = area)) }; persist(); social.profileSaved(u.name, area, u.bio, at) }
     /** [home]: the place chosen as where I'm based (null keeps the saved one). */
     fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList(), home: LatLng? = null) {
         val base = s.user ?: User(name, area, bio, s.tempPhone, email = s.tempEmail, id = safeId(), verified = if (s.tempPhone.isNotBlank()) setOf(VerificationLevel.PHONE) else emptySet())

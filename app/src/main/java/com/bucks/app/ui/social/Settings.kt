@@ -58,6 +58,7 @@ fun SettingsList(vm: BucksViewModel, onOpen: (String) -> Unit, onEditProfile: ()
             Item(Icons.Rounded.Favorite, "Close friends", "Who sees Moments you share with close friends") { onOpen(Routes.SETTINGS_CLOSE) }
             Group("App")
             Item(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { onOpen(Routes.SETTINGS_NOTIFS) }
+            Item(Icons.Rounded.Language, "Language", com.bucks.app.data.AppLanguages.current().native) { onOpen(Routes.LANGUAGE) }
             Item(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
             com.bucks.app.ui.screens.VoiceAiCard(vm, Modifier.padding(horizontal = Gutter))
             Item(Icons.Rounded.SystemUpdate, "App versions", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + when {

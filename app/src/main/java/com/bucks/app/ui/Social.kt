@@ -67,6 +67,9 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         var tries = 0
         val p = run { while (true) { try { return@run Backend.ensureProfile(name, phone) } catch (e: Exception) { if (++tries >= 3) throw e; kotlinx.coroutines.delay(2_000L * tries) } }; error("unreachable") }
         me = p; names[p.id] = p.name; photos[p.id] = p.photoUrl
+        // Onboarding choices made before there was an account: the 18+ and terms confirmation, the country and the language.
+        com.bucks.app.data.Prefs.acceptedTerms?.let { v -> runCatching { com.bucks.app.data.BackendSafety.confirmAdult(v) } }
+        runCatching { com.bucks.app.data.BackendSafety.setMyLocale(com.bucks.app.data.Prefs.countryIso, com.bucks.app.data.AppLanguages.current().tag) }
         settings = Backend.mySettings(p.id)
         Push.registerIfSignedIn()
         repo.clearDemoSocial()

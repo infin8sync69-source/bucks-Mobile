@@ -16,6 +16,10 @@ object BackendSafety {
 
     /** Sets my date of birth (once) and returns my band: CHILD, TEEN or ADULT. Refused for under-13s while the kids band is off. */
     suspend fun setBirthDate(isoDate: String): String = db.rpc("set_birth_date", buildJsonObject { put("p_date", isoDate) }).decodeAs()
+    /** "I'm 18 or older and agree to the Terms" from the phone screen: sets the ADULT band and records which terms were accepted. */
+    suspend fun confirmAdult(termsVersion: String) { db.rpc("confirm_adult", buildJsonObject { put("p_terms_version", termsVersion) }) }
+    /** Country (ISO code) and app language for my profile: currency, payments and the language of notifications. */
+    suspend fun setMyLocale(country: String?, language: String?) { db.rpc("set_my_locale", buildJsonObject { put("p_country", country); put("p_language", language) }) }
     suspend fun mySafety(): SafetyRow? = db.rpc("my_safety").decodeList<SafetyRow>().firstOrNull()
     suspend fun recordGuardianConsent(name: String, phone: String, relation: String) {
         db.rpc("record_guardian_consent", buildJsonObject { put("p_name", name); put("p_phone", phone); put("p_relation", relation) })

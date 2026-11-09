@@ -124,7 +124,7 @@ fun AppearanceScreen(onBack: () -> Unit) {
             ChoiceGroup("Download photos and files", "Applies to chats and Moments on mobile data.", Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }
             ToggleRow("Data saver", "Lighter maps and smaller images.", Prefs.dataSaver) { Prefs.enableDataSaver(it) }
             ToggleRow("Help improve Bucks", "Share anonymous usage statistics (which features are used, where people get stuck). Never your posts, messages or contacts. Always off for people under 18.", Prefs.shareUsage) { Prefs.enableShareUsage(it) }
-            ChoiceGroup("App language", "Menus and buttons. Translations are being added; English is complete.", Prefs.LANGUAGES, Prefs.language) { Prefs.chooseLanguage(it) }
+            ChoiceGroup("App language", "Menus, buttons and messages.", com.bucks.app.data.AppLanguages.all.map { it.tag to it.native }, com.bucks.app.data.AppLanguages.current().tag) { Prefs.chooseLanguage(it) }
         }
     }
 }
