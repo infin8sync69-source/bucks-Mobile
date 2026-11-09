@@ -22,7 +22,7 @@ insert into public.settings (key, value) values
   ('rate_posts_per_hour', 30), ('rate_comments_per_hour', 120), ('rate_moments_per_hour', 30), ('rate_messages_per_hour', 600),
   ('rate_syncs_per_hour', 60), ('rate_reports_per_hour', 30), ('rate_feedback_per_hour', 10), ('rate_listings_per_hour', 10),
   ('rate_rides_per_hour', 15), ('rate_drivers_map_per_hour', 720),
-  ('recommend_per_listing_per_hour', 10), ('recommend_home_cooldown_days', 7),
+  ('recommend_per_listing_per_hour', 10), ('recommend_home_cooldown_days', 7), ('recommend_token_single_use', 1),
   ('listing_blur_m', 500), ('drivers_map_blur_m', 300),
   ('ride_min_km_factor', 1.2)
 on conflict (key) do nothing;
@@ -215,7 +215,7 @@ begin
   insert into recommendations values (l.id, me_p.id, here) on conflict do nothing;
   get diagnostics added = row_count;
   -- One recommender per code: a code shared in a group chat can't collect a crowd.
-  if added > 0 then delete from recommend_tokens where token = p_token; end if;
+  if added > 0 and coalesce(setting('recommend_token_single_use'), 1) >= 1 then delete from recommend_tokens where token = p_token; end if;
   select count(*) into n from recommendations where listing_id = l.id;
   perform try_go_live(l.id);
   return n;

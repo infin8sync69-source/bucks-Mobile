@@ -11,7 +11,7 @@ create or replace function pg_temp.pid(u text) returns uuid language sql securit
 create or replace function pg_temp.check(label text, cond boolean) returns text language sql as $$ select case when cond then 'ok ' || label else 'FAIL ' || label end $$;
 
 -- run_all.sh relaxes these rules for the older suites; this suite tests them, so back to the migration's values.
-update public.settings set value = 1 where key = 'rate_limits_on';
+update public.settings set value = 1 where key in ('rate_limits_on', 'recommend_token_single_use');
 update public.settings set value = 7 where key = 'recommend_home_cooldown_days';
 update public.settings set value = 500 where key = 'listing_blur_m';
 update public.settings set value = 300 where key = 'drivers_map_blur_m';
@@ -81,9 +81,9 @@ insert into listings (kind, owner_id, title, category, area, location, service) 
 insert into listings (kind, owner_id, title, category, description, area, location, details)
   values ('BUSINESS', me(), 'Asha Biryani', 'Restaurant', 'Biryani', 'JP Nagar', geo(12.9063, 77.5857), '{}');
 reset role;
-select pg_temp.check('skill page location snapped', (select st_distance(location, geo(12.92613, 77.59427)) > 5 from listings where title = 'Asha tutoring'));
-select pg_temp.check('exact point kept privately', (select st_distance(e.location, geo(12.92613, 77.59427)) < 1 from listing_exact_location e join listings l on l.id = e.listing_id where l.title = 'Asha tutoring'));
-select pg_temp.check('shop stays exact', (select st_distance(location, geo(12.9063, 77.5857)) < 1 from listings where title = 'Asha Biryani'));
+select pg_temp.check('skill page location snapped', (select extensions.st_distance(location, geo(12.92613, 77.59427)) > 5 from listings where title = 'Asha tutoring'));
+select pg_temp.check('exact point kept privately', (select extensions.st_distance(e.location, geo(12.92613, 77.59427)) < 1 from listing_exact_location e join listings l on l.id = e.listing_id where l.title = 'Asha tutoring'));
+select pg_temp.check('shop stays exact', (select extensions.st_distance(location, geo(12.9063, 77.5857)) < 1 from listings where title = 'Asha Biryani'));
 set role authenticated;
 select pg_temp.as_user('owner');
 select pg_temp.check('owner reads the exact point', (select count(*) = 1 from listing_exact_location));
