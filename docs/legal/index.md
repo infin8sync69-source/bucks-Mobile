@@ -3,7 +3,7 @@ title: Bucks legal and safety pages
 ---
 # Bucks legal and safety pages
 
-> **Draft for legal review.** Replace every `[bracketed]` item and have a lawyer review these pages before Bucks is public.
+> **Draft for legal review.** Company name, address, contacts and officer names on these pages are placeholders until legal review is complete.
 
 - [Privacy policy](privacy)
 - [Terms of use](terms)
