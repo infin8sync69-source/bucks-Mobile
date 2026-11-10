@@ -696,6 +696,7 @@ private fun noteIcon(kind: String) = when (kind) {
     "LISTING_PAUSED" -> Icons.Rounded.Block
     "DOCUMENT_VERIFIED", "DOCUMENT_REJECTED" -> Icons.Rounded.Description
     "REVIEW" -> Icons.Rounded.SwapVert
+    "JOB_APPLICATION", "JOB_UPDATE" -> Icons.Rounded.WorkOutline
     else -> Icons.Rounded.Notifications
 }
 

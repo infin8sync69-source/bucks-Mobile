@@ -26,8 +26,8 @@ begin
   end if;
   years := extract(year from age(current_date, p_date))::int;
   band := case when years >= setting('adult_age') then 'ADULT' when years >= setting('teen_age') then 'TEEN' else 'CHILD' end;
-  if band = 'CHILD' and coalesce(setting('allow_children'), 0) < 1 then raise exception 'too young: not eligible'; end if;
-  if years < coalesce(setting('min_signup_age'), 13) then raise exception 'not eligible'; end if;
+  if band = 'CHILD' and coalesce(setting('allow_children'), 0) < 1 then raise exception 'too young: not eligible' using detail = 'BK_NOT_ELIGIBLE'; end if;
+  if years < coalesce(setting('min_signup_age'), 13) then raise exception 'not eligible' using detail = 'BK_NOT_ELIGIBLE'; end if;
   insert into profile_safety (profile_id, birth_date, age_band) values (my, p_date, band);
   if band <> 'ADULT' then
     insert into user_settings (profile_id, who_can_message, discoverable, moments_audience)

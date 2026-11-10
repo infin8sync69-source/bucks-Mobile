@@ -19,7 +19,15 @@ data class AppLanguage(val tag: String, val native: String, val english: String)
  * redraws in the new language.
  */
 object AppLanguages {
-    val all = listOf(
+    /**
+     * Languages whose res/values-* folder has every string. Only these are offered: a half-translated language shows screens that
+     * switch between it and English. Add a tag here when its translation is complete.
+     */
+    private val ready = setOf("en")
+    /** The languages offered in the app (the [ready] ones, in the order of [known]). */
+    val all: List<AppLanguage> get() = known.filter { it.tag in ready }
+    /** Every language Bucks is being translated into. */
+    private val known = listOf(
         AppLanguage("en", "English", "English"),
         AppLanguage("hi", "हिन्दी", "Hindi"),
         AppLanguage("bn", "বাংলা", "Bengali"),

@@ -73,7 +73,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
     val sysDark = isSystemInDarkTheme()
     val dark = when (Prefs.theme) { Prefs.Theme.LIGHT -> false; Prefs.Theme.DARK -> true; else -> sysDark }
     BucksTheme(dark = dark, textScale = Prefs.textSize.scale) {
-        val startDest = remember { when { vm.isLoggedIn -> Routes.HOME; !Prefs.languageChosen -> Routes.LANGUAGE; else -> Routes.LOGIN } }
+        val startDest = remember { when { vm.isLoggedIn -> Routes.HOME; !Prefs.languageChosen && com.bucks.app.data.AppLanguages.all.size > 1 -> Routes.LANGUAGE; else -> Routes.LOGIN } }
         val nav = rememberNavController(); val snack = remember { SnackbarHostState() }; val scope = rememberCoroutineScope()
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val s by vm.state.collectAsState()

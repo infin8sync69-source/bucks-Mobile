@@ -14,6 +14,12 @@ fun isServerRefusal(e: Throwable) = e is RestException && e.statusCode in 400..4
 /** True when no usable answer came back: no signal, a timeout, a 5xx/401/429 or a dropped connection. The action may or may not have reached the server. */
 fun isTransportError(e: Throwable) = !isServerRefusal(e) && e !is SerializationException && e !is CancellationException
 
+/**
+ * The stable code a server function attached to its refusal (`raise exception ... using detail = 'BK_...'`), or null. Decide on this,
+ * never on the sentence: the sentence is for people and may be reworded or translated.
+ */
+fun errorCode(e: Throwable): String? = Regex("\\bBK_[A-Z_]+\\b").find(listOfNotNull((e as? RestException)?.description, e.message).joinToString("\n"))?.value
+
 /** Our own database errors come back wrapped; show just the sentence we wrote. Connection problems get one plain sentence instead of an exception name. */
 fun friendlyError(e: Throwable): String {
     if (isTransportError(e)) return Str.get(R.string.g6_err_offline)

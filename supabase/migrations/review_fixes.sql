@@ -92,7 +92,7 @@ begin
     if p_status = 'ARRIVED' and t.status = 'MATCHED' then
       perform public.driver_near_check(t.pickup, 'arrive_radius_m', 800, 'the pick-up');
     elsif p_status = 'IN_PROGRESS' and t.status = 'ARRIVED' then
-      if t.pin_attempts >= 5 then raise exception 'too many wrong PIN attempts; hand the trip back'; end if;
+      if t.pin_attempts >= 5 then raise exception 'too many wrong PIN attempts; hand the trip back' using detail = 'BK_PIN_LOCKED'; end if;
       if p_pin is distinct from t.pin then
         update tasks set pin_attempts = pin_attempts + 1 where id = t.id returning * into t;
         t.pin := '';
@@ -108,7 +108,7 @@ begin
       insert into task_events (task_id, driver_id, vehicle_id, event, km, fare) values (t.id, my, t.vehicle_id, 'COMPLETED', t.km, t.fare);
       if t.order_id is not null then update orders set status = 'DELIVERED' where id = t.order_id; end if;
     elsif p_status = 'SEARCHING' then raise exception 'hand it back from the trip screen so a reason is recorded';
-    else raise exception 'cannot go from % to %', t.status, p_status; end if;
+    else raise exception 'cannot go from % to %', t.status, p_status using detail = 'BK_BAD_TRANSITION'; end if;
     if p_status = 'IN_PROGRESS' and t.order_id is not null then update orders set status = 'PICKED_UP' where id = t.order_id; end if;
   elsif t.requester_id = my then
     if p_status = 'CANCELLED' and t.status = 'IN_PROGRESS'
@@ -119,7 +119,7 @@ begin
       raise exception 'cancel it from the ride or order screen so a reason is recorded';
     elsif p_status = 'NO_DRIVER' and t.status = 'SEARCHING' then null;
     elsif p_status = 'PAID' and t.status = 'COMPLETED' then null;
-    else raise exception 'cannot go from % to %', t.status, p_status; end if;
+    else raise exception 'cannot go from % to %', t.status, p_status using detail = 'BK_BAD_TRANSITION'; end if;
   else raise exception 'not your task'; end if;
   update tasks set status = p_status, paid_with = case when p_status = 'PAID' then coalesce(p_paid_with, paid_with) else paid_with end where id = p_task returning * into t;
   if t.requester_id is distinct from my then t.pin := ''; end if;

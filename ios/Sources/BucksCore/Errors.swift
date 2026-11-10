@@ -29,6 +29,16 @@ public func isTransportError(_ e: Error) -> Bool {
 }
 
 private struct PostgrestMessage: Decodable { var message: String? }
+private struct PostgrestDetails: Decodable { var details: String? }
+
+/// The stable code a server function attached to its refusal (`raise exception ... using detail = 'BK_...'`), or nil. Decide on this,
+/// never on the sentence: the sentence is for people and may be reworded or translated.
+public func errorCode(_ e: Error) -> String? {
+    guard case BackendError.http(_, let body) = e,
+          let d = try? JSONDecoder().decode(PostgrestDetails.self, from: Data(body.utf8)).details,
+          let r = d.range(of: "BK_[A-Z_]+", options: .regularExpression) else { return nil }
+    return String(d[r])
+}
 
 /// Our own database errors come back wrapped; show just the sentence we wrote. Connection problems get one plain sentence instead of an exception name.
 public func friendlyError(_ e: Error) -> String {

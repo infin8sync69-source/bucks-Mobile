@@ -384,8 +384,10 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         val t = runCatching { Backend.taskGeo(id) }.getOrNull()
         if (t != null) {
             val movedOn = Str.get(R.string.g5_trip_moved_on)
-            if (msg.startsWith("Cannot go from", true)) msg = movedOn
-            if (msg.contains("too many wrong PIN", true)) update(id) { it.copy(pinAttempts = PIN_TRIES, pinLocked = true) }
+            // The sentence checks are only for a database that doesn't send codes yet (before this version of advance_task is applied).
+            val code = errorCode(e)
+            if (code == "BK_BAD_TRANSITION" || msg.startsWith("Cannot go from", true)) msg = movedOn
+            if (code == "BK_PIN_LOCKED" || msg.contains("too many wrong PIN", true)) update(id) { it.copy(pinAttempts = PIN_TRIES, pinLocked = true) }
             if (applyDriverTruth(id, t)) return
             // The call itself failed but the server has the change (a lost answer): say so instead of an error.
             if (_driverRide.value?.status != before && msg != movedOn) { toast(Str.get(R.string.g5_already_done)); return }

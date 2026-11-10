@@ -45,6 +45,10 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
+      configs:
+        Release:
+          # Never ship a raw Gemini key in an App Store build (it would be readable in Info.plist); release uses the on-device rules only.
+          GEMINI_API_KEY: ""
     info:
       path: App/Info.plist
       properties:

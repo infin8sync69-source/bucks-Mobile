@@ -483,8 +483,10 @@ public final class Dispatch {
         var msg = friendlyError(e)
         let before = driverRide?.status
         if let t = (try? await backend.taskGeo(id)) ?? nil {
-            if msg.lowercased().hasPrefix("cannot go from") { msg = "This trip had already moved on. Your screen now shows where it really is." }
-            if msg.lowercased().contains("too many wrong pin") { update(id) { $0.pinAttempts = pinTries; $0.pinLocked = true } }
+            // The sentence checks are only for a database that doesn't send codes yet (before this version of advance_task is applied).
+            let code = errorCode(e)
+            if code == "BK_BAD_TRANSITION" || msg.lowercased().hasPrefix("cannot go from") { msg = "This trip had already moved on. Your screen now shows where it really is." }
+            if code == "BK_PIN_LOCKED" || msg.lowercased().contains("too many wrong pin") { update(id) { $0.pinAttempts = pinTries; $0.pinLocked = true } }
             if await applyDriverTruth(id, t) { return }
             // The call itself failed but the server has the change (a lost answer): say so instead of an error.
             if driverRide?.status != before && !msg.hasPrefix("This trip had already") { toast("That had already gone through. Your screen is up to date."); return }

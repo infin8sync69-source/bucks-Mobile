@@ -232,10 +232,15 @@ fun NameScreen(vm: BucksViewModel, onDone: () -> Unit, onBlocked: () -> Unit) {
         if (!existing && name.isBlank()) return@done
         busy = true; error = null
         scope.launch {
-            val r = if (com.bucks.app.data.Backend.enabled) runCatching { com.bucks.app.data.BackendSafety.setBirthDate(d.toString()) } else Result.success("ADULT")
+            // set_birth_date needs my profile row. Sign-in creates it in the background and may still be retrying, so make sure of it here
+            // (ensure_profile only inserts when there is none; the name is saved by createProfile below).
+            val r = if (com.bucks.app.data.Backend.enabled) runCatching { if (vm.social.me == null) com.bucks.app.data.Backend.ensureProfile(name.trim(), null); com.bucks.app.data.BackendSafety.setBirthDate(d.toString()) } else Result.success("ADULT")
             busy = false
             r.onSuccess { vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone() }
-                .onFailure { e -> if (e.message?.contains("not eligible") == true) { Prefs.ageBlocked = true; onBlocked() } else error = e.message?.substringAfter("message\":\"")?.substringBefore("\"")?.take(140) ?: "Try again." }
+                .onFailure { e ->
+                    // The sentence check is only for a database that doesn't send codes yet (before this version of set_birth_date is applied).
+                    if (com.bucks.app.data.errorCode(e) == "BK_NOT_ELIGIBLE" || e.message?.contains("not eligible") == true) { Prefs.ageBlocked = true; onBlocked() } else error = com.bucks.app.data.friendlyError(e)
+                }
         }
     }
     OnboardingFrame(stringResource(if (existing) R.string.onb_dob_title else R.string.onb_name_title), stringResource(if (existing) R.string.onb_dob_hint else R.string.onb_name_hint), onBack = null,
