@@ -117,6 +117,12 @@
     <string name="g1_notif_to">To</string>
     <string name="g1_notif_note">Notifications reach this phone even when Bucks is closed. Quiet hours silence them. Ride, delivery and new-order alerts still ring, because someone is waiting.</string>
     <string name="g1_app_theme">Theme</string>
+    <string name="g1_app_colour">Colour</string>
+    <string name="g1_accent_purple">Purple</string>
+    <string name="g1_accent_sapphire">Sapphire</string>
+    <string name="g1_accent_emerald">Emerald</string>
+    <string name="g1_accent_ruby">Ruby</string>
+    <string name="g1_accent_graphite">Graphite</string>
     <string name="g1_app_text_size">Text size</string>
     <string name="g1_app_motion">Reduce motion</string>
     <string name="g1_app_motion_detail">Turns off pulses and looping animations.</string>

@@ -59,4 +59,5 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 | People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | Not yet | |
 | Feedback board | `ui/social/Feedback.kt` | Not yet | |
 | Pro profile (Bucks Pro menu): intro, experience, education, skills, certificates, services, preferences, visibility, CV files | `ui/screens/pro/*`, `data/BackendPro.kt`, `supabase/migrations/pro_profile.sql` | Not yet | Reading a CV to fill the profile is planned (AI waitlist) |
+| Colour themes (Purple, Sapphire, Emerald, Ruby, Graphite) in Appearance | `ui/theme/Theme.kt` (`Accent`), `ui/screens/SettingsScreens.kt` | Not yet | Port the five palettes and the picker |
 | Analytics (adults only) and Crashlytics | `data/Analytics.kt` | Not yet | |

@@ -27,7 +27,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.bucks.app.data.Geo
 import com.bucks.app.data.LatLng
-import com.bucks.app.ui.theme.Brand
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
@@ -62,7 +61,7 @@ class MapCommands {
 @Composable
 fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 13.0, route: List<LatLng> = emptyList(), circle: Pair<LatLng, Double>? = null, onCenter: ((LatLng) -> Unit)? = null,
     commands: MapCommands? = null, satellite: Boolean = false, onLongPress: ((LatLng) -> Unit)? = null, onUserMove: (() -> Unit)? = null, zoomButtons: Boolean = true) {
-    val brand = Brand.toArgb()
+    val brand = MaterialTheme.colorScheme.primary.toArgb()
     val ctx = LocalContext.current; val density = LocalDensity.current.density
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val map = remember {
