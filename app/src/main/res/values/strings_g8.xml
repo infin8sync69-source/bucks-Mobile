@@ -188,6 +188,9 @@
 
     <!-- ui/Commerce.kt -->
     <string name="g8_only_in_stock">Only %1$s of %2$s in stock.</string>
+    <string name="g8_cart_note_gone">%1$s is no longer available and was removed.</string>
+    <string name="g8_cart_note_price">%1$s is now %2$s (was %3$s).</string>
+    <string name="g8_cart_note_stock">Only %1$s of %2$s left, so your cart now has %1$s.</string>
     <string name="g8_cart_empty">Your cart is empty.</string>
     <string name="g8_checkout_need_address">Add a delivery address for the %1$s order.</string>
     <string name="g8_checkout_need_location">Turn on location for delivery of the %1$s order, or choose pickup.</string>

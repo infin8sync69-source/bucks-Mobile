@@ -41,6 +41,8 @@ struct CloudCartScreen: View {
                       message: stores.count > 1 ? "Everything from all \(stores.count) shops will be removed." : "Everything from \(stores.first?.listing.title ?? "this shop") will be removed.",
                       confirmTitle: "Empty it", cancelTitle: "Keep", destructive: true) { commerce.clear() }
         .onAppear { if !seeded { seeded = true; dropLabel = session.me?.area ?? "" } }
+        .task { await commerce.refreshCart() }
+        .onDisappear { commerce.clearCartNotes() }
         .task(id: stores.map(\.listing.id)) {
             for id in stores.map(\.listing.id) {
                 if hasRiders[id] == nil { hasRiders[id] = (try? await commerce.hasStoreRiders(id)) ?? false }
@@ -108,6 +110,7 @@ struct CloudCartScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    ForEach(commerce.cartNotes, id: \.self) { Notice($0).padding(.bottom, 8) }
                     if stores.count > 1 {
                         Notice("\(stores.count) shops, so \(stores.count) separate orders and deliveries. Each has its own delivery fee, payment and time.").padding(.bottom, 12)
                     }

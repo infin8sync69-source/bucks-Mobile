@@ -51,6 +51,9 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
         ids.filter { it !in points }.forEach { id -> runCatching { Backend.listingPoint(id) }.getOrNull()?.let { points[id] = it } }
         commerce.loadAddresses(); commerce.loadFeeRule()
     }
+    // Today's prices and stock, once each time the cart opens.
+    LaunchedEffect(Unit) { commerce.refreshCart() }
+    DisposableEffect(Unit) { onDispose { commerce.clearCartNotes() } }
     // The drop point: where the phone is, or a saved address pinned for deliveries (order home from the office).
     var dropAddrId by rememberSaveable { mutableStateOf<String?>(null) }
     val pinned = commerce.addresses.filter { it.pin != null }
@@ -105,6 +108,7 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
             return@ContentColumn
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter)) {
+            commerce.cartNotes.forEach { Notice(it, Modifier.padding(bottom = 8.dp)) }
             if (stores.size > 1) Notice(pluralStringResource(R.plurals.g7_cart_multi_notice, stores.size, stores.size), Modifier.padding(bottom = 12.dp))
             stores.forEachIndexed { index, st ->
                 val shop = st.listing; val mode = modeOf(st); val payment = paymentOf(st)

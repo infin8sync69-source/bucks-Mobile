@@ -39,6 +39,33 @@ public final class CommerceStore {
     public private(set) var stores: [StoreCart] = []
     /// True while orders are being placed.
     public private(set) var placing = false
+    /// The request id of the checkout in flight for each shop, with the cart content it was made for.
+    @ObservationIgnored private var refs: [String: (ref: String, sign: String)] = [:]
+    /// What changed in the cart since the items were added (a new price, less stock, something sold out), for the cart screen.
+    public private(set) var cartNotes: [String] = []
+    public func clearCartNotes() { cartNotes = [] }
+
+    /// Reads every cart item again, so the cart shows today's price and stock before the order is placed (the server prices it anyway).
+    /// Quiet on failure: the cart stays as it was.
+    public func refreshCart() async {
+        var notes: [String] = []
+        for st in stores {
+            guard let fresh = try? await Backend.shared.catalogItems(st.listing.id) else { continue }
+            guard let si = stores.firstIndex(where: { $0.listing.id == st.listing.id }) else { continue }
+            var lines: [Line] = []
+            for var l in stores[si].lines {
+                guard let f = fresh.first(where: { $0.id == l.item.id }), f.inStock, f.stock != 0 else { notes.append("\(l.item.name) is no longer available and was removed."); continue }
+                if f.price != l.item.price { notes.append("\(f.name) is now ₹\(f.price) (was ₹\(l.item.price)).") }
+                if let s = f.stock, l.qty > s { notes.append("Only \(s) of \(f.name) left, so your cart now has \(s)."); l.qty = s }
+                l.item.name = f.name; l.item.price = f.price; l.item.mrp = f.mrp; l.item.unit = f.unit; l.item.inStock = f.inStock; l.item.stock = f.stock
+                lines.append(l)
+            }
+            if lines.isEmpty { stores.remove(at: si) } else { stores[si].lines = lines }
+        }
+        cartNotes = notes
+        // An emptied cart shows its empty screen, so say why here.
+        if stores.isEmpty, let first = notes.first { toast(first) }
+    }
     /// Total number of pieces in the cart across every store, for the cart badge.
     public var count: Int { stores.reduce(0) { $0 + $1.count } }
     public var subtotal: Int { stores.reduce(0) { $0 + $1.amount } }
@@ -98,20 +125,28 @@ public final class CommerceStore {
                 guard let c = choices[st.listing.id] else { continue }
                 let ls = st.lines.compactMap { l in l.item.id.map { (itemId: $0, qty: l.qty) } }.filter { $0.qty > 0 }
                 if ls.isEmpty { continue }
+                // One request id per shop and per cart content: a retry after a lost answer sends the same id and gets the same order.
+                let sign = c.mode + "|" + c.payment + "|" + ls.map { "\($0.itemId):\($0.qty)" }.joined(separator: ",")
+                let ref: String
+                if let r = self.refs[st.listing.id], r.sign == sign { ref = r.ref } else { ref = UUID().uuidString.lowercased(); self.refs[st.listing.id] = (ref, sign) }
                 do {
                     let id: String
                     if c.mode == "SHIP" {
                         guard let a = c.address else { failed += 1; self.toast("Add a delivery address for \(st.listing.title)'s order."); continue }
-                        id = try await Backend.shared.placeShipOrder(listingId: st.listing.id, lines: ls, address: a.json, payment: c.payment)
+                        id = try await Backend.shared.placeShipOrder(ref: ref, listingId: st.listing.id, lines: ls, address: a.json, payment: c.payment)
                         shipped += 1
                     } else {
                         let fix: LatLng? = drop ?? (c.mode == "PICKUP" ? self.session.here : nil)
                         guard let at = fix else { failed += 1; self.toast("Turn on location to get \(st.listing.title)'s order delivered, or choose pick-up."); continue }
-                        id = try await Backend.shared.placeOrder(listingId: st.listing.id, lines: ls, drop: at, dropLabel: c.dropLabel.trimmingCharacters(in: .whitespacesAndNewlines), payment: c.payment, mode: c.mode)
+                        id = try await Backend.shared.placeOrder(ref: ref, listingId: st.listing.id, lines: ls, drop: at, dropLabel: c.dropLabel.trimmingCharacters(in: .whitespacesAndNewlines), payment: c.payment, mode: c.mode)
                     }
-                    placed.append(id); self.clearStore(st.listing.id)
+                    placed.append(id); self.clearStore(st.listing.id); self.refs[st.listing.id] = nil
                 } catch is CancellationError { throw CancellationError() }
-                catch { failed += 1; self.toast("\(st.listing.title): \(friendlyError(error))") }
+                catch {
+                    // The server said no: the next try is a new request. No answer at all: keep the id, the order may have gone through.
+                    if isServerRefusal(error) { self.refs[st.listing.id] = nil }
+                    failed += 1; self.toast("\(st.listing.title): \(friendlyError(error))")
+                }
             }
             if !placed.isEmpty {
                 self.toast(placed.count == 1 && shipped == 1 ? "Order placed. The shop has 24 hours to accept and ship it."
@@ -247,7 +282,7 @@ public final class CommerceStore {
 
     /// Sign-out and account deletion: nothing of this person's cart, orders or shop inbox stays for the next account on the phone.
     public func signedOut() {
-        stopOrders(); clear(); placing = false
+        stopOrders(); clear(); placing = false; refs = [:]; cartNotes = []
         addresses = []; addressesLoaded = false
         myOrders = []; myOrdersLoaded = false; listingTitles = [:]; orders = [:]
         vendorOrders = []; vendorLoaded = false; actingOn = []

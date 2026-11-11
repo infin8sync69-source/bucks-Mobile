@@ -50,8 +50,9 @@ public final class Prefs {
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         theme = Theme(rawValue: defaults.string(forKey: "theme") ?? "") ?? .system
-        accent = Accent(rawValue: defaults.string(forKey: "accent") ?? "") ?? .purple
-        AccentState.index = accent.index
+        let chosen = Accent(rawValue: defaults.string(forKey: "accent") ?? "") ?? .purple
+        accent = chosen
+        AccentState.index = chosen.index
         textSize = TextSize(rawValue: defaults.string(forKey: "text") ?? "") ?? .normal
         mediaDownload = MediaDownload(rawValue: defaults.string(forKey: "media") ?? "") ?? .wifi
         reduceMotion = defaults.bool(forKey: "reduceMotion")

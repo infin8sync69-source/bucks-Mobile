@@ -61,7 +61,7 @@ import Testing
     @Test func checkoutSendsTheServersParametersAndClearsTheCart() async throws {
         boot { path, _, _ in
             switch path {
-            case "/rest/v1/rpc/place_order": return (200, "o-1")
+            case "/rest/v1/rpc/place_order_once": return (200, "o-1")
             case "/rest/v1/orders": return (200, [self.orderJSON()])
             case "/rest/v1/listings": return (200, [["id": "L1", "kind": "BUSINESS", "owner_id": "o1", "title": "Fresh Mart"]])
             default: return (404, ["message": "no stub for \(path)"])
@@ -74,8 +74,9 @@ import Testing
         c.checkoutAll(choices: ["L1": .init(mode: "MARKETPLACE", payment: "UPI", dropLabel: "  4th block ")], drop: LatLng(12.93, 77.58)) { placed = $0 }
         #expect(await wait { placed != nil })
         #expect(placed == ["o-1"]); #expect(c.stores.isEmpty); #expect(!c.placing)
-        let b = try #require(call("/rest/v1/rpc/place_order").first).body
-        #expect(Set(b.keys) == ["p_listing", "p_lines", "p_lat", "p_lng", "p_drop_label", "p_payment", "p_mode"])
+        let b = try #require(call("/rest/v1/rpc/place_order_once").first).body
+        #expect(Set(b.keys) == ["p_ref", "p_listing", "p_lines", "p_lat", "p_lng", "p_drop_label", "p_payment", "p_mode"])
+        #expect(UUID(uuidString: b["p_ref"] as? String ?? "") != nil)
         #expect(b["p_listing"] as? String == "L1"); #expect(b["p_drop_label"] as? String == "4th block")
         #expect(b["p_payment"] as? String == "UPI"); #expect(b["p_mode"] as? String == "MARKETPLACE")
         #expect(b["p_lat"] as? Double == 12.93); #expect(b["p_lng"] as? Double == 77.58)
@@ -89,9 +90,9 @@ import Testing
     @Test func twoShopsAreTwoOrdersAndAFailedOneStaysInTheCart() async throws {
         boot { path, _, body in
             switch path {
-            case "/rest/v1/rpc/place_order":
+            case "/rest/v1/rpc/place_order_once":
                 return body["p_listing"] as? String == "L2" ? (400, ["message": "this shop is closed right now"]) : (200, "o-1")
-            case "/rest/v1/rpc/place_order_ship": return (200, "o-3")
+            case "/rest/v1/rpc/place_order_ship_once": return (200, "o-3")
             default: return (200, [Any]())
             }
         }
@@ -109,11 +110,74 @@ import Testing
         // The shop that refused stays in the cart with its reason; the others are cleared.
         #expect(c.stores.map(\.listing.id) == ["L2"])
         #expect(toasts.contains("Corner Shop: This shop is closed right now"))
-        let ship = try #require(call("/rest/v1/rpc/place_order_ship").first).body
-        #expect(Set(ship.keys) == ["p_listing", "p_lines", "p_address", "p_payment"])
+        let ship = try #require(call("/rest/v1/rpc/place_order_ship_once").first).body
+        #expect(Set(ship.keys) == ["p_ref", "p_listing", "p_lines", "p_address", "p_payment"])
         #expect(ship["p_payment"] as? String == "COD")
         let addr = try #require(ship["p_address"] as? [String: Any])
         #expect(addr["pincode"] as? String == "570001"); #expect(addr["phone"] as? String == "9876543210"); #expect(addr["line2"] as? String == "")
+    }
+
+    @Test func aRetryAfterALostAnswerSendsTheSameRequestId() async throws {
+        var tries = 0
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/rpc/place_order_once": tries += 1; return tries == 1 ? (503, ["message": "gateway"]) : (200, "o-1")
+            default: return (200, [Any]())
+            }
+        }
+        let s = AppSession(); s.me = ProfileRow(id: "me", shortCode: "ME0001", name: "Asha Rao")
+        var toasts: [String] = []; s.toastHandler = { toasts.append($0) }
+        let c = s.commerce
+        c.add(listing("L1"), item("i1", 120), 2)
+        let choice: [String: CommerceStore.Choice] = ["L1": .init(mode: "PICKUP", payment: "UPI", dropLabel: "Jayanagar")]
+        c.checkoutAll(choices: choice, drop: LatLng(12.93, 77.58)) { _ in }
+        #expect(await wait { !toasts.isEmpty }); #expect(c.count == 2)
+        var placed: [String]?
+        c.checkoutAll(choices: choice, drop: LatLng(12.93, 77.58)) { placed = $0 }
+        #expect(await wait { placed != nil })
+        let sent = call("/rest/v1/rpc/place_order_once").compactMap { $0.body["p_ref"] as? String }
+        #expect(sent.count == 2); #expect(sent[0] == sent[1])
+        // A changed cart is a new request.
+        c.add(listing("L1"), item("i1", 120), 1)
+        placed = nil
+        c.checkoutAll(choices: choice, drop: LatLng(12.93, 77.58)) { placed = $0 }
+        #expect(await wait { placed != nil })
+        #expect(call("/rest/v1/rpc/place_order_once").last?.body["p_ref"] as? String != sent[0])
+    }
+
+    @Test func aDatabaseWithoutRequestIdsStillTakesTheOrder() async throws {
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/rpc/place_order_once": return (404, ["code": "PGRST202", "message": "Could not find the function"])
+            case "/rest/v1/rpc/place_order": return (200, "o-9")
+            default: return (200, [Any]())
+            }
+        }
+        let s = AppSession(); s.me = ProfileRow(id: "me", shortCode: "ME0001", name: "Asha Rao")
+        let c = s.commerce
+        c.add(listing("L1"), item("i1", 120), 1)
+        var placed: [String]?
+        c.checkoutAll(choices: ["L1": .init(mode: "PICKUP", payment: "UPI", dropLabel: "Jayanagar")], drop: LatLng(12.93, 77.58)) { placed = $0 }
+        #expect(await wait { placed != nil }); #expect(placed == ["o-9"])
+        #expect(call("/rest/v1/rpc/place_order").first?.body.keys.contains("p_ref") == false)
+    }
+
+    @Test func openingTheCartShowsTodaysPriceAndStock() async throws {
+        boot { path, _, _ in
+            switch path {
+            case "/rest/v1/rpc/catalog_items":
+                return (200, [["id": "i1", "listing_id": "L1", "name": "Item i1", "price": 150, "in_stock": true, "stock": 1],
+                              ["id": "i2", "listing_id": "L1", "name": "Item i2", "price": 80, "in_stock": false]])
+            default: return (200, [Any]())
+            }
+        }
+        let s = AppSession(); s.me = ProfileRow(id: "me", shortCode: "ME0001", name: "Asha Rao")
+        let c = s.commerce
+        c.add(listing("L1"), item("i1", 120), 3); c.add(listing("L1"), item("i2", 80), 1)
+        await c.refreshCart()
+        #expect(c.stores.first?.lines.map(\.item.id) == ["i1"])
+        #expect(c.stores.first?.lines.first?.item.price == 150); #expect(c.qty("i1") == 1)
+        #expect(c.cartNotes == ["Item i1 is now ₹150 (was ₹120).", "Only 1 of Item i1 left, so your cart now has 1.", "Item i2 is no longer available and was removed."])
     }
 
     @Test func deliveryWithoutAPositionIsNotPlaced() async throws {

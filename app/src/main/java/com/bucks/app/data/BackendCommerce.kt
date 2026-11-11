@@ -122,12 +122,12 @@ suspend fun Backend.saveAddress(me: String, a: AddressRow): AddressRow =
 suspend fun Backend.deleteAddress(id: String) { client.postgrest.from("addresses").delete { filter { eq("id", id) } } }
 
 /** Orders from a shop that ships: the address is checked on the server, the shipping fee comes from the shop's own rule. */
-suspend fun Backend.placeShipOrder(listingId: String, lines: List<Pair<String, Int>>, address: JsonObject, payment: String): String =
-    client.postgrest.rpc("place_order_ship", buildJsonObject {
+suspend fun Backend.placeShipOrder(ref: String, listingId: String, lines: List<Pair<String, Int>>, address: JsonObject, payment: String): String =
+    once("place_order_ship", ref, buildJsonObject {
         put("p_listing", listingId)
         put("p_lines", buildJsonArray { lines.forEach { (item, qty) -> add(buildJsonObject { put("item_id", item); put("qty", qty) }) } })
         put("p_address", address); put("p_payment", payment)
-    }).decodeAs()
+    })
 /** The shop hands an accepted shipped order to a carrier ("Self delivery" is fine) with an optional tracking number and link. */
 suspend fun Backend.shipOrder(orderId: String, carrier: String, tracking: String, url: String) {
     client.postgrest.rpc("ship_order", buildJsonObject { put("p_order", orderId); put("p_carrier", carrier); put("p_tracking", tracking); put("p_url", url) })

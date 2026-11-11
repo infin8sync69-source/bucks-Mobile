@@ -62,6 +62,7 @@ files=(
   migrations/onboarding_v2.sql
   migrations/security_hardening.sql
   migrations/job_notifications.sql
+  migrations/checkout_safety.sql
 )
 
 case "${1:-}" in
