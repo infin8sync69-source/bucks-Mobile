@@ -15,7 +15,7 @@ Items marked **MOCK** are placeholders: replace them after legal review (see the
 
 ## Store listing (Grow → Store presence → Main store listing)
 
-**App name (30 max):** `Bucks: Local people & services`
+**App name (30 max):** `bucks: Hyper Local Super App`
 
 **Short description (80 max):**
 `Find trusted shops, pros and rides near you, recommended by people you know.`
@@ -73,7 +73,7 @@ Report any post, comment, message or profile. Teen accounts need a parent's cons
 | Financial features | None (payments go directly between UPI apps; Bucks doesn't hold money) |
 | Health | No |
 | Account deletion | Yes, in app and on the web: https://infin8sync69-source.github.io/bucks-Mobile/legal/delete-account |
-| Child safety standards | Standards URL: https://infin8sync69-source.github.io/bucks-Mobile/legal/child-safety. Contact: R. Iyer, safety@bucks.example (**MOCK**). In-app reporting: Yes. Complies with child safety laws: Yes |
+| Child safety standards | Standards URL: https://infin8sync69-source.github.io/bucks-Mobile/legal/child-safety. Contact: infin8sync69@gmail.com. In-app reporting: Yes. Complies with child safety laws: Yes |
 
 ### Data safety
 
@@ -132,7 +132,6 @@ Audio is **not** collected: voice search uses the phone's speech recogniser and 
 | Address: **2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038** | privacy, grievance |
 | Support email: **support@bucks.example** | privacy, delete-account, Play contact email, GitHub secret `SUPPORT_EMAIL` |
 | Grievance officer: **A. Sharma, grievance@bucks.example** | privacy, grievance, GitHub secret `GRIEVANCE_OFFICER` |
-| Child safety contact: **R. Iyer, safety@bucks.example** | child-safety, Play child safety form |
 | Courts: **Bengaluru** | terms |
 | Retention: files 30 days, reports 180 days, ride and order records 8 years (anonymised), email deletion within 7 days | privacy, delete-account. Check the 8-year record rule against `delete_my_account()` before relying on it |
 

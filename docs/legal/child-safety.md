@@ -3,7 +3,7 @@ title: Bucks child safety standards
 ---
 # Child safety standards
 
-> **Draft for legal review.** Last updated: 9 November 2026. The contact on this page is a placeholder until legal review is complete.
+Last updated: 11 November 2026.
 
 Bucks has zero tolerance for child sexual abuse and exploitation (CSAE), including child sexual abuse material (CSAM), grooming and sextortion.
 
@@ -16,4 +16,4 @@ Bucks has zero tolerance for child sexual abuse and exploitation (CSAE), includi
 
 **Action:** we remove CSAE content, suspend the accounts involved, preserve evidence, and report to the National Center for Missing & Exploited Children (NCMEC) and Indian law enforcement (cybercrime.gov.in), as the law requires.
 
-**Child safety contact:** R. Iyer, safety@bucks.example. This person can speak to our CSAE prevention practices and compliance.
+**Child safety contact:** infin8sync69@gmail.com. This person can speak to our CSAE prevention practices and compliance.
