@@ -212,11 +212,12 @@ fun CodeScreen(vm: BucksViewModel, phone: String, onEdit: () -> Unit, onVerified
 }
 
 /**
- * 4. Name and date of birth, then Home. Bucks is for 18 and over; the date is checked on the server (set_birth_date), and the screen
- * doesn't say where the line is (a neutral age gate). People who signed up before dates of birth only see the birthday part.
+ * 4. Name and date of birth, then Home (or, under 18, the guardian step). Bucks is for 13 and over; the date is checked on the server
+ * (set_birth_date), and the screen doesn't say where the line is (a neutral age gate). People who signed up before dates of birth only
+ * see the birthday part.
  */
 @Composable
-fun NameScreen(vm: BucksViewModel, onDone: () -> Unit, onBlocked: () -> Unit) {
+fun NameScreen(vm: BucksViewModel, onDone: (band: String) -> Unit, onBlocked: () -> Unit) {
     val s by vm.state.collectAsState()
     val existing = s.user != null
     var name by rememberSaveable { mutableStateOf(s.user?.name.orEmpty()) }
@@ -236,7 +237,7 @@ fun NameScreen(vm: BucksViewModel, onDone: () -> Unit, onBlocked: () -> Unit) {
             // (ensure_profile only inserts when there is none; the name is saved by createProfile below).
             val r = if (com.bucks.app.data.Backend.enabled) runCatching { if (vm.social.me == null) com.bucks.app.data.Backend.ensureProfile(name.trim(), null); com.bucks.app.data.BackendSafety.setBirthDate(d.toString()) } else Result.success("ADULT")
             busy = false
-            r.onSuccess { vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone() }
+            r.onSuccess { band -> vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone(band) }
                 .onFailure { e ->
                     // The sentence check is only for a database that doesn't send codes yet (before this version of set_birth_date is applied).
                     if (com.bucks.app.data.errorCode(e) == "BK_NOT_ELIGIBLE" || e.message?.contains("not eligible") == true) { Prefs.ageBlocked = true; onBlocked() } else error = com.bucks.app.data.friendlyError(e)

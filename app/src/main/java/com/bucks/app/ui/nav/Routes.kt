@@ -52,6 +52,6 @@ object Routes {
     const val APP_VERSIONS = "settings/app-versions"
     /** My Pro profile (editable), and someone else's (ui/screens/pro/ProProfileScreen.kt). */
     const val PRO_PROFILE = "pro"; const val PRO_PERSON = "pro/{id}"; fun proPerson(id: String) = "pro/${Uri.encode(id)}"
-    const val LANGUAGE = "onboarding/language"; const val NAME = "onboarding/name"
+    const val LANGUAGE = "onboarding/language"; const val NAME = "onboarding/name"; const val GUARDIAN = "onboarding/guardian"
     const val SETTINGS = "settings"; const val HELP = "help"; const val SAFETY_CENTER = "settings/safety"; const val STAFF_REPORTS = "staff/reports"; const val FEEDBACK = "feedback"
 }

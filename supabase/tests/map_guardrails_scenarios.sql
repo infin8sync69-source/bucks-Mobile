@@ -22,7 +22,7 @@ insert into localities (name, district, state, pincode, lat, lng) values
   ('Kotnur', 'Anantapur', 'Andhra Pradesh', '515202', 13.85, 77.50);
 set role authenticated;
 select pg_temp.as_user('ma'); select (public.ensure_profile('Map Meena', '9000000801')).id is not null; select set_birth_date('1994-04-04') = 'ADULT';
-select pg_temp.as_user('mt'); select (public.ensure_profile('Teen Tara', '9000000802')).id is not null; select set_birth_date((current_date - interval '16 years')::date) = 'TEEN';
+select pg_temp.as_user('mt'); select (public.ensure_profile('Teen Tara', '9000000802')).id is not null; select set_birth_date((current_date - interval '16 years')::date) = 'TEEN'; select record_guardian_consent('Ravi Kumar', '+91 98450 00002', 'PARENT') is null;
 select pg_temp.as_user('mv'); select (public.ensure_profile('Viewer Vik', '9000000803')).id is not null; select set_birth_date('1990-01-01') = 'ADULT';
 select pg_temp.as_user('ms'); select (public.ensure_profile('Staff Sita', '9000000804')).id is not null;
 reset role; insert into staff (profile_id) select id from profiles where auth_uid = 'ms'; set role authenticated;
