@@ -104,6 +104,7 @@ struct MomentViewerScreen: View {
                     Text([feedAgo(m.createdAt), isVideo ? "Video" : nil].compactMap { $0 }.joined(separator: " · ")).bucks(.labelSmall).foregroundStyle(.white.opacity(0.7))
                 }.padding(.leading, 10).frame(maxWidth: .infinity, alignment: .leading)
                 if mine { barIcon("trash", "Delete") { delete(m) } }
+                else { barIcon("flag", "Report this moment") { session.reportTarget = ReportTarget(kind: "MOMENT", targetId: m.id, ownerId: m.authorId, ownerName: name) } }
                 barIcon("xmark", "Close") { close() }
             }.padding(.top, 10)
         }.padding(8)

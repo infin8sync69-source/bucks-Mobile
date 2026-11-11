@@ -44,8 +44,8 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 
 ## Open items
 
-- **iPhone push in the background** needs `ios/server/notify_ios.proposal.ts` merged into `supabase/functions/notify` and an APNs key in
-  Firebase. Until then iPhones get pushes only while Bucks is open.
+- **iPhone push in the background**: the APNs block is in `supabase/functions/notify`. It works once that function is redeployed and an
+  APNs key is in Firebase. Until then iPhones get pushes only while Bucks is open.
 - **On-device checks** (camera, speech, Face ID, background location, push) are manual: CI builds and unit-tests the iOS app but does not
   run it on a device.
 
@@ -54,8 +54,8 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 | Feature | Android | iOS | Follow-up |
 |---|---|---|---|
 | Social screens in the one shell (the social-only shell is retired; the app uses the super-app layout) | `ui/BucksAppUi.kt` hosting `ui/social/*` | iOS already has the super-app layout | Port the social screens below |
-| Date of birth, age bands, guardian consent | `ui/social/Onboarding.kt` | Not yet | Server already enforces the rules for both apps |
-| Report sheet and staff report queue | `ui/social/Report.kt`, `Settings.kt` | Not yet | Needed before the App Store submission (guideline 1.2) |
+| Date of birth, age bands | `ui/onboarding/OnboardingScreens.kt` | `BucksUI/Screens/Auth/BirthDateScreen.swift` | Server already enforces the rules for both apps |
+| Report sheet and staff report queue | `ui/social/Report.kt`, `Settings.kt` | Report sheet: `BucksUI/Screens/Settings/ReportSheet.swift` (posts, moments, pages, chats, people). Comments, messages and the staff queue: not yet | Needed before the App Store submission (guideline 1.2) |
 | People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | Not yet | |
 | Feedback board | `ui/social/Feedback.kt` | Not yet | |
 | Pro profile (Bucks Pro menu): intro, experience, education, skills, certificates, services, preferences, visibility, CV files | `ui/screens/pro/*`, `data/BackendPro.kt`, `supabase/migrations/pro_profile.sql` | Not yet | Reading a CV to fill the profile is planned (AI waitlist) |

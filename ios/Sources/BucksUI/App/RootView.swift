@@ -21,13 +21,16 @@ public struct RootView: View {
 
     public var body: some View {
         Group {
-            switch session.phase {
-            case .launching: LaunchingView()
-            case .signedOut: AuthFlow()
-            case .needsProfile: CreateProfileScreen()
-            case .ready: MainStack()
+            if session.ageBlocked { AgeBlockedScreen() } else {
+                switch session.phase {
+                case .launching: LaunchingView()
+                case .signedOut: AuthFlow()
+                case .needsProfile: CreateProfileScreen()
+                case .ready: if session.needsBirthDate { BirthDateScreen() } else { MainStack() }
+                }
             }
         }
+        .sheet(item: Binding(get: { session.reportTarget }, set: { session.reportTarget = $0 })) { t in ReportSheet(target: t) }
         .environment(session)
         .environment(router)
         .bucksToasts(toasts)
