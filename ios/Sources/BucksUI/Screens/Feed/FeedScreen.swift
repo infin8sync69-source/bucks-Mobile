@@ -243,6 +243,7 @@ struct PostCard: View {
 
 struct CommentsSheet: View {
     @Environment(AppSession.self) private var session
+    @State private var reporting: ReportTarget?
     let postId: String
     @State private var rows: [CommentRow] = []
     @State private var reply = ""
@@ -255,12 +256,19 @@ struct CommentsSheet: View {
             ScrollView {
                 SheetBody {
                     Text("Comments").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
+                        .sheet(item: $reporting) { ReportSheet(target: $0) }
                     if rows.isEmpty { Muted("Be the first to reply.").padding(.vertical, 12) }
                     ForEach(rows) { c in
                         VStack(alignment: .leading, spacing: 0) {
                             (Text(feed.nameOf(c.authorId)).font(.bucks(.titleSmall)).foregroundColor(BucksColor.onSurface) + Text("  \(feedAgo(c.createdAt))").font(.bucks(.bodySmall)).foregroundColor(BucksColor.onSurfaceVariant))
                             Text(c.body).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface)
-                        }.padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+                        }.padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        // This sheet is already on screen, so the report opens from here rather than from the app's root.
+                        .contextMenu {
+                            if c.authorId != session.me?.id {
+                                Button("Report comment", role: .destructive) { reporting = ReportTarget(kind: "COMMENT", targetId: c.id, ownerId: c.authorId, ownerName: feed.nameOf(c.authorId)) }
+                            }
+                        }
                         BucksDivider()
                     }
                 }

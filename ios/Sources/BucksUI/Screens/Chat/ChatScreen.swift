@@ -69,9 +69,13 @@ struct ChatScreen: View {
         .bucksCamera(isPresented: $takePhoto, video: false) { sendPicked($0) }
         .bucksCamera(isPresented: $recordVideo, video: true) { sendPicked($0) }
         .bucksAttachmentViewer(item: $viewing)
-        .confirmationDialog("Your message", isPresented: Binding(get: { menuFor != nil }, set: { if !$0 { menuFor = nil } }), titleVisibility: .visible, presenting: menuFor) { m in
-            if !m.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { Button("Edit") { editing = m; text = m.body } }
-            Button("Delete for everyone", role: .destructive) { delete(m) }
+        .confirmationDialog(menuFor?.senderId == meId ? "Your message" : "Message", isPresented: Binding(get: { menuFor != nil }, set: { if !$0 { menuFor = nil } }), titleVisibility: .visible, presenting: menuFor) { m in
+            if m.senderId == meId {
+                if !m.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { Button("Edit") { editing = m; text = m.body } }
+                Button("Delete for everyone", role: .destructive) { delete(m) }
+            } else {
+                Button("Report message", role: .destructive) { session.reportTarget = ReportTarget(kind: "MESSAGE", targetId: m.id, ownerId: m.senderId, ownerName: session.social.nameOf(m.senderId)) }
+            }
             Button("Close", role: .cancel) {}
         }
         .sheet(isPresented: $showMembers) {
@@ -112,7 +116,7 @@ struct ChatScreen: View {
                 LazyVStack(spacing: 0) {
                     ForEach(msgs) { m in
                         MessageBubble(m: m, mine: m.senderId == meId, showSender: kind != "DIRECT", sender: session.social.nameOf(m.senderId),
-                                      onLongPress: { if m.senderId == meId && m.deletedAt == nil { menuFor = m } }, onOpen: open)
+                                      onLongPress: { if m.deletedAt == nil { menuFor = m } }, onOpen: open)
                             .id(m.id).padding(.bottom, 8)
                     }
                     if let lastMine = msgs.last(where: { $0.senderId == meId }), let seen, seen >= lastMine.createdAt {

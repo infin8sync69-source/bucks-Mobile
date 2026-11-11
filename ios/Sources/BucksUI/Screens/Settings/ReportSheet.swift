@@ -6,6 +6,7 @@ import BucksCore
 struct ReportSheet: View {
     let target: ReportTarget
     @Environment(AppSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
     @State private var reason: ReportReason?
     @State private var detail = ""
     @State private var alsoBlock: Bool
@@ -49,7 +50,7 @@ struct ReportSheet: View {
                 }
                 PrimaryButton(session.reporting ? "Sending…" : "Send report", enabled: reason != nil && !session.reporting) {
                     guard let r = reason else { return }
-                    Task { await session.sendReport(reason: r, detail: detail.trimmingCharacters(in: .whitespacesAndNewlines), alsoBlock: alsoBlock && canBlock) }
+                    Task { if await session.sendReport(target, reason: r, detail: detail.trimmingCharacters(in: .whitespacesAndNewlines), alsoBlock: alsoBlock && canBlock) { dismiss() } }
                 }.padding(.top, 14)
             }
             .padding(20).padding(.bottom, 24)

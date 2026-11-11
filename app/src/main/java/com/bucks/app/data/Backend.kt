@@ -206,12 +206,17 @@ object Backend {
     suspend fun contactFor(taskId: String): ContactRow? = db.rpc("contact_for_task", buildJsonObject { put("p_task", taskId) }).decodeList<ContactRow>().firstOrNull()
 
     // ---------- orders ----------
-    suspend fun placeOrder(listingId: String, lines: List<Pair<String, Int>>, drop: LatLng, dropLabel: String, payment: String, mode: String): String =
-        db.rpc("place_order", buildJsonObject {
+    /** [ref] is this checkout attempt's own id (checkout_safety.sql): sending the same one again answers the same order instead of placing a second. */
+    suspend fun placeOrder(ref: String, listingId: String, lines: List<Pair<String, Int>>, drop: LatLng, dropLabel: String, payment: String, mode: String): String =
+        once("place_order", ref, buildJsonObject {
             put("p_listing", listingId)
             put("p_lines", buildJsonArray { lines.forEach { (item, qty) -> add(buildJsonObject { put("item_id", item); put("qty", qty) }) } })
             put("p_lat", drop.lat); put("p_lng", drop.lng); put("p_drop_label", dropLabel); put("p_payment", payment); put("p_mode", mode)
-        }).decodeAs()
+        })
+    /** Calls `<name>_once` with the request id; a database that doesn't have it yet (404) gets the plain call, as before. */
+    suspend fun once(name: String, ref: String, params: JsonObject): String =
+        try { db.rpc(name + "_once", JsonObject(params + ("p_ref" to kotlinx.serialization.json.JsonPrimitive(ref)))).decodeAs() }
+        catch (e: io.github.jan.supabase.exceptions.RestException) { if (e.statusCode != 404) throw e; db.rpc(name, params).decodeAs() }
     suspend fun ordersFor(listingId: String): List<OrderRow> = db.from("orders").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
     suspend fun myOrders(me: String): List<OrderRow> = db.from("orders").select { filter { eq("buyer_id", me) }; order("created_at", Order.DESCENDING) }.decodeList()
     suspend fun respondOrder(id: String, accept: Boolean, reason: String? = null) { db.rpc("respond_order", buildJsonObject { put("p_order", id); put("p_accept", accept); put("p_reason", reason) }) }

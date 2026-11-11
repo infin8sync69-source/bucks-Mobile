@@ -90,13 +90,22 @@ public struct OrderContactRow: Codable, Hashable, Sendable {
 /// Commerce calls of Backend.kt / BackendCommerce.kt: place_order, the buyer's and the shop's order lists, order detail with its lines,
 /// and the functions from supabase/migrations/commerce.sql (contact_for_order, cancel_order, update_order_status).
 extension Backend {
-    /// The server prices the lines and adds the delivery fee; returns the new order's id.
-    public func placeOrder(listingId: String, lines: [(itemId: String, qty: Int)], drop: LatLng, dropLabel: String, payment: String, mode: String) async throws -> String {
-        try await rpc("place_order", [
+    /// The server prices the lines and adds the delivery fee; returns the new order's id. `ref` is this checkout attempt's own id
+    /// (checkout_safety.sql): sending the same one again answers the same order instead of placing a second.
+    public func placeOrder(ref: String, listingId: String, lines: [(itemId: String, qty: Int)], drop: LatLng, dropLabel: String, payment: String, mode: String) async throws -> String {
+        let params: [String: Any?] = [
             "p_listing": listingId,
             "p_lines": lines.map { ["item_id": $0.itemId, "qty": $0.qty] as [String: Any] },
             "p_lat": drop.lat, "p_lng": drop.lng, "p_drop_label": dropLabel, "p_payment": payment, "p_mode": mode,
-        ])
+        ]
+        return try await once("place_order", ref: ref, params)
+    }
+
+    /// Calls `<name>_once` with the request id; a database that doesn't have it yet (404) gets the plain call, as before.
+    private func once(_ name: String, ref: String, _ params: [String: Any?]) async throws -> String {
+        var withRef = params; withRef["p_ref"] = ref
+        do { return try await rpc(name + "_once", withRef) }
+        catch BackendError.http(status: 404, body: _) { return try await rpc(name, params) }
     }
     public func myOrders(me: String) async throws -> [OrderRow] {
         try await select("orders", filters: [.eq("buyer_id", me)], order: "created_at", ascending: false)
@@ -191,12 +200,13 @@ extension Backend {
     public func deleteAddress(_ id: String) async throws { try await delete("addresses", filters: [.eq("id", id)]) }
 
     /// Orders from a shop that ships: the address is checked on the server, the shipping fee comes from the shop's own rule.
-    public func placeShipOrder(listingId: String, lines: [(itemId: String, qty: Int)], address: [String: Any], payment: String) async throws -> String {
-        try await rpc("place_order_ship", [
+    public func placeShipOrder(ref: String, listingId: String, lines: [(itemId: String, qty: Int)], address: [String: Any], payment: String) async throws -> String {
+        let params: [String: Any?] = [
             "p_listing": listingId,
             "p_lines": lines.map { ["item_id": $0.itemId, "qty": $0.qty] as [String: Any] },
             "p_address": address, "p_payment": payment,
-        ])
+        ]
+        return try await once("place_order_ship", ref: ref, params)
     }
     /// The shop hands an accepted shipped order to a carrier ("Self delivery" is fine) with an optional tracking number and link.
     public func shipOrder(_ orderId: String, carrier: String, tracking: String, url: String) async throws {

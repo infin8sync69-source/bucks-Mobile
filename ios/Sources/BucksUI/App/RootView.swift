@@ -30,6 +30,8 @@ public struct RootView: View {
                 }
             }
         }
+        // A new colour theme: every colour is looked up again when the screens are rebuilt (the open screens stay open, the router keeps them).
+        .id(Prefs.shared.accent)
         .sheet(item: Binding(get: { session.reportTarget }, set: { session.reportTarget = $0 })) { t in ReportSheet(target: t) }
         .environment(session)
         .environment(router)

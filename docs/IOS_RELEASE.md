@@ -54,7 +54,7 @@ App Store Connect.
 ## Before submitting for review
 - **Demo account.** App Review cannot receive an SMS. Add one Firebase *test* phone number and code (Authentication > Sign-in method >
   Phone > Phone numbers for testing) and give both in App Review Information, with a note that it is a test number.
-- **Report and block.** The Report sheet is on posts, moments, pages, chats and people; Block is in the same menus (guideline 1.2).
+- **Report and block.** The Report sheet is on posts, comments, moments, messages, pages, chats and people; Block is in the same menus (guideline 1.2).
 - **Account deletion** is under Account > Settings (guideline 5.1.1(v)).
 - **Background location** is used only while a driver is online; say so in the review notes.
 

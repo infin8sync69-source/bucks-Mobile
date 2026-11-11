@@ -198,16 +198,16 @@ public final class AppSession: DispatchHost {
         }
     }
 
-    /// Sends the report in `reportTarget` and closes the sheet; with `alsoBlock` the person is blocked too.
-    public func sendReport(reason: ReportReason, detail: String, alsoBlock: Bool) async {
-        guard let t = reportTarget, !reporting else { return }
+    /// Sends a report; with `alsoBlock` the person is blocked too. True once the server has it (the sheet closes then).
+    public func sendReport(_ t: ReportTarget, reason: ReportReason, detail: String, alsoBlock: Bool) async -> Bool {
+        guard !reporting else { return false }
         reporting = true; defer { reporting = false }
         do {
             _ = try await Backend.shared.reportContent(kind: t.kind, target: t.targetId, reason: reason.rawValue, detail: detail)
             if alsoBlock, let o = t.ownerId, o != me?.id { social.block(o) }
-            reportTarget = nil
             toast("Thanks. Bucks staff will review this report.")
-        } catch { toast(friendlyError(error)) }
+            return true
+        } catch { toast(friendlyError(error)); return false }
     }
 
     /// Takes presence off and drops the login while the Firebase user can still sign those requests.

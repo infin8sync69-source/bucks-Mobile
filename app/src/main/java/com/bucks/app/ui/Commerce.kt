@@ -37,6 +37,34 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     val subtotal: Int get() = stores.sumOf { it.amount }
     /** True while orders are being placed. */
     var placing by mutableStateOf(false); private set
+    /** The request id of the checkout in flight for each shop, with the cart content it was made for. */
+    private val refs = mutableMapOf<String, Pair<String, String>>()
+    /** What changed in the cart since the items were added (a new price, less stock, something sold out), for the cart screen. */
+    var cartNotes by mutableStateOf<List<String>>(emptyList()); private set
+    fun clearCartNotes() { cartNotes = emptyList() }
+
+    /**
+     * Reads every cart item again, so the cart shows today's price and stock before the order is placed (the server prices it anyway).
+     * Quiet on failure: the cart stays as it was.
+     */
+    fun refreshCart() = scope.launch {
+        val notes = mutableListOf<String>()
+        val next = stores.mapNotNull { st ->
+            val fresh = runCatching { Backend.catalogItems(st.listing.id) }.getOrNull() ?: return@mapNotNull st
+            val lines = st.lines.mapNotNull { l ->
+                val f = fresh.firstOrNull { it.id == l.item.id }?.takeIf { it.inStock && it.stock != 0 }
+                if (f == null) { notes += Str.get(R.string.g8_cart_note_gone, l.item.name); return@mapNotNull null }
+                if (f.price != l.item.price) notes += Str.get(R.string.g8_cart_note_price, f.name, Money.format(f.price), Money.format(l.item.price))
+                val qty = if (f.stock != null && l.qty > f.stock) { notes += Str.get(R.string.g8_cart_note_stock, f.stock.toString(), f.name); f.stock } else l.qty
+                Line(l.item.copy(name = f.name, price = f.price, mrp = f.mrp, unit = f.unit, inStock = f.inStock, stock = f.stock), qty)
+            }
+            if (lines.isEmpty()) null else st.copy(lines = lines)
+        }
+        if (next != stores) putStores(next)
+        cartNotes = notes
+        // An emptied cart shows its empty screen, so say why here.
+        if (next.isEmpty()) notes.firstOrNull()?.let(toast)
+    }
 
     fun qty(itemId: String): Int = stores.firstNotNullOfOrNull { st -> st.lines.firstOrNull { it.item.id == itemId }?.qty } ?: 0
 
@@ -98,18 +126,25 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
                 val c = choices[st.listing.id] ?: continue
                 val ls = st.lines.mapNotNull { l -> l.item.id?.let { it to l.qty } }.filter { it.second > 0 }
                 if (ls.isEmpty()) continue
+                // One request id per shop and per cart content: a retry after a lost answer sends the same id and gets the same order.
+                val sign = c.mode + "|" + c.payment + "|" + ls.joinToString(",") { "${it.first}:${it.second}" }
+                val ref = refs[st.listing.id]?.takeIf { it.second == sign }?.first ?: java.util.UUID.randomUUID().toString().also { refs[st.listing.id] = it to sign }
                 try {
                     val id = if (c.mode == "SHIP") {
                         val a = c.address
                         if (a == null) { failed++; errors += Str.get(R.string.g8_checkout_need_address, st.listing.title); continue }
-                        Backend.placeShipOrder(st.listing.id, ls, a.json(), c.payment).also { shipped++ }
+                        Backend.placeShipOrder(ref, st.listing.id, ls, a.json(), c.payment).also { shipped++ }
                     } else {
                         val at = drop ?: if (c.mode == "PICKUP") social.here else null
                         if (at == null) { failed++; errors += Str.get(R.string.g8_checkout_need_location, st.listing.title); continue }
-                        Backend.placeOrder(st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
+                        Backend.placeOrder(ref, st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
                     }
-                    placed += id; clearStore(st.listing.id)
-                } catch (e: CancellationException) { throw e } catch (e: Exception) { failed++; errors += Str.get(R.string.g8_checkout_error, st.listing.title, friendlyError(e)) }
+                    placed += id; clearStore(st.listing.id); refs.remove(st.listing.id)
+                } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                    // The server said no: the next try is a new request. No answer at all: keep the id, the order may have gone through.
+                    if (isServerRefusal(e)) refs.remove(st.listing.id)
+                    failed++; errors += Str.get(R.string.g8_checkout_error, st.listing.title, friendlyError(e))
+                }
             }
         } finally { placing = false; checkoutErrors = errors }
         if (placed.isNotEmpty()) {
@@ -199,7 +234,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     }
     /** Sign-out and account deletion: nothing of this person's cart, orders or shop inbox stays for the next account on the phone. */
     fun signedOut() {
-        stopOrders(); clear(); placing = false
+        stopOrders(); clear(); placing = false; refs.clear(); cartNotes = emptyList()
         myOrders = emptyList(); myOrdersLoaded = false; listingTitles.clear(); orders.clear(); addresses = emptyList(); addressesLoaded = false
         vendorOrders = emptyList(); vendorLoaded = false
     }
