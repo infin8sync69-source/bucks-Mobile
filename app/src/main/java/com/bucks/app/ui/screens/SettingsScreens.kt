@@ -2,7 +2,19 @@ package com.bucks.app.ui.screens
 
 import com.bucks.app.R
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -117,11 +129,35 @@ fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     }
 }
 
+@Composable private fun accentLabel(a: com.bucks.app.ui.theme.Accent) = stringResource(when (a) {
+    com.bucks.app.ui.theme.Accent.PURPLE -> R.string.g1_accent_purple; com.bucks.app.ui.theme.Accent.SAPPHIRE -> R.string.g1_accent_sapphire; com.bucks.app.ui.theme.Accent.EMERALD -> R.string.g1_accent_emerald
+    com.bucks.app.ui.theme.Accent.RUBY -> R.string.g1_accent_ruby; com.bucks.app.ui.theme.Accent.GRAPHITE -> R.string.g1_accent_graphite })
+
+/** The colour theme: one swatch each, the chosen one ringed and ticked. The app recolours as soon as one is tapped. */
+@Composable
+private fun AccentPicker() {
+    Label(stringResource(R.string.g1_app_colour))
+    // Each swatch is that theme's own primary for the mode on screen, so what you tap is what the buttons become.
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        com.bucks.app.ui.theme.Accent.entries.forEach { a ->
+            val on = a == Prefs.accent; val name = accentLabel(a); val colors = a.scheme(dark)
+            Column(Modifier.weight(1f).clip(MaterialTheme.shapes.medium).selectable(selected = on, role = Role.RadioButton) { Prefs.chooseAccent(a) }.semantics { contentDescription = name }.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(48.dp).border(2.dp, if (on) MaterialTheme.colorScheme.onSurface else Color.Transparent, CircleShape).padding(5.dp).background(colors.primary, CircleShape), contentAlignment = Alignment.Center) {
+                    if (on) Icon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = colors.onPrimary)
+                }
+                Text(name, style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(top = 6.dp).clearAndSetSemantics {})
+            }
+        }
+    }
+}
+
 @Composable
 fun AppearanceScreen(onBack: () -> Unit) {
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g1_set_appearance), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             ChoiceGroup(stringResource(R.string.g1_app_theme), null, Prefs.Theme.entries.map { it to it.label }, Prefs.theme) { Prefs.chooseTheme(it) }
+            AccentPicker()
             ChoiceGroup(stringResource(R.string.g1_app_text_size), null, Prefs.TextSize.entries.map { it to it.label }, Prefs.textSize) { Prefs.chooseTextSize(it) }
             ToggleRow(stringResource(R.string.g1_app_motion), stringResource(R.string.g1_app_motion_detail), Prefs.reduceMotion) { Prefs.enableReduceMotion(it) }
             ChoiceGroup(stringResource(R.string.g1_app_download), stringResource(R.string.g1_app_download_detail), Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }

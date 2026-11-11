@@ -1,0 +1,111 @@
+# Builds the signed iOS app and uploads it to App Store Connect (TestFlight). Run it by hand: Actions > iOS release (App Store) > Run workflow.
+# Signing is cloud-managed: Xcode creates the distribution certificate and profile itself through the App Store Connect API key, so no
+# certificate or profile is stored here. One-time setup and the secrets below: docs/IOS_RELEASE.md.
+#   APPSTORE_API_KEY_ID, APPSTORE_API_ISSUER_ID, APPSTORE_API_KEY_P8_B64   App Store Connect API key (role: App Manager or Admin)
+#   APPLE_TEAM_ID                                                         the 10-character team id
+#   GOOGLE_SERVICE_INFO_PLIST_B64                                         Firebase's iOS config file (GoogleService-Info.plist), base64
+name: iOS release (App Store)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version shown in the App Store, e.g. 1.0.0"
+        required: true
+      build:
+        description: "Build number (must be higher than the last upload; empty = this run's number)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios
+    env:
+      APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+      APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+      APPSTORE_API_KEY_P8_B64: ${{ secrets.APPSTORE_API_KEY_P8_B64 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GOOGLE_SERVICE_INFO_PLIST_B64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_B64 }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      BUILD: ${{ inputs.build || github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check the secrets are set
+        run: |
+          missing=""
+          for v in APPSTORE_API_KEY_ID APPSTORE_API_ISSUER_ID APPSTORE_API_KEY_P8_B64 APPLE_TEAM_ID GOOGLE_SERVICE_INFO_PLIST_B64 SUPABASE_URL SUPABASE_ANON_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          [ -z "$missing" ] || { echo "::error::Missing repository secrets:$missing (see docs/IOS_RELEASE.md)"; exit 1; }
+          printf '%s' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' || { echo "::error::version must look like 1.0 or 1.0.0"; exit 1; }
+          printf '%s' "$BUILD" | grep -Eq '^[0-9]+$' || { echo "::error::build must be a whole number"; exit 1; }
+      - name: XcodeGen
+        run: brew install xcodegen
+      - name: Config and Firebase file
+        run: |
+          # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does)
+          printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > App/GoogleService-Info.plist
+          plutil -lint App/GoogleService-Info.plist
+          # Phone sign-in comes back to the app through this URL scheme.
+          rev="$(/usr/libexec/PlistBuddy -c 'Print :REVERSED_CLIENT_ID' App/GoogleService-Info.plist)"
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\nREVERSED_CLIENT_ID = %s\n' \
+            "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" "$rev" > Config/Secrets.xcconfig
+          xcodegen generate
+      - name: App Store Connect API key
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$APPSTORE_API_KEY_P8_B64" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8"
+          grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" || { echo "::error::APPSTORE_API_KEY_P8_B64 is not a base64-encoded .p8 key"; exit 1; }
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive -project Bucks.xcodeproj -scheme Bucks -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Bucks.xcarchive" -skipPackagePluginValidation \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            2>&1 | tee archive.log | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
+          grep -q "ARCHIVE SUCCEEDED" archive.log || { grep -E "error:" archive.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+      - name: The archive is a production build
+        run: |
+          app="$RUNNER_TEMP/Bucks.xcarchive/Products/Applications/Bucks.app"
+          test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is missing from the archive"; exit 1; }
+          key="$(/usr/libexec/PlistBuddy -c 'Print :GeminiAPIKey' "$app/Info.plist" 2>/dev/null || true)"
+          [ -z "$key" ] || { echo "::error::the release build carries a Gemini key"; exit 1; }
+      - name: Upload to App Store Connect
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          set -o pipefail
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Bucks.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" 2>&1 | tee export.log | tail -30
+          grep -q "EXPORT SUCCEEDED" export.log || { echo "::error::upload to App Store Connect failed (see the log above)"; exit 1; }
+          echo "Uploaded Bucks $VERSION ($BUILD). It appears under TestFlight in App Store Connect after Apple finishes processing (10 to 30 minutes)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys" App/GoogleService-Info.plist Config/Secrets.xcconfig

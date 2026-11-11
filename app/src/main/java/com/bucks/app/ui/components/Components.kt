@@ -98,9 +98,9 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
         else Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
         if (onChat != null) LocalCartAction.current?.let { c ->
-            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) pluralStringResource(R.plurals.g4_cd_cart_items, c.count, c.count) else stringResource(R.string.g4_cd_cart), Modifier.size(26.dp)) } }
+            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) pluralStringResource(R.plurals.g4_cd_cart_items, c.count, c.count) else stringResource(R.string.g4_cd_cart), Modifier.size(26.dp)) } }
         }
-        if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, stringResource(R.string.g4_cd_messages), Modifier.size(28.dp)) } }
+        if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, stringResource(R.string.g4_cd_messages), Modifier.size(28.dp)) } }
     }
 }
 

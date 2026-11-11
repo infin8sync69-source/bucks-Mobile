@@ -80,6 +80,7 @@ struct SyncScreen: View {
             Button(social.links[p.id] != nil ? "Edit contact details" : "Contact details") { linkFor = p }
             Button(close ? "Remove from close friends" : "Add to close friends") { social.setClose(p.id, on: !close) }
             Button("Unsync") { social.unsync(p.id) }
+            Button("Report", role: .destructive) { session.reportTarget = ReportTarget(kind: "PROFILE", targetId: p.id, ownerId: p.id, ownerName: p.name) }
             Button("Block", role: .destructive) { social.block(p.id) }
             Button("Close", role: .cancel) {}
         }

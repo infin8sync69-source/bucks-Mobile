@@ -32,7 +32,10 @@ struct MessagesScreen: View {
         .confirmationDialog(menuFor.map(rowName) ?? "Chat", isPresented: Binding(get: { menuFor != nil }, set: { if !$0 { menuFor = nil } }), titleVisibility: .visible, presenting: menuFor) { c in
             Button(c.muted ? "Unmute" : "Mute notifications") { chat.mute(c.conversationId, on: !c.muted) }
             if c.kind == "GROUP" { Button("Leave group", role: .destructive) { leaveFor = c } }
-            if let o = c.otherId { Button("Block \(c.otherName ?? "")", role: .destructive) { session.social.block(o) } }
+            if let o = c.otherId {
+                Button("Report \(c.otherName ?? "")", role: .destructive) { session.reportTarget = ReportTarget(kind: "PROFILE", targetId: o, ownerId: o, ownerName: c.otherName ?? "") }
+                Button("Block \(c.otherName ?? "")", role: .destructive) { session.social.block(o) }
+            }
             Button("Close", role: .cancel) {}
         }
         .bucksConfirm(isPresented: Binding(get: { leaveFor != nil }, set: { if !$0 { leaveFor = nil } }), title: "Leave \(leaveFor?.title ?? "this group")?",

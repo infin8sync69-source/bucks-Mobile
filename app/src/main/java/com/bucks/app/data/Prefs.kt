@@ -22,6 +22,7 @@ object Prefs {
     fun init(ctx: Context) {
         sp = ctx.getSharedPreferences("bucks_prefs", Context.MODE_PRIVATE)
         theme = runCatching { Theme.valueOf(sp.getString("theme", null) ?: "") }.getOrDefault(Theme.SYSTEM)
+        accent = runCatching { com.bucks.app.ui.theme.Accent.valueOf(sp.getString("accent", null) ?: "") }.getOrDefault(com.bucks.app.ui.theme.Accent.PURPLE)
         textSize = runCatching { TextSize.valueOf(sp.getString("text", null) ?: "") }.getOrDefault(TextSize.NORMAL)
         mediaDownload = runCatching { MediaDownload.valueOf(sp.getString("media", null) ?: "") }.getOrDefault(MediaDownload.WIFI)
         reduceMotion = sp.getBoolean("reduceMotion", false)
@@ -33,6 +34,8 @@ object Prefs {
     }
 
     var theme by mutableStateOf(Theme.SYSTEM); private set
+    /** The colour theme (purple unless the person picked another in Appearance). */
+    var accent by mutableStateOf(com.bucks.app.ui.theme.Accent.PURPLE); private set
     var textSize by mutableStateOf(TextSize.NORMAL); private set
     var mediaDownload by mutableStateOf(MediaDownload.WIFI); private set
     var reduceMotion by mutableStateOf(false); private set
@@ -55,6 +58,7 @@ object Prefs {
         set(v) { if (::sp.isInitialized) sp.edit().putBoolean("vote_hint_seen", v).apply() }
     fun rememberRider(listingId: String, riderId: String) { if (::sp.isInitialized) sp.edit().putString("rider_$listingId", riderId).apply() }
     fun chooseTheme(t: Theme) { theme = t; sp.edit().putString("theme", t.name).apply() }
+    fun chooseAccent(a: com.bucks.app.ui.theme.Accent) { accent = a; sp.edit().putString("accent", a.name).apply() }
     fun chooseTextSize(t: TextSize) { textSize = t; sp.edit().putString("text", t.name).apply() }
     fun chooseMediaDownload(m: MediaDownload) { mediaDownload = m; sp.edit().putString("media", m.name).apply() }
     fun enableReduceMotion(v: Boolean) { reduceMotion = v; sp.edit().putBoolean("reduceMotion", v).apply() }

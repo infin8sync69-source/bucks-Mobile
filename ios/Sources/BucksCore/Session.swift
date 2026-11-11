@@ -51,6 +51,13 @@ public final class AppSession: DispatchHost {
     /// What the phone sign-in is doing right now, shown under the code box so a tester can report it.
     public var otpStatus = ""
     public var names: [String: String] = [:]
+    /// True when I'm signed in but the server has no date of birth for me yet: the app asks for it before anything else.
+    public private(set) var needsBirthDate = false
+    /// Set on this phone once a date of birth below the sign-up age was entered; the app stays closed to it (as on Android).
+    public private(set) var ageBlocked = UserDefaults.standard.bool(forKey: "ageBlocked")
+    /// What the report sheet is open for; nil while it is closed. Any screen sets it to offer "Report".
+    public var reportTarget: ReportTarget?
+    public private(set) var reporting = false
     /// Cloud features need Supabase and Firebase configured.
     public var cloud: Bool { Backend.shared.enabled }
     public var firebaseProject: String? { auth?.projectName }
@@ -152,6 +159,8 @@ public final class AppSession: DispatchHost {
                 if user == nil || (user?.name.isEmpty ?? true), !p.name.isEmpty { var u = user ?? StoredUser(phone: phone); u.name = p.name; u.area = p.area; u.bio = p.bio; save(u) }
                 phase = (p.name.isEmpty && (user?.name.isEmpty ?? true)) ? .needsProfile : .ready
                 dispatch.startDriversFeed(); dispatch.resume(); social.signedIn(); registerPushIfSignedIn()
+                // A failed read asks again at the next launch rather than locking someone out on a bad connection.
+                if let s = try? await Backend.shared.mySafety() { needsBirthDate = !s.birthDateSet }
                 return
             } catch is CancellationError { return } catch {
                 tries += 1
@@ -175,6 +184,31 @@ public final class AppSession: DispatchHost {
     /// Stores this phone's push token against my profile (no-op without Firebase Messaging or when signed out). Runs once the profile is loaded, which covers launch and a fresh sign-in.
     public func registerPushIfSignedIn() { Push.shared.registerIfSignedIn() }
     private func save(_ u: StoredUser) { user = u; if let d = try? JSONEncoder().encode(u) { defaults.set(d, forKey: "storedUser") } }
+
+    /// Saves my date of birth (yyyy-MM-dd). Returns nil when it is saved, or the sentence to show. Below the sign-up age the phone is
+    /// marked and the account signed out.
+    public func setBirthDate(_ isoDate: String) async -> String? {
+        do { _ = try await Backend.shared.setBirthDate(isoDate); needsBirthDate = false; return nil }
+        catch {
+            if errorCode(error) == "BK_NOT_ELIGIBLE" || friendlyError(error).lowercased().contains("not eligible") {
+                defaults.set(true, forKey: "ageBlocked"); ageBlocked = true
+                await logout(); return nil
+            }
+            return friendlyError(error)
+        }
+    }
+
+    /// Sends the report in `reportTarget` and closes the sheet; with `alsoBlock` the person is blocked too.
+    public func sendReport(reason: ReportReason, detail: String, alsoBlock: Bool) async {
+        guard let t = reportTarget, !reporting else { return }
+        reporting = true; defer { reporting = false }
+        do {
+            _ = try await Backend.shared.reportContent(kind: t.kind, target: t.targetId, reason: reason.rawValue, detail: detail)
+            if alsoBlock, let o = t.ownerId, o != me?.id { social.block(o) }
+            reportTarget = nil
+            toast("Thanks. Bucks staff will review this report.")
+        } catch { toast(friendlyError(error)) }
+    }
 
     /// Takes presence off and drops the login while the Firebase user can still sign those requests.
     public func logout() async {
@@ -204,7 +238,7 @@ public final class AppSession: DispatchHost {
     private func clearLocalState() {
         // Cart, orders, search results, listings, jobs, chats and the feed belong to the person who signed out, not the next account on this phone.
         commerce.signedOut(); discover.signedOut(); listings.signedOut(); services.signedOut(); jobs.signedOut(); social.signedOut(); chat.signedOut(); feed.clear()
-        me = nil; user = nil; names = [:]; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
+        me = nil; user = nil; names = [:]; needsBirthDate = false; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
         defaults.removeObject(forKey: "storedUser")
     }
 

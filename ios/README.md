@@ -95,9 +95,9 @@ Without `GoogleService-Info.plist` or the Supabase values the app still launches
 - **Maps.** The same providers as Android: Mapbox tiles (Streets / Satellite), place search and Directions when `MAPBOX_TOKEN` is set, OpenStreetMap (tiles, Photon, Nominatim, OSRM) otherwise. `BucksMap` is an `MKMapView` drawing those tiles through `MKTileOverlay` with Android's muted colour filter, dot markers and route styling; in-app turn-by-turn uses the same step wording, voice points and re-route rule as `MapsScreen.kt`.
 - **Driver on duty.** Android's foreground service becomes Core Location with background updates; the position goes to `update_location` at most every 5 seconds. A ringing request while the app is in the background posts a time-sensitive local notification.
 
-## Server proposals (not applied)
+## Server side for push
 
-`server/push_ios.sql` and `server/notify_ios.proposal.ts`: the `notify` function sends Android-style data-only messages, which iOS does not show in the background. The proposal adds an `apns` alert block for tokens with platform `ios` (category, thread, interruption level, expiration; `apns-collapse-id` only when the tag is 64 bytes or shorter, because APNs rejects longer ones) and an optional platform check on `device_tokens`. Until it is applied iPhones receive pushes only while Bucks is open.
+The `notify` function sends tokens with platform `ios` an `apns` alert block (category, thread, interruption level, expiration; `apns-collapse-id` only when the tag is 64 bytes or shorter, because APNs rejects longer ones). It needs the function redeployed and an APNs key in Firebase. `server/push_ios.sql` is an optional platform constraint and is not applied.
 
 ## Remaining known gaps
 

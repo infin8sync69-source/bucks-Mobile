@@ -187,7 +187,7 @@ struct PostCard: View {
                 actions
             }
             .padding(.horizontal, Gutter).padding(.vertical, 14)
-            .contextMenu { if mine { Button("Delete post", role: .destructive, action: onDelete) } }
+            .contextMenu { if mine { Button("Delete post", role: .destructive, action: onDelete) } else { Button("Report post", role: .destructive, action: report) } }
             BucksDivider()
         }
     }
@@ -204,9 +204,15 @@ struct PostCard: View {
                 Menu { Button("Delete post", role: .destructive, action: onDelete) } label: {
                     Image(systemName: "ellipsis").font(.system(size: 18)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44).contentShape(Rectangle())
                 }.accessibilityLabel("More")
+            } else {
+                Menu { Button("Report post", role: .destructive, action: report) } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 18)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44).contentShape(Rectangle())
+                }.accessibilityLabel("More")
             }
         }
     }
+
+    private func report() { session.reportTarget = ReportTarget(kind: "POST", targetId: post.id, ownerId: post.authorId, ownerName: post.authorName) }
 
     private var actions: some View {
         let my = post.myVote ?? 0
