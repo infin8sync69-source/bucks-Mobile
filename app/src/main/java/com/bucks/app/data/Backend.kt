@@ -117,6 +117,8 @@ object Backend {
     suspend fun updateProfile(id: String, name: String, bio: String, area: String, home: LatLng?) {
         db.from("profiles").update({ set("name", name); set("bio", bio); set("area", area); home?.let { set("home", point(it)) } }) { filter { eq("id", id) } }
     }
+    /** Gender is private to me (profile_private, profile_details.sql): WOMAN, MAN, NON_BINARY, UNSAID or null. */
+    suspend fun setGender(id: String, code: String?) { db.from("profile_private").update({ set<String?>("gender", code) }) { filter { eq("profile_id", id) } } }
     /** The columns the API may read from profiles; `home` is withheld (manage.sql), so `select *` would be refused. */
     private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "cover_url", "trust_up", "trust_down", "id_issued_at")
     suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select(PROFILE_COLUMNS) { filter { isIn("id", ids.toList()) } }.decodeList()
@@ -305,11 +307,12 @@ object Backend {
         runCatching { db.rpc("feed_synced", buildJsonObject { beforeIso?.let { put("before", it) } }).decodeList<FeedRow>() }
             .getOrElse { feed(at, beforeIso).filter { it.synced || it.authorId == me } }
     /** [media]: storage path in the posts bucket to its mime type (image/jpeg, video/mp4), so the feed knows what to show. */
-    suspend fun post(me: String, body: String, media: List<Pair<String, String>>, visibility: String, at: LatLng?, area: String, listingId: String? = null) {
+    /** [posters]: a video's path to the path of its still frame (a JPEG beside it), which Explore shows as the video's thumbnail. */
+    suspend fun post(me: String, body: String, media: List<Pair<String, String>>, visibility: String, at: LatLng?, area: String, listingId: String? = null, posters: Map<String, String> = emptyMap()) {
         db.from("posts").insert(buildJsonObject {
             put("author_id", me); put("body", body); put("visibility", visibility); put("area", area); listingId?.let { put("listing_id", it) }
             at?.let { put("location", point(it)) }
-            put("media", buildJsonArray { media.forEach { (path, mime) -> add(buildJsonObject { put("path", path); put("mime", mime) }) } })
+            put("media", buildJsonArray { media.forEach { (path, mime) -> add(buildJsonObject { put("path", path); put("mime", mime); posters[path]?.let { put("poster", it) } }) } })
         })
     }
     suspend fun deletePost(id: String) { db.from("posts").delete { filter { eq("id", id) } } }
@@ -432,7 +435,9 @@ data class FileRef(val path: String, val name: String, val mime: String, val siz
 @Serializable data class FeedRow(val id: String, @SerialName("author_id") val authorId: String, @SerialName("author_name") val authorName: String, @SerialName("author_code") val authorCode: String,
     @SerialName("listing_id") val listingId: String? = null, @SerialName("listing_title") val listingTitle: String? = null, val body: String = "",
     val media: kotlinx.serialization.json.JsonArray = kotlinx.serialization.json.JsonArray(emptyList()), val visibility: String, val area: String = "", val up: Int = 0, val down: Int = 0,
-    val comments: Int = 0, @SerialName("my_vote") val myVote: Int? = null, @SerialName("created_at") val createdAt: String, val synced: Boolean = false)
+    val comments: Int = 0, @SerialName("my_vote") val myVote: Int? = null, @SerialName("created_at") val createdAt: String, val synced: Boolean = false,
+    /** Explore only (explore.sql): how many of the people I'm synced with voted this up, and the name of one of them. */
+    val recommenders: Int = 0, @SerialName("recommender_name") val recommenderName: String? = null)
 @Serializable data class CommentRow(val id: String, @SerialName("post_id") val postId: String, @SerialName("author_id") val authorId: String, val body: String, @SerialName("created_at") val createdAt: String)
 @Serializable data class TrayRow(@SerialName("author_id") val authorId: String, @SerialName("author_name") val authorName: String, @SerialName("author_code") val authorCode: String,
     @SerialName("listing_title") val listingTitle: String? = null, val moments: Int, val unseen: Int, @SerialName("latest_at") val latestAt: String, @SerialName("is_me") val isMe: Boolean)

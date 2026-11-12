@@ -139,7 +139,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
                         if (at == null) { failed++; errors += Str.get(R.string.g8_checkout_need_location, st.listing.title); continue }
                         Backend.placeOrder(ref, st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
                     }
-                    placed += id; clearStore(st.listing.id); refs.remove(st.listing.id)
+                    placed += id; com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ORDER_PLACED, "mode" to c.mode, "payment" to c.payment, "lines" to ls.size); clearStore(st.listing.id); refs.remove(st.listing.id)
                 } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     // The server said no: the next try is a new request. No answer at all: keep the id, the order may have gone through.
                     if (isServerRefusal(e)) refs.remove(st.listing.id)

@@ -18,6 +18,9 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,8 +52,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /*
- * Onboarding v2 (research: docs/ONBOARDING.md). Four short screens and no progress bar: Language → Phone → Code → Name → Home.
- * Location is asked on Home (with the Play disclosure), notifications on a later visit; bio, interests and photo wait for Profile.
+ * Onboarding v2 (research: docs/ONBOARDING.md). Short screens and no progress bar: Language → Phone → Code → Name → About you → Home.
+ * Location is asked on Home (with the Play disclosure), notifications on a later visit; About you (photo, gender, a line about me) is
+ * optional and skippable; interests wait for Profile.
  */
 
 /** The frame every onboarding screen shares: optional back, a title, one line under it, the content, and one primary action at the bottom. */
@@ -217,7 +221,7 @@ fun CodeScreen(vm: BucksViewModel, phone: String, onEdit: () -> Unit, onVerified
  * see the birthday part.
  */
 @Composable
-fun NameScreen(vm: BucksViewModel, onDone: (band: String) -> Unit, onBlocked: () -> Unit) {
+fun NameScreen(vm: BucksViewModel, onDone: (band: String, created: Boolean) -> Unit, onBlocked: () -> Unit) {
     val s by vm.state.collectAsState()
     val existing = s.user != null
     var name by rememberSaveable { mutableStateOf(s.user?.name.orEmpty()) }
@@ -237,7 +241,7 @@ fun NameScreen(vm: BucksViewModel, onDone: (band: String) -> Unit, onBlocked: ()
             // (ensure_profile only inserts when there is none; the name is saved by createProfile below).
             val r = if (com.bucks.app.data.Backend.enabled) runCatching { if (vm.social.me == null) com.bucks.app.data.Backend.ensureProfile(name.trim(), null); com.bucks.app.data.BackendSafety.setBirthDate(d.toString()) } else Result.success("ADULT")
             busy = false
-            r.onSuccess { band -> vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone(band) }
+            r.onSuccess { band -> vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone(band, !existing) }
                 .onFailure { e ->
                     // The sentence check is only for a database that doesn't send codes yet (before this version of set_birth_date is applied).
                     if (com.bucks.app.data.errorCode(e) == "BK_NOT_ELIGIBLE" || e.message?.contains("not eligible") == true) { Prefs.ageBlocked = true; onBlocked() } else error = com.bucks.app.data.friendlyError(e)
@@ -259,6 +263,53 @@ fun NameScreen(vm: BucksViewModel, onDone: (band: String) -> Unit, onBlocked: ()
         }
         if (tried && date == null) Text(stringResource(R.string.onb_dob_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp)) }
+    }
+}
+
+/**
+ * 5. About you: a profile picture, gender and one line about me. Every part is optional and "Skip for now" is always there, so the
+ * step never stands between someone and the app; all of it can be changed later in Edit profile. Where I'm based is still set from
+ * location on Home, and the picture uploads as soon as it is picked.
+ */
+@Composable
+fun AboutYouScreen(vm: BucksViewModel, onDone: () -> Unit) {
+    val s by vm.state.collectAsState(); val social = vm.social; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
+    var bio by rememberSaveable { mutableStateOf(s.user?.bio.orEmpty()) }; var gender by rememberSaveable { mutableStateOf(s.user?.gender.orEmpty()) }
+    val name = s.user?.name.orEmpty()
+    val badPhoto = stringResource(R.string.g6_media_bad_photo)
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            val picked = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.bucks.app.data.Upload.read(ctx, uri) }
+            if (picked == null) vm.toast(badPhoto) else social.setMyPicture(com.bucks.app.data.ProfileMedia.Slot.PHOTO, picked)
+        } }
+    val pick = { picker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    val genders = listOf("Woman", "Man", "Non-binary", "Prefer not to say")
+    val genderLabels = listOf(stringResource(R.string.g8_gender_woman), stringResource(R.string.g8_gender_man), stringResource(R.string.g8_gender_nonbinary), stringResource(R.string.g8_gender_no_say))
+    val finish = { vm.saveAbout(bio.trim(), gender); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ABOUT_DONE, "photo" to (social.me?.photoUrl != null), "gender" to gender.isNotBlank(), "bio" to bio.isNotBlank()); onDone() }
+    OnboardingFrame(stringResource(R.string.r1_about_title, name.substringBefore(' ')), stringResource(R.string.r1_about_hint), onBack = null,
+        topEnd = { TextButton({ com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ABOUT_SKIPPED); onDone() }) { Text(stringResource(R.string.r1_about_skip)) } },
+        bottom = { PrimaryButton(stringResource(R.string.r1_about_cta)) { finish() } }) {
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+            val busy = social.mediaBusy != null; val cd = stringResource(if (social.me?.photoUrl == null) R.string.r1_about_add_photo else R.string.r1_about_change_photo)
+            Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(enabled = !busy && social.me != null, onClickLabel = cd, onClick = pick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    Avatar(if (name.isBlank()) "?" else initials(name), size = 84, photoUrl = social.me?.photoUrl)
+                    Box(Modifier.align(Alignment.BottomEnd).size(30.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.primary).border(2.dp, MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                        if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        else Icon(Icons.Rounded.PhotoCamera, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary) }
+                }
+                Column(Modifier.padding(start = 16.dp)) {
+                    Text(cd, style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.r1_about_photo_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Text(stringResource(R.string.g8_gender_optional), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+            FlowChips(genderLabels, setOfNotNull(genders.indexOf(gender).takeIf { it >= 0 }?.let { genderLabels[it] })) { l -> val g = genders[genderLabels.indexOf(l)]; gender = if (gender == g) "" else g }
+            Text(stringResource(R.string.r1_about_gender_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            OutlinedTextField(bio, { bio = it.take(120) }, Modifier.fillMaxWidth().padding(top = 22.dp), label = { Text(stringResource(R.string.g8_bio_label)) }, placeholder = { Text(stringResource(R.string.g8_bio_hint)) },
+                singleLine = true, shape = MaterialTheme.shapes.medium, supportingText = { Text("${bio.length}/120") },
+                keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences, imeAction = androidx.compose.ui.text.input.ImeAction.Done))
+        }
     }
 }
 

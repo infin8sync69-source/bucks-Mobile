@@ -19,6 +19,27 @@ class Picked(val bytes: ByteArray, val name: String, val mime: String) {
 }
 
 object Upload {
+    /** A JPEG of a frame one second into a video, at most [maxPx] on its long side, for its thumbnail. Null when the phone can't decode the video. */
+    fun videoPoster(bytes: ByteArray, maxPx: Int = 960): ByteArray? = runCatching {
+        val r = android.media.MediaMetadataRetriever()
+        try {
+            r.setDataSource(object : android.media.MediaDataSource() {
+                override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
+                    if (position >= bytes.size) return -1
+                    val n = minOf(size, (bytes.size - position).toInt()); System.arraycopy(bytes, position.toInt(), buffer, offset, n); return n
+                }
+                override fun getSize(): Long = bytes.size.toLong()
+                override fun close() {}
+            })
+            val frame = r.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: r.frameAtTime
+            if (frame == null) null else {
+                val scale = maxPx.toFloat() / maxOf(frame.width, frame.height)
+                val bmp = if (scale < 1f) Bitmap.createScaledBitmap(frame, (frame.width * scale).toInt().coerceAtLeast(1), (frame.height * scale).toInt().coerceAtLeast(1), true) else frame
+                ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
+            }
+        } finally { runCatching { r.release() } }
+    }.getOrNull()
+
     /** Largest file read into memory (chat allows 25 MB, moments 30 MB); bigger files are refused before they can exhaust memory. */
     const val MAX_READ_BYTES = 32L * 1024 * 1024
 

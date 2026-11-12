@@ -117,6 +117,12 @@
     <string name="g3_notifs_body">%1$s Turn them on so requests reach you when Bucks is closed or the screen is off. You stay online either way.</string>
     <string name="g3_open_settings">Open settings</string>
     <string name="g3_cd_close_menu">Close menu</string>
+    <string name="g3_pro_id">Bucks Pro ID</string>
+    <string name="g3_pro_id_show">Tap to show your card</string>
+    <string name="g3_pro_id_valid_till">Valid till %1$s</string>
+    <string name="g3_pro_id_renew_soon">Renew soon · valid till %1$s</string>
+    <string name="g3_pro_id_expired">Expired on %1$s · tap to renew</string>
+    <string name="g3_cd_open_pro_id">Show your Bucks Pro ID card</string>
     <string name="g3_pro_profile">Pro profile</string>
     <string name="g3_pro_profile_sub">Your work, skills and CV</string>
     <string name="g3_cd_open_pro_profile">Open Pro profile</string>
@@ -139,7 +145,7 @@
     <string name="g3_qr_no_scanner">The scanner isn\'t available on this phone yet. Type the code instead.</string>
     <string name="g3_cd_loading_products">Loading products</string>
     <string name="g3_cd_loading">Loading</string>
-    <string name="g3_foryou_title">For you</string>
+    <string name="g3_foryou_title">Explore</string>
     <string name="g3_foryou_all">All</string>
     <string name="g3_foryou_posts">Posts</string>
     <string name="g3_foryou_places">Places</string>
@@ -174,7 +180,7 @@
     <string name="g3_vehicle_generic">vehicle</string>
     <string name="g3_vehicle_suspended">Your %1$s (%2$s) is suspended, so you can\'t go online with it. Open Manage listings for details.</string>
     <string name="g3_vehicle_checking">Bucks is still checking your %1$s (%2$s). The online button appears here once it\'s active.</string>
-    <string name="g3_home_search_hint">Where to, or what do you need?</string>
+    <string name="g3_home_search_hint">Search people, Bucks ID, places</string>
     <string name="g3_home_offline_chip">You\'re offline · Go online</string>
     <string name="g3_cd_service_quiet">%1$s, nobody online right now</string>
     <string name="g3_cd_service_soon">%1$s, coming soon</string>

@@ -62,10 +62,9 @@ fun AccountScreen(vm: BucksViewModel, initialTab: String, onMenu: () -> Unit, on
                     SectionTitle(stringResource(R.string.g5_acct_service_requests), Modifier.padding(top = 20.dp, bottom = 4.dp))
                     if (s.requests.isEmpty()) Muted(stringResource(R.string.g5_acct_no_requests)) else s.requests.forEach { r -> ListRowCompact(Icons.Rounded.Handyman, r.providerName, stringResource(R.string.g5_acct_amount_status, r.category, r.status.label)) { onRequest(r.id) } }
                 }
-                else -> if (vm.social.enabled) {
-                    Box(Modifier.padding(Gutter)) { BucksIdCard(vm) { onOpen(Routes.SYNC) } }
-                    com.bucks.app.ui.social.SettingsList(vm, onOpen, onEditProfile, onLogout, onDeleted)
-                } else SettingsHub(vm, identity = { if (vm.social.enabled) BucksIdCard(vm) { onOpen(Routes.SYNC) } else VerificationCard(vm, u.id, u.verified) }, onOpen = onOpen, onEditProfile = onEditProfile, onLogout = onLogout, onDeleted = onDeleted, showToast = showToast)
+                // The Bucks Pro ID card and the payment QR are Pro: they live in the ☰ Bucks Pro menu, not here.
+                else -> if (vm.social.enabled) com.bucks.app.ui.social.SettingsList(vm, onOpen, onEditProfile, onLogout, onDeleted)
+                else SettingsHub(vm, identity = { VerificationCard(vm, u.id, u.verified) }, onOpen = onOpen, onEditProfile = onEditProfile, onLogout = onLogout, onDeleted = onDeleted, showToast = showToast)
             }
         }
     }
@@ -83,9 +82,7 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
     val mine = social.feed.filter { it.authorId == me?.id }
     val shareProfile = (me?.let { stringResource(R.string.g5_share_profile_id, name, it.shortCode) } ?: stringResource(R.string.g5_share_profile, name)) + (if (area.isNotBlank()) " · $area" else "")
     val sharePostFmt = stringResource(R.string.g5_share_post)
-    // Settings, help, log out, orders and the Bucks ID left the ☰ menu (it is Pro-only now), so Profile is where they live.
-    Column(Modifier.fillMaxSize()) { BucksTopBar(stringResource(R.string.g5_profile_title), onMenu = onMenu, unread = unread, onChat = onMessages) {
-        IconButton(onClick = { onOpen(Routes.SETTINGS) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Settings, stringResource(R.string.g5_cd_settings)) } }
+    Column(Modifier.fillMaxSize()) { BucksTopBar(stringResource(R.string.g5_profile_title), onMenu = onMenu, unread = unread, onChat = onMessages)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         ProfileMediaHeader(vm, name, me?.photoUrl, me?.coverUrl, editable = me != null, busy = social.mediaBusy,
             onPick = { slot, picked -> social.setMyPicture(slot, picked) }, onRemove = { social.clearMyPicture(it) })
@@ -100,14 +97,7 @@ private fun CloudPersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, 
                 SoftButton(stringResource(R.string.g5_edit_profile), Icons.Rounded.EditNote, onClick = onEditProfile)
                 SoftButton(stringResource(R.string.g5_share), Icons.Rounded.IosShare) { shareText(ctx, shareProfile) } }
         }
-        // Profile is personal only: pages, vehicles and other Pro listings live in the ☰ Bucks Pro menu.
-        Column(Modifier.padding(horizontal = Gutter)) {
-            SectionTitle(stringResource(R.string.g5_your_account), Modifier.padding(top = 8.dp, bottom = 4.dp))
-            ListRowCompact(Icons.Rounded.ShoppingBag, stringResource(R.string.g5_row_activity), stringResource(R.string.g5_row_activity_sub)) { onOpen(Routes.ACTIVITY) }
-            ListRowCompact(Icons.Rounded.QrCode2, stringResource(R.string.g5_row_bucks_id), stringResource(R.string.g5_row_bucks_id_sub)) { onOpen(Routes.BUCKS_ID) }
-            ListRowCompact(Icons.Rounded.Settings, stringResource(R.string.g5_row_settings), stringResource(R.string.g5_row_settings_sub)) { onOpen(Routes.SETTINGS) }
-            ListRowCompact(Icons.AutoMirrored.Rounded.HelpOutline, stringResource(R.string.g5_row_help), stringResource(R.string.g5_row_help_sub)) { onOpen(Routes.HELP) }
-        }
+        // Profile is who I am and what I post. Orders and activity, settings, help and log out live in the ☰ menu, with the Bucks ID and everything Pro.
         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
         Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(initials(name), size = 40, photoUrl = me?.photoUrl)

@@ -69,7 +69,6 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
     if (cloud) { SettingRow(Icons.Rounded.Block, stringResource(R.string.g1_set_blocked)) { onOpen(Routes.SETTINGS_BLOCKED) }; SettingRow(Icons.Rounded.Place, stringResource(R.string.g1_set_map), stringResource(R.string.g1_set_map_detail)) { onOpen(Routes.SETTINGS_MAP) }; SettingRow(Icons.Rounded.Favorite, stringResource(R.string.g1_set_close), stringResource(R.string.g1_set_close_detail)) { onOpen(Routes.SETTINGS_CLOSE) } }
     LaunchedEffect(cloud) { if (cloud) vm.services.checkStaff() }
     if (vm.services.isStaff) SettingRow(Icons.Rounded.FactCheck, stringResource(R.string.g1_set_review_docs), stringResource(R.string.g1_set_review_docs_detail)) { onOpen(Routes.STAFF_REVIEW) }
-    if (vm.dispatch.enabled) ListRow(stringResource(R.string.g1_set_payment_qr), stringResource(R.string.g1_set_payment_qr_detail), leading = { Avatar(icon = Icons.Rounded.QrCode2) }, trailing = { Icon(Icons.Rounded.ChevronRight, null) }) { onOpen(Routes.PAYMENT_QR) }
     VoiceAiCard(vm)
     SectionTitle(stringResource(R.string.g1_set_about), Modifier.padding(top = 22.dp, bottom = 6.dp))
     val ctx = androidx.compose.ui.platform.LocalContext.current

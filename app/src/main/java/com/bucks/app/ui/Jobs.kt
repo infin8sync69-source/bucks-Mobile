@@ -115,6 +115,7 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
         val me = social.me?.id ?: return@go
         write {
             Backend.apply(jobId, me, skillIds, note.trim())
+            com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.JOB_APPLIED, "skills" to skillIds.size)
             toast(Str.get(R.string.g7_jobs_applied))
             applications = Backend.jobApplications(jobId)
         }

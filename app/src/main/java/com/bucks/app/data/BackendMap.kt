@@ -33,8 +33,26 @@ object MapBackend {
 /** One thing my synced people recommend (social_lenses.sql: for_you). [kind]: POST, LISTING or PRODUCT; for a PRODUCT [id] is its
  *  product key and [listingId] its shop. [photoUrl] is a public URL for pages and products, a "posts" bucket path for posts. */
 @Serializable data class ForYouItem(val kind: String, val id: String, @SerialName("listing_id") val listingId: String? = null, val title: String = "",
-    val subtitle: String = "", @SerialName("photo_url") val photoUrl: String? = null, val recommenders: Int = 0, val latest: String = "")
+    val subtitle: String = "", @SerialName("photo_url") val photoUrl: String? = null, val recommenders: Int = 0, val latest: String = "",
+    /** One of the synced people who recommend it (explore.sql: for_you_named); null from the older for_you. */
+    @SerialName("recommender_name") val recommenderName: String? = null)
 
 object ForYouBackend {
     suspend fun items(): List<ForYouItem> = Backend.client.postgrest.rpc("for_you").decodeList()
+}
+
+/**
+ * The Explore tab (supabase/migrations/explore.sql). Posts I'm allowed to see from beyond my own feed: public ones, ones from people and
+ * pages I sync with, and ones the people I'm synced with voted up, those first, with one of their names. On a database that doesn't
+ * have explore() yet, both calls fall back to what was there before, so the tab still fills.
+ */
+object ExploreBackend {
+    private val db get() = Backend.client.postgrest
+    /** [kind]: ALL, VIDEO, IMAGE or FILE. [q]: words to look for in the post, its author or its page; blank for everything. */
+    suspend fun posts(kind: String, q: String, here: LatLng, me: String?): List<FeedRow> =
+        runCatching { db.rpc("explore", buildJsonObject { put("p_kind", kind); if (q.isNotBlank()) put("q", q.trim()) }).decodeList<FeedRow>() }
+            .getOrElse { Backend.feed(here).filter { r -> r.authorId != me && (q.isBlank() || r.body.contains(q.trim(), true) || r.authorName.contains(q.trim(), true) || r.listingTitle?.contains(q.trim(), true) == true) } }
+    /** Shops, pros and products the people I'm synced with recommend. */
+    suspend fun places(): List<ForYouItem> =
+        runCatching { db.rpc("for_you_named").decodeList<ForYouItem>() }.getOrElse { ForYouBackend.items() }.filter { it.kind != "POST" }
 }

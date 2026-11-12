@@ -97,9 +97,8 @@ private struct AccountSettingsHub: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionTitle("Identity").padding(.bottom, 10)
-            BucksIdCard(onSync: { router.push(.sync) })
-            SectionTitle("Preferences").padding(.top, 22).padding(.bottom, 6)
+            // The Bucks Pro ID card and the payment QR are Pro: they live in the Bucks Pro side menu, not here.
+            SectionTitle("Preferences").padding(.bottom, 6)
             AccountSettingRow(icon: "person.fill", label: "Edit profile") { router.push(.editProfile) }
             AccountSettingRow(icon: "arrow.triangle.2.circlepath", label: "Sync", detail: "Requests, people you may know, synced people") { router.push(.sync) }
             AccountSettingRow(icon: "lock.fill", label: "Privacy", detail: "Who can message and sync with you, Moments audience, read receipts") { router.push(.settingsPrivacy) }
@@ -110,9 +109,6 @@ private struct AccountSettingsHub: View {
             if model.isStaff {
                 AccountSettingRow(icon: "checklist", label: "Review documents", detail: "Bucks staff: shop and pro documents waiting for a check") { router.push(.staffReview) }
             }
-            ListRow("Payment QR", subtitle: "How customers pay you by UPI: rides, deliveries and shop orders", onTap: { router.push(.paymentQr) },
-                    leading: { Avatar(systemImage: "qrcode") }, trailing: { Image(systemName: "chevron.right").foregroundStyle(BucksColor.onSurfaceVariant) })
-                .padding(.horizontal, -Gutter)
             SectionTitle("Voice and AI").padding(.top, 22).padding(.bottom, 10)
             BucksCard {
                 VStack(alignment: .leading, spacing: 0) {

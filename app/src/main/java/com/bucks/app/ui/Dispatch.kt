@@ -103,7 +103,7 @@ class Dispatch(private val scope: CoroutineScope, private val social: Social, pr
         if (busy) return
         go { busy = true
             try {
-                val t = try { Backend.requestRide(kind, from, fromLabel, to, dest.name, dest.km, fare) } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                val t = try { Backend.requestRide(kind, from, fromLabel, to, dest.name, dest.km, fare).also { com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.RIDE_REQUESTED, "kind" to kind.name) } } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     // The request may have reached the server before the answer was lost, or a ride of mine is already open: follow that one.
                     val open = runCatching { Backend.myOpenTask() }.getOrNull()?.takeIf { it.requesterId == social.me?.id && it.type == "RIDE" }
                     if (open == null) { bookError = friendlyError(e); return@go }

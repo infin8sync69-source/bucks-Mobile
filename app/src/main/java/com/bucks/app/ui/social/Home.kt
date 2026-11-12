@@ -133,12 +133,13 @@ private fun PostSkeleton() = Column(Modifier.fillMaxWidth().padding(horizontal =
  * The vote stays the existing up/down recommendation, shown as one compact control.
  */
 @Composable
-fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComments: () -> Unit, onDelete: () -> Unit) {
+fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComments: () -> Unit, onDelete: () -> Unit, onOpenMedia: ((Int) -> Unit)? = null, header: @Composable (() -> Unit)? = null) {
     val social = vm.social; val ctx = LocalContext.current; val openPerson = LocalOpenPerson.current; val report = LocalReporter.current
     val mine = p.authorId == social.me?.id
     var menu by remember { mutableStateOf(false) }; var confirmDelete by remember { mutableStateOf(false) }
     Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
         Column(Modifier.padding(vertical = 12.dp)) {
+            header?.let { Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp)) { it() } }
             Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f).clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = stringResource(R.string.g1_cd_open_profile_of, p.authorName)) { openPerson(p.authorId) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Avatar(initials(p.authorName.ifBlank { "?" }), size = 42, photoUrl = vm.social.photoOf(p.authorId))
@@ -163,7 +164,7 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
                 }
             }
             if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 14.dp).padding(top = 10.dp))
-            Box(Modifier.padding(horizontal = 14.dp)) { PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, onVote = onVote)) }
+            Box(Modifier.padding(horizontal = 14.dp)) { PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, onVote = onVote), onOpen = onOpenMedia) }
             Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VotePill(p.myVote ?: 0, p.up, p.down, onVote = onVote)
                 Spacer(Modifier.width(6.dp))
@@ -172,6 +173,7 @@ fun SocialPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComm
                 val shareMsg = stringResource(R.string.g1_post_share_text, p.authorName, p.body)
                 IconButton({ shareText(ctx, shareMsg) }) { Icon(Icons.Rounded.IosShare, stringResource(R.string.g1_profile_share), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
+            InlineCommentBox(Modifier.padding(horizontal = 14.dp).padding(top = 2.dp)) { social.comment(p.id, it) {} }
         }
     }
     if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text(stringResource(R.string.g1_home_delete_title)) }, text = { Text(stringResource(R.string.g1_home_delete_body)) },
@@ -182,7 +184,7 @@ private fun audienceLabel(v: String) = when (v) { "SYNCED" -> Str.get(R.string.g
 
 /** ↑ and ↓ in one pill: arrows, never thumbs; the larger side shows its count until I vote, then both do. */
 @Composable
-private fun VotePill(my: Int, up: Int, down: Int, onVote: (Int) -> Unit) {
+fun VotePill(my: Int, up: Int, down: Int, onVote: (Int) -> Unit) {
     val good = MaterialTheme.status.good; val bad = MaterialTheme.status.bad; val idle = MaterialTheme.colorScheme.onSurfaceVariant
     val (upShown, downShown) = postCountsShown(up, down, my)
     val upDesc = stringResource(R.string.g1_cd_vote_up, up); val downDesc = stringResource(R.string.g1_cd_vote_down, down)

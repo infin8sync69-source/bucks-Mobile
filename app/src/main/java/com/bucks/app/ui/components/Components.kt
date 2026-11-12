@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -98,14 +99,43 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
         else Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
         if (onChat != null) LocalCartAction.current?.let { c ->
-            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) pluralStringResource(R.plurals.g4_cd_cart_items, c.count, c.count) else stringResource(R.string.g4_cd_cart), Modifier.size(26.dp)) } }
+            IconButton(onClick = c.open) { BadgedIcon(Icons.Rounded.ShoppingCart, if (c.count > 0) pluralStringResource(R.plurals.g4_cd_cart_items, c.count, c.count) else stringResource(R.string.g4_cd_cart), c.count) }
         }
-        if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, stringResource(R.string.g4_cd_messages), Modifier.size(28.dp)) } }
+        // Notifications (sync requests, invites, orders...) have their own bell, so a waiting request is never hidden inside the chat count.
+        if (onChat != null) LocalNotifAction.current?.let { n ->
+            IconButton(onClick = n.open) { BadgedIcon(Icons.Rounded.NotificationsNone, if (n.count > 0) pluralStringResource(R.plurals.r1_cd_notifications_new, n.count, n.count) else stringResource(R.string.r1_cd_notifications), n.count) }
+        }
+        if (onChat != null) IconButton(onClick = onChat) { BadgedIcon(Icons.Rounded.Sms, if (unread > 0) pluralStringResource(R.plurals.r1_cd_messages_unread, unread, unread) else stringResource(R.string.g4_cd_messages), unread) }
     }
 }
 
+/** The bell in every top bar that has Messages: how many notifications are unread and what a tap does. Null hides it. */
+class NotifAction(val count: Int, val open: () -> Unit)
+val LocalNotifAction = androidx.compose.runtime.compositionLocalOf<NotifAction?> { null }
+
+/**
+ * The one count badge: a small red pill, "99+" at most. [ringed] gives it a ring in the surface colour so it stays clear of the icon
+ * (or the map) it sits on; without the ring it sits inline, next to a tab label or at the end of a row. Draws nothing for zero.
+ */
+@Composable
+fun CountBadge(count: Int, modifier: Modifier = Modifier, ringed: Boolean = false) {
+    if (count <= 0) return
+    Box(modifier.then(if (ringed) Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.5.dp) else Modifier)
+        .defaultMinSize(minWidth = 17.dp, minHeight = 17.dp).background(MaterialTheme.colorScheme.error, CircleShape).padding(horizontal = 4.5.dp), contentAlignment = Alignment.Center) {
+        Text(if (count > 99) "99+" else "$count", color = MaterialTheme.colorScheme.onError, maxLines = 1, softWrap = false,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.sp, platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)))
+    }
+}
+
+/** A top-bar icon with its count riding on the top corner. The count is part of [description], so the badge itself is silent to TalkBack. */
+@Composable
+fun BadgedIcon(icon: ImageVector, description: String, count: Int, size: Int = 26) = Box {
+    Icon(icon, description, Modifier.size(size.dp))
+    CountBadge(count, Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-6).dp), ringed = true)
+}
+
 enum class BottomTab(@StringRes val labelRes: Int, val icon: ImageVector) {
-    HOME(R.string.g4_tab_home, Icons.Rounded.Home), FEED(R.string.g4_tab_feed, Icons.Rounded.VideoLibrary), SERVICES(R.string.g4_tab_services, Icons.Rounded.GridView), RECOMMENDED(R.string.g4_tab_for_you, Icons.Rounded.AutoAwesome), ACCOUNT(R.string.g4_tab_profile, Icons.Rounded.Person);
+    HOME(R.string.g4_tab_home, Icons.Rounded.Home), FEED(R.string.g4_tab_feed, Icons.Rounded.VideoLibrary), SERVICES(R.string.g4_tab_services, Icons.Rounded.GridView), RECOMMENDED(R.string.g4_tab_for_you, Icons.Rounded.Explore), ACCOUNT(R.string.g4_tab_profile, Icons.Rounded.Person);
     val label: String get() = Str.get(labelRes)
 }
 @Composable
@@ -335,6 +365,25 @@ fun postCountsShown(up: Int, down: Int, my: Int): Pair<Int?, Int?> = when {
     my != 0 -> up to down
     up >= down -> up.takeIf { it > 0 } to null
     else -> null to down
+}
+
+/**
+ * The small comment box under a post, wherever a post shows: one quiet line until someone types, then a send arrow. Voting is one tap
+ * on an arrow; saying why is this box, never a sheet in the way.
+ */
+@Composable
+fun InlineCommentBox(modifier: Modifier = Modifier, onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }; val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val send = { val t = text.trim(); if (t.isNotEmpty()) { onSend(t); text = ""; focus.clearFocus() } }
+    val small = MaterialTheme.typography.bodySmall
+    Row(modifier.fillMaxWidth().heightIn(min = 36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.foundation.text.BasicTextField(text, { text = it.take(1000) }, Modifier.weight(1f).padding(vertical = 9.dp), singleLine = true, textStyle = small.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { send() }),
+            decorationBox = { inner -> Box { if (text.isEmpty()) Text(stringResource(R.string.g1_home_add_comment), style = small, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
+        if (text.isNotBlank()) Icon(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.g1_cd_send_comment), Modifier.clip(CircleShape).clickable(onClick = send).padding(7.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
+    }
 }
 
 /** Why a down was given; the server takes the same codes (reviews.reason, profile_votes.reason). */

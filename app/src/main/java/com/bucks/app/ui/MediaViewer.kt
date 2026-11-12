@@ -25,6 +25,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Share
@@ -96,14 +98,18 @@ private fun rememberMediaUrl(vm: BucksViewModel, item: ViewerMedia): String? = w
  * for a browser.
  */
 @Composable
-fun MediaViewer(vm: BucksViewModel, items: List<ViewerMedia>, start: Int = 0, title: String? = null, vote: ViewerVote? = null, onClose: () -> Unit) {
+fun MediaViewer(vm: BucksViewModel, items: List<ViewerMedia>, start: Int = 0, title: String? = null, vote: ViewerVote? = null,
+                titleAt: ((Int) -> String?)? = null, voteAt: ((Int) -> ViewerVote?)? = null, onClose: () -> Unit) {
     if (items.isEmpty()) { LaunchedEffect(Unit) { onClose() }; return }
     val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     val pager = rememberPagerState(initialPage = start.coerceIn(0, items.lastIndex)) { items.size }
     var zoomed by remember { mutableStateOf(false) }
     var chrome by remember { mutableStateOf(true) }
     LaunchedEffect(pager.currentPage) { zoomed = false }
-    val current = items[pager.currentPage.coerceIn(0, items.lastIndex)]
+    val page = pager.currentPage.coerceIn(0, items.lastIndex)
+    val current = items[page]
+    // Items from different posts (Explore): each page carries its own title and its own post's arrows.
+    val title = titleAt?.invoke(page) ?: title; val vote = voteAt?.invoke(page) ?: vote
 
     val save: () -> Unit = {
         scope.launch {
@@ -127,10 +133,19 @@ fun MediaViewer(vm: BucksViewModel, items: List<ViewerMedia>, start: Int = 0, ti
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { page ->
-                val item = items[page]; val onScreen = pager.currentPage == page
+            HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { pg ->
+                val item = items[pg]; val onScreen = pager.currentPage == pg
                 if (item.isVideo) ViewerVideo(vm, item, playing = onScreen, onTap = { chrome = !chrome })
                 else ZoomableImage(vm, item, active = onScreen, onZoomed = { if (onScreen) zoomed = it }, onTap = { chrome = !chrome })
+            }
+            // Previous and next, for anyone who doesn't think to swipe (and for a zoomed photo, where a swipe pans instead).
+            if (items.size > 1) {
+                AnimatedVisibility(chrome && page > 0, Modifier.align(Alignment.CenterStart), enter = fadeIn(), exit = fadeOut()) {
+                    IconButton({ scope.launch { pager.animateScrollToPage(page - 1) } }, Modifier.padding(start = 6.dp).size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = 0.45f))) {
+                        Icon(androidx.compose.material.icons.Icons.Rounded.ChevronLeft, stringResource(R.string.r1_cd_previous), tint = Color.White) } }
+                AnimatedVisibility(chrome && page < items.lastIndex, Modifier.align(Alignment.CenterEnd), enter = fadeIn(), exit = fadeOut()) {
+                    IconButton({ scope.launch { pager.animateScrollToPage(page + 1) } }, Modifier.padding(end = 6.dp).size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = 0.45f))) {
+                        Icon(androidx.compose.material.icons.Icons.Rounded.ChevronRight, stringResource(R.string.r1_cd_next), tint = Color.White) } }
             }
             AnimatedVisibility(chrome, Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
                 Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))).statusBarsPadding().padding(4.dp),

@@ -51,9 +51,7 @@ fun SettingsList(vm: BucksViewModel, onOpen: (String) -> Unit, onEditProfile: ()
         Column {
             Group(stringResource(R.string.g2_set_account))
             Item(Icons.Rounded.Person, stringResource(R.string.g2_set_edit_profile), stringResource(R.string.g2_set_edit_profile_d), onClick = onEditProfile)
-            Item(Icons.Rounded.QrCode2, "Bucks ID", stringResource(R.string.g2_set_bucks_id_d)) { onOpen(Routes.BUCKS_ID) }
             Item(Icons.Rounded.Sync, stringResource(R.string.g2_set_synced), null) { onOpen(Routes.SYNC) }
-            if (vm.dispatch.enabled) Item(Icons.Rounded.QrCode2, stringResource(R.string.g2_set_payment_qr), stringResource(R.string.g2_set_payment_qr_d)) { onOpen(Routes.PAYMENT_QR) }
             Group(stringResource(R.string.g2_set_privacy_safety))
             Item(Icons.Rounded.Shield, stringResource(R.string.g2_set_safety), stringResource(R.string.g2_set_safety_d)) { onOpen(Routes.SAFETY_CENTER) }
             Item(Icons.Rounded.Lock, stringResource(R.string.g2_set_privacy), stringResource(R.string.g2_set_privacy_d)) { onOpen(Routes.SETTINGS_PRIVACY) }

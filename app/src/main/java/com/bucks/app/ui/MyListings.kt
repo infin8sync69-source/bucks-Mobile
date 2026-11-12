@@ -145,6 +145,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
         val p = me ?: return@go; busy = true
         try {
             var row = Backend.createListing(p.id, kind, title, category, description, area, at, details, service, typeKey)
+            com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.LISTING_CREATED, "kind" to kind)
             var photoFailed = false
             if (photo != null) try { val url = uploadListingPhoto(row.id, photo); Backend.setListingPhoto(row.id, url); row = row.copy(photoUrl = url) } catch (e: Exception) { photoFailed = true }
             toast(if (photoFailed) (if (kind == "DRIVER") Str.get(R.string.g4_ml_driver_photo_failed) else Str.get(R.string.g4_ml_photo_failed, title)) else savedMessage(kind, title, row.typeKey ?: typeKey))
@@ -305,5 +306,6 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
      */
     fun recommend(token: String, at: LatLng, onDone: (Int) -> Unit) = go {
         val n = Backend.recommend(token, at)
+        com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.RECOMMEND_GIVEN, "count" to n)
         toast(if (n >= NEEDED) Str.get(R.string.g4_ml_recommend_live, n, NEEDED) else Str.get(R.string.g4_ml_recommend_count, n, NEEDED)); onDone(n) }
 }

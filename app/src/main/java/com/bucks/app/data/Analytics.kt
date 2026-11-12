@@ -49,4 +49,8 @@ object Analytics {
     const val POST_CREATED = "post_created"; const val MOMENT_CREATED = "moment_created"; const val COMMENT = "comment_added"
     const val SYNC_REQUESTED = "sync_requested"; const val SYNC_ACCEPTED = "sync_accepted"; const val MESSAGE_SENT = "message_sent"
     const val GROUP_CREATED = "group_created"; const val SEARCH = "search"; const val REPORT = "report_filed"; const val FEEDBACK = "feedback_posted"
+    // The rest of the journeys (revision 1): commerce, rides, hiring, pages, Explore. Counts and kinds only, never names, prices of one person or text.
+    const val ORDER_PLACED = "order_placed"; const val RIDE_REQUESTED = "ride_requested"; const val JOB_APPLIED = "job_applied"; const val LISTING_CREATED = "listing_created"
+    const val RECOMMEND_GIVEN = "recommend_given"; const val POST_VOTE = "post_vote"; const val EXPLORE_FILTER = "explore_filter"; const val EXPLORE_OPEN = "explore_open"
+    const val ABOUT_DONE = "onboarding_about_done"; const val ABOUT_SKIPPED = "onboarding_about_skipped"; const val PEOPLE_RESULT_TAP = "people_result_tap"
 }

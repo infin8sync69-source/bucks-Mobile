@@ -24,9 +24,12 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     /** Notifications (Messages screen, second tab): what needs my attention besides chat. */
     var notes by mutableStateOf<List<NotificationRow>>(emptyList()); private set
     val notesUnread get() = notes.count { it.readAt == null }
-    /** The badge on the messages icon: unread chats plus unread notifications. */
-    val unread get() = inbox.sumOf { it.unread } + notesUnread
+    /** The badge on the messages icon: unread chats. Notifications have their own bell ([notesUnread]). */
+    val unread get() = inbox.sumOf { it.unread }
+    /** Set once I've asked someone to sync: the moment to ask for the notification permission, so their answer can reach me. */
+    var wantsAlerts by mutableStateOf(false); private set
     private var poller: kotlinx.coroutines.Job? = null
+    private var arrivals: kotlinx.coroutines.Job? = null
     /** Contact details I attached to people I'm synced with, by their profile id. Private to me. */
     var links by mutableStateOf<Map<String, ContactLinkRow>>(emptyMap()); private set
     fun refreshLinks() = go { links = Backend.contactLinks().associateBy { it.profileId } }
@@ -77,6 +80,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         refreshInbox(); refreshSyncs(); refreshLinks()
         // The badge on the messages icon stays fresh while the app is open: one small check a minute.
         poller?.cancel(); poller = scope.launch { while (true) { kotlinx.coroutines.delay(60_000); runCatching { inbox = Backend.inbox(); notes = Backend.notifications() } } }
+        // A push that lands while the app is open (a sync request, a message, an order) shows in the badges and lists at once, not at the next check.
+        arrivals?.cancel(); arrivals = scope.launch { Push.arrivals.collect { runCatching { inbox = Backend.inbox(); notes = Backend.notifications() }; refreshSyncs() } }
     }
     /** Which of my pictures is uploading (the header shows a spinner on it), or null. */
     var mediaBusy by mutableStateOf<com.bucks.app.data.ProfileMedia.Slot?>(null); private set
@@ -101,9 +106,13 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     }
     /** Starts a new year on my Bucks ID card (allowed in its last 30 days or after it lapsed). */
     fun renewBucksId() = go { val t = Backend.renewBucksId(); me = me?.copy(idIssuedAt = t); toast(Str.get(R.string.g5_id_renewed)) }
-    fun signedOut() { poller?.cancel(); poller = null; notes = emptyList(); links = emptyMap(); me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
+    fun signedOut() { poller?.cancel(); poller = null; arrivals?.cancel(); arrivals = null; wantsAlerts = false; notes = emptyList(); links = emptyMap(); me = null; settings = null; inbox = emptyList(); feed = emptyList(); tray = emptyList(); incoming = emptyList(); synced = emptyList(); suggestions = emptyList(); blocked = emptyList(); closeFriends = emptySet(); mutedMoments = emptyList() }
     /** [home] null leaves the saved home point alone; it is never guessed from the map's default centre. */
     fun profileSaved(name: String, area: String, bio: String, home: LatLng? = null) = go { val p = me ?: Backend.ensureProfile(name, null).also { me = it }; Backend.updateProfile(p.id, name, bio, area, home); me = p.copy(name = name, area = area, bio = bio); names[p.id] = name }
+
+    /** Saved quietly: a database that doesn't have the column yet (before profile_details.sql) just keeps it on the phone. */
+    fun genderSaved(label: String) { val p = me ?: return; val code = when (label) { "Woman" -> "WOMAN"; "Man" -> "MAN"; "Non-binary" -> "NON_BINARY"; "Prefer not to say" -> "UNSAID"; else -> null }
+        scope.launch { runCatching { Backend.setGender(p.id, code) } } }
 
     suspend fun namesFor(ids: Collection<String>) { val missing = ids.filter { it !in names || !photos.containsKey(it) }.distinct(); if (missing.isNotEmpty()) Backend.profiles(missing).forEach { names[it.id] = it.name; photos[it.id] = it.photoUrl } }
     fun nameOf(id: String) = names[id] ?: "…"
@@ -126,7 +135,7 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         // An ID card lapses a year after issue; the owner renews it in one tap from Menu > Bucks Pro.
         BucksIdCardInfo.of(p.idIssuedAt)?.takeIf { it.expired }?.let { toast(if (p.name.isBlank()) Str.get(R.string.g5_id_expired_their, it.validTill.toString()) else Str.get(R.string.g5_id_expired_named, p.name, it.validTill.toString())); return@go }
         syncWith(p.id, p.name) }
-    fun syncWith(id: String, name: String) = go { val r = Backend.sync(id); com.bucks.app.data.Analytics.log(if (r == "ACCEPTED") com.bucks.app.data.Analytics.SYNC_ACCEPTED else com.bucks.app.data.Analytics.SYNC_REQUESTED); toast(Str.get(if (r == "ACCEPTED") R.string.g5_synced_with else R.string.g5_sync_sent, name)); refreshSyncs(); refreshSuggestions() }
+    fun syncWith(id: String, name: String) = go { val r = Backend.sync(id); wantsAlerts = true; com.bucks.app.data.Analytics.log(if (r == "ACCEPTED") com.bucks.app.data.Analytics.SYNC_ACCEPTED else com.bucks.app.data.Analytics.SYNC_REQUESTED); toast(Str.get(if (r == "ACCEPTED") R.string.g5_synced_with else R.string.g5_sync_sent, name)); refreshSyncs(); refreshSuggestions() }
     fun acceptSync(requester: String) = go { val p = me ?: return@go; Backend.acceptSync(requester, p.id); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.SYNC_ACCEPTED); toast(Str.get(R.string.g5_synced)); refreshSyncs() }
     fun unsync(other: String) = go { val p = me ?: return@go; Backend.unsync(p.id, other); refreshSyncs() }
     fun block(other: String) = go { val p = me ?: return@go; Backend.block(p.id, other); toast(Str.get(R.string.g5_blocked)); refreshSyncs(); refreshBlocked(); refreshInbox() }
@@ -173,12 +182,16 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     fun loadMoreFeed() = go { val last = feed.lastOrNull() ?: return@go; val more = Backend.feedSynced(here, me?.id, last.createdAt); feed = feed + more; feedEnd = more.size < 30; runCatching { namesFor(more.map { it.authorId }) } }
     fun post(body: String, media: List<Picked>, visibility: String, area: String) = go { val p = me ?: return@go; busy = true
         try { val paths = media.map { f -> "${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime }
-              Backend.post(p.id, body, paths, visibility, here, area); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_CREATED, "visibility" to visibility, "media" to paths.size); toast(Str.get(R.string.g5_posted)); refreshFeed() } finally { busy = false } }
+              // A still frame beside each video, so lists of videos have a picture to show without downloading the video. Best effort.
+              val posters = HashMap<String, String>()
+              media.forEachIndexed { i, f -> if (f.isVideo) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { Upload.videoPoster(f.bytes) }?.let { jpg ->
+                  val to = paths[i].first.substringBeforeLast('.') + "-poster.jpg"; if (runCatching { Backend.upload("posts", to, jpg) }.isSuccess) posters[paths[i].first] = to } }
+              Backend.post(p.id, body, paths, visibility, here, area, posters = posters); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_CREATED, "visibility" to visibility, "media" to paths.size); toast(Str.get(R.string.g5_posted)); refreshFeed() } finally { busy = false } }
     fun deletePost(id: String) = go { Backend.deletePost(id); feed = feed.filterNot { it.id == id } }
     fun vote(postId: String, v: Int) = go { val p = me ?: return@go
         val cur = feed.firstOrNull { it.id == postId } ?: return@go
         val prev = cur.myVote ?: 0; val next = if (prev == v) 0 else v
-        Backend.vote(postId, p.id, next)
+        Backend.vote(postId, p.id, next); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.POST_VOTE, "vote" to next)
         feed = feed.map { if (it.id != postId) it else it.copy(myVote = next.takeIf { n -> n != 0 }, up = it.up - (prev == 1).toInt() + (next == 1).toInt(), down = it.down - (prev == -1).toInt() + (next == -1).toInt()) } }
     suspend fun comments(postId: String): List<CommentRow> { val rows = Backend.comments(postId); namesFor(rows.map { it.authorId }); return rows }
     fun comment(postId: String, body: String, then: () -> Unit) = go { val p = me ?: return@go; Backend.comment(postId, p.id, body); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.COMMENT); feed = feed.map { if (it.id == postId) it.copy(comments = it.comments + 1) else it }; then() }

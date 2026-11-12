@@ -77,7 +77,28 @@ fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, 
         places = emptyList(); val t = q.trim(); if (t.length < 3) return@LaunchedEffect
         kotlinx.coroutines.delay(500); places = com.bucks.app.data.MapServices.search(t, near).take(3)
     }
+    // People, by name or Bucks ID, as cards with their quick actions; a tap opens the profile.
+    val social = vm.social; val openPerson = com.bucks.app.ui.social.LocalOpenPerson.current
+    var people by remember { mutableStateOf<List<com.bucks.app.data.PersonHit>>(emptyList()) }; var allPeople by remember { mutableStateOf(false) }
+    val sent = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    LaunchedEffect(social.me?.id) { if (social.me != null) social.refreshSyncs() }
+    LaunchedEffect(q) {
+        allPeople = false; val t = com.bucks.app.ui.social.peopleQuery(q); if (t.length < 2 || social.me == null) { people = emptyList(); return@LaunchedEffect }
+        kotlinx.coroutines.delay(300)
+        people = runCatching { com.bucks.app.data.BackendSafety.searchPeople(t) }.getOrDefault(emptyList())
+        runCatching { social.namesFor(people.map { it.id }) }
+    }
+    fun syncState(h: com.bucks.app.data.PersonHit) = when { h.synced || social.synced.any { it.id == h.id } -> "SYNCED"; social.incoming.any { it.id == h.id } -> "INCOMING"; sent[h.id] == true -> "SENT"; else -> "NONE" }
     Column(Modifier.imePadding()) {
+        if (people.isNotEmpty()) {
+            Text(stringResource(R.string.r1_people), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            (if (allPeople) people else people.take(3)).forEach { h ->
+                com.bucks.app.ui.social.PersonResultCard(vm, h, syncState(h), Modifier.padding(bottom = 8.dp), onOpen = { com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.PEOPLE_RESULT_TAP); openPerson(h.id) },
+                    onSync = { if (syncState(h) == "INCOMING") social.acceptSync(h.id) else { sent[h.id] = true; social.syncWith(h.id, h.name) } },
+                    onMessage = { social.openDirect(h.id) { vm.open(com.bucks.app.ui.nav.Routes.chat(it)) } })
+            }
+            if (!allPeople && people.size > 3) TextButton({ allPeople = true }) { Text(pluralStringResource(R.plurals.r1_more_people, people.size - 3, people.size - 3)) }
+        }
         if (q.trim().length >= 3) {
             places.forEach { h ->
                 ListRow(h.name, h.detail, leading = { Icon(Icons.Rounded.Place, null, tint = MaterialTheme.colorScheme.primary) }, trailing = { Muted(stringResource(R.string.g3_home_directions)) }, onClick = { com.bucks.app.ui.screens.MapsPick.place = h; q = ""; onPlace() })

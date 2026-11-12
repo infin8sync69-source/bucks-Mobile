@@ -219,15 +219,12 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
                 Muted(listOfNotNull(ago(p.createdAt), p.area.ifBlank { null }, when (p.visibility) { "SYNCED" -> stringResource(R.string.g2_visibility_synced); "PUBLIC" -> stringResource(R.string.g2_visibility_public); else -> null }).joinToString(" · ")) }
             if (mine) Box { IconButton({ menu = true }) { Icon(Icons.Rounded.MoreHoriz, stringResource(R.string.g2_more)) }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text(stringResource(R.string.g2_delete_post)) }, { menu = false; onDelete() }) } } }
         if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
-        // In the viewer a vote is a direct one (no feedback box); the box stays on the arrows below the post.
+        // The same one-tap vote in the full-screen viewer as on the arrows below the post.
         PostMedia(vm, p.media, vote = com.bucks.app.ui.ViewerVote(p.up, p.down, p.myVote ?: 0, onVote = onVote))
         val my = p.myVote ?: 0
         val upColor = if (my == 1) MaterialTheme.status.good else MaterialTheme.colorScheme.onSurfaceVariant; val downColor = if (my == -1) MaterialTheme.status.bad else MaterialTheme.colorScheme.onSurfaceVariant
-        // Tapping an arrow opens the feedback box; tapping the arrow I already chose takes my vote back (my own posts too).
-        var voting by remember { mutableStateOf<Int?>(null) }
-        fun tap(v: Int) { if (my == v) onVote(v) else voting = v }
-        voting?.let { v -> VoteFeedbackSheet(stringResource(R.string.g2_recommend_post_q), v, onSubmit = { vote, text, _ ->
-            voting = null; if (vote != my) onVote(vote); if (text.isNotBlank()) vm.social.comment(p.id, text) {} }, onDismiss = { voting = null }) }
+        // One tap votes; a tap on the arrow I already chose takes my vote back (my own posts too). Saying why is the small box under the arrows.
+        fun tap(v: Int) = onVote(v)
         // Only the larger side carries a number until I vote; then both do (postCountsShown).
         val (upShown, downShown) = postCountsShown(p.up, p.down, my)
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -237,6 +234,7 @@ fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComme
             Row(Modifier.minimumInteractiveComponentSize().clip(MaterialTheme.shapes.small).clickable(onClick = onComments).padding(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.g2_comments), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(" ${p.comments}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge) }
             IconButton(onClick = onShare) { Icon(Icons.Rounded.IosShare, stringResource(R.string.g2_cd_share), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+        InlineCommentBox(Modifier.padding(top = 2.dp)) { vm.social.comment(p.id, it) {} }
     }
     Divider()
 }
@@ -425,8 +423,8 @@ fun CloudMessagesScreen(vm: BucksViewModel, onBack: (() -> Unit)?, onOpen: (Stri
             else if (social.notesUnread > 0) IconButton({ social.markAllNotesRead() }) { Icon(Icons.Rounded.Done, stringResource(R.string.g2_cd_mark_all_read)) } })
         // Two tabs in one place: conversations, and everything else that needs me (sync requests, invites, orders, recommendations, documents).
         PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface, divider = { Divider() }) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g2_messages), style = MaterialTheme.typography.labelLarge); if (chatUnread > 0) { Spacer(Modifier.width(6.dp)); PillPurple("$chatUnread") } } })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g2_notifications), style = MaterialTheme.typography.labelLarge); if (social.notesUnread > 0) { Spacer(Modifier.width(6.dp)); PillPurple("${social.notesUnread}") } } })
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g2_messages), style = MaterialTheme.typography.labelLarge); if (chatUnread > 0) { Spacer(Modifier.width(6.dp)); CountBadge(chatUnread) } } })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g2_notifications), style = MaterialTheme.typography.labelLarge); if (social.notesUnread > 0) { Spacer(Modifier.width(6.dp)); CountBadge(social.notesUnread) } } })
         }
         if (tab == 1) NotificationsList(vm, onRoute) else {
         if (social.inbox.isEmpty()) Column(Modifier.padding(Gutter)) { Muted(stringResource(R.string.g2_inbox_empty))
@@ -437,7 +435,7 @@ fun CloudMessagesScreen(vm: BucksViewModel, onBack: (() -> Unit)?, onOpen: (Stri
             val name = c.otherName ?: c.title ?: stringResource(if (c.kind == "GROUP") R.string.g2_group else R.string.g2_chat)
             ListRow(name, listOfNotNull(if (customerRow) c.title?.let { stringResource(R.string.g2_about, it) } else null, c.lastBody?.take(60), ago(c.lastAt)).joinToString("  ·  "),
                 leading = { Box { if (c.kind == "GROUP") Avatar(icon = Icons.Rounded.Group) else Avatar(initials(name)); if (c.kind == "LISTING") Icon(Icons.Rounded.Storefront, null, Modifier.align(Alignment.BottomEnd).size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
-                trailing = { Row(verticalAlignment = Alignment.CenterVertically) { if (c.muted) Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); if (c.unread > 0) PillPurple("${c.unread}"); IconButton({ menuFor = c }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.g2_more)) } } },
+                trailing = { Row(verticalAlignment = Alignment.CenterVertically) { if (c.muted) Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); CountBadge(c.unread, Modifier.padding(start = 6.dp)); IconButton({ menuFor = c }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.g2_more)) } } },
                 onClick = { onOpen(c.conversationId) })
             Divider() } }
         }
@@ -650,25 +648,27 @@ private fun humanSize(b: Long) = when { b >= 1_048_576 -> "%.1f MB".format(b / 1
 /** A post's photos and video: one fills the width, several scroll sideways. A video shows a play button and streams when tapped. */
 @Composable
 /** [vote]: the post's arrows, shown in the full-screen viewer so people can recommend a photo or video where they see it. */
-fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, modifier: Modifier = Modifier, vote: com.bucks.app.ui.ViewerVote? = null) {
+/** [onOpen]: when given, a tap hands over the index of the photo or video (among this post's) and the caller shows it; Explore uses it to open a viewer that swipes on to the next post. */
+fun PostMedia(vm: BucksViewModel, media: kotlinx.serialization.json.JsonArray, modifier: Modifier = Modifier, vote: com.bucks.app.ui.ViewerVote? = null, onOpen: ((Int) -> Unit)? = null) {
     val items = media.mapNotNull { (it as? JsonObject)?.let { o -> o.s("path").takeIf { p -> p.isNotBlank() }?.let { p -> p to o.s("mime") } } }
     if (items.isEmpty()) return
     val width = if (items.size == 1) Modifier.fillMaxWidth() else Modifier.width(280.dp)
     val scroll = rememberScrollState()
     // Tapping a photo opens all of the post's photos and videos full screen, on that one.
-    var open by remember { mutableStateOf<Int?>(null) }
+    var shown by remember { mutableStateOf<Int?>(null) }
+    fun show(i: Int) { if (onOpen != null) onOpen(i) else shown = i }
     Row(modifier.padding(top = 10.dp).then(if (items.size > 1) Modifier.horizontalScroll(scroll) else Modifier), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEachIndexed { i, (path, mime) ->
             val shape = Modifier.then(width).height(260.dp).clip(MaterialTheme.shapes.medium)
             if (mime.startsWith("video/") || path.endsWith(".mp4", true)) Box(shape) {
                 PostVideo(vm, path, Modifier.fillMaxSize())
-                IconButton({ open = i }, Modifier.align(Alignment.TopEnd).padding(4.dp).size(36.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f))) {
+                IconButton({ show(i) }, Modifier.align(Alignment.TopEnd).padding(4.dp).size(36.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f))) {
                     Icon(Icons.Rounded.Fullscreen, stringResource(R.string.g2_cd_full_screen), tint = Color.White) }
             }
-            else SignedImage(vm, "posts", path, shape.clickable(onClickLabel = stringResource(R.string.g2_cd_view_full_screen)) { open = i })
+            else SignedImage(vm, "posts", path, shape.clickable(onClickLabel = stringResource(R.string.g2_cd_view_full_screen)) { show(i) })
         }
     }
-    open?.let { i -> com.bucks.app.ui.MediaViewer(vm, com.bucks.app.ui.ViewerMedia.ofPost(media), start = i, vote = vote) { open = null } }
+    shown?.let { i -> com.bucks.app.ui.MediaViewer(vm, com.bucks.app.ui.ViewerMedia.ofPost(media), start = i, vote = vote) { shown = null } }
 }
 
 @Composable
@@ -703,9 +703,19 @@ private fun noteIcon(kind: String) = when (kind) {
 /** The Notifications tab: newest first, unread in bold with a dot, tap opens the thing it is about, long-press or the x removes it. */
 @Composable
 private fun NotificationsList(vm: BucksViewModel, onRoute: (String) -> Unit) {
-    val social = vm.social; val notes = social.notes
-    if (notes.isEmpty()) { Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g2_nothing_new), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g2_notes_empty), Modifier.padding(top = 4.dp)) }; return }
-    LazyColumn { items(notes, key = { it.id }) { n ->
+    val social = vm.social; val notes = social.notes; val openPerson = com.bucks.app.ui.social.LocalOpenPerson.current
+    LaunchedEffect(Unit) { social.refreshSyncs() }
+    if (notes.isEmpty() && social.incoming.isEmpty()) { Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g2_nothing_new), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g2_notes_empty), Modifier.padding(top = 4.dp)) }; return }
+    LazyColumn {
+        // Sync requests waiting for my answer come first, with the answer right here: no trip to the Sync screen.
+        if (social.incoming.isNotEmpty()) item(key = "sync-requests") { Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)).padding(bottom = 6.dp)) {
+            Text(pluralStringResource(R.plurals.r1_sync_requests, social.incoming.size, social.incoming.size), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = Gutter, end = Gutter, top = 14.dp, bottom = 4.dp))
+            social.incoming.forEach { p -> Row(Modifier.fillMaxWidth().clickable { openPerson(p.id) }.padding(horizontal = Gutter, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(initials(p.name.ifBlank { "?" }), size = 40, photoUrl = p.photoUrl)
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(p.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted(listOfNotNull(stringResource(R.string.r1_wants_to_sync), p.area.ifBlank { null }).joinToString(" · "), maxLines = 1) }
+                SmallButton(stringResource(R.string.g7_id_accept)) { social.acceptSync(p.id) }; Spacer(Modifier.width(6.dp)); SmallButton(stringResource(R.string.g7_id_ignore), tonal = true) { social.unsync(p.id) }
+            } } } }
+        items(notes, key = { it.id }) { n ->
         val unread = n.readAt == null
         Row(Modifier.fillMaxWidth().clickable { social.markNoteRead(n.id); n.route?.let(onRoute) }.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.Top) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(if (unread) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {

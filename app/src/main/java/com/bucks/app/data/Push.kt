@@ -45,6 +45,7 @@ class BucksMessagingService : FirebaseMessagingService() {
         val title = d["title"] ?: message.notification?.title ?: return
         val body = d["body"] ?: message.notification?.body ?: ""
         Push.show(this, type = d["type"] ?: "social", title = title, body = body, route = Push.safeRoute(d["route"]), quiet = d["quiet"] == "true")
+        Push.arrivals.tryEmit(d["type"] ?: "social")
     }
 }
 
@@ -138,6 +139,9 @@ object Push {
         val prefixes = listOf("chat/", "cloud-order/", "orders-for/", "delivery/", "moments/", "l/", "job/", "jobs-of/", "members/", "studio/", "listing-docs/", "doc-requests/", "post/")
         return if (r in exact || prefixes.any { r.startsWith(it) && r.length > it.length }) r else null
     }
+
+    /** One tick per push received (its type), for the open app to refresh its badges and lists straight away (ui/Social.kt). */
+    val arrivals = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 8, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
 
     /** The route from a launch intent, if a notification started or re-opened the app. */
     fun routeFrom(intent: Intent?): String? = safeRoute(intent?.getStringExtra(EXTRA_ROUTE))

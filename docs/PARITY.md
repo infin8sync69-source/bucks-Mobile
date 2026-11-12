@@ -27,6 +27,7 @@ Status: **=** same on both, **A** Android only so far, **i** iOS only so far, **
 | Bucks ID, settings (privacy, notifications, appearance, blocked, close friends) | `ui/screens/BucksIdScreen.kt`, `SettingsScreens.kt` | `BucksUI/Screens/Identity/*`, `Settings/*`, `Account/AppearanceScreen.swift` | = |
 | Assistant (typed and voice) and the confirmation gate | `ai/*`, `ui/BucksViewModel.kt` | `BucksUI/Assistant/*` | = |
 | Push: routes, kinds, quiet hours | `data/Push.kt`, `supabase/functions/notify` | `BucksCore/Push.swift`, `BucksUI/App/PushRouting.swift` | = (needs the APNs server change below) |
+| Revision 1 (first closed test): About you step in onboarding, ☰ menu with orders / settings / help / log out, notification bell and new count badges, sync requests answered from Notifications, people cards in Home search, one-tap arrows with the inline comment box, Explore tab (search, pills, video / image / file pages, viewer with previous and next) | `ui/onboarding/OnboardingScreens.kt`, `ui/BucksAppUi.kt`, `ui/components/Components.kt`, `ui/screens/HomeScreens.kt`, `ui/social/Discover.kt`, `ui/screens/ExploreScreen.kt`, `ui/MediaViewer.kt` | not ported yet | A |
 
 Every backend call (RPC and table) the Android app makes in live mode is also made by the iOS app; the RPC names and parameters are
 the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `open_moments`).

@@ -185,6 +185,9 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     /** Quietly sets where I'm based from my first location fix (onboarding no longer asks for an area). */
     fun setHomeArea(area: String, at: LatLng) { val u = s.user ?: return
         _s.update { it.copy(user = u.copy(area = area)) }; persist(); social.profileSaved(u.name, area, u.bio, at) }
+    /** Onboarding's last step: a line about me and my gender. Name, area and home stay as they are. */
+    fun saveAbout(bio: String, gender: String) { val u = s.user ?: return
+        _s.update { it.copy(user = u.copy(bio = bio, gender = gender)) }; persist(); social.profileSaved(u.name, u.area, bio); if (gender.isNotBlank()) social.genderSaved(gender) }
     /** [home]: the place chosen as where I'm based (null keeps the saved one). */
     fun createProfile(name: String, area: String, bio: String, gender: String = "", interests: List<String> = emptyList(), home: LatLng? = null) {
         val base = s.user ?: User(name, area, bio, s.tempPhone, email = s.tempEmail, id = safeId(), verified = if (s.tempPhone.isNotBlank()) setOf(VerificationLevel.PHONE) else emptySet())

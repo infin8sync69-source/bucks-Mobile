@@ -42,7 +42,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -81,6 +84,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         var reporting by remember { mutableStateOf<com.bucks.app.ui.social.ReportTarget?>(null) }
         val openPerson: (String) -> Unit = { id -> if (id == vm.social.me?.id) nav.navigate("account") { popUpTo(Routes.HOME); launchSingleTop = true } else nav.navigate(Routes.person(id)) }
         CompositionLocalProvider(LocalCartAction provides (if (vm.social.enabled) CartAction(vm.commerce.count) { nav.navigate(Routes.CLOUD_CART) { launchSingleTop = true } } else null),
+            LocalNotifAction provides (if (vm.social.enabled) NotifAction(vm.social.notesUnread) { nav.navigate(Routes.NOTIFICATIONS) { launchSingleTop = true } } else null),
             com.bucks.app.ui.social.LocalReporter provides { t -> reporting = t }, com.bucks.app.ui.social.LocalOpenPerson provides openPerson) {
         val width = windowWidth()
         // Cold start for someone already signed in: the purple system splash hands over to the wordmark intro, which fades up
@@ -135,7 +139,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             confirmButton = { TextButton({ notifHelp = null; runCatching { ctx.startActivity(RingAlert.settingsIntent(ctx, p)) } }) { Text(stringResource(R.string.g3_open_settings)) } },
             dismissButton = { TextButton({ notifHelp = null }) { Text(stringResource(R.string.g3_not_now)) } }) }
         // Notifications: not on the first visit (people should see the app first); from the second launch on, once.
-        LaunchedEffect(s.user != null, showIntro) { if (!showIntro && s.user != null && Prefs.launches >= 2 && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        // Sooner when there is a reason to: I just asked someone to sync, or something is already waiting for me (a sync request, an invite).
+        val alertsDue = Prefs.launches >= 2 || vm.social.wantsAlerts || vm.social.notesUnread > 0 || vm.social.incoming.isNotEmpty()
+        LaunchedEffect(s.user != null, showIntro, alertsDue, locDisclosure) { if (!showIntro && !locDisclosure && s.user != null && alertsDue && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
         LaunchedEffect(Unit) { vm.nav.collect { route -> when {
             route == Routes.HOME || route == Routes.FEED || route == Routes.ACTIVITY -> nav.navigate(route) { popUpTo(Routes.HOME) { inclusive = route == Routes.HOME } }
             route in RIDE_STAGES -> nav.navigate(route) { popUpTo(Routes.HOME); launchSingleTop = true }
@@ -156,14 +162,14 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         LaunchedEffect(current) { com.bucks.app.data.Analytics.screen(current.substringBefore('/').substringBefore('?')) }
         // Accounts made before onboarding asked for a date of birth: the birthday screen once, then on as usual.
         LaunchedEffect(safety.state?.birthDateSet, current) {
-            if (safety.state?.birthDateSet == false && s.user != null && current !in listOf(Routes.NAME, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.SPLASH))
+            if (safety.state?.birthDateSet == false && s.user != null && current !in listOf(Routes.NAME, Routes.ABOUT, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.SPLASH))
                 nav.navigate(Routes.NAME) { popUpTo(0); launchSingleTop = true } }
         // Under 18 with no guardian consent yet: the guardian step, wherever they are (the server refuses their posts, messages and orders until then).
         LaunchedEffect(safety.pendingStep, current) {
-            if (safety.pendingStep == Safety.STEP_GUARDIAN && s.user != null && current !in listOf(Routes.GUARDIAN, Routes.NAME, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.SPLASH))
+            if (safety.pendingStep == Safety.STEP_GUARDIAN && s.user != null && current !in listOf(Routes.GUARDIAN, Routes.NAME, Routes.ABOUT, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.SPLASH))
                 nav.navigate(Routes.GUARDIAN) { popUpTo(0); launchSingleTop = true } }
         val currentTab = when { current.startsWith("feed") -> BottomTab.FEED; current.startsWith("services") || current == Routes.SEARCH || current.startsWith("provider/") || current.startsWith("l/") -> BottomTab.SERVICES; current.startsWith("recommended") -> BottomTab.RECOMMENDED; current.startsWith("account") -> BottomTab.ACCOUNT; else -> BottomTab.HOME }
-        val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.NAME, Routes.GUARDIAN, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
+        val loggedIn = s.user != null && current !in listOf(Routes.SPLASH, Routes.LANGUAGE, Routes.LOGIN, Routes.OTP, Routes.NAME, Routes.ABOUT, Routes.GUARDIAN, Routes.SIGNUP_EMAIL, Routes.PROFILE) || (s.user != null && current == Routes.PROFILE)
         // A driver trip in progress is full-screen, like the design (no bottom navigation).
         val onTrip = s.driverRide != null && s.driverRide?.status != com.bucks.app.data.DriverRideStatus.RINGING && current == Routes.HOME
         val showBottomBar = !onTrip && width == Width.COMPACT && (current in listOf(Routes.HOME, Routes.FEED, Routes.SERVICES, Routes.RECOMMENDED, Routes.SEARCH) || current.startsWith("provider/") || current.startsWith("account"))
@@ -184,6 +190,9 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
         // Home's "Return": the screen for where the rider's unfinished trip is now.
         val returnToRide: () -> Unit = { s.ride?.status?.let { BucksViewModel.rideRoute(it) }?.let { r -> nav.navigate(r) { popUpTo(Routes.HOME); launchSingleTop = true } } }
         val logout: () -> Unit = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }
+        var logoutAsk by remember { mutableStateOf(false) }
+        if (logoutAsk) AlertDialog(onDismissRequest = { logoutAsk = false }, title = { Text(stringResource(R.string.g2_set_log_out_q)) }, text = { Text(stringResource(R.string.g2_set_log_out_body)) },
+            confirmButton = { TextButton({ logoutAsk = false; scope.launch { drawer.close() }; logout() }) { Text(stringResource(R.string.g2_set_log_out)) } }, dismissButton = { TextButton({ logoutAsk = false }) { Text(stringResource(R.string.g2_cancel)) } })
 
         Box(Modifier.fillMaxSize()) {
         ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = loggedIn, drawerContent = {
@@ -197,6 +206,21 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     Row(Modifier.padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Bucks Pro", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                         IconButton(onClick = closeMenu) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g3_cd_close_menu), tint = MaterialTheme.colorScheme.primary) }
+                    }
+                    // Bucks ID first, at the top of the menu: my ID and how long the card is valid, one tap to the full card (QR, barcode, renew).
+                    if (studio) vm.social.me?.let { me ->
+                        val info = BucksIdCardInfo.of(me.idIssuedAt)
+                        Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                            .background(Brush.linearGradient(listOf(Color(0xFF811FF0), Color(0xFF4A0AA6)))).clickable(onClickLabel = stringResource(R.string.g3_cd_open_pro_id)) { closeMenu(); nav.navigate(Routes.BUCKS_ID) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.QrCode2, null, tint = Color.White)
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                Text(stringResource(R.string.g3_pro_id), color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall)
+                                Text(pretty(me.shortCode), color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace))
+                                Text(when { info == null -> stringResource(R.string.g3_pro_id_show); info.expired -> stringResource(R.string.g3_pro_id_expired, info.validTill); info.renewable -> stringResource(R.string.g3_pro_id_renew_soon, info.validTill); else -> stringResource(R.string.g3_pro_id_valid_till, info.validTill) },
+                                    color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(Icons.Rounded.ChevronRight, null, tint = Color.White)
+                        }
                     }
                     // Pro profile: my professional side, one tap from the menu (adults only; the screen says so otherwise).
                     if (studio && vm.social.me != null) Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
@@ -229,12 +253,23 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                     if (studio) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                         Column(Modifier.padding(12.dp)) {
+                            if (vm.dispatch.enabled) DrawerItem(Icons.Rounded.Payments, stringResource(R.string.g2_set_payment_qr), current == Routes.PAYMENT_QR) { closeMenu(); nav.navigate(Routes.PAYMENT_QR) }
                             DrawerItem(Icons.Rounded.MailOutline, if (m.pendingCount > 0) stringResource(R.string.g3_menu_invites_count, m.pendingCount) else stringResource(R.string.g3_menu_invites), current == Routes.INVITES) { closeMenu(); nav.navigate(Routes.INVITES) }
                         }
                     }
+                    // Personal: orders and activity, settings, help. They moved here from Profile, which is now only who I am and what I post.
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    Column(Modifier.padding(12.dp)) {
+                        DrawerItem(Icons.Rounded.ShoppingBag, stringResource(R.string.g5_row_activity), current == Routes.MY_ORDERS || backEntry?.arguments?.getString("tab") == "activity") { closeMenu(); nav.navigate(Routes.ACTIVITY) { launchSingleTop = true } }
+                        DrawerItem(Icons.Rounded.Settings, stringResource(R.string.g5_row_settings), current.startsWith(Routes.SETTINGS)) { closeMenu(); nav.navigate(if (studio) Routes.SETTINGS else "account?tab=settings") { launchSingleTop = true } }
+                        DrawerItem(Icons.AutoMirrored.Rounded.HelpOutline, stringResource(R.string.g5_row_help), current == Routes.HELP) { closeMenu(); nav.navigate(if (studio) Routes.HELP else "account?tab=settings") { launchSingleTop = true } }
                     }
-                    // The menu is only for running Pro accounts: pages, vehicles and their team. Personal things (orders, applications,
-                    // settings, help, Bucks ID, log out) live under Profile.
+                    }
+                    // Log out stays in view at the foot of the menu, whatever the length of the list above; it asks first.
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).navigationBarsPadding()) {
+                        DrawerItem(Icons.AutoMirrored.Rounded.Logout, stringResource(R.string.g2_set_log_out), false) { logoutAsk = true }
+                    }
                 }
             } }
         }) {
@@ -260,8 +295,10 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                 onUseEmail = if (vm.cloud) null else ({ nav.navigate(Routes.SIGNUP_EMAIL) })) }
                             composable(Routes.SIGNUP_EMAIL) { SignUpEmailScreen(vm, onBack = { nav.popBackStack() }, onCreated = { nav.navigate(Routes.NAME) }, onUseMobile = { nav.popBackStack() }) }
                             composable(Routes.OTP) { com.bucks.app.ui.onboarding.CodeScreen(vm, s.tempPhone, onEdit = { nav.popBackStack() }, onVerified = { if (vm.isLoggedIn) nav.navigate(Routes.HOME) { popUpTo(0) } else nav.navigate(Routes.NAME) { popUpTo(0) } }) }
-                            composable(Routes.NAME) { com.bucks.app.ui.onboarding.NameScreen(vm, onDone = { band -> nav.navigate(if (band == "TEEN" || band == "CHILD") Routes.GUARDIAN else Routes.HOME) { popUpTo(0) } },
+                            composable(Routes.NAME) { com.bucks.app.ui.onboarding.NameScreen(vm, // About you follows Name only for a brand-new adult account (an older account sent back for its birthday goes straight on; under 18 goes to the guardian step).
+                                onDone = { band, created -> nav.navigate(if (band == "TEEN" || band == "CHILD") Routes.GUARDIAN else if (created) Routes.ABOUT else Routes.HOME) { popUpTo(0) } },
                                 onBlocked = { vm.logout(); nav.navigate(Routes.LOGIN) { popUpTo(0) } }) }
+                            composable(Routes.ABOUT) { com.bucks.app.ui.onboarding.AboutYouScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }) }
                             composable(Routes.GUARDIAN) { com.bucks.app.ui.social.GuardianScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, onSignOut = logout) }
                             composable(Routes.PROFILE) { CreateProfileScreen(vm, onDone = { nav.navigate(Routes.HOME) { popUpTo(0) } }, showToast = toast) }
                             composable(Routes.HOME) { HomeScreen(vm, openMenu, messages, onSearch = { nav.navigate(Routes.SEARCH) }, onRide = ride, onQuery = query, onServices = { tab(BottomTab.SERVICES) }, onProCreate = { nav.navigate(Routes.VEHICLE_FORM) }, onEarnings = { nav.navigate(Routes.EARNINGS) }, onListings = { nav.navigate(Routes.LISTINGS) }, onChatWith = chatWith, onCall = call, onPlace = { nav.navigate(Routes.MAPS) }, onReturnToRide = returnToRide) }
@@ -285,7 +322,7 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
                                     else -> { val group = PageTypes.groups.firstOrNull { it.key != "SHOPS" && key in it.services }
                                         if (group != null) pickGroup = group.key else nav.navigate(Routes.listingEdit(null, "BUSINESS", key)) } } }) }
                             composable(Routes.FEED) { if (vm.social.enabled) CloudFeedScreen(vm, openMenu, messages, onOpenMoments = { nav.navigate(Routes.moments(it)) }, onNewMoment = { nav.navigate(Routes.MOMENT_NEW) }, onFindPeople = { nav.navigate(Routes.DISCOVER) }) else FeedScreen(vm, openMenu, messages, toast) }
-                            composable(Routes.RECOMMENDED) { if (vm.social.enabled) com.bucks.app.ui.screens.CloudForYouScreen(vm, openMenu, messages, onListing = { nav.navigate(Routes.listing(it)) }, onFindPeople = { nav.navigate(Routes.DISCOVER) }) else RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith, onListing = { nav.navigate(Routes.listing(it)) }) }
+                            composable(Routes.RECOMMENDED) { if (vm.social.enabled) com.bucks.app.ui.screens.ExploreScreen(vm, openMenu, messages, onListing = { nav.navigate(Routes.listing(it)) }, onFindPeople = { nav.navigate(Routes.DISCOVER) }) else RecommendedScreen(vm, openMenu, messages, onProvider = { nav.navigate(Routes.provider(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onChatWith = chatWith, onListing = { nav.navigate(Routes.listing(it)) }) }
                             composable("account?tab={tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = "profile" })) { e ->
                                 AccountScreen(vm, e.arguments?.getString("tab") ?: "profile", openMenu, messages, onProCreate = { vm.startPro(null, 1); nav.navigate(Routes.PRO_CREATE) }, onOrder = { nav.navigate(Routes.order(it)) }, onRequest = { nav.navigate(Routes.requestStatus(it)) }, onEditProfile = { nav.navigate(Routes.PROFILE) }, onToggleTheme = { nav.navigate(Routes.SETTINGS_APPEARANCE) }, onOpen = { nav.navigate(it) }, onLogout = logout, onDeleted = { nav.navigate(Routes.LOGIN) { popUpTo(0) } }, onCreatePost = { nav.navigate(Routes.CREATE_POST) }, showToast = toast) }
                             composable(Routes.SEARCH) { if (vm.social.enabled) CloudSearchScreen(vm, onBack = { nav.popBackStack() }, onOpenListing = { nav.navigate(Routes.listing(it)) }, onRide = { k -> vm.setRideKind(k); ride() }, onPlace = { nav.navigate(Routes.MAPS) }) else SearchScreen(vm, onBack = { nav.popBackStack() }, onProvider = { id, t -> nav.navigate(Routes.provider(id, t)) }, onRequest = { nav.navigate(Routes.request(it)) }, onMessages = messages, onChatWith = chatWith, onCall = call, onCart = { nav.navigate(Routes.CART) }, showToast = toast) }

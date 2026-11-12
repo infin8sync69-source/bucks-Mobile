@@ -57,6 +57,8 @@ files=(
   migrations/places.sql
   migrations/map_guardrails.sql
   migrations/social_lenses.sql
+  migrations/explore.sql
+  migrations/profile_details.sql
   migrations/report_more_kinds.sql
   migrations/search_path_fixes.sql
   migrations/onboarding_v2.sql
@@ -64,6 +66,7 @@ files=(
   migrations/job_notifications.sql
   migrations/checkout_safety.sql
   migrations/guardian_gate.sql
+  migrations/billing.sql
 )
 
 case "${1:-}" in

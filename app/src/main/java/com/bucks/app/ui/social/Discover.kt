@@ -159,3 +159,44 @@ fun SafetyNote(text: String) = Row(Modifier.fillMaxWidth().padding(horizontal = 
     Icon(Icons.Rounded.Shield, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(start = 12.dp))
 }
+
+/** A typed Bucks ID with its spaces or dashes ("h6vf ywyf") is sent as the bare code, which is what the server matches exactly; anything else goes as typed. */
+fun peopleQuery(typed: String): String { val bare = typed.filter { it.isLetterOrDigit() }; return if (com.bucks.app.ui.components.BucksQr.looksLikeBucksId(bare)) bare.uppercase() else typed.trim() }
+
+/**
+ * A person in search results, as a card: picture, name, Bucks ID, where they are and people in common, with the quick actions under
+ * it (Sync or its state, Message once synced, Profile). The whole card opens their profile.
+ */
+@Composable
+fun PersonResultCard(vm: BucksViewModel, h: PersonHit, state: String, modifier: Modifier = Modifier, onOpen: () -> Unit, onSync: () -> Unit, onMessage: () -> Unit) =
+    Surface(onClick = onOpen, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(initials(h.name.ifBlank { "?" }), size = 48, photoUrl = vm.social.photoOf(h.id))
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(h.name.ifBlank { stringResource(R.string.g8_bucks_id_code, h.shortCode) }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.g8_bucks_id_code, com.bucks.app.ui.screens.pretty(h.shortCode)), style = MaterialTheme.typography.labelMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace), color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                    val sub = listOfNotNull(h.area.ifBlank { null }, if (h.mutual > 0) pluralStringResource(R.plurals.g8_mutual, h.mutual, h.mutual) else null).joinToString(" · ")
+                    if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                when (state) {
+                    "SYNCED" -> QuickAction(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.r1_message), filled = true, onClick = onMessage)
+                    "SENT" -> QuickAction(Icons.Rounded.Schedule, stringResource(R.string.g8_requested), enabled = false) {}
+                    "INCOMING" -> QuickAction(Icons.Rounded.Check, stringResource(R.string.g8_accept), filled = true, onClick = onSync)
+                    else -> QuickAction(Icons.Rounded.Sync, stringResource(R.string.g8_sync), filled = true, onClick = onSync)
+                }
+                QuickAction(Icons.Rounded.Person, stringResource(R.string.r1_profile), onClick = onOpen)
+            }
+        }
+    }
+
+@Composable
+private fun QuickAction(icon: ImageVector, label: String, filled: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+    val bg = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+    val fg = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    Row(Modifier.heightIn(min = 36.dp).clip(CircleShape).background(bg.copy(alpha = if (enabled) 1f else 0.5f)).clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(16.dp), tint = fg); Text(" $label", style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
+    }
+}
