@@ -282,7 +282,7 @@
     <string name="g3_dt_the_shop">the shop</string>
     <string name="g3_dt_rider">Rider</string>
     <string name="g3_dt_no_rider_yet">No rider yet</string>
-    <string name="g3_dt_no_rider_yet_body">Nobody nearby took it in time. Message the shop. They can send their own rider or refund you.</string>
+    <string name="g3_dt_no_rider_yet_body">Nobody nearby took it in time. Message the shop: it can send its own rider if it has one, or refund you.</string>
     <string name="g3_dt_finding">Finding a rider</string>
     <string name="g3_dt_finding_body">Ringing bikes near %1$s. The first to accept collects your order.</string>
     <string name="g3_dt_matched">Rider on the way to the shop</string>
@@ -295,7 +295,7 @@
     <string name="g3_dt_left_shop">Your order has left the shop</string>
     <string name="g3_dt_delivered_body">Your order was handed over.</string>
     <string name="g3_dt_no_driver">No rider was free</string>
-    <string name="g3_dt_no_driver_body">Nobody nearby could take it. The shop can send its own rider, or you can reorder.</string>
+    <string name="g3_dt_no_driver_body">Nobody nearby could take it. The shop can send its own rider if it has one, or you can reorder.</string>
     <string name="g3_dt_cancelled">Delivery cancelled</string>
     <string name="g3_dt_cancelled_body">This delivery was cancelled.</string>
     <string name="g3_dt_your_rider">Your rider</string>

@@ -260,7 +260,7 @@
     <string name="g6_tl_acc_ringing_shop">Ringing a rider. Mark it packed when it\'s ready to hand over.</string>
     <string name="g6_tl_rider_finding">Finding a rider near the shop.</string>
     <string name="g6_tl_rider_ringing">Ringing riders near the shop.</string>
-    <string name="g6_tl_rider_none">No rider free right now. Call the shop: they can send their own rider or cancel the order.</string>
+    <string name="g6_tl_rider_none">No rider free right now. Call the shop: it can send its own rider if it has one, or cancel the order.</string>
     <string name="g6_tl_rider_cancelled">The delivery was cancelled. Call the shop.</string>
     <string name="g6_tl_rider_at_shop">The rider is at the shop.</string>
     <string name="g6_tl_rider_coming">A rider is on the way to the shop.</string>

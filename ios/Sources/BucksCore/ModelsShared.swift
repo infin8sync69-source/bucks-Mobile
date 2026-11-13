@@ -99,6 +99,8 @@ public struct NotificationRow: Codable, Hashable, Sendable, Identifiable {
 }
 
 public struct MemberRow: Codable, Hashable, Sendable { public var listingId: String; public var profileId: String; public var role: String }
+/// One of a shop's store riders (`store_riders`): online = on a checked bike in the last 5 minutes; hasBike = owns or drives a checked bike.
+public struct StoreRiderRow: Codable, Hashable, Sendable { public var profileId: String; public var name: String; public var photoUrl: String?; public var online: Bool; public var hasBike: Bool }
 
 public struct ItemRow: Codable, Hashable, Sendable, Identifiable {
     public var id: String?

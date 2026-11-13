@@ -511,6 +511,27 @@ public extension EnvironmentValues {
     var bucksNotifAction: NotifAction? { get { self[NotifActionKey.self] } set { self[NotifActionKey.self] = newValue } }
 }
 
+/// Opens a person's profile from wherever their name or picture shows (Android's LocalOpenPerson): my own id goes to the Profile tab,
+/// anyone else to their profile. Provided once by the signed-in shell.
+private struct OpenPersonKey: EnvironmentKey { static let defaultValue: ((String) -> Void)? = nil }
+public extension EnvironmentValues {
+    var openPerson: ((String) -> Void)? { get { self[OpenPersonKey.self] } set { self[OpenPersonKey.self] = newValue } }
+}
+public extension View {
+    /// Makes a name or picture open that person's profile. Nil or empty `id` leaves it as it is.
+    func opensProfile(_ id: String?, name: String = "") -> some View { modifier(OpensProfile(id: id, name: name)) }
+}
+private struct OpensProfile: ViewModifier {
+    let id: String?; let name: String
+    @Environment(\.openPerson) private var openPerson
+    func body(content: Content) -> some View {
+        if let id, !id.isEmpty, let openPerson {
+            Button { openPerson(id) } label: { content.contentShape(Rectangle()) }
+                .buttonStyle(.plain).accessibilityHint(name.isEmpty ? "Opens their profile" : "Opens \(name)'s profile")
+        } else { content }
+    }
+}
+
 /// The one count badge (Android's CountBadge): a small red pill, "99+" at most, nothing for zero. `ringed` gives it a ring in the
 /// surface colour so it stays clear of the icon it rides on; without the ring it sits inline, next to a tab label or at a row's end.
 public struct CountBadge: View {

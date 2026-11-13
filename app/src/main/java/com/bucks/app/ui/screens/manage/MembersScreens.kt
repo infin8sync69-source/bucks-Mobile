@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.bucks.app.data.Str
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -76,6 +77,13 @@ fun MembersScreen(vm: BucksViewModel, listingId: String? = null, vehicleId: Stri
                 else {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Chip(stringResource(R.string.g8_admin), selected = role == "ADMIN") { role = "ADMIN" }; Chip(stringResource(R.string.g8_store_rider), selected = role == "STORE_RIDER") { role = "STORE_RIDER" } }
                     Muted(roleExplain(role, false), Modifier.padding(top = 6.dp))
+                    // What a store rider still has to do before an order can ring them, and the app for one who isn't on Bucks yet.
+                    if (role == "STORE_RIDER") {
+                        LaunchedEffect(Unit) { vm.commerce.loadDeliveryRadius() }
+                        Muted(stringResource(R.string.g7_rd_needs, vm.commerce.deliveryRadiusLabel), Modifier.padding(top = 6.dp))
+                        val scope = rememberCoroutineScope()
+                        SmallButton(stringResource(R.string.g7_rd_send_app), Modifier.padding(top = 8.dp), tonal = true) { com.bucks.app.ui.Invite.share(ctx, scope, Str.get(R.string.g7_rd_share_store, title)) }
+                    }
                 }
                 PrimaryButton(stringResource(R.string.g8_send_invite), Modifier.padding(top = 14.dp), enabled = BucksQr.looksLikeBucksId(code)) { m.invite(listingId, vehicleId, code, if (vehicleMode) "ADMIN" else role); code = "" }
                 if (pending.isNotEmpty()) {

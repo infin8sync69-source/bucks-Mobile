@@ -620,4 +620,33 @@
     <string name="g7_pp_share">%1$s on Bucks. Open Bucks and search \"%1$s\".</string>
     <plurals name="g7_pp_years"><item quantity="one">%d year</item><item quantity="other">%d years</item></plurals>
     <string name="g7_dash_f_languages">Languages</string>
+    <!-- Delivery riders: reminders for shops, invites from customers. A delivery goes to the shop's own store rider or to a Bucks
+         delivery agent (anyone online on a bike, the pick-up and drop vehicle). Every line says "online now", never "none registered". -->
+    <string name="g7_rd_edit_note">Add your own delivery riders. A delivery goes to your own store rider, or to a Bucks delivery agent (someone on a bike for pick-up and drop) who is online near your shop, and there may be none near you yet. After you save, open Team and invite each rider by their Bucks ID as Store rider.</string>
+    <string name="g7_rd_needs">To be rung for deliveries, a store rider accepts the invite, adds a bike under My listings &gt; Vehicles and waits for Bucks to check it, then goes online within %1$s of the shop.</string>
+    <string name="g7_rd_dash_title">Add your own delivery riders</string>
+    <string name="g7_rd_dash_none">You have no store riders yet. When no Bucks delivery agent is online within %1$s of the shop, a delivery order finds nobody, and all you can do is ring again or cancel it. With your own riders you can send one yourself, and offer cash on delivery.</string>
+    <string name="g7_rd_dash_no_bike">None of your store riders has a checked bike yet, so they can't be rung for deliveries. Each one adds a bike under My listings &gt; Vehicles and waits for Bucks to check it.</string>
+    <string name="g7_rd_open_team">Invite a store rider</string>
+    <string name="g7_rd_send_app">Send them the Bucks app</string>
+    <string name="g7_rd_share_store">I'd like you to deliver for %1$s on Bucks. Install Bucks and send me your Bucks ID (Account &gt; Your Bucks ID) so I can invite you as our store rider. Then add your bike under My listings &gt; Vehicles so Bucks can check it.</string>
+    <string name="g7_rd_cart_none">No Bucks delivery agent is online within %1$s of %2$s right now, so this delivery may find nobody. Agents can come online at any time.</string>
+    <string name="g7_rd_cart_use_pickup">I'll pick up works without a rider.</string>
+    <string name="g7_rd_cart_store_offline">None of %1$s's own riders is online right now, so this delivery may wait or find nobody. I'll pick up works without a rider.</string>
+    <string name="g7_rd_invite_agents">Invite a delivery agent</string>
+    <string name="g7_rd_share_agent">Bucks needs delivery agents near %1$s. If you have a bike, join Bucks, add it under My listings &gt; Vehicles (Bucks checks its papers) and go online to deliver local orders and earn the delivery fee.</string>
+    <!-- Delivery time a shop promises (details.delivery_time and delivery_slot; ui/DeliveryTimes.kt). -->
+    <string name="g7_dtime_10m">Within 10 min</string>
+    <string name="g7_dtime_30m">Within 30 min</string>
+    <string name="g7_dtime_1h">Within 1 hour</string>
+    <string name="g7_dtime_2h">Within 2 hours</string>
+    <string name="g7_dtime_same_day">Same day</string>
+    <string name="g7_dtime_24h">Within 24 hours</string>
+    <string name="g7_dtime_2d">Within 2 days</string>
+    <string name="g7_dtime_label">Delivery time</string>
+    <string name="g7_dtime_note">How soon you usually deliver after you accept an order. Customers see it on your page and in the cart. Pick one you can keep: with a Bucks delivery agent it also depends on one being free near you. Tap it again to clear it. You can change it any time.</string>
+    <string name="g7_dtime_slot">Preferred delivery time (optional)</string>
+    <string name="g7_dtime_slot_hint">6 pm to 9 pm, or mornings only</string>
+    <string name="g7_dtime_slot_short">preferred %1$s</string>
+    <string name="g7_dtime_cart">%1$s usually delivers: %2$s.</string>
 </resources>

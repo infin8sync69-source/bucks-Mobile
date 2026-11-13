@@ -42,13 +42,17 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     val stores = commerce.stores
     val modes = remember { mutableStateMapOf<String, String>() }; val payments = remember { mutableStateMapOf<String, String>() }
     val hasRiders = remember { mutableStateMapOf<String, Boolean>() }
+    // Per shop: its store riders, and the delivery agents (bikes) online near it now. Missing = not known, and then nothing is said.
+    val riderIds = remember { mutableStateMapOf<String, Set<String>>() }; val agents = remember { mutableStateMapOf<String, Set<String>>() }
+    val ctx = androidx.compose.ui.platform.LocalContext.current; val scope = rememberCoroutineScope()
     var dropLabel by rememberSaveable { mutableStateOf(social.me?.area ?: "") }
     var confirmClear by remember { mutableStateOf(false) }
     val ids = stores.map { it.listing.id }
     val points = remember { mutableStateMapOf<String, LatLng>() }
     LaunchedEffect(ids) {
-        ids.filter { it !in hasRiders }.forEach { id -> hasRiders[id] = runCatching { commerce.hasStoreRiders(id) }.getOrDefault(false) }
+        ids.filter { it !in hasRiders }.forEach { id -> val r = commerce.storeRiderIds(id); r?.let { riderIds[id] = it }; hasRiders[id] = r?.isNotEmpty() ?: false }
         ids.filter { it !in points }.forEach { id -> runCatching { Backend.listingPoint(id) }.getOrNull()?.let { points[id] = it } }
+        ids.filter { it !in agents }.forEach { id -> points[id]?.let { at -> commerce.agentsOnlineNear(at)?.let { agents[id] = it } } }
         commerce.loadAddresses(); commerce.loadFeeRule()
     }
     // Today's prices and stock, once each time the cart opens.
@@ -151,6 +155,13 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
                         mode == "STORE_RIDER" -> localFee(st)?.let { stringResource(R.string.g7_cart_store_rider_fee, rupees(it), shop.title) } ?: stringResource(R.string.g7_cart_store_rider_nofee, shop.title)
                         else -> localFee(st)?.let { stringResource(R.string.g7_cart_rider_fee, rupees(it)) } ?: stringResource(R.string.g7_cart_rider_nofee)
                     }, Modifier.padding(top = 12.dp, bottom = 12.dp))
+                    // The shop's own delivery-time promise, for the local delivery modes (shipping has its own "ships in").
+                    if (mode in setOf("MARKETPLACE", "STORE_RIDER")) com.bucks.app.ui.DeliveryTimes.summary(shop.details)?.let { Muted(stringResource(R.string.g7_dtime_cart, shop.title, it), Modifier.padding(bottom = 10.dp)) }
+                    // Nobody online to carry it right now: say so before the order is placed, offer what works, and let them invite an agent.
+                    noRiderWarning(shop.title, mode, near(st), riderIds[shop.id], agents[shop.id], commerce.deliveryRadiusLabel)?.let { w ->
+                        Notice(w, Modifier.padding(bottom = 8.dp))
+                        SmallButton(stringResource(R.string.g7_rd_invite_agents), Modifier.padding(bottom = 12.dp), tonal = true) { com.bucks.app.ui.Invite.share(ctx, scope, com.bucks.app.data.Str.get(R.string.g7_rd_share_agent, shop.area.ifBlank { shop.title })) }
+                    }
                     localFee(st)?.takeIf { it > 0 }?.let { f -> Row(Modifier.padding(top = 8.dp)) { Muted(stringResource(R.string.g7_cart_items_plus_delivery, rupees(st.amount), rupees(f)), Modifier.weight(1f)); Text(rupees(st.amount + f), style = MaterialTheme.typography.titleSmall) } }
                     if (mode == "SHIP") Row(Modifier.padding(top = 8.dp)) { Muted(if (shipFee(st) == 0) stringResource(R.string.g7_cart_items_free_shipping, rupees(st.amount)) else stringResource(R.string.g7_cart_items_plus_shipping, rupees(st.amount), rupees(shipFee(st))), Modifier.weight(1f)); Text(rupees(st.amount + shipFee(st)), style = MaterialTheme.typography.titleSmall) }
                     Label(stringResource(R.string.g7_cart_pay_with, shop.title))
@@ -210,6 +221,22 @@ fun CloudCartScreen(vm: BucksViewModel, onBack: () -> Unit, onPlaced: (List<Stri
     if (addressSheet) AddressSheet(vm, address?.id, startNew = addressList.isEmpty(), onPick = { a -> addressId = a.id }, onDismiss = { addressSheet = false })
     if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false }, title = { Text(stringResource(R.string.g7_cart_empty_title)) }, text = { Text(if (stores.size > 1) pluralStringResource(R.plurals.g7_cart_empty_all, stores.size, stores.size) else stringResource(R.string.g7_cart_empty_from, stores.firstOrNull()?.listing?.title ?: stringResource(R.string.g7_cart_this_shop))) },
         confirmButton = { TextButton({ confirmClear = false; commerce.clear() }) { Text(stringResource(R.string.g7_cart_empty_it), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmClear = false }) { Text(stringResource(R.string.g7_cart_keep)) } })
+}
+
+/**
+ * What to warn about when a shop's delivery may find nobody, or null. [agents] is everyone online on a bike near the shop now (null:
+ * not known, say nothing). A Bucks rider delivery can go to any of them; a store-rider delivery only to the shop's own riders among them.
+ * With no agent online the shop's own riders aren't online either (they are counted in [agents]), so only pick-up is offered.
+ */
+@Composable
+private fun noRiderWarning(shop: String, mode: String, near: Boolean, riderIds: Set<String>?, agents: Set<String>?, radius: String): String? {
+    if (!near || agents == null) return null
+    return when (mode) {
+        "MARKETPLACE" -> if (agents.isNotEmpty()) null
+            else stringResource(R.string.g7_rd_cart_none, radius, shop) + " " + stringResource(R.string.g7_rd_cart_use_pickup)
+        "STORE_RIDER" -> if (riderIds == null || riderIds.any { it in agents }) null else stringResource(R.string.g7_rd_cart_store_offline, shop)
+        else -> null
+    }
 }
 
 /** The cart used to ask before mixing shops; it no longer does (each shop is its own order), so this shows nothing. Kept so older screens compile. */

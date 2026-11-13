@@ -128,7 +128,7 @@ private struct ListingPost: View {
 
 /// Details keys the About tab renders with a proper label; everything else gets a generic row.
 private let knownDetails: Set<String> = ["hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
-                                         "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source",
+                                         "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "delivery_time", "delivery_slot", "source",
                                          "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable"]
 
 struct AboutTab: View {
@@ -196,6 +196,7 @@ struct AboutTab: View {
             if let v = det.str("hours") { AboutRow(icon: "clock", label: "Hours", value: v) }
             if let v = det.str("free_delivery") { AboutRow(icon: "shippingbox", label: "Delivery", value: v == "true" ? "Free delivery" : "Delivery charged") }
             if let v = det.str("delivery_radius_km").map({ "\($0) km" }) ?? det.str("delivery_radius_m").flatMap(Double.init).map(formatDistance) { AboutRow(icon: "location", label: "Delivers within", value: v) }
+            if let v = DeliveryTime.summary(det) { AboutRow(icon: "timer", label: "Delivery time", value: v) }
             if det.str("ships_india") == "true" {
                 let fee = det.str("ship_fee").flatMap { Int($0) } ?? 0, above = det.str("free_ship_above").flatMap { Int($0) } ?? 0
                 AboutRow(icon: "truck.box", label: "Ships across India", value: [fee == 0 ? "Free shipping" : "Shipping \(inr(fee))", fee > 0 && above > 0 ? "free above \(inr(above))" : nil,

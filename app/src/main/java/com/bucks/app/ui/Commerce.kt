@@ -108,6 +108,29 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
     /** What place_order will charge for a local delivery over [straightKm]: the road is taken as 1.3x the straight line, to 0.1 km. */
     fun deliveryFee(straightKm: Double): Int? = feeRule?.let { (base, perKm) -> (base + perKm * (Math.round(straightKm * 1.3 * 10) / 10.0)).toInt() }
 
+    /** How far from the shop a rider can be and still be rung for its delivery: the server's delivery_radius_m (3000 m when unset). */
+    var deliveryRadiusM by mutableIntStateOf(DELIVERY_RADIUS_DEFAULT_M); private set
+    private var deliveryRadiusRead = false
+    suspend fun loadDeliveryRadius() { if (!deliveryRadiusRead) runCatching { Backend.settingValue("delivery_radius_m") }.getOrNull()?.takeIf { it > 0 }?.let { deliveryRadiusM = it.toInt() }; deliveryRadiusRead = true }
+
+    /** The delivery radius in words for the screens ("3 km"). */
+    val deliveryRadiusLabel: String get() = if (deliveryRadiusM % 1000 == 0) Str.get(R.string.g3_dt_km, (deliveryRadiusM / 1000).toString()) else formatDistance(deliveryRadiusM.toDouble())
+
+    /**
+     * The delivery agents online right now who could be rung for an order from a shop at [shop]: anyone on a bike (bikes are the
+     * pick-up and drop vehicles; autos and cabs never get deliveries) inside the delivery radius, the shop's own store riders included
+     * when they are online on a bike. Profile ids, so the cart can also tell whether one of the shop's own riders is among them. Null
+     * when it can't be read, so the screens say nothing rather than guess. This is "online now", not "registered here".
+     */
+    suspend fun agentsOnlineNear(shop: LatLng): Set<String>? {
+        loadDeliveryRadius()
+        return runCatching { Backend.onlineDriversNear(shop, deliveryRadiusM).filter { it.kind == VehicleKind.BIKE.name }.map { it.profileId }.toSet() }.getOrNull()
+    }
+
+    /** The shop's store riders (profile ids); listing_members is readable by everyone. Null when it can't be read. */
+    suspend fun storeRiderIds(listingId: String): Set<String>? =
+        runCatching { Backend.members(listingId).filter { it.role == "STORE_RIDER" }.map { it.profileId }.toSet() }.getOrNull()
+
     /** Why the last checkout left something unplaced, shop by shop; stays on the cart screen (with Retry) until the next try. */
     var checkoutErrors by mutableStateOf<List<String>>(emptyList()); private set
     fun clearCheckoutErrors() { checkoutErrors = emptyList() }
@@ -307,3 +330,6 @@ private fun restoreCart(): List<Commerce.StoreCart> = runCatching {
 private fun saveCart(v: List<Commerce.StoreCart>) {
     Prefs.cartJson = if (v.isEmpty()) null else runCatching { cartJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(SavedStore.serializer()), v.map { st -> SavedStore(st.listing, st.lines.map { SavedLine(it.item, it.qty) }) }) }.getOrNull()
 }
+
+/** delivery_radius_m when the server setting can't be read (the schema default in can_claim). */
+const val DELIVERY_RADIUS_DEFAULT_M = 3000

@@ -121,6 +121,8 @@ extension Backend {
     }
     /// listing_members of a shop (readable by everyone): STORE_RIDER rows are its own delivery riders.
     public func shopMembers(_ listingId: String) async throws -> [MemberRow] { try await select("listing_members", filters: [.eq("listing_id", listingId)]) }
+    /// The shop's store riders with who is online now and who has a checked bike (`store_riders`, owners and admins only).
+    public func storeRiders(_ listingId: String) async throws -> [StoreRiderRow] { try await rpcList("store_riders", ["p_listing": listingId]) }
 
     /// The delivery task an accepted delivery order created; readable by the buyer (requester) and the rider who took it.
     /// Read through `tasks_geo`: the API may not read `tasks.pin` directly (dispatch.sql), the view gives it to the buyer only.

@@ -93,6 +93,12 @@ private struct ListingMembersScreen: View {
             Spacer(minLength: 0)
         }
         Muted(roleExplain(role, vehicle: false)).padding(.top, 6)
+        // What a store rider still has to do before an order can ring them, and the app for one who isn't on Bucks yet.
+        if role == "STORE_RIDER" {
+            Muted(storeRiderNeeds(session.commerce.deliveryRadiusLabel)).padding(.top, 6)
+                .task { await session.commerce.loadDeliveryRadius() }
+            ShareSmallButton(title: "Send them the Bucks app", text: Invite.shareText(Invite.storeRider(shop: title)), tonal: true).fixedSize().padding(.top, 8)
+        }
         PrimaryButton("Send invite", enabled: BucksQr.looksLikeBucksId(code) && !sending) { Task { await send() } }.padding(.top, 14)
         let pending = store.sentInvites[listingId] ?? []
         if !pending.isEmpty {

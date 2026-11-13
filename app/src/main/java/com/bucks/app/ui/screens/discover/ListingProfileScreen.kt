@@ -57,7 +57,7 @@ import kotlinx.serialization.json.JsonPrimitive
 
 /** Details keys the About tab renders with a proper label; everything else gets a generic row. */
 private val KNOWN_DETAILS = setOf("hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
-    "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable",
+    "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "delivery_time", "delivery_slot", "source", "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable",
     "registration", "affiliation", "org_type", "catalogue_label")
 /** Team tab order: the owner first, then admins. Store riders are not shown on the public page. */
 private val TEAM_ORDER = mapOf("OWNER" to 0, "ADMIN" to 1)
@@ -526,6 +526,7 @@ private fun AboutTab(p: ListingProfile, type: PageType?, vk: VehicleKind?, dista
                 if (type == null || type.isShop) {
                     det.str("free_delivery")?.let { AboutRow(Icons.Rounded.DeliveryDining, stringResource(R.string.g3_mode_delivery), if (it == "true") stringResource(R.string.g3_lp_free_delivery) else stringResource(R.string.g3_lp_delivery_charged)) }
                     (det.str("delivery_radius_km")?.let { stringResource(R.string.g3_dt_km, it) } ?: det.str("delivery_radius_m")?.toDoubleOrNull()?.let { formatDistance(it) })?.let { AboutRow(Icons.Rounded.MyLocation, stringResource(R.string.g3_lp_delivers_within), it) }
+                    com.bucks.app.ui.DeliveryTimes.summary(l.details)?.let { AboutRow(Icons.Rounded.Timer, stringResource(R.string.g7_dtime_label), it) }
                     if (det.str("ships_india") == "true") {
                         val fee = det.str("ship_fee")?.toIntOrNull() ?: 0; val above = det.str("free_ship_above")?.toIntOrNull() ?: 0
                         AboutRow(Icons.Rounded.LocalShipping, stringResource(R.string.g3_lp_ships_india), listOfNotNull(if (fee == 0) stringResource(R.string.g3_lp_free_shipping) else stringResource(R.string.g3_lp_shipping, inr(fee.toLong())), if (fee > 0 && above > 0) stringResource(R.string.g3_lp_free_above, inr(above.toLong())) else null,

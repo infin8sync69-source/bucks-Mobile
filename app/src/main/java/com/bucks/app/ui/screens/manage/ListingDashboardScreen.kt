@@ -190,6 +190,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
             Notice(stringResource(R.string.g7_dash_add_qr_note))
             SmallButton(stringResource(R.string.g7_dash_add_qr), Modifier.padding(top = 8.dp)) { goTo("PAYMENT") }
         }
+        if (manage && sells && owner) item { StoreRidersReminder(vm, l) { goTo("MEMBERS") } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile(Modifier.weight(1f), "$recs", stringResource(R.string.g7_dash_stat_recommended))
@@ -214,6 +215,29 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 ManageTile(Icons.Rounded.Visibility, stringResource(R.string.g7_dash_customer_view)) { goTo("PROFILE") }
             }
         } else item { Notice(stringResource(R.string.g7_dash_store_rider_note)) }
+    }
+}
+
+/**
+ * Until the shop has a store rider who can actually be rung (accepted the invite and has a checked bike), its deliveries depend on Bucks
+ * delivery agents being online nearby, and there may be none. Shows nothing while the riders load, when they can't be read, or once one
+ * is ready.
+ */
+@Composable
+private fun StoreRidersReminder(vm: BucksViewModel, l: ListingRow, onTeam: () -> Unit) {
+    val ctx = LocalContext.current; val scope = rememberCoroutineScope()
+    var riders by remember(l.id) { mutableStateOf<List<com.bucks.app.data.StoreRider>?>(null) }
+    LaunchedEffect(l.id) { vm.commerce.loadDeliveryRadius(); riders = runCatching { com.bucks.app.data.DeliveryBackend.storeRiders(l.id) }.getOrNull() }
+    val r = riders ?: return
+    if (r.any { it.hasBike }) return
+    BucksCard {
+        Text(stringResource(R.string.g7_rd_dash_title), style = MaterialTheme.typography.titleMedium)
+        Muted(if (r.isEmpty()) stringResource(R.string.g7_rd_dash_none, vm.commerce.deliveryRadiusLabel) else stringResource(R.string.g7_rd_dash_no_bike), Modifier.padding(top = 4.dp))
+        if (r.isEmpty()) Muted(stringResource(R.string.g7_rd_needs, vm.commerce.deliveryRadiusLabel), Modifier.padding(top = 6.dp))
+        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (r.isEmpty()) SmallButton(stringResource(R.string.g7_rd_open_team), onClick = onTeam)
+            SmallButton(stringResource(R.string.g7_rd_send_app), tonal = true) { com.bucks.app.ui.Invite.share(ctx, scope, Str.get(R.string.g7_rd_share_store, l.title)) }
+        }
     }
 }
 

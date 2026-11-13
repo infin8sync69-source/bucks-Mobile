@@ -112,6 +112,8 @@ private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow
             }
             RoutePoints(t.pickupLabel.ifBlank { stringResource(R.string.g3_dt_shop) }, t.dropLabel.ifBlank { stringResource(R.string.g3_dt_your_location) }, Modifier.padding(top = 14.dp))
             Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { Muted(stringResource(R.string.g3_dt_km, t.km.toString())); Muted(stringResource(R.string.g3_dt_fee, Money.format(t.fare))); t.orderItems?.let { Muted(pluralStringResource(R.plurals.g3_dt_items, it, it)) } }
+            // Nobody took it: the customer can bring in an agent they know (someone with a bike) so the next order finds one.
+            if (t.status == "NO_DRIVER" || stale) SmallButton(stringResource(R.string.g7_rd_invite_agents), Modifier.padding(top = 16.dp), tonal = true) { com.bucks.app.ui.Invite.share(ctx, scope, Str.get(R.string.g7_rd_share_agent, shopName)) }
             if (t.status in setOf("COMPLETED", "PAID", "CANCELLED", "NO_DRIVER") || stale) PrimaryButton(stringResource(R.string.g3_dt_back_to_order), Modifier.padding(top = 16.dp), onClick = onDone)
             else Muted(stringResource(R.string.g3_dt_keep_open), Modifier.padding(top = 12.dp), TextAlign.Center)
         } }

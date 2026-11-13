@@ -105,6 +105,33 @@ public final class CommerceStore {
     public func clearStore(_ listingId: String) { stores.removeAll { $0.listing.id == listingId } }
     public func clear() { stores = [] }
 
+    /// How far from the shop a rider can be and still be rung for its delivery: the server's delivery_radius_m (3000 m when unset).
+    public private(set) var deliveryRadiusM = 3000
+    @ObservationIgnored private var deliveryRadiusRead = false
+    public func loadDeliveryRadius() async {
+        if deliveryRadiusRead { return }
+        if let v = try? await Backend.shared.settingValue("delivery_radius_m"), v > 0 { deliveryRadiusM = Int(v) }
+        deliveryRadiusRead = true
+    }
+    /// The delivery radius in words for the screens ("3 km").
+    public var deliveryRadiusLabel: String { deliveryRadiusM % 1000 == 0 ? "\(deliveryRadiusM / 1000) km" : formatDistance(Double(deliveryRadiusM)) }
+
+    /// The delivery agents online right now who could be rung for an order from a shop at `shop`: anyone on a bike (bikes are the
+    /// pick-up and drop vehicles; autos and cabs never get deliveries) inside the delivery radius, the shop's own store riders included
+    /// when they are online on a bike. Profile ids, so the cart can also tell whether one of the shop's own riders is among them. Nil
+    /// when it can't be read, so the screens say nothing rather than guess. This is "online now", not "registered here".
+    public func agentsOnlineNear(_ shop: LatLng) async -> Set<String>? {
+        await loadDeliveryRadius()
+        guard let rows = try? await Backend.shared.onlineDriversNear(shop, radiusM: deliveryRadiusM) else { return nil }
+        return Set(rows.filter { $0.kind == VehicleKind.bike.rawValue }.map(\.profileId))
+    }
+
+    /// The shop's store riders (profile ids); listing_members is readable by everyone. Nil when it can't be read.
+    public func storeRiderIds(_ listingId: String) async -> Set<String>? {
+        guard let rows = try? await Backend.shared.shopMembers(listingId) else { return nil }
+        return Set(rows.filter { $0.role == "STORE_RIDER" }.map(\.profileId))
+    }
+
     /// True when the shop has its own delivery riders (listing_members with role STORE_RIDER is readable by everyone).
     public func hasStoreRiders(_ listingId: String) async throws -> Bool {
         try await Backend.shared.shopMembers(listingId).contains { $0.role == "STORE_RIDER" }

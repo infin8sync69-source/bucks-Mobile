@@ -26,6 +26,7 @@ import com.bucks.app.ui.BUSINESS_SERVICES
 import com.bucks.app.ui.PageType
 import com.bucks.app.ui.PageTypes
 import com.bucks.app.ui.serviceDef
+import com.bucks.app.ui.DeliveryTimes
 import com.bucks.app.ui.serviceForCategory
 import com.bucks.app.ui.knownServiceForCategory
 import com.bucks.app.ui.components.*
@@ -62,6 +63,7 @@ fun ListingEditScreen(vm: BucksViewModel, kind: String, id: String?, onBack: () 
 /** A sample name for the page-name field, by group. */
 private fun pageNamePlaceholder(t: PageType) = when (t.group) { "SHOPS" -> "Sri Lakshmi Stores"; "LOCAL_SERVICES" -> "Glow Family Salon"; "COMPANIES" -> "Nimbus Software"; "COMMUNITY" -> "Sunrise Foundation"; else -> "St Mary's School" }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?, onBack: () -> Unit, onDone: () -> Unit, initialService: String?, initialType: String?, onDocs: (String) -> Unit, onCreated: ((String) -> Unit)?) {
     val m = vm.myListings; val social = vm.social; val st by vm.state.collectAsState()
@@ -97,6 +99,9 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
     var freeDelivery by remember { mutableStateOf(d.bool("free_delivery")) }
     var radius by remember { mutableStateOf(d.int("delivery_radius_km")?.toString() ?: "3") }
     var cod by remember { mutableStateOf(d.bool("cod")) }
+    // The delivery time the shop promises (ui/DeliveryTimes.kt): a preset, and an optional preferred time of day.
+    var deliveryTime by remember { mutableStateOf(existing?.let { DeliveryTimes.of(it.details) }) }
+    var deliverySlot by remember { mutableStateOf(existing?.let { DeliveryTimes.slotOf(it.details) } ?: "") }
     // Off by default: people message first; the owner opts in to calls (listing_phone shows their verified number only then).
     var showPhone by remember { mutableStateOf(d.bool("show_phone")) }
     /** The shop's store riders, for the cash-on-delivery note; null while unknown (no warning then). */
@@ -155,10 +160,12 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                 "BUSINESS" -> { put("hours", hours.trim())
                     if (orgPage) {
                         // No delivery on a page that takes requests: the delivery keys leave (a shop that changed type while pending) and the contact facts come in; blanks are removed, not saved empty.
-                        for (k in listOf("free_delivery", "delivery_radius_km", "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days")) put(k, JsonNull)
+                        for (k in listOf("free_delivery", "delivery_radius_km", "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "delivery_time", "delivery_slot")) put(k, JsonNull)
                         for ((k, v) in listOf("registration" to registration, "website" to website, "email" to email)) { if (v.isNotBlank()) put(k, v.trim()) else put(k, JsonNull) }
                     } else {
                         put("free_delivery", freeDelivery); put("delivery_radius_km", radius.toInt()); put("cod", cod)
+                        deliveryTime?.let { put("delivery_time", it.key) } ?: put("delivery_time", JsonNull)
+                        if (deliverySlot.isNotBlank()) put("delivery_slot", deliverySlot.trim().take(DeliveryTimes.SLOT_MAX)) else put("delivery_slot", JsonNull)
                         put("ships_india", ships)
                         if (ships) { put("ship_fee", shipFee.toIntOrNull() ?: 0); put("free_ship_above", freeAbove.toIntOrNull() ?: 0); put("dispatch_days", dispatch.trim()) }
                     }
@@ -218,9 +225,21 @@ private fun ListingForm(vm: BucksViewModel, kind: String, existing: ListingRow?,
                             SectionTitle(stringResource(R.string.g4_le_delivery_payment), Modifier.padding(top = 6.dp, bottom = 4.dp))
                             SwitchRow(stringResource(R.string.g4_le_free_delivery), stringResource(R.string.g4_le_free_delivery_note), freeDelivery) { freeDelivery = it }
                             BucksField(radius, { radius = it.filter { c -> c.isDigit() }.take(2) }, stringResource(R.string.g4_le_radius), "3", keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            Label(stringResource(R.string.g7_dtime_label))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DeliveryTimes.Option.entries.forEach { o -> Chip(o.label, selected = deliveryTime == o, icon = Icons.Rounded.Timer) { deliveryTime = if (deliveryTime == o) null else o } }
+                            }
+                            Muted(stringResource(R.string.g7_dtime_note), Modifier.padding(top = 6.dp, bottom = 10.dp))
+                            BucksField(deliverySlot, { deliverySlot = it.take(DeliveryTimes.SLOT_MAX) }, stringResource(R.string.g7_dtime_slot), stringResource(R.string.g7_dtime_slot_hint))
                             SwitchRow(stringResource(R.string.g4_prov_cod), stringResource(R.string.g4_le_cod_note), cod) { cod = it }
                             // Bucks riders never carry cash, so without a store rider or courier shipping nobody can offer it.
                             if (cod && !ships && riderCount == 0) Text(stringResource(R.string.g4_le_cod_hidden), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 6.dp))
+                            // A new shop has no riders of its own, and Bucks delivery agents may not be near it yet: say so while it is being set up.
+                            if (riderCount == 0) {
+                                LaunchedEffect(Unit) { vm.commerce.loadDeliveryRadius() }
+                                Notice(stringResource(R.string.g7_rd_edit_note), Modifier.padding(top = 4.dp))
+                                Muted(stringResource(R.string.g7_rd_needs, vm.commerce.deliveryRadiusLabel), Modifier.padding(top = 6.dp, bottom = 8.dp))
+                            }
                             SectionTitle(stringResource(R.string.g4_le_ship_india), Modifier.padding(top = 14.dp, bottom = 4.dp))
                             SwitchRow(stringResource(R.string.g4_le_ship_courier), stringResource(R.string.g4_le_ship_courier_note), ships) { ships = it }
                             if (ships) {

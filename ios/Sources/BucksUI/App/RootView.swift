@@ -127,6 +127,10 @@ struct MainStack: View {
         .environment(\.openBucksMenu, { withAnimation(.easeOut(duration: 0.25)) { router.menuOpen = true } })
         // The cart next to Messages in every top bar (cloud builds), with the piece count across every shop in it.
         .environment(\.bucksCartAction, session.cloud ? CartAction(count: session.commerce.count) { if router.path.last != .cart { router.push(.cart) } } : nil)
+        // A tap on anyone's name or picture opens their profile; my own opens the Profile tab.
+        .environment(\.openPerson, { id in
+            if id == session.me?.id { router.select(.account, accountTab: "profile") } else if router.path.last != .person(id) { router.push(.person(id)) }
+        })
         // The notifications bell beside it: sync requests, invites, orders... with their own count.
         .environment(\.bucksNotifAction, session.cloud ? NotifAction(count: session.chat.notesUnread) { if router.path.last != .notifications { router.push(.notifications) } } : nil)
         .animation(.easeOut(duration: 0.25), value: session.dispatch.driverRide?.id)
