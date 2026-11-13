@@ -18,6 +18,7 @@
     <string name="r1_message">Message</string>
     <string name="r1_profile">Profile</string>
     <string name="r1_people">People</string>
+    <string name="r1_tap_for_profile">Tap for profile</string>
     <plurals name="r1_more_people">
         <item quantity="one">Show %1$d more person</item>
         <item quantity="other">Show %1$d more people</item>

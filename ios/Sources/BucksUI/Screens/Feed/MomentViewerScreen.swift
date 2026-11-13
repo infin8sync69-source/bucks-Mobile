@@ -98,11 +98,13 @@ struct MomentViewerScreen: View {
                 }
             }
             HStack(spacing: 0) {
+                HStack(spacing: 0) {
                 Avatar(initials: initials(name.isEmpty ? "?" : name), size: 32)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(name).bucks(.titleSmall).foregroundStyle(.white)
                     Text([feedAgo(m.createdAt), isVideo ? "Video" : nil].compactMap { $0 }.joined(separator: " · ")).bucks(.labelSmall).foregroundStyle(.white.opacity(0.7))
-                }.padding(.leading, 10).frame(maxWidth: .infinity, alignment: .leading)
+                }.padding(.leading, 10)
+                }.opensProfile(m.authorId, name: name).frame(maxWidth: .infinity, alignment: .leading)
                 if mine { barIcon("trash", "Delete") { delete(m) } }
                 else { barIcon("flag", "Report this moment") { session.reportTarget = ReportTarget(kind: "MOMENT", targetId: m.id, ownerId: m.authorId, ownerName: name) } }
                 barIcon("xmark", "Close") { close() }
@@ -163,8 +165,10 @@ struct MomentViewerScreen: View {
                 if list.isEmpty { Muted("No views yet.") }
                 ForEach(Array(list.prefix(30).enumerated()), id: \.offset) { _, v in
                     HStack(spacing: 0) {
-                        Avatar(initials: initials(v.name), size: 32)
-                        Text(v.name).bucks(.bodyLarge).foregroundStyle(BucksColor.onSurface).padding(.leading, 10).frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 0) {
+                            Avatar(initials: initials(v.name), size: 32)
+                            Text(v.name).bucks(.bodyLarge).foregroundStyle(BucksColor.onSurface).padding(.leading, 10)
+                        }.opensProfile(v.viewerId, name: v.name).frame(maxWidth: .infinity, alignment: .leading)
                         Text(v.reaction ?? "").bucks(.bodyLarge)
                     }.padding(.vertical, 6)
                 }

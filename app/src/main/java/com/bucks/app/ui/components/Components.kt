@@ -109,6 +109,18 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
     }
 }
 
+/**
+ * Makes a name or picture open that person's profile (my own opens Profile), through LocalOpenPerson. [before] runs first, for a sheet or
+ * dialog that has to close. A blank [id] leaves it as it is.
+ */
+@Composable
+fun Modifier.opensProfile(id: String?, name: String = "", before: (() -> Unit)? = null): Modifier {
+    if (id.isNullOrBlank()) return this
+    val open = com.bucks.app.ui.social.LocalOpenPerson.current
+    val label = if (name.isBlank()) stringResource(R.string.g1_cd_open_profile) else stringResource(R.string.g1_cd_open_profile_of, name)
+    return this.clip(MaterialTheme.shapes.small).clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = label) { before?.invoke(); open(id) }
+}
+
 /** The bell in every top bar that has Messages: how many notifications are unread and what a tap does. Null hides it. */
 class NotifAction(val count: Int, val open: () -> Unit)
 val LocalNotifAction = androidx.compose.runtime.compositionLocalOf<NotifAction?> { null }

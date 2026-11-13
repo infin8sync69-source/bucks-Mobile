@@ -214,8 +214,9 @@ fun MutedMomentsSheet(vm: BucksViewModel, onDismiss: () -> Unit) {
 fun CloudPostCard(vm: BucksViewModel, p: FeedRow, onVote: (Int) -> Unit, onComments: () -> Unit, onShare: () -> Unit, onDelete: () -> Unit) {
     val mine = p.authorId == vm.social.me?.id; var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = { if (mine) menu = true }).padding(horizontal = Gutter, vertical = 14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(p.authorName), size = 40, photoUrl = vm.social.photoOf(p.authorId))
-            Column(Modifier.padding(start = 10.dp).weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(p.listingTitle ?: p.authorName, style = MaterialTheme.typography.titleMedium); if (mine) Muted("  ·  " + stringResource(R.string.g2_you)) else if (p.synced) Muted("  ·  " + stringResource(R.string.g2_synced)) }
+        // Picture and name open the author's profile.
+        Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.opensProfile(p.authorId, p.authorName)) { Avatar(initials(p.authorName), size = 40, photoUrl = vm.social.photoOf(p.authorId)) }
+            Column(Modifier.padding(start = 10.dp).weight(1f).opensProfile(p.authorId, p.authorName)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(p.listingTitle ?: p.authorName, style = MaterialTheme.typography.titleMedium); if (mine) Muted("  ·  " + stringResource(R.string.g2_you)) else if (p.synced) Muted("  ·  " + stringResource(R.string.g2_synced)) }
                 Muted(listOfNotNull(ago(p.createdAt), p.area.ifBlank { null }, when (p.visibility) { "SYNCED" -> stringResource(R.string.g2_visibility_synced); "PUBLIC" -> stringResource(R.string.g2_visibility_public); else -> null }).joinToString(" · ")) }
             if (mine) Box { IconButton({ menu = true }) { Icon(Icons.Rounded.MoreHoriz, stringResource(R.string.g2_more)) }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text(stringResource(R.string.g2_delete_post)) }, { menu = false; onDelete() }) } } }
         if (p.body.isNotBlank()) Text(p.body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp))
@@ -245,7 +246,7 @@ fun CloudCommentsSheet(vm: BucksViewModel, postId: String, onDismiss: () -> Unit
     val social = vm.social; var rows by remember { mutableStateOf<List<CommentRow>>(emptyList()) }; var reply by remember { mutableStateOf("") }; var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(postId, tick) { rows = runCatching { social.comments(postId) }.getOrDefault(emptyList()) }
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) { Column(Modifier.padding(20.dp).padding(bottom = 24.dp)) { Text(stringResource(R.string.g2_comments), style = MaterialTheme.typography.titleLarge)
-        if (rows.isEmpty()) Muted(stringResource(R.string.g2_comments_empty), Modifier.padding(vertical = 12.dp)) else rows.forEach { c -> Column(Modifier.padding(vertical = 10.dp)) { Row { Text(social.nameOf(c.authorId), style = MaterialTheme.typography.titleSmall); Muted("  ${ago(c.createdAt)}") }; Text(c.body, style = MaterialTheme.typography.bodyMedium) }; Divider() }
+        if (rows.isEmpty()) Muted(stringResource(R.string.g2_comments_empty), Modifier.padding(vertical = 12.dp)) else rows.forEach { c -> Column(Modifier.padding(vertical = 10.dp)) { Row(Modifier.opensProfile(c.authorId, social.nameOf(c.authorId), before = onDismiss)) { Text(social.nameOf(c.authorId), style = MaterialTheme.typography.titleSmall); Muted("  ${ago(c.createdAt)}") }; Text(c.body, style = MaterialTheme.typography.bodyMedium) }; Divider() }
         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) { OutlinedTextField(reply, { reply = it }, placeholder = { Text(stringResource(R.string.g2_reply)) }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, singleLine = true); Spacer(Modifier.width(8.dp))
             FilledIconButton(onClick = { val t = reply.trim(); if (t.isNotEmpty()) social.comment(postId, t) { reply = ""; tick++ } }, enabled = reply.isNotBlank()) { Icon(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.g2_cd_send)) } } } }
 }
@@ -318,8 +319,8 @@ fun MomentViewerScreen(vm: BucksViewModel, author: String, onClose: () -> Unit, 
                 Box(Modifier.weight(2f).fillMaxHeight().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { next() }) }
             Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { slides.forEachIndexed { i, _ -> LinearProgressIndicator(progress = { when { i < index -> 1f; i == index -> progress; else -> 0f } }, modifier = Modifier.weight(1f).height(3.dp).clip(CircleShape), color = Color.White, trackColor = Color.White.copy(alpha = .35f)) } }
-                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(social.nameOf(m.authorId).ifBlank { "?" }), size = 32, photoUrl = social.photoOf(m.authorId))
-                    Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(social.nameOf(m.authorId), color = Color.White, style = MaterialTheme.typography.titleSmall); Text(listOfNotNull(ago(m.createdAt), if (isVideo) stringResource(R.string.g2_video) else null).joinToString(" · "), color = Color.White.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall) }
+                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.opensProfile(m.authorId, social.nameOf(m.authorId))) { Avatar(initials(social.nameOf(m.authorId).ifBlank { "?" }), size = 32, photoUrl = social.photoOf(m.authorId)) }
+                    Column(Modifier.weight(1f).padding(start = 10.dp).opensProfile(m.authorId, social.nameOf(m.authorId))) { Text(social.nameOf(m.authorId), color = Color.White, style = MaterialTheme.typography.titleSmall); Text(listOfNotNull(ago(m.createdAt), if (isVideo) stringResource(R.string.g2_video) else null).joinToString(" · "), color = Color.White.copy(alpha = .7f), style = MaterialTheme.typography.labelSmall) }
                     if (mine) IconButton({ social.deleteMoment(m.id); if (slides.size == 1) onClose() else { slides = slides.filterNot { it.first.id == m.id }; index = index.coerceAtMost(slides.lastIndex) } }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.g2_cd_delete), tint = Color.White) }
                     if (!mine) com.bucks.app.ui.social.LocalReporter.current?.let { rep -> IconButton({ val t = com.bucks.app.ui.social.ReportTarget("MOMENT", m.id, m.authorId, social.nameOf(m.authorId)); onClose(); rep(t) }) { Icon(Icons.Rounded.OutlinedFlag, stringResource(R.string.g2_cd_report_moment), tint = Color.White) } }
                     IconButton(onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.g2_close), tint = Color.White) } }
@@ -338,7 +339,7 @@ fun MomentViewerScreen(vm: BucksViewModel, author: String, onClose: () -> Unit, 
             }
         } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { BucksLoader(color = Color.White) }
     }
-    viewers?.let { list -> AlertDialog(onDismissRequest = { viewers = null }, title = { Text(stringResource(R.string.g2_seen_by_count, list.size)) }, text = { Column { if (list.isEmpty()) Muted(stringResource(R.string.g2_no_views)); list.take(30).forEach { v -> Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(v.name), size = 32); Text(v.name, Modifier.weight(1f).padding(start = 10.dp)); Text(v.reaction ?: "") } } } }, confirmButton = { TextButton({ viewers = null }) { Text(stringResource(R.string.g2_close)) } }) }
+    viewers?.let { list -> AlertDialog(onDismissRequest = { viewers = null }, title = { Text(stringResource(R.string.g2_seen_by_count, list.size)) }, text = { Column { if (list.isEmpty()) Muted(stringResource(R.string.g2_no_views)); list.take(30).forEach { v -> Row(Modifier.fillMaxWidth().opensProfile(v.viewerId, v.name, before = { viewers = null }).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Avatar(initials(v.name), size = 32); Text(v.name, Modifier.weight(1f).padding(start = 10.dp)); Text(v.reaction ?: "") } } } }, confirmButton = { TextButton({ viewers = null }) { Text(stringResource(R.string.g2_close)) } }) }
 }
 
 /** Byte size of a picked file, before reading it, so a huge video is refused without loading it. */
@@ -434,7 +435,7 @@ fun CloudMessagesScreen(vm: BucksViewModel, onBack: (() -> Unit)?, onOpen: (Stri
             val customerRow = c.kind == "LISTING" && c.otherName != null
             val name = c.otherName ?: c.title ?: stringResource(if (c.kind == "GROUP") R.string.g2_group else R.string.g2_chat)
             ListRow(name, listOfNotNull(if (customerRow) c.title?.let { stringResource(R.string.g2_about, it) } else null, c.lastBody?.take(60), ago(c.lastAt)).joinToString("  ·  "),
-                leading = { Box { if (c.kind == "GROUP") Avatar(icon = Icons.Rounded.Group) else Avatar(initials(name)); if (c.kind == "LISTING") Icon(Icons.Rounded.Storefront, null, Modifier.align(Alignment.BottomEnd).size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
+                leading = { Box { if (c.kind == "GROUP") Avatar(icon = Icons.Rounded.Group) else if (c.kind == "DIRECT") Box(Modifier.opensProfile(c.otherId, name)) { Avatar(initials(name)) } else Avatar(initials(name)); if (c.kind == "LISTING") Icon(Icons.Rounded.Storefront, null, Modifier.align(Alignment.BottomEnd).size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
                 trailing = { Row(verticalAlignment = Alignment.CenterVertically) { if (c.muted) Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); CountBadge(c.unread, Modifier.padding(start = 6.dp)); IconButton({ menuFor = c }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.g2_more)) } } },
                 onClick = { onOpen(c.conversationId) })
             Divider() } }
@@ -545,7 +546,9 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
     val listingId = conv?.listingId
     Column(Modifier.fillMaxSize().imePadding()) {
         when (kind) {
-            "DIRECT" -> BucksTopBar(title, onBack = onBack)
+            // The name at the top opens the other person's profile.
+            "DIRECT" -> { val openPerson = com.bucks.app.ui.social.LocalOpenPerson.current
+                ChatTopBar(title, if (inboxRow?.otherId != null) stringResource(R.string.r1_tap_for_profile) else null, onBack, onTitle = inboxRow?.otherId?.let { o -> { openPerson(o) } }, actions = {}) }
             "LISTING" -> ChatTopBar(title, when { customer != null -> stringResource(R.string.g2_chat_customer_about, listingTitle); listingId != null -> stringResource(R.string.g2_chat_shop_tap); else -> null }, onBack, onTitle = listingId?.let { l -> { onOpenListing(l) } },
                 actions = { if (listingId != null) IconButton({ onOpenListing(listingId) }) { Icon(Icons.Rounded.Storefront, stringResource(R.string.g2_open_listing)) }; IconButton({ showMembers = true }) { Icon(Icons.Rounded.Group, stringResource(R.string.g2_cd_people_in_chat)) } })
             else -> ChatTopBar(title, if (members.isEmpty()) stringResource(R.string.g2_group) else pluralStringResource(R.plurals.g2_members_tap, members.size, members.size), onBack, onTitle = { showMembers = true },
@@ -558,7 +561,7 @@ fun CloudChatScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onOpenLi
                     Column(Modifier.widthIn(max = 320.dp).clip(MaterialTheme.shapes.large).background(if (mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer).combinedClickable(onClick = {}, onLongClickLabel = if (mine) stringResource(R.string.g2_edit_or_delete) else if (reportMsg != null) stringResource(R.string.g2_report) else null, onLongClick = { if (m.deletedAt != null) Unit else if (mine) menuFor = m else reportMsg?.invoke(com.bucks.app.ui.social.ReportTarget("MESSAGE", m.id, m.senderId, social.nameOf(m.senderId))) }).padding(4.dp)) {
                         val fg = if (mine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         // Groups and listing inboxes have several people on the other side, so every bubble that isn't mine carries its sender.
-                        if (!mine && kind != "DIRECT") Text(social.nameOf(m.senderId), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 10.dp, top = 6.dp))
+                        if (!mine && kind != "DIRECT") Text(social.nameOf(m.senderId), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 10.dp, top = 6.dp).opensProfile(m.senderId, social.nameOf(m.senderId)))
                         m.attachment?.let { a -> val path = a.s("path"); val mime = a.s("mime")
                             // Photos and videos open inside Bucks; documents open with the phone's own viewer. Nothing goes to a browser.
                             if (mime.startsWith("image/")) SignedImage(vm, "chat", path, Modifier.size(220.dp).clip(MaterialTheme.shapes.medium).clickable { viewing = Triple(path, mime, a.s("name")) })
@@ -613,7 +616,7 @@ private fun MembersSheet(vm: BucksViewModel, conv: String, kind: String, title: 
         if (!group && onOpenListing != null) SmallButton(stringResource(R.string.g2_open_listing), Modifier.padding(bottom = 6.dp), tonal = true, onClick = onOpenListing)
         if (members.isEmpty()) Muted(stringResource(R.string.g2_loading_people), Modifier.padding(vertical = 12.dp))
         LazyColumn(Modifier.heightIn(max = 320.dp)) { items(members, key = { it.profileId }) { m -> val name = social.nameOf(m.profileId)
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().opensProfile(m.profileId, name, before = onDismiss).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(initials(name.ifBlank { "?" }), size = 40)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(if (m.profileId == meId) stringResource(R.string.g2_name_you, name) else name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); if (m.role == "ADMIN") Muted(stringResource(if (group) R.string.g2_admin else R.string.g2_runs_listing)) }
                 if (group && iAmAdmin && m.profileId != meId) IconButton({ removeFor = m }) { Icon(Icons.Rounded.PersonRemove, stringResource(R.string.g2_cd_remove_name, name), tint = MaterialTheme.colorScheme.onSurfaceVariant) }

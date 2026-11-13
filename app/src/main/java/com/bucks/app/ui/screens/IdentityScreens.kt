@@ -84,7 +84,7 @@ fun SyncScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenChat: (String) -> U
             }
             if (social.suggestions.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.g7_id_may_know), Modifier.padding(top = 24.dp, bottom = 6.dp))
-                social.suggestions.take(8).forEach { s -> Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                social.suggestions.take(8).forEach { s -> Row(Modifier.fillMaxWidth().opensProfile(s.id, s.name).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Avatar(initials(s.name), size = 40)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(s.name, style = MaterialTheme.typography.titleMedium); Muted(listOfNotNull(s.area.ifBlank { null }, if (s.mutual > 0) pluralStringResource(R.plurals.g7_id_mutual, s.mutual, s.mutual) else null, s.distanceM?.let { stringResource(R.string.g7_dist_km, "%.1f".format(it / 1000)) }).joinToString(" · ")) }
                     SmallButton(stringResource(R.string.g7_id_sync_btn), tonal = true) { social.syncWith(s.id, s.name) }
@@ -113,7 +113,7 @@ fun SyncScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenChat: (String) -> U
 
 @Composable
 fun PersonRow(p: ProfileRow, sub: String = p.area, trailing: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().opensProfile(p.id, p.name).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(initials(p.name), size = 40)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(p.name, style = MaterialTheme.typography.titleMedium); Muted(sub.ifBlank { pretty(p.shortCode) }) }
         trailing()

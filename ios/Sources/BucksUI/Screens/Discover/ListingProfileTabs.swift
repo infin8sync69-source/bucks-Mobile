@@ -267,10 +267,10 @@ struct ReviewsTab: View {
             ForEach(p.reviews) { r in
                 let up = r.vote > 0, name = session.social.nameOf(r.authorId)
                 HStack(alignment: .top, spacing: 12) {
-                    Avatar(initials: initials(name).isEmpty ? "?" : initials(name), size: 40)
+                    Avatar(initials: initials(name).isEmpty ? "?" : initials(name), size: 40).opensProfile(r.authorId, name: name)
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 0) {
-                            Text(name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1)
+                            Text(name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1).opensProfile(r.authorId, name: name)
                             Muted("  \(discoverAgo(r.createdAt))")
                         }
                         if !r.comment.trimmingCharacters(in: .whitespaces).isEmpty { Text(r.comment).bucks(.bodySmall).foregroundStyle(BucksColor.onSurface).padding(.top, 2) }

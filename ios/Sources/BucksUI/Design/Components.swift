@@ -519,14 +519,18 @@ public extension EnvironmentValues {
 }
 public extension View {
     /// Makes a name or picture open that person's profile. Nil or empty `id` leaves it as it is.
-    func opensProfile(_ id: String?, name: String = "") -> some View { modifier(OpensProfile(id: id, name: name)) }
+    /// `inSheet`: the name sits in a sheet, which closes first so the profile shows.
+    func opensProfile(_ id: String?, name: String = "", inSheet: Bool = false) -> some View { modifier(OpensProfile(id: id, name: name, inSheet: inSheet)) }
 }
 private struct OpensProfile: ViewModifier {
-    let id: String?; let name: String
+    let id: String?; let name: String; let inSheet: Bool
     @Environment(\.openPerson) private var openPerson
+    @Environment(\.dismiss) private var dismiss
     func body(content: Content) -> some View {
         if let id, !id.isEmpty, let openPerson {
-            Button { openPerson(id) } label: { content.contentShape(Rectangle()) }
+            Button {
+                if inSheet { dismiss(); Task { @MainActor in try? await Task.sleep(nanoseconds: 350_000_000); openPerson(id) } } else { openPerson(id) }
+            } label: { content.contentShape(Rectangle()) }
                 .buttonStyle(.plain).accessibilityHint(name.isEmpty ? "Opens their profile" : "Opens \(name)'s profile")
         } else { content }
     }

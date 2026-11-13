@@ -39,7 +39,7 @@ struct PostDetailScreen: View {
                         Text(name).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                         Muted(feedAgo(p.createdAt))
                     }
-                }
+                }.opensProfile(p.authorId, name: name)
                 if !p.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text(p.body).bucks(.bodyLarge).foregroundStyle(BucksColor.onSurface).padding(.top, 12).frame(maxWidth: .infinity, alignment: .leading)
                 }

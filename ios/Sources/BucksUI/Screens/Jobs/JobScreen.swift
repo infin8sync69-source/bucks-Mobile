@@ -135,11 +135,13 @@ private struct ApplicationCard: View {
         let jobs = session.jobs, a = application, name = jobs.nameOf(a.applicantId), busy = jobs.busy
         BucksCard {
             HStack(spacing: 0) {
+                HStack(spacing: 0) {
                 Avatar(initials: initials(name.isEmpty ? "?" : name), size: 40)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(name).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                     Muted("Applied \(JobsStore.timeSince(a.createdAt))")
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                }.opensProfile(a.applicantId, name: name)
                 ApplicationStatusPill(status: a.status)
             }
             if !a.note.allSatisfy(\.isWhitespace) { Text(a.note).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface).padding(.top, 10) }

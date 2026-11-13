@@ -6,6 +6,7 @@ struct MessagesScreen: View {
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
     @State private var tab: Int
+    @Environment(\.openPerson) private var openPerson
     /// 0 Messages, 1 Notifications (the bell opens this screen on Notifications).
     init(startTab: Int = 0) { _tab = State(initialValue: startTab) }
     @State private var menuFor: InboxRow?
@@ -95,7 +96,10 @@ struct MessagesScreen: View {
         let sub = [customerRow ? c.title.map { "about \($0)" } : nil, c.lastBody.map { String($0.prefix(60)) }, feedAgo(c.lastAt)].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "  ·  ")
         return ListRow(name, subtitle: sub, onTap: { router.push(.chat(c.conversationId)) }, leading: {
             ZStack(alignment: .bottomTrailing) {
-                if c.kind == "GROUP" { Avatar(systemImage: "person.2.fill") } else { Avatar(initials: initials(name)) }
+                if c.kind == "GROUP" { Avatar(systemImage: "person.2.fill") }
+                // In a direct chat the picture opens the person's profile; the rest of the row opens the chat.
+                else if c.kind == "DIRECT", let o = c.otherId { Avatar(initials: initials(name)).highPriorityGesture(TapGesture().onEnded { openPerson?(o) }).accessibilityHint("Opens \(name)'s profile") }
+                else { Avatar(initials: initials(name)) }
                 if c.kind == "LISTING" { Image(systemName: "storefront").font(.system(size: 12)).foregroundStyle(BucksColor.primary).background(Circle().fill(BucksColor.surface)) }
             }
         }, trailing: {
@@ -161,11 +165,13 @@ extension NotificationsList {
                 .padding(.horizontal, Gutter).padding(.top, 14).padding(.bottom, 4)
             ForEach(people) { p in
                 HStack(spacing: 12) {
+                    HStack(spacing: 12) {
                     Avatar(initials: initials(p.name), size: 40)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(p.name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1)
                         Muted(["Wants to sync with you", p.area.isEmpty ? nil : p.area].compactMap { $0 }.joined(separator: " · "), maxLines: 1)
                     }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.opensProfile(p.id, name: p.name)
                     SmallButton("Accept") { session.social.acceptSync(p.id) }
                     SmallButton("Ignore", tonal: true) { session.social.unsync(p.id) }
                 }.padding(.horizontal, Gutter).padding(.vertical, 8)

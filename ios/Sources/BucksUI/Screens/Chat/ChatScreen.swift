@@ -3,6 +3,7 @@ import BucksCore
 
 /// One conversation: a direct chat, a group or a listing inbox. Messages load once, then stay current through Realtime plus a light poll.
 struct ChatScreen: View {
+    @Environment(\.openPerson) private var openPerson
     let id: String
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
@@ -90,7 +91,10 @@ struct ChatScreen: View {
 
     @ViewBuilder private var topBar: some View {
         switch kind {
-        case "DIRECT": BucksTopBar(title: title, onBack: { router.pop() })
+        // The name at the top opens the other person's profile.
+        case "DIRECT":
+            ChatTopBar(title: title, subtitle: inboxRow?.otherId != nil ? "Tap for profile" : nil, onBack: { router.pop() },
+                       onTitle: inboxRow?.otherId.map { o in { openPerson?(o) } }) { EmptyView() }
         case "LISTING":
             ChatTopBar(title: title, subtitle: customer != nil ? "Customer · about \(listingTitle)" : listingId != nil ? "Shop or pro · tap to open" : nil, onBack: { router.pop() },
                        onTitle: listingId.map { l in { router.push(.listing(l)) } }) {
@@ -115,7 +119,7 @@ struct ChatScreen: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(msgs) { m in
-                        MessageBubble(m: m, mine: m.senderId == meId, showSender: kind != "DIRECT", sender: session.social.nameOf(m.senderId),
+                        MessageBubble(m: m, mine: m.senderId == meId, showSender: kind != "DIRECT", sender: session.social.nameOf(m.senderId), onSender: { openPerson?(m.senderId) },
                                       onLongPress: { if m.deletedAt == nil { menuFor = m } }, onOpen: open)
                             .id(m.id).padding(.bottom, 8)
                     }
@@ -276,6 +280,7 @@ private struct MessageBubble: View {
     let mine: Bool
     let showSender: Bool
     let sender: String
+    var onSender: (() -> Void)? = nil
     let onLongPress: () -> Void
     let onOpen: (ChatAttachment) -> Void
 
@@ -289,7 +294,7 @@ private struct MessageBubble: View {
                     VStack(alignment: .leading, spacing: 0) {
                         // Groups and listing inboxes have several people on the other side, so every bubble that isn't mine carries its sender.
                         if !mine && showSender {
-                            Text(sender).bucks(.labelSmall).foregroundStyle(BucksColor.primary).padding(.leading, 10).padding(.top, 6)
+                            Text(sender).bucks(.labelSmall).foregroundStyle(BucksColor.primary).padding(.leading, 10).padding(.top, 6).onTapGesture { onSender?() }.accessibilityAddTraits(.isButton).accessibilityHint("Opens \(sender)'s profile")
                         }
                         if let a = attachment { attachmentView(a, fg) }
                         if m.deletedAt != nil {

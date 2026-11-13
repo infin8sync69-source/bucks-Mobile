@@ -64,9 +64,9 @@ private struct ListingMembersScreen: View {
             if rows.isEmpty { Muted("Only you so far.") }
             ForEach(rows.sorted { (Self.order[$0.role] ?? 9, name($0.profileId).lowercased()) < (Self.order[$1.role] ?? 9, name($1.profileId).lowercased()) }, id: \.profileId) { m in
                 HStack(spacing: 12) {
-                    Avatar(initials: initials(name(m.profileId).isEmpty ? "?" : name(m.profileId)), size: 40)
+                    Avatar(initials: initials(name(m.profileId).isEmpty ? "?" : name(m.profileId)), size: 40).opensProfile(m.profileId, name: name(m.profileId))
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(name(m.profileId) + (m.profileId == meId ? " (you)" : "")).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+                        Text(name(m.profileId) + (m.profileId == meId ? " (you)" : "")).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface).opensProfile(m.profileId, name: name(m.profileId))
                         Muted(roleLabel(m.role, vehicle: false) + " · " + roleExplain(m.role, vehicle: false), maxLines: 2)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     if owner && m.role != "OWNER" {
