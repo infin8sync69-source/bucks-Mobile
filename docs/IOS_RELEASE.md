@@ -33,7 +33,7 @@ One-time setup:
 1. **Apple Developer Program** membership (paid, yearly). Note the 10-character Team ID (developer.apple.com > Membership).
 2. **App ID** `com.bucksios.app` (Apple bundle ids are global and every `com.bucks.*` id is taken, so iOS differs from Android's `com.bucks.app`; it is registered, team `Z8SQVR6GUD`) (Certificates, Identifiers & Profiles > Identifiers) with Push Notifications and Time Sensitive Notifications.
 3. **App record** in App Store Connect (My Apps > +) with bundle id `com.bucksios.app`.
-4. **App Store Connect API key** (Users and Access > Integrations > App Store Connect API), role App Manager. Download the `.p8` once;
+4. **App Store Connect API key** (Users and Access > Integrations > App Store Connect API), role **Admin** (cloud signing at upload refuses App Manager keys with "Cloud signing permission error"). Download the `.p8` once;
    note the Key ID and the Issuer ID.
 5. **Firebase**: add the iOS app with bundle id `com.bucksios.app`, download `GoogleService-Info.plist`, and upload an APNs authentication
    key (Project settings > Cloud Messaging). Phone sign-in and push both need it.

@@ -1,7 +1,7 @@
 # Builds the signed iOS app and uploads it to App Store Connect (TestFlight). Run it by hand: Actions > iOS release (App Store) > Run workflow.
 # Signing is cloud-managed: Xcode creates the distribution certificate and profile itself through the App Store Connect API key, so no
 # certificate or profile is stored here. One-time setup and the secrets below: docs/IOS_RELEASE.md.
-#   APPSTORE_API_KEY_ID, APPSTORE_API_ISSUER_ID, APPSTORE_API_KEY_P8_B64   App Store Connect API key (role: App Manager or Admin)
+#   APPSTORE_API_KEY_ID, APPSTORE_API_ISSUER_ID, APPSTORE_API_KEY_P8_B64   App Store Connect API key (role: Admin; cloud signing needs it)
 #   APPLE_TEAM_ID                                                         the 10-character team id
 #   GOOGLE_SERVICE_INFO_PLIST_B64                                         Firebase's iOS config file (GoogleService-Info.plist), base64
 name: iOS release (App Store)
