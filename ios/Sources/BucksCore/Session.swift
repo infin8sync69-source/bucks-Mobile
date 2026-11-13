@@ -53,6 +53,8 @@ public final class AppSession: DispatchHost {
     public var names: [String: String] = [:]
     /// True when I'm signed in but the server has no date of birth for me yet: the app asks for it before anything else.
     public private(set) var needsBirthDate = false
+    /// Under 18 with no guardian consent yet: the guardian step comes before anything else (Safety.pendingStep on Android).
+    public private(set) var needsGuardian = false
     /// Set on this phone once a date of birth below the sign-up age was entered; the app stays closed to it (as on Android).
     public private(set) var ageBlocked = UserDefaults.standard.bool(forKey: "ageBlocked")
     /// What the report sheet is open for; nil while it is closed. Any screen sets it to offer "Report".
@@ -160,7 +162,7 @@ public final class AppSession: DispatchHost {
                 phase = (p.name.isEmpty && (user?.name.isEmpty ?? true)) ? .needsProfile : .ready
                 dispatch.startDriversFeed(); dispatch.resume(); social.signedIn(); registerPushIfSignedIn()
                 // A failed read asks again at the next launch rather than locking someone out on a bad connection.
-                if let s = try? await Backend.shared.mySafety() { needsBirthDate = !s.birthDateSet }
+                if let s = try? await Backend.shared.mySafety() { needsBirthDate = !s.birthDateSet; needsGuardian = s.guardianConsent == false }
                 return
             } catch is CancellationError { return } catch {
                 tries += 1
@@ -187,8 +189,14 @@ public final class AppSession: DispatchHost {
 
     /// Saves my date of birth (yyyy-MM-dd). Returns nil when it is saved, or the sentence to show. Below the sign-up age the phone is
     /// marked and the account signed out.
+    /// Records a parent's or guardian's consent; answers an error message, or nil once saved.
+    public func recordGuardianConsent(name: String, phone: String, relation: String) async -> String? {
+        do { try await Backend.shared.recordGuardianConsent(name: name, phone: phone, relation: relation); needsGuardian = false; return nil }
+        catch { return friendlyError(error) }
+    }
+
     public func setBirthDate(_ isoDate: String) async -> String? {
-        do { _ = try await Backend.shared.setBirthDate(isoDate); needsBirthDate = false; return nil }
+        do { let band = try await Backend.shared.setBirthDate(isoDate); needsBirthDate = false; needsGuardian = band == "TEEN" || band == "CHILD"; return nil }
         catch {
             if errorCode(error) == "BK_NOT_ELIGIBLE" || friendlyError(error).lowercased().contains("not eligible") {
                 defaults.set(true, forKey: "ageBlocked"); ageBlocked = true
@@ -238,7 +246,7 @@ public final class AppSession: DispatchHost {
     private func clearLocalState() {
         // Cart, orders, search results, listings, jobs, chats and the feed belong to the person who signed out, not the next account on this phone.
         commerce.signedOut(); discover.signedOut(); listings.signedOut(); services.signedOut(); jobs.signedOut(); social.signedOut(); chat.signedOut(); feed.clear()
-        me = nil; user = nil; names = [:]; needsBirthDate = false; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
+        me = nil; user = nil; names = [:]; needsBirthDate = false; needsGuardian = false; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
         defaults.removeObject(forKey: "storedUser")
     }
 

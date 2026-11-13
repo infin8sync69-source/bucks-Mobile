@@ -75,6 +75,11 @@ extension Backend {
     public func mySafety() async throws -> SafetyRow? { (try await rpcList("my_safety") as [SafetyRow]).first }
     /// Saves my date of birth (yyyy-MM-dd) once; answers the age band. Refused with BK_NOT_ELIGIBLE below the sign-up age.
     public func setBirthDate(_ isoDate: String) async throws -> String { try await rpc("set_birth_date", ["p_date": isoDate]) }
+    /// A parent or guardian's consent for an under-18 account (relation PARENT or GUARDIAN; phone with +91). Until it is recorded the
+    /// server refuses the account's posts, messages and orders.
+    public func recordGuardianConsent(name: String, phone: String, relation: String) async throws {
+        try await rpcVoid("record_guardian_consent", ["p_name": name, "p_phone": phone, "p_relation": relation])
+    }
     /// Files a report for staff review; answers its id. Reporting the same thing twice keeps the first report.
     public func reportContent(kind: String, target: String, reason: String, detail: String) async throws -> String {
         try await rpc("report_content", ["p_kind": kind, "p_target": target, "p_reason": reason, "p_detail": detail])

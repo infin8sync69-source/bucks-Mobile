@@ -55,7 +55,7 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 | Feature | Android | iOS | Follow-up |
 |---|---|---|---|
 | Social screens in the one shell (the social-only shell is retired; the app uses the super-app layout) | `ui/BucksAppUi.kt` hosting `ui/social/*` | iOS already has the super-app layout | Port the social screens below |
-| Date of birth, age bands | `ui/onboarding/OnboardingScreens.kt` | `BucksUI/Screens/Auth/BirthDateScreen.swift` | Server already enforces the rules for both apps |
+| Date of birth, age bands, guardian consent for under-18s | `ui/onboarding/OnboardingScreens.kt`, `ui/social/Onboarding.kt` (`GuardianScreen`), `ui/Safety.kt` | `BucksUI/Screens/Auth/BirthDateScreen.swift`, `GuardianScreen.swift`, `AppSession.needsGuardian` | = (server enforces the rules for both apps) |
 | Report sheet and staff report queue | `ui/social/Report.kt`, `Settings.kt` | Report sheet: `BucksUI/Screens/Settings/ReportSheet.swift` (posts, comments, moments, messages, pages, chats, people). Reviews, jobs, "it shows my location" and the staff queue: not yet | Needed before the App Store submission (guideline 1.2) |
 | People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | Not yet | |
 | Feedback board | `ui/social/Feedback.kt` | Not yet | |
