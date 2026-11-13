@@ -76,13 +76,17 @@ jobs:
           printf '%s' "$APPSTORE_API_KEY_P8_B64" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8"
           grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" || { echo "::error::APPSTORE_API_KEY_P8_B64 is not a base64-encoded .p8 key"; exit 1; }
       - name: Archive
+        # Signed locally ("-") so the entitlements (push, time-sensitive) are kept without a development profile: automatic signing
+        # would want one, and Apple only makes it for a team with a registered device. Export below re-signs for the App Store
+        # (distribution certificate and App Store profile, created through the API key; no devices needed).
         run: |
           set -o pipefail
           xcodebuild archive -project Bucks.xcodeproj -scheme Bucks -configuration Release -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Bucks.xcarchive" -skipPackagePluginValidation \
             -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" \
             -authenticationKeyID "$APPSTORE_API_KEY_ID" -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID" MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" PROVISIONING_PROFILE_SPECIFIER="" AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
             2>&1 | tee archive.log | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
           grep -q "ARCHIVE SUCCEEDED" archive.log || { grep -E "error:" archive.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
       - name: The archive is a production build
@@ -91,6 +95,10 @@ jobs:
           test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is missing from the archive"; exit 1; }
           key="$(/usr/libexec/PlistBuddy -c 'Print :GeminiAPIKey' "$app/Info.plist" 2>/dev/null || true)"
           [ -z "$key" ] || { echo "::error::the release build carries a Gemini key"; exit 1; }
+          ents="$(codesign -d --entitlements - --xml "$app" 2>/dev/null || true)"
+          for e in aps-environment com.apple.developer.usernotifications.time-sensitive; do
+            printf '%s' "$ents" | grep -q "$e" || { echo "::error::the archive lost the $e entitlement"; exit 1; }
+          done
       - name: Upload to App Store Connect
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
