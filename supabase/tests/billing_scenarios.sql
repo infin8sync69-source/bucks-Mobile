@@ -8,6 +8,8 @@
 create or replace function pg_temp.expect_fail(sql text, want text) returns text language plpgsql as $$
 begin execute sql; return 'FAIL (no error): ' || want; exception when others then return case when sqlerrm ilike '%' || want || '%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u)::text, false) $$;
+-- ensure_profile takes the phone from the sign-in token only (risk_hardening.sql), as the app's real tokens carry it.
+create or replace function pg_temp.as_phone(u text, ph text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u, 'phone_number', ph)::text, false) $$;
 create or replace function pg_temp.pid(u text) returns uuid language sql as $$ select id from public.profiles where auth_uid = u $$;
 create or replace function pg_temp.check(ok boolean, what text) returns text language sql as $$ select case when ok then 'ok, ' || what else 'FAIL ' || what end $$;
 create or replace function pg_temp.lid(t text) returns uuid language sql as $$ select id from public.listings where title = t $$;
@@ -27,11 +29,11 @@ create or replace function pg_temp.age(t text, n int) returns void language sql 
    where id = (pg_temp.lic(t)).id $$;
 
 set role authenticated;
-select pg_temp.as_user('plumber'); select (public.ensure_profile('Ravi (plumber)', '9000000501')).id is not null;
-select pg_temp.as_user('shop');    select (public.ensure_profile('Meena (shop)', '9000000502')).id is not null;
-select pg_temp.as_user('driver');  select (public.ensure_profile('Imran (auto)', '9000000503')).id is not null;
-select pg_temp.as_user('late');    select (public.ensure_profile('Asha (joins late)', '9000000504')).id is not null;
-select pg_temp.as_user('staff1');  select (public.ensure_profile('Bucks staff', '9000000505')).id is not null;
+select pg_temp.as_phone('plumber', '9000000501'); select (public.ensure_profile('Ravi (plumber)', '9000000501')).id is not null;
+select pg_temp.as_phone('shop', '9000000502');    select (public.ensure_profile('Meena (shop)', '9000000502')).id is not null;
+select pg_temp.as_phone('driver', '9000000503');  select (public.ensure_profile('Imran (auto)', '9000000503')).id is not null;
+select pg_temp.as_phone('late', '9000000504');    select (public.ensure_profile('Asha (joins late)', '9000000504')).id is not null;
+select pg_temp.as_phone('staff1', '9000000505');  select (public.ensure_profile('Bucks staff', '9000000505')).id is not null;
 reset role;
 insert into staff (profile_id) values (pg_temp.pid('staff1'));
 update billing_plans set page_url = 'https://rzp.io/rzp/test-' || lower(code) where months = 1;

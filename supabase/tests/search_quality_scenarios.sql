@@ -2,12 +2,14 @@
 \pset format unaligned
 \pset tuples_only on
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u)::text, false) $$;
+-- ensure_profile takes the phone from the sign-in token only (risk_hardening.sql), as the app's real tokens carry it.
+create or replace function pg_temp.as_phone(u text, ph text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u, 'phone_number', ph)::text, false) $$;
 create or replace function pg_temp.check(label text, cond boolean) returns text language sql as $$ select case when coalesce(cond, false) then 'ok ' || label else 'FAIL ' || label end $$;
 create or replace function pg_temp.found(q text, title text) returns boolean language sql as $$ select exists (select 1 from public.search_listings(q, 12.9250, 77.5938) s where s.title = found.title) $$;
 
 set role authenticated;
-select pg_temp.as_user('qo'); select (public.ensure_profile('Owner Qadir', '9000000501')).id is not null;
-select pg_temp.as_user('qs'); select (public.ensure_profile('Searcher Sita', '9000000502')).id is not null;
+select pg_temp.as_phone('qo', '9000000501'); select (public.ensure_profile('Owner Qadir', '9000000501')).id is not null;
+select pg_temp.as_phone('qs', '9000000502'); select (public.ensure_profile('Searcher Sita', '9000000502')).id is not null;
 select pg_temp.as_user('qo');
 insert into listings (kind, owner_id, title, category, area, location) values
   ('BUSINESS', me(), 'Lakshmi Kirana', 'Grocery', 'Jayanagar', geo(12.9251, 77.5939)),

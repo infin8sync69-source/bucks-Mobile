@@ -4,17 +4,19 @@
 create or replace function pg_temp.expect_fail(sql text, want text) returns text language plpgsql as $$
 begin execute sql; return 'FAIL (no error): ' || want; exception when others then return case when sqlerrm ilike '%' || want || '%' then 'ok, blocked: ' || sqlerrm else 'FAIL wrong error: ' || sqlerrm end; end $$;
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u)::text, false) $$;
+-- ensure_profile takes the phone from the sign-in token only (risk_hardening.sql), as the app's real tokens carry it.
+create or replace function pg_temp.as_phone(u text, ph text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u, 'phone_number', ph)::text, false) $$;
 create or replace function pg_temp.pid(u text) returns uuid language sql as $$ select id from public.profiles where auth_uid = u $$;
 create or replace function pg_temp.check(label text, cond boolean) returns text language sql as $$ select case when coalesce(cond, false) then 'ok ' || label else 'FAIL ' || label end $$;
 create or replace function pg_temp.shop() returns uuid language sql as $$ select id from public.listings where title = 'Annapurna Stores' $$;
 create or replace function pg_temp.task(o text) returns public.tasks language sql security definer as $$ select * from public.tasks where order_id = current_setting(o)::uuid order by created_at desc limit 1 $$;
 
 set role authenticated;
-select pg_temp.as_user('do');  select (public.ensure_profile('Owner Anu', '9000000401')).id is not null;
-select pg_temp.as_user('dr');  select (public.ensure_profile('Ravi Rider', '9000000402')).id is not null;
-select pg_temp.as_user('db');  select (public.ensure_profile('Buyer Bina', '9000000403')).id is not null;
-select pg_temp.as_user('dx');  select (public.ensure_profile('Stranger Xan', '9000000404')).id is not null;
-select pg_temp.as_user('ds');  select (public.ensure_profile('Staff Sam', '9000000405')).id is not null;
+select pg_temp.as_phone('do', '9000000401');  select (public.ensure_profile('Owner Anu', '9000000401')).id is not null;
+select pg_temp.as_phone('dr', '9000000402');  select (public.ensure_profile('Ravi Rider', '9000000402')).id is not null;
+select pg_temp.as_phone('db', '9000000403');  select (public.ensure_profile('Buyer Bina', '9000000403')).id is not null;
+select pg_temp.as_phone('dx', '9000000404');  select (public.ensure_profile('Stranger Xan', '9000000404')).id is not null;
+select pg_temp.as_phone('ds', '9000000405');  select (public.ensure_profile('Staff Sam', '9000000405')).id is not null;
 select pg_temp.as_user('do');
 insert into listings (kind, owner_id, title, category, area, location, details)
   values ('BUSINESS', me(), 'Annapurna Stores', 'Grocery', 'Jayanagar', geo(12.9250, 77.5938), '{"cod": true}');
