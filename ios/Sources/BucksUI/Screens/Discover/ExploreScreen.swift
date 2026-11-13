@@ -241,11 +241,10 @@ private struct VideoCard: View {
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }.padding(.horizontal, Gutter).padding(.top, 10)
             HStack(spacing: 0) {
-                voteButton("arrow.up", "Recommend", post.up, post.myVote == 1 ? BucksColor.good : BucksColor.onSurfaceVariant) { onVote(1) }
-                voteButton("arrow.down", "Not recommended", post.down, post.myVote == -1 ? BucksColor.bad : BucksColor.onSurfaceVariant) { onVote(-1) }
-                voteButton("bubble.left", "Comments", post.comments, BucksColor.onSurfaceVariant, action: onComments)
+                VotePill(my: post.myVote ?? 0, up: post.up, down: post.down, onVote: onVote)
+                voteButton("bubble.left", "Comments", post.comments, BucksColor.onSurfaceVariant, action: onComments).padding(.leading, 6)
                 Spacer(minLength: 0)
-            }.padding(.horizontal, Gutter - 6).padding(.top, 2)
+            }.padding(.horizontal, Gutter).padding(.top, 6)
             InlineCommentBox { t in Task { await session.feed.comment(post.id, t) } }.padding(.horizontal, Gutter).padding(.top, 2)
         }.padding(.bottom, 20)
     }

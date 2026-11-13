@@ -517,13 +517,75 @@ public struct CountBadge: View {
     let count: Int; var ringed: Bool
     public init(_ count: Int, ringed: Bool = false) { self.count = count; self.ringed = ringed }
     public var body: some View {
-        if count > 0 {
-            Text(count > 99 ? "99+" : "\(count)").font(.system(size: 10, weight: .bold)).foregroundStyle(.white).lineLimit(1).fixedSize()
-                .padding(.horizontal, 4.5).frame(minWidth: 17, minHeight: 17)
-                .background(Capsule().fill(BucksColor.error))
-                .padding(ringed ? 1.5 : 0).background(Capsule().fill(ringed ? BucksColor.surface : .clear))
-                .accessibilityHidden(true)
+        // The wrapper stays put while the count changes, so 0 → 1 pops too.
+        ZStack {
+            if count > 0 {
+                Text(count > 99 ? "99+" : "\(count)").font(.system(size: 10, weight: .bold)).foregroundStyle(.white).lineLimit(1).fixedSize()
+                    .contentTransition(.numericText(value: Double(count)))
+                    .padding(.horizontal, 4.5).frame(minWidth: 17, minHeight: 17)
+                    .background(Capsule().fill(BucksColor.error))
+                    .padding(ringed ? 1.5 : 0).background(Capsule().fill(ringed ? BucksColor.surface : .clear))
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
+            }
         }
+        .animation(bucksReduceMotion ? nil : Motion.emphasized(Motion.short), value: count)
+        .bumpOnIncrease(count)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A top-bar icon with its count riding on the top corner. The count belongs in the button's label, so the badge itself is silent.
+/// `ring` swings the icon like a bell when the count goes up (the notifications bell).
+public struct BadgedIcon: View {
+    let systemImage: String; let count: Int; var size: CGFloat; var color: Color; var ring: Bool
+    public init(_ systemImage: String, count: Int, size: CGFloat = 20, color: Color = BucksColor.onSurface, ring: Bool = false) {
+        self.systemImage = systemImage; self.count = count; self.size = size; self.color = color; self.ring = ring
+    }
+    public var body: some View {
+        Image(systemName: systemImage).font(.system(size: size)).foregroundStyle(color)
+            .modifier(RingIf(on: ring, count: count))
+            .frame(width: 44, height: 44)
+            .overlay(alignment: .topTrailing) { CountBadge(count, ringed: true).offset(x: -1, y: 4) }
+    }
+}
+private struct RingIf: ViewModifier {
+    let on: Bool; let count: Int
+    func body(content: Content) -> some View { if on { content.ringOnIncrease(count) } else { content } }
+}
+
+/// The counts a post's ↑ and ↓ carry; nil hides that number (Android's postCountsShown). Before I vote, only the larger side shows (ties
+/// show the ups, nothing while nobody voted). Once I've voted, both numbers show.
+public func postCountsShown(up: Int, down: Int, my: Int) -> (up: Int?, down: Int?) {
+    if my != 0 { return (up, down) }
+    return up >= down ? (up > 0 ? up : nil, nil) : (nil, down)
+}
+
+/// ↑ | ↓ in one rounded pill (Android's VotePill). One tap votes; tapping the arrow I already chose takes my vote back. The arrow hops
+/// when it lights up and the number rolls to its new value.
+public struct VotePill: View {
+    let my: Int, up: Int, down: Int; let onVote: (Int) -> Void
+    public init(my: Int, up: Int, down: Int, onVote: @escaping (Int) -> Void) { self.my = my; self.up = up; self.down = down; self.onVote = onVote }
+    public var body: some View {
+        let shown = postCountsShown(up: up, down: down, my: my)
+        HStack(spacing: 0) {
+            half("arrow.up", 1, shown.up, BucksColor.good, label: "Recommend, \(up)", hint: my == 1 ? "Remove recommendation" : "Recommend")
+            Rectangle().fill(BucksColor.outlineVariant).frame(width: 1, height: 20)
+            half("arrow.down", -1, shown.down, BucksColor.bad, label: "Not for me, \(down)", hint: my == -1 ? "Take back my vote" : "Not for me")
+        }
+        .background(Capsule().fill(BucksColor.surfaceContainer))
+        .animation(bucksReduceMotion ? nil : Motion.emphasized(), value: up)
+        .animation(bucksReduceMotion ? nil : Motion.emphasized(), value: down)
+    }
+    private func half(_ icon: String, _ v: Int, _ n: Int?, _ on: Color, label: String, hint: String) -> some View {
+        let color = my == v ? on : BucksColor.onSurfaceVariant
+        return Button { onVote(v) } label: {
+            HStack(spacing: 0) {
+                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).nudgeWhen(my == v, dir: CGFloat(v))
+                if let n { Text(" \(n)").bucks(.labelLarge).contentTransition(.numericText(value: Double(n))) }
+            }
+            .foregroundStyle(color).padding(.horizontal, 12).frame(minHeight: 44).contentShape(Capsule())
+        }
+        .buttonStyle(.plain).accessibilityLabel(label).accessibilityHint(hint)
     }
 }
 
@@ -550,15 +612,6 @@ public struct InlineCommentBox: View {
     private func send() { let t = text.trimmingCharacters(in: .whitespacesAndNewlines); guard !t.isEmpty else { return }; onSend(t); text = ""; focused = false }
 }
 
-/// A top-bar icon with its count riding on the top corner. The count belongs in the button's label, so the badge itself is silent.
-public struct BadgedIcon: View {
-    let systemImage: String; let count: Int; var size: CGFloat; var color: Color
-    public init(_ systemImage: String, count: Int, size: CGFloat = 20, color: Color = BucksColor.onSurface) { self.systemImage = systemImage; self.count = count; self.size = size; self.color = color }
-    public var body: some View {
-        Image(systemName: systemImage).font(.system(size: size)).foregroundStyle(color).frame(width: 44, height: 44)
-            .overlay(alignment: .topTrailing) { CountBadge(count, ringed: true).offset(x: -1, y: 4) }
-    }
-}
 
 public struct BucksTopBar<Actions: View>: View {
     var title: String?; var onBack: (() -> Void)?; var onMenu: (() -> Void)?; var unread: Int; var onChat: (() -> Void)?
@@ -583,11 +636,11 @@ public struct BucksTopBar<Actions: View>: View {
                     .buttonStyle(.plain).accessibilityLabel(cart.count > 0 ? "Cart, \(cart.count) item\(cart.count == 1 ? "" : "s")" : "Cart")
             }
             if onChat != nil, let notif {
-                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, size: 21) }
+                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, size: 21, ring: true) }
                     .buttonStyle(.plain).accessibilityLabel(notif.count > 0 ? "Notifications, \(notif.count) new" : "Notifications")
             }
             if let onChat {
-                Button(action: onChat) { BadgedIcon("message.fill", count: unread, size: 21) }
+                Button(action: onChat) { BadgedIcon("ellipsis.message.fill", count: unread, size: 21) }
                     .buttonStyle(.plain).accessibilityLabel(unread > 0 ? "Messages, \(unread) unread" : "Messages")
             }
         }

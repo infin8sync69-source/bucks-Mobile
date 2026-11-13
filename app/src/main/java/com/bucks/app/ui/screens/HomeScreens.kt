@@ -92,8 +92,8 @@ fun HomeSearch(vm: BucksViewModel, hint: String, onSearchAll: (String) -> Unit, 
     Column(Modifier.imePadding()) {
         if (people.isNotEmpty()) {
             Text(stringResource(R.string.r1_people), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            (if (allPeople) people else people.take(3)).forEach { h ->
-                com.bucks.app.ui.social.PersonResultCard(vm, h, syncState(h), Modifier.padding(bottom = 8.dp), onOpen = { com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.PEOPLE_RESULT_TAP); openPerson(h.id) },
+            (if (allPeople) people else people.take(3)).forEachIndexed { i, h ->
+                com.bucks.app.ui.social.PersonResultCard(vm, h, syncState(h), Modifier.padding(bottom = 8.dp).enterStagger(minOf(i, 6)), onOpen = { com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.PEOPLE_RESULT_TAP); openPerson(h.id) },
                     onSync = { if (syncState(h) == "INCOMING") social.acceptSync(h.id) else { sent[h.id] = true; social.syncWith(h.id, h.name) } },
                     onMessage = { social.openDirect(h.id) { vm.open(com.bucks.app.ui.nav.Routes.chat(it)) } })
             }

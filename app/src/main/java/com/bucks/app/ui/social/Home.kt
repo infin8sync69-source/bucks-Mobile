@@ -4,6 +4,7 @@ import com.bucks.app.data.Str
 import androidx.compose.ui.res.pluralStringResource
 import com.bucks.app.R
 import androidx.compose.ui.res.stringResource
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -190,13 +191,13 @@ fun VotePill(my: Int, up: Int, down: Int, onVote: (Int) -> Unit) {
     val upDesc = stringResource(R.string.g1_cd_vote_up, up); val downDesc = stringResource(R.string.g1_cd_vote_down, down)
     Row(Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == 1) stringResource(R.string.g1_cd_vote_up_remove) else stringResource(R.string.g1_cd_vote_up_action)) { onVote(1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = upDesc }, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp), tint = if (my == 1) good else idle)
-            upShown?.let { Text(" $it", style = MaterialTheme.typography.labelLarge, color = if (my == 1) good else idle) }
+            Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp).nudgeWhen(my == 1, 1), tint = if (my == 1) good else idle)
+            upShown?.let { RollingCount(it, if (my == 1) good else idle) }
         }
         Box(Modifier.size(1.dp, 20.dp).background(MaterialTheme.colorScheme.outlineVariant))
         Row(Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = if (my == -1) stringResource(R.string.g1_cd_vote_down_remove) else stringResource(R.string.g1_cd_vote_down_action)) { onVote(-1) }.minimumInteractiveComponentSize().padding(horizontal = 12.dp).semantics(mergeDescendants = true) { contentDescription = downDesc }, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp), tint = if (my == -1) bad else idle)
-            downShown?.let { Text(" $it", style = MaterialTheme.typography.labelLarge, color = if (my == -1) bad else idle) }
+            Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp).nudgeWhen(my == -1, -1), tint = if (my == -1) bad else idle)
+            downShown?.let { RollingCount(it, if (my == -1) bad else idle) }
         }
     }
 }
@@ -242,4 +243,15 @@ fun CommentsSheet(vm: BucksViewModel, postId: String, onDismiss: () -> Unit) {
             }
         }
     }
+}
+
+/** A vote count that rolls to its new value (up when it grows, down when it shrinks) instead of jumping. */
+@Composable
+private fun RollingCount(n: Int, color: androidx.compose.ui.graphics.Color) {
+    if (rememberReducedMotion()) { Text(" $n", style = MaterialTheme.typography.labelLarge, color = color); return }
+    androidx.compose.animation.AnimatedContent(n, transitionSpec = {
+        val dir = if (targetState > initialState) 1 else -1
+        (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(Motion.MEDIUM, easing = Motion.Emphasized)) { it * dir } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.SHORT))) togetherWith
+            (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(Motion.MEDIUM, easing = Motion.Emphasized)) { -it * dir } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.SHORT)))
+    }, label = "voteCount") { v -> Text(" $v", style = MaterialTheme.typography.labelLarge, color = color) }
 }

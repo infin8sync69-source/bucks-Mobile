@@ -216,14 +216,10 @@ struct PostCard: View {
     private func report() { session.reportTarget = ReportTarget(kind: "POST", targetId: post.id, ownerId: post.authorId, ownerName: post.authorName) }
 
     private var actions: some View {
-        let my = post.myVote ?? 0
-        let upColor = my == 1 ? BucksColor.good : BucksColor.onSurfaceVariant
-        let downColor = my == -1 ? BucksColor.bad : BucksColor.onSurfaceVariant
-        return HStack(spacing: 0) {
-            actionButton("arrow.up", "Recommend", " \(post.up)", upColor, icon: 20) { onVote(1) }
-            actionButton("arrow.down", "Not recommended", " \(post.down)", downColor, icon: 20) { onVote(-1) }
+        HStack(spacing: 0) {
+            VotePill(my: post.myVote ?? 0, up: post.up, down: post.down, onVote: onVote)
+            actionButton("bubble.left", "Comments", post.comments > 0 ? " \(post.comments)" : "", BucksColor.onSurfaceVariant, icon: 18, action: onComments).padding(.leading, 6)
             Spacer(minLength: 0)
-            actionButton("bubble.left", "Comments", " \(post.comments)", BucksColor.onSurfaceVariant, icon: 18, action: onComments)
             ShareLink(item: "\(post.authorName) on Bucks: \(post.body)") {
                 Image(systemName: "square.and.arrow.up").font(.system(size: 18)).foregroundStyle(BucksColor.onSurfaceVariant).frame(width: 48, height: 48).contentShape(Rectangle())
             }.accessibilityLabel("Share")

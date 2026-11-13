@@ -103,7 +103,7 @@ fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (()
         }
         // Notifications (sync requests, invites, orders...) have their own bell, so a waiting request is never hidden inside the chat count.
         if (onChat != null) LocalNotifAction.current?.let { n ->
-            IconButton(onClick = n.open) { BadgedIcon(Icons.Rounded.NotificationsNone, if (n.count > 0) pluralStringResource(R.plurals.r1_cd_notifications_new, n.count, n.count) else stringResource(R.string.r1_cd_notifications), n.count) }
+            IconButton(onClick = n.open) { BadgedIcon(Icons.Rounded.NotificationsNone, if (n.count > 0) pluralStringResource(R.plurals.r1_cd_notifications_new, n.count, n.count) else stringResource(R.string.r1_cd_notifications), n.count, ring = true) }
         }
         if (onChat != null) IconButton(onClick = onChat) { BadgedIcon(Icons.Rounded.Sms, if (unread > 0) pluralStringResource(R.plurals.r1_cd_messages_unread, unread, unread) else stringResource(R.string.g4_cd_messages), unread) }
     }
@@ -119,8 +119,9 @@ val LocalNotifAction = androidx.compose.runtime.compositionLocalOf<NotifAction?>
  */
 @Composable
 fun CountBadge(count: Int, modifier: Modifier = Modifier, ringed: Boolean = false) {
+    val bump = Modifier.bumpOnIncrease(count)   // before the early return, so 0 → 1 pops too
     if (count <= 0) return
-    Box(modifier.then(if (ringed) Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.5.dp) else Modifier)
+    Box(modifier.then(bump).then(if (ringed) Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.5.dp) else Modifier)
         .defaultMinSize(minWidth = 17.dp, minHeight = 17.dp).background(MaterialTheme.colorScheme.error, CircleShape).padding(horizontal = 4.5.dp), contentAlignment = Alignment.Center) {
         Text(if (count > 99) "99+" else "$count", color = MaterialTheme.colorScheme.onError, maxLines = 1, softWrap = false,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.sp, platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)))
@@ -129,8 +130,8 @@ fun CountBadge(count: Int, modifier: Modifier = Modifier, ringed: Boolean = fals
 
 /** A top-bar icon with its count riding on the top corner. The count is part of [description], so the badge itself is silent to TalkBack. */
 @Composable
-fun BadgedIcon(icon: ImageVector, description: String, count: Int, size: Int = 26) = Box {
-    Icon(icon, description, Modifier.size(size.dp))
+fun BadgedIcon(icon: ImageVector, description: String, count: Int, size: Int = 26, ring: Boolean = false) = Box {
+    Icon(icon, description, Modifier.size(size.dp).then(if (ring) Modifier.ringOnIncrease(count) else Modifier))
     CountBadge(count, Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-6).dp), ringed = true)
 }
 

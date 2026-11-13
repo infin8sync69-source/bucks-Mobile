@@ -55,10 +55,11 @@ struct HomeSearch: View {
     private var peopleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("People").bucks(.labelLarge).foregroundStyle(BucksColor.onSurfaceVariant)
-            ForEach(allPeople ? people : Array(people.prefix(3))) { h in
+            ForEach(Array((allPeople ? people : Array(people.prefix(3))).enumerated()), id: \.element.id) { i, h in
                 PersonResultCard(hit: h, state: syncState(h), onOpen: { q = ""; router.push(.person(h.id)) },
                                  onSync: { if syncState(h) == "INCOMING" { session.social.acceptSync(h.id) } else { sent.insert(h.id); session.social.syncWith(h.id, name: h.name) } },
                                  onMessage: { Task { if let c = await session.chat.openDirect(h.id) { q = ""; router.push(.chat(c)) } } })
+                    .enterStagger(index: min(i, 6))
             }
             if !allPeople && people.count > 3 {
                 let more = people.count - 3

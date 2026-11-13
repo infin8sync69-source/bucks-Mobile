@@ -166,10 +166,10 @@ private struct ProfileTopButtons: View {
             Button(action: openMenu) { Image(systemName: "line.3.horizontal").foregroundStyle(BucksColor.onPrimary).frame(width: 44, height: 44) }.accessibilityLabel("Menu")
             Spacer()
             if let notif {
-                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, color: BucksColor.onPrimary) }
+                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, color: BucksColor.onPrimary, ring: true) }
                     .accessibilityLabel(notif.count > 0 ? "Notifications, \(notif.count) new" : "Notifications")
             }
-            Button { router.push(.messages) } label: { BadgedIcon("bubble.left", count: unread, color: BucksColor.onPrimary) }
+            Button { router.push(.messages) } label: { BadgedIcon("ellipsis.message", count: unread, color: BucksColor.onPrimary) }
                 .accessibilityLabel(unread > 0 ? "Messages, \(unread) unread" : "Messages")
         }.padding(.horizontal, 4)
     }
@@ -213,8 +213,7 @@ private struct AccountPostCard: View {
                     }.padding(.top, 8)
                 }
                 HStack(spacing: 0) {
-                    voteButton(1, "arrow.up", "Recommend", post.up, BucksColor.good)
-                    voteButton(-1, "arrow.down", "Not recommended", post.down, BucksColor.bad)
+                    VotePill(my: myVote, up: post.up, down: post.down, onVote: onVote)
                     Spacer()
                     Button(action: onComments) {
                         HStack(spacing: 4) { Image(systemName: "bubble.left").font(.system(size: 16)); Text(" \(post.comments)").bucks(.labelLarge) }
