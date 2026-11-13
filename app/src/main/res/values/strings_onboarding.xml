@@ -10,6 +10,8 @@
     <string name="onb_phone_number">Phone number</string>
     <string name="onb_phone_invalid">Check the number</string>
     <string name="onb_agree_terms">I agree to the Terms and Privacy Policy.</string>
+    <string name="onb_terms_updated_title">We\'ve updated our Terms</string>
+    <string name="onb_terms_updated_body">You\'re responsible for what you do on Bucks, and breaking the law can be a crime. We keep records of accounts, trips and orders, and share them with the police or courts when the law requires it. Please read the new Terms and Privacy Policy to carry on.</string>
     <string name="onb_terms">Terms</string>
     <string name="onb_privacy">Privacy</string>
     <string name="onb_guidelines">Guidelines</string>

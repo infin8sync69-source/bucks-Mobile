@@ -39,6 +39,7 @@ import androidx.compose.animation.slideOutVertically
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Logout
@@ -129,6 +130,26 @@ fun BucksAppUi(vm: BucksViewModel, startRoute: String? = null, onStartRouteHandl
             text = { Text(stringResource(R.string.g3_loc_disclosure_body)) },
             confirmButton = { TextButton({ locDisclosure = false; locPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Text(stringResource(R.string.g3_continue)) } },
             dismissButton = { TextButton({ locDisclosure = false; vm.onLocationDenied() }) { Text(stringResource(R.string.g3_not_now)) } })
+        // Updated Terms: everyone signed in accepts the current version before carrying on (the server says which one; Legal.TERMS_VERSION is what onboarding records).
+        vm.social.termsNeeded?.let { v ->
+            var agreed by remember(v) { mutableStateOf(false) }
+            AlertDialog(onDismissRequest = {}, properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+                title = { Text(stringResource(R.string.onb_terms_updated_title)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.onb_terms_updated_body))
+                        Row(Modifier.padding(top = 8.dp)) {
+                            TextButton({ com.bucks.app.ui.social.Legal.open(ctx, com.bucks.app.ui.social.Legal.TERMS) }) { Text(stringResource(R.string.onb_terms)) }
+                            TextButton({ com.bucks.app.ui.social.Legal.open(ctx, com.bucks.app.ui.social.Legal.PRIVACY) }) { Text(stringResource(R.string.onb_privacy)) }
+                        }
+                        Row(Modifier.fillMaxWidth().toggleable(agreed, role = androidx.compose.ui.semantics.Role.Checkbox) { agreed = it }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                            Checkbox(agreed, null, Modifier.padding(end = 10.dp))
+                            Text(stringResource(R.string.onb_agree_terms), modifier = Modifier.padding(top = 2.dp))
+                        }
+                    }
+                },
+                confirmButton = { TextButton({ vm.social.acceptTerms() }, enabled = agreed) { Text(stringResource(R.string.onb_continue)) } })
+        }
         // Foreground location service runs whenever a vehicle is online, whichever screen is showing. Without permission it can't start (Android 14 would crash), so go back offline.
         LaunchedEffect(s.vehicleOnline) { when { !s.vehicleOnline -> com.bucks.app.data.DriverLocationService.stop(ctx); hasLocation() -> com.bucks.app.data.DriverLocationService.start(ctx); else -> { vm.setOnline(false); toast(com.bucks.app.data.Str.get(R.string.g3_loc_needed_online)); locDisclosure = true } } }
         // A request can only ring a driver outside the app through a notification: when those are blocked, say so as they go online (never blocks going online).

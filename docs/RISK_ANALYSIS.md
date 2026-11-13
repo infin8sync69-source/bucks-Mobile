@@ -20,6 +20,15 @@ Severity: **Critical** = likely and serious harm (safety, money, legal) · **Hig
 | R4 | **Phone spoofing.** `ensure_profile` saved whatever phone number the app sent when the token had none. That would let a modified app show someone else's number to drivers and shops. | Medium | The number now comes only from the sign-in token. All 10 real accounts already have it from the token; the 18 without a phone are demo accounts. |
 | R5 | **Pilot mode slips into launch.** `launch_checklist.sql` didn't check `pilot_skip_checks` or `vote_min_account_days`, both of which are still on pilot values. | High | Checks 17–19 added. The revert block in `pilot_test_settings.sql` now covers both settings. |
 
+## 1b. Legal pack (`supabase/migrations/legal_hold.sql` applied to `bucks-app` on 2026-11-13; docs/legal; docs/LAW_ENFORCEMENT.md)
+
+| # | Scenario | Fix |
+|---|---|---|
+| L1 | **Someone commits a crime through Bucks, then deletes the account.** Deletion wiped everything at once, so there was nothing left for the police. The IT Rules require registration details to be kept for 180 days. | `delete_my_account` first seals a registration record in `legal_holds`: name, phone, Bucks ID, date of birth, guardian, vehicles, pages, trip and order ids. Nobody can read it through the API. A daily job deletes it after 180 days unless an authority asked for it to be preserved. |
+| L2 | **The terms didn't say who is responsible, or that data goes to the police.** | Terms version 2026-11-13: Bucks is an intermediary, providers are independent, users are responsible for their own acts and may be prosecuted, records are kept and shared on lawful request or in an emergency, POCSO reporting, liability cap and indemnity. The privacy policy has the matching sections. |
+| L3 | **The iOS app never asked people to accept the terms.** 3 real accounts have no accepted version, and existing users were never asked again when the terms changed. | `terms_status()` on the server. Android shows a "We've updated our Terms" dialog that can't be dismissed. iOS shows a terms screen after sign-in. `record_terms` never goes back to an older version. |
+| L4 | **Nobody knew how to answer a police request.** | [LAW_ENFORCEMENT.md](LAW_ENFORCEMENT.md): checking a request, deadlines (72 h, 36 h, 24 h), the SQL to find data, preservation, a register of requests, emergencies. |
+
 ## 2. Needs your decision (production config, not code)
 
 | # | Scenario | Severity | Action |

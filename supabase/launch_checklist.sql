@@ -40,6 +40,8 @@ checks(n, what, expected, actual) as (
   union all
   select 19, 'risk_hardening.sql applied (moment_minor_guard trigger exists)', 'true', (exists (select 1 from pg_trigger where tgname = 'moment_minor_guard' and tgrelid = 'public.moments'::regclass))::text
   union all
+  select 9, 'legal_hold.sql applied (deleted accounts keep a sealed registration record for 180 days)', 'true', (to_regclass('public.legal_holds') is not null and to_regprocedure('public.terms_status()') is not null)::text
+  union all
   select 20 + row_number() over (order by e.key), 'service_rules.min_supply ' || e.key, e.n::text, coalesce((select r.min_supply::text from public.service_rules r where r.key = e.key), 'missing')
   from expected_min_supply e
   union all

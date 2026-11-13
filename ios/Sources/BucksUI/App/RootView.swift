@@ -26,7 +26,7 @@ public struct RootView: View {
                 case .launching: LaunchingView()
                 case .signedOut: AuthFlow()
                 case .needsProfile: CreateProfileScreen()
-                case .ready: if session.needsBirthDate { BirthDateScreen() } else if session.needsGuardian { GuardianScreen() } else { MainStack() }
+                case .ready: if session.termsNeeded != nil { TermsScreen() } else if session.needsBirthDate { BirthDateScreen() } else if session.needsGuardian { GuardianScreen() } else { MainStack() }
                 }
             }
         }

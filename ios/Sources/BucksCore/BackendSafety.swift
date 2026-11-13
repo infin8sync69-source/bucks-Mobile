@@ -1,6 +1,13 @@
 import Foundation
 
 /// My age band and whether a date of birth is on file (social_safety.sql my_safety).
+/// terms_status(): the Terms version everyone must have accepted, the one I accepted, and whether the app must ask (legal_hold.sql).
+public struct TermsStatus: Codable, Hashable, Sendable {
+    public var current: String?
+    public var accepted: String?
+    public var needed: Bool
+}
+
 public struct SafetyRow: Codable, Hashable, Sendable {
     public var ageBand: String
     public var birthDateSet: Bool
@@ -94,6 +101,9 @@ public enum ReportReason: String, CaseIterable, Identifiable, Sendable {
 extension Backend {
     /// Nil when signed out.
     public func mySafety() async throws -> SafetyRow? { (try await rpcList("my_safety") as [SafetyRow]).first }
+    public func termsStatus() async throws -> TermsStatus { try await rpc("terms_status") }
+    /// Records that I accepted this version of the Terms and Privacy Policy.
+    public func recordTerms(_ version: String) async throws { try await rpcVoid("record_terms", ["p_version": version]) }
     /// Saves my date of birth (yyyy-MM-dd) once; answers the age band. Refused with BK_NOT_ELIGIBLE below the sign-up age.
     public func setBirthDate(_ isoDate: String) async throws -> String { try await rpc("set_birth_date", ["p_date": isoDate]) }
     /// A parent or guardian's consent for an under-18 account (relation PARENT or GUARDIAN; phone with +91). Until it is recorded the

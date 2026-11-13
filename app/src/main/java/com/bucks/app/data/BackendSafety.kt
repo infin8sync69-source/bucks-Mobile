@@ -20,6 +20,8 @@ object BackendSafety {
     suspend fun setBirthDate(isoDate: String): String = db.rpc("set_birth_date", buildJsonObject { put("p_date", isoDate) }).decodeAs()
     /** "I agree to the Terms" from the phone screen: records which version was accepted. */
     suspend fun recordTerms(version: String) { db.rpc("record_terms", buildJsonObject { put("p_version", version) }) }
+    /** The Terms version everyone must have accepted (server setting), the one I accepted, and whether the app must ask again. */
+    suspend fun termsStatus(): TermsStatus? = runCatching { db.rpc("terms_status").decodeAs<TermsStatus>() }.getOrNull()
     /** Country (ISO code) and app language for my profile: currency, payments and the language of notifications. */
     suspend fun setMyLocale(country: String?, language: String?) { db.rpc("set_my_locale", buildJsonObject { put("p_country", country); put("p_language", language) }) }
     suspend fun mySafety(): SafetyRow? = db.rpc("my_safety").decodeList<SafetyRow>().firstOrNull()
@@ -40,6 +42,7 @@ object BackendSafety {
         db.rpc("posts_by", buildJsonObject { put("p_author", author); beforeIso?.let { put("before", it) } }).decodeList()
 }
 
+@Serializable data class TermsStatus(val current: String? = null, val accepted: String? = null, val needed: Boolean = false)
 @Serializable data class SafetyRow(@SerialName("age_band") val ageBand: String = "UNKNOWN", @SerialName("birth_date_set") val birthDateSet: Boolean = false,
                                    @SerialName("guardian_consent") val guardianConsent: Boolean? = null)
 @Serializable data class PersonHit(val id: String, val name: String, @SerialName("short_code") val shortCode: String, val area: String = "", val mutual: Int = 0, val synced: Boolean = false)

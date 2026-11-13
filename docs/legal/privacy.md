@@ -3,7 +3,7 @@ title: Bucks privacy policy
 ---
 # Privacy policy
 
-> **Draft for legal review.** Last updated: 9 November 2026. The company name, address, contacts and officer names on this page are placeholders until legal review is complete.
+> **Draft for legal review.** Last updated: 13 November 2026. The company name, address, contacts and officer names on this page are placeholders until legal review is complete.
 
 Bucks is an app for people, local services and shops near you, run by **Bucks Technologies Private Limited**, 2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038, India ("we"). This policy explains what we collect, why, who we share it with, and your rights under India's Digital Personal Data Protection Act, 2023 (DPDP Act).
 
@@ -70,10 +70,21 @@ We don't sell personal data, show ads or use an advertising ID.
 
 ## How long we keep it
 
-- Until you delete your account. Deletion removes your profile, phone number, date of birth, posts, Moments, comments, messages (shown to others as "Message deleted"), saved addresses, feedback posts and settings straight away, and the files you uploaded within 30 days.
+- Until you delete your account. Deletion removes your profile, phone number, date of birth, posts, Moments, comments, messages (shown to others as "Message deleted"), saved addresses, feedback posts and settings from the app straight away, and the files you uploaded within 30 days.
+- **Registration record after deletion: 180 days.** As the IT Rules, 2021 (rule 3(1)(h)) require, we keep a sealed copy of your registration details for 180 days after you delete your account: name, mobile number, Bucks ID, sign-up date, date of birth and guardian details if you're under 18, the plates of vehicles you registered, and the IDs of your pages, trips and orders. Nobody can see it in the app. Only authorised Bucks staff open it, to answer a lawful request from the authorities or to deal with a safety complaint. After 180 days it's deleted, unless an authority has asked us to preserve it for an investigation.
 - Records of completed rides and orders are kept for 8 years where tax and accounting law requires, with your name and contact details removed.
 - Reports about content stay as moderation records for 180 days, or longer if the IT Rules, 2021 or a legal order require it.
 - Crash reports: 90 days. Usage statistics: 14 months (Google's setting).
+
+## Sharing with the police and the authorities
+
+We share personal data with the police, courts, and government or regulatory agencies only when:
+
+- **the law requires it**: for example a lawful order or request under the IT Act, 2000 (sections 69 and 79), the IT Rules, 2021 (rule 3(1)(j): within 72 hours of a lawful order), the Bharatiya Nagarik Suraksha Sanhita, 2023, or the DPDP Act, 2023;
+- **someone's life or safety is at risk**, and sharing is needed to prevent death or serious harm;
+- **a child may be at risk**. We report child sexual abuse material and offences against children under the POCSO Act, 2012.
+
+We check every request before we answer it, share only what it covers, and keep a record of what we shared and why. We may not tell you about a request when the law doesn't allow it or telling you could put someone at risk.
 
 ## Your rights
 

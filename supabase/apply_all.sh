@@ -69,6 +69,7 @@ files=(
   migrations/map_recommended.sql
   migrations/billing.sql
   migrations/risk_hardening.sql
+  migrations/legal_hold.sql
 )
 
 case "${1:-}" in

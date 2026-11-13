@@ -20,6 +20,14 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
     val enabled get() = Backend.enabled
     var me by mutableStateOf<ProfileRow?>(null); private set
     var settings by mutableStateOf<SettingsRow?>(null); private set
+    /** The Terms version I still have to accept (BucksAppUi shows a dialog that can't be dismissed), or null. */
+    var termsNeeded by mutableStateOf<String?>(null); private set
+    fun acceptTerms() = go {
+        val v = termsNeeded ?: return@go
+        com.bucks.app.data.BackendSafety.recordTerms(v)
+        com.bucks.app.data.Prefs.acceptedTerms = v
+        termsNeeded = null
+    }
     var inbox by mutableStateOf<List<InboxRow>>(emptyList()); private set
     /** Notifications (Messages screen, second tab): what needs my attention besides chat. */
     var notes by mutableStateOf<List<NotificationRow>>(emptyList()); private set
@@ -73,6 +81,8 @@ class Social(private val scope: CoroutineScope, private val repo: BucksRepositor
         me = p; names[p.id] = p.name; photos[p.id] = p.photoUrl
         // Onboarding choices made before there was an account: the accepted terms version, the country and the language.
         com.bucks.app.data.Prefs.acceptedTerms?.let { v -> runCatching { com.bucks.app.data.BackendSafety.recordTerms(v) } }
+        // The Terms changed since this person accepted them (or they never did, on an older app): ask before they carry on.
+        termsNeeded = com.bucks.app.data.BackendSafety.termsStatus()?.takeIf { it.needed }?.current
         runCatching { com.bucks.app.data.BackendSafety.setMyLocale(com.bucks.app.data.Prefs.countryIso, com.bucks.app.data.AppLanguages.current().tag) }
         settings = Backend.mySettings(p.id)
         Push.registerIfSignedIn()
