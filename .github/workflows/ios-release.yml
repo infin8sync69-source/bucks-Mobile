@@ -63,8 +63,10 @@ jobs:
           # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does)
           printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > App/GoogleService-Info.plist
           plutil -lint App/GoogleService-Info.plist
-          # Phone sign-in comes back to the app through this URL scheme.
-          rev="$(/usr/libexec/PlistBuddy -c 'Print :REVERSED_CLIENT_ID' App/GoogleService-Info.plist)"
+          # Phone sign-in comes back through REVERSED_CLIENT_ID, or, in newer config files that lack it, the encoded app id
+          # (GOOGLE_APP_ID 1:N:ios:H becomes app-1-N-ios-H), as Firebase's phone-auth guide says.
+          rev="$(/usr/libexec/PlistBuddy -c 'Print :REVERSED_CLIENT_ID' App/GoogleService-Info.plist 2>/dev/null || true)"
+          [ -n "$rev" ] || rev="app-$(/usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' App/GoogleService-Info.plist | tr ':' '-')"
           printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\nREVERSED_CLIENT_ID = %s\n' \
             "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" "$rev" > Config/Secrets.xcconfig
           xcodegen generate

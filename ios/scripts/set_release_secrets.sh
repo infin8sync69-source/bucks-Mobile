@@ -15,7 +15,7 @@ key_id="$(basename "$p8" .p8)"; key_id="${key_id#AuthKey_}"
 plist="$(ls -t "$dir"/GoogleService-Info*.plist 2>/dev/null | head -1 || true)"
 [ -n "$plist" ] || die "No GoogleService-Info.plist in $dir. Download it from Firebase > Project settings > your iOS app."
 grep -q "<string>com.bucksios.app</string>" "$plist" || die "$(basename "$plist") is not for bundle id com.bucksios.app (add the iOS app with that id in Firebase)."
-grep -q "REVERSED_CLIENT_ID" "$plist" || die "$(basename "$plist") has no REVERSED_CLIENT_ID (phone sign-in needs it)."
+grep -Eq "<key>(REVERSED_CLIENT_ID|GOOGLE_APP_ID)</key>" "$plist" || die "$(basename "$plist") has neither REVERSED_CLIENT_ID nor GOOGLE_APP_ID (phone sign-in needs one)."
 
 read -r -p "Issuer ID (the long id with dashes at the top of the App Store Connect API page): " issuer
 issuer="$(printf '%s' "$issuer" | tr -d '[:space:]')"
