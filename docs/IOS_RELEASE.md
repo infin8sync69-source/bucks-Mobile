@@ -37,7 +37,7 @@ One-time setup:
    note the Key ID and the Issuer ID.
 5. **Firebase**: add the iOS app with bundle id `com.bucksios.app`, download `GoogleService-Info.plist`, and upload an APNs authentication
    key (Project settings > Cloud Messaging). Phone sign-in and push both need it.
-6. **Repository secrets** (run these yourself, from a terminal on your own machine; nothing is printed):
+6. **Repository secrets**: download both files to ~/Downloads and run `ios/scripts/set_release_secrets.sh` (it finds them, reads the Key ID from the file name and asks only for the Issuer ID). Or by hand (run these yourself, from a terminal on your own machine; nothing is printed):
    ```bash
    gh secret set APPLE_TEAM_ID --body "<team id>"
    gh secret set APPSTORE_API_KEY_ID --body "<key id>"
