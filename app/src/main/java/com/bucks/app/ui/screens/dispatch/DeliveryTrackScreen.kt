@@ -67,6 +67,7 @@ fun DeliveryTrackScreen(vm: BucksViewModel, taskId: String, onBack: () -> Unit) 
 
 @Composable
 private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow?, phone: String?, modifier: Modifier, onCall: () -> Unit, onMessage: () -> Unit, onDone: () -> Unit) {
+    val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     val shop = t.pickup; val door = t.drop; val at = t.driverAt
     val moving = t.status in setOf("MATCHED", "ARRIVED", "IN_PROGRESS")
     // open_tasks_near stops ringing a task once the ring window has passed since it started searching (created, or handed back by a rider);
