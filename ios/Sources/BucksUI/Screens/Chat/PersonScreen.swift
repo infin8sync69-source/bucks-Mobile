@@ -120,7 +120,7 @@ private struct SecondaryAction: View {
     init(_ title: String, _ icon: String, enabled: Bool = true, action: @escaping () -> Void) { self.title = title; self.icon = icon; self.enabled = enabled; self.action = action }
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: icon).bucks(.labelLarge).foregroundStyle(BucksColor.primary).frame(maxWidth: .infinity, minHeight: 48)
+            Label(title, systemImage: icon).font(.bucks(.labelLarge)).foregroundStyle(BucksColor.primary).frame(maxWidth: .infinity, minHeight: 48)
                 .background(RoundedRectangle(cornerRadius: BucksRadius.large, style: .continuous).stroke(BucksColor.outline, lineWidth: 1))
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.5)
@@ -175,7 +175,7 @@ private struct QuickAction: View {
     init(_ icon: String, _ label: String, filled: Bool = false, enabled: Bool = true, action: @escaping () -> Void) { self.icon = icon; self.label = label; self.filled = filled; self.enabled = enabled; self.action = action }
     var body: some View {
         Button(action: action) {
-            Label(label, systemImage: icon).bucks(.labelLarge).lineLimit(1)
+            Label(label, systemImage: icon).font(.bucks(.labelLarge)).lineLimit(1)
                 .foregroundStyle(filled ? BucksColor.onPrimary : BucksColor.onSurface)
                 .padding(.horizontal, 14).frame(minHeight: 36)
                 .background(Capsule().fill((filled ? BucksColor.primary : BucksColor.surfaceContainerHigh).opacity(enabled ? 1 : 0.5)))
