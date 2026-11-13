@@ -17,7 +17,7 @@ public enum Route: Hashable {
     // Jobs
     case listingJobs(String), job(String), jobNew(String), myApplications, jobsNear
     // Social
-    case messages, chat(String), newGroup, sync, moments(String), momentNew, post(String), createPost, contacts, bucksId
+    case messages, notifications, chat(String), newGroup, sync, moments(String), momentNew, post(String), createPost, contacts, bucksId
     // Settings
     case settingsPrivacy, settingsNotifications, settingsAppearance, settingsBlocked, settingsCloseFriends
     // Maps

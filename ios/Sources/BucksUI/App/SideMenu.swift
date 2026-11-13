@@ -5,6 +5,7 @@ import BucksCore
 /// invites, orders, jobs, recommendations, maps, account settings and logout. Slides in over a scrim.
 struct SideMenu: View {
     @Binding var isOpen: Bool
+    @State private var logoutAsk = false
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
 
@@ -19,6 +20,9 @@ struct SideMenu: View {
         .transition(.opacity)
         .accessibilityAddTraits(.isModal)
         .task { if session.me != nil { m.refresh() } }
+        .bucksConfirm(isPresented: $logoutAsk, title: "Log out?", message: "You can sign back in any time with your mobile number.", confirmTitle: "Log out") {
+            close(); Task { await session.logout() }
+        }
     }
 
     /// Android highlights the home entry on the hub, a listing dashboard or form, the vehicle form and the vehicles list.
@@ -87,7 +91,8 @@ struct SideMenu: View {
     private var footer: some View {
         VStack(spacing: 1) {
             item("gearshape", "Account settings") { close(); router.select(.account, accountTab: "settings") }
-            item("rectangle.portrait.and.arrow.right", "Logout") { close(); Task { await session.logout() } }
+            // Log out stays in view at the foot of the menu, whatever the length of the list above; it asks first.
+            item("rectangle.portrait.and.arrow.right", "Log out") { logoutAsk = true }
         }.padding(12)
     }
 

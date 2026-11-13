@@ -5,7 +5,9 @@ import BucksCore
 struct MessagesScreen: View {
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
-    @State private var tab = 0
+    @State private var tab: Int
+    /// 0 Messages, 1 Notifications (the bell opens this screen on Notifications).
+    init(startTab: Int = 0) { _tab = State(initialValue: startTab) }
     @State private var menuFor: InboxRow?
     @State private var leaveFor: InboxRow?
 
@@ -24,7 +26,7 @@ struct MessagesScreen: View {
                     }
                 }
                 tabRow
-                if tab == 1 { NotificationsList() } else { conversations }
+                if tab == 1 { NotificationsList().task { session.social.refreshSyncs() } } else { conversations }
             }.frame(maxHeight: .infinity, alignment: .top)
         }
         .bucksBackground().bucksHideNavigationBar()
@@ -63,7 +65,7 @@ struct MessagesScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     Text(label).bucks(.labelLarge).foregroundStyle(tab == i ? BucksColor.primary : BucksColor.onSurfaceVariant)
-                    if count > 0 { PillPurple("\(count)") }
+                    CountBadge(count)
                 }.frame(maxWidth: .infinity, minHeight: 46)
                 Rectangle().fill(tab == i ? BucksColor.primary : .clear).frame(height: 3)
             }.contentShape(Rectangle())
@@ -99,7 +101,7 @@ struct MessagesScreen: View {
         }, trailing: {
             HStack(spacing: 4) {
                 if c.muted { Image(systemName: "bell.slash").font(.system(size: 13)).foregroundStyle(BucksColor.onSurfaceVariant) }
-                if c.unread > 0 { PillPurple("\(c.unread)") }
+                CountBadge(c.unread)
                 Button { menuFor = c } label: { Image(systemName: "ellipsis").rotationEffect(.degrees(90)).foregroundStyle(BucksColor.onSurface).frame(width: 40, height: 40).contentShape(Rectangle()) }
                     .buttonStyle(.plain).accessibilityLabel("More")
             }
@@ -114,7 +116,8 @@ private struct NotificationsList: View {
 
     var body: some View {
         let notes = session.chat.notes
-        if notes.isEmpty {
+        let incoming = session.social.incoming
+        if notes.isEmpty && incoming.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Nothing new").bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                 Muted("Sync requests, invites, orders, recommendations, reviews and document checks show up here.")
@@ -123,6 +126,8 @@ private struct NotificationsList: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // Sync requests waiting for my answer come first, with the answer right here: no trip to the Sync screen.
+                    if !incoming.isEmpty { syncRequests(incoming) }
                     ForEach(notes) { n in
                         let unread = n.readAt == nil
                         HStack(alignment: .top, spacing: 0) {
@@ -146,5 +151,27 @@ private struct NotificationsList: View {
                 }
             }
         }
+    }
+}
+
+extension NotificationsList {
+    func syncRequests(_ people: [ProfileRow]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(people.count == 1 ? "1 sync request" : "\(people.count) sync requests").bucks(.labelLarge).foregroundStyle(BucksColor.primary)
+                .padding(.horizontal, Gutter).padding(.top, 14).padding(.bottom, 4)
+            ForEach(people) { p in
+                HStack(spacing: 12) {
+                    Avatar(initials: initials(p.name), size: 40)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(p.name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1)
+                        Muted(["Wants to sync with you", p.area.isEmpty ? nil : p.area].compactMap { $0 }.joined(separator: " · "), maxLines: 1)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    SmallButton("Accept") { session.social.acceptSync(p.id) }
+                    SmallButton("Ignore", tonal: true) { session.social.unsync(p.id) }
+                }.padding(.horizontal, Gutter).padding(.vertical, 8)
+            }
+        }
+        .padding(.bottom, 6).frame(maxWidth: .infinity, alignment: .leading)
+        .background(BucksColor.primaryContainer.opacity(0.35))
     }
 }

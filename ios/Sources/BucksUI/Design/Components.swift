@@ -499,10 +499,49 @@ public extension EnvironmentValues {
     var bucksCartAction: CartAction? { get { self[CartActionKey.self] } set { self[CartActionKey.self] = newValue } }
 }
 
+/// The bell in every top bar that has Messages: how many notifications are unread and what a tap does (Android's LocalNotifAction).
+/// Notifications have their own bell, so a waiting sync request is never hidden inside the chat count. Nil hides it.
+public struct NotifAction {
+    public var count: Int
+    public var open: () -> Void
+    public init(count: Int, open: @escaping () -> Void) { self.count = count; self.open = open }
+}
+private struct NotifActionKey: EnvironmentKey { static let defaultValue: NotifAction? = nil }
+public extension EnvironmentValues {
+    var bucksNotifAction: NotifAction? { get { self[NotifActionKey.self] } set { self[NotifActionKey.self] = newValue } }
+}
+
+/// The one count badge (Android's CountBadge): a small red pill, "99+" at most, nothing for zero. `ringed` gives it a ring in the
+/// surface colour so it stays clear of the icon it rides on; without the ring it sits inline, next to a tab label or at a row's end.
+public struct CountBadge: View {
+    let count: Int; var ringed: Bool
+    public init(_ count: Int, ringed: Bool = false) { self.count = count; self.ringed = ringed }
+    public var body: some View {
+        if count > 0 {
+            Text(count > 99 ? "99+" : "\(count)").font(.system(size: 10, weight: .bold)).foregroundStyle(.white).lineLimit(1).fixedSize()
+                .padding(.horizontal, 4.5).frame(minWidth: 17, minHeight: 17)
+                .background(Capsule().fill(BucksColor.error))
+                .padding(ringed ? 1.5 : 0).background(Capsule().fill(ringed ? BucksColor.surface : .clear))
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// A top-bar icon with its count riding on the top corner. The count belongs in the button's label, so the badge itself is silent.
+public struct BadgedIcon: View {
+    let systemImage: String; let count: Int; var size: CGFloat; var color: Color
+    public init(_ systemImage: String, count: Int, size: CGFloat = 20, color: Color = BucksColor.onSurface) { self.systemImage = systemImage; self.count = count; self.size = size; self.color = color }
+    public var body: some View {
+        Image(systemName: systemImage).font(.system(size: size)).foregroundStyle(color).frame(width: 44, height: 44)
+            .overlay(alignment: .topTrailing) { CountBadge(count, ringed: true).offset(x: -1, y: 4) }
+    }
+}
+
 public struct BucksTopBar<Actions: View>: View {
     var title: String?; var onBack: (() -> Void)?; var onMenu: (() -> Void)?; var unread: Int; var onChat: (() -> Void)?
     let actions: Actions
     @Environment(\.bucksCartAction) private var cart
+    @Environment(\.bucksNotifAction) private var notif
     public init(title: String? = nil, onBack: (() -> Void)? = nil, onMenu: (() -> Void)? = nil, unread: Int = 0, onChat: (() -> Void)? = nil, @ViewBuilder actions: () -> Actions) {
         self.title = title; self.onBack = onBack; self.onMenu = onMenu; self.unread = unread; self.onChat = onChat; self.actions = actions()
     }
@@ -517,20 +556,16 @@ public struct BucksTopBar<Actions: View>: View {
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4)
             actions
             if onChat != nil, let cart {
-                Button(action: cart.open) {
-                    Image(systemName: "cart.fill").font(.system(size: 20)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)
-                        .overlay(alignment: .topTrailing) {
-                            if cart.count > 0 { Text(cart.count > 99 ? "99+" : "\(cart.count)").font(.bucks(.labelSmall)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.purple)).offset(x: -2, y: 4) }
-                        }
-                }.buttonStyle(.plain).accessibilityLabel(cart.count > 0 ? "Cart, \(cart.count) item\(cart.count == 1 ? "" : "s")" : "Cart")
+                Button(action: cart.open) { BadgedIcon("cart.fill", count: cart.count) }
+                    .buttonStyle(.plain).accessibilityLabel(cart.count > 0 ? "Cart, \(cart.count) item\(cart.count == 1 ? "" : "s")" : "Cart")
+            }
+            if onChat != nil, let notif {
+                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, size: 21) }
+                    .buttonStyle(.plain).accessibilityLabel(notif.count > 0 ? "Notifications, \(notif.count) new" : "Notifications")
             }
             if let onChat {
-                Button(action: onChat) {
-                    Image(systemName: "message.fill").font(.system(size: 21)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)
-                        .overlay(alignment: .topTrailing) {
-                            if unread > 0 { Text("\(unread)").font(.bucks(.labelSmall)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.purple)).offset(x: -2, y: 4) }
-                        }
-                }.buttonStyle(.plain).accessibilityLabel("Messages")
+                Button(action: onChat) { BadgedIcon("message.fill", count: unread, size: 21) }
+                    .buttonStyle(.plain).accessibilityLabel(unread > 0 ? "Messages, \(unread) unread" : "Messages")
             }
         }
         .padding(.horizontal, 8).padding(.vertical, 6).frame(maxWidth: .infinity)

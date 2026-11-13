@@ -159,17 +159,18 @@ struct AccountProfileView: View {
 private struct ProfileTopButtons: View {
     @Environment(Router.self) private var router
     @Environment(\.openBucksMenu) private var openMenu
+    @Environment(\.bucksNotifAction) private var notif
     let unread: Int
     var body: some View {
         HStack {
             Button(action: openMenu) { Image(systemName: "line.3.horizontal").foregroundStyle(BucksColor.onPrimary).frame(width: 44, height: 44) }.accessibilityLabel("Menu")
             Spacer()
-            Button { router.push(.messages) } label: {
-                Image(systemName: "bubble.left").foregroundStyle(BucksColor.onPrimary).frame(width: 44, height: 44)
-                    .overlay(alignment: .topTrailing) {
-                        if unread > 0 { Text("\(min(unread, 99))").font(.system(size: 10, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.error)).offset(x: -4, y: 4) }
-                    }
-            }.accessibilityLabel("Messages")
+            if let notif {
+                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, color: BucksColor.onPrimary) }
+                    .accessibilityLabel(notif.count > 0 ? "Notifications, \(notif.count) new" : "Notifications")
+            }
+            Button { router.push(.messages) } label: { BadgedIcon("bubble.left", count: unread, color: BucksColor.onPrimary) }
+                .accessibilityLabel(unread > 0 ? "Messages, \(unread) unread" : "Messages")
         }.padding(.horizontal, 4)
     }
 }

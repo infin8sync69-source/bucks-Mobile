@@ -127,6 +127,8 @@ struct MainStack: View {
         .environment(\.openBucksMenu, { withAnimation(.easeOut(duration: 0.25)) { router.menuOpen = true } })
         // The cart next to Messages in every top bar (cloud builds), with the piece count across every shop in it.
         .environment(\.bucksCartAction, session.cloud ? CartAction(count: session.commerce.count) { if router.path.last != .cart { router.push(.cart) } } : nil)
+        // The notifications bell beside it: sync requests, invites, orders... with their own count.
+        .environment(\.bucksNotifAction, session.cloud ? NotifAction(count: session.chat.notesUnread) { if router.path.last != .notifications { router.push(.notifications) } } : nil)
         .animation(.easeOut(duration: 0.25), value: session.dispatch.driverRide?.id)
         .confirmationGate()
         .rideRing(session.dispatch.driverRide?.status == .ringing)
@@ -232,6 +234,7 @@ struct MainStack: View {
         case .myApplications: MyApplicationsScreen()
         case .jobsNear: JobsNearScreen()
         case .messages: MessagesScreen()
+        case .notifications: MessagesScreen(startTab: 1)
         case .chat(let id): ChatScreen(id: id)
         case .newGroup: NewGroupScreen()
         case .sync: SyncScreen()
