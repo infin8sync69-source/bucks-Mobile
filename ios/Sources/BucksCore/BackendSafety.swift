@@ -8,6 +8,27 @@ public struct SafetyRow: Codable, Hashable, Sendable {
     public init(ageBand: String = "UNKNOWN", birthDateSet: Bool = false, guardianConsent: Bool? = nil) { self.ageBand = ageBand; self.birthDateSet = birthDateSet; self.guardianConsent = guardianConsent }
 }
 
+/// A person in search results (search_people): by name, or exactly by Bucks ID.
+public struct PersonHit: Codable, Hashable, Sendable, Identifiable {
+    public var id: String
+    public var name: String
+    public var shortCode: String
+    public var area: String
+    /// People we are both synced with.
+    public var mutual: Int
+    public var synced: Bool
+    enum CodingKeys: String, CodingKey { case id, name, shortCode, area, mutual, synced }
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        shortCode = (try? c.decodeIfPresent(String.self, forKey: .shortCode)) ?? ""; area = (try? c.decodeIfPresent(String.self, forKey: .area)) ?? ""
+        mutual = (try? c.decodeIfPresent(Int.self, forKey: .mutual)) ?? 0; synced = (try? c.decodeIfPresent(Bool.self, forKey: .synced)) ?? false
+    }
+    public init(id: String, name: String, shortCode: String, area: String = "", mutual: Int = 0, synced: Bool = false) {
+        self.id = id; self.name = name; self.shortCode = shortCode; self.area = area; self.mutual = mutual; self.synced = synced
+    }
+}
+
 /// What is being reported. `kind`: POST, COMMENT, MOMENT, MESSAGE, PROFILE, LISTING, REVIEW or JOB. `ownerId` lets the sheet offer "also block".
 public struct ReportTarget: Identifiable, Hashable, Sendable {
     public var kind: String
@@ -80,6 +101,10 @@ extension Backend {
     public func recordGuardianConsent(name: String, phone: String, relation: String) async throws {
         try await rpcVoid("record_guardian_consent", ["p_name": name, "p_phone": phone, "p_relation": relation])
     }
+    /// People by name, or exactly by Bucks ID (send the bare code, see `peopleQuery`).
+    public func searchPeople(_ q: String) async throws -> [PersonHit] { try await rpcList("search_people", ["q": q]) }
+    /// One person's posts that I'm allowed to see, newest first.
+    public func postsBy(_ author: String) async throws -> [FeedRow] { try await rpcList("posts_by", ["p_author": author]) }
     /// Files a report for staff review; answers its id. Reporting the same thing twice keeps the first report.
     public func reportContent(kind: String, target: String, reason: String, detail: String) async throws -> String {
         try await rpc("report_content", ["p_kind": kind, "p_target": target, "p_reason": reason, "p_detail": detail])

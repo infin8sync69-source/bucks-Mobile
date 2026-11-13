@@ -235,6 +235,7 @@ struct MainStack: View {
         case .jobsNear: JobsNearScreen()
         case .messages: MessagesScreen()
         case .notifications: MessagesScreen(startTab: 1)
+        case .person(let id): PersonScreen(id: id)
         case .chat(let id): ChatScreen(id: id)
         case .newGroup: NewGroupScreen()
         case .sync: SyncScreen()

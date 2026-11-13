@@ -8,13 +8,19 @@ struct HomeSearch: View {
     var onSearchAll: (String) -> Void
     var onPlace: (MapServices.PlaceHit) -> Void
     @Environment(AppSession.self) private var session
+    @Environment(Router.self) private var router
     @State private var q = ""
     @State private var places: [MapServices.PlaceHit] = []
+    // People, by name or Bucks ID, as cards with their quick actions; a tap opens the profile.
+    @State private var people: [PersonHit] = []
+    @State private var allPeople = false
+    @State private var sent: Set<String> = []
 
     private var trimmed: String { q.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         VStack(spacing: 0) {
+            if !people.isEmpty { peopleSection }
             if trimmed.count >= 3 {
                 ForEach(places, id: \.self) { h in
                     ListRow(h.name, subtitle: h.detail, onTap: { q = ""; onPlace(h) },
@@ -36,6 +42,7 @@ struct HomeSearch: View {
             .padding(.leading, 20).padding(.trailing, 4).frame(height: 56)
             .background(RoundedRectangle(cornerRadius: BucksRadius.medium, style: .continuous).fill(BucksColor.surfaceContainer))
         }
+        .task(id: q) { await findPeople() }
         .task(id: q) {
             places = []
             guard trimmed.count >= 3 else { return }
@@ -43,5 +50,36 @@ struct HomeSearch: View {
             if Task.isCancelled { return }
             places = Array(await MapServices.search(trimmed, near: session.here).prefix(3))
         }
+    }
+
+    private var peopleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("People").bucks(.labelLarge).foregroundStyle(BucksColor.onSurfaceVariant)
+            ForEach(allPeople ? people : Array(people.prefix(3))) { h in
+                PersonResultCard(hit: h, state: syncState(h), onOpen: { q = ""; router.push(.person(h.id)) },
+                                 onSync: { if syncState(h) == "INCOMING" { session.social.acceptSync(h.id) } else { sent.insert(h.id); session.social.syncWith(h.id, name: h.name) } },
+                                 onMessage: { Task { if let c = await session.chat.openDirect(h.id) { q = ""; router.push(.chat(c)) } } })
+            }
+            if !allPeople && people.count > 3 {
+                let more = people.count - 3
+                GhostButton(more == 1 ? "Show 1 more person" : "Show \(more) more people") { allPeople = true }
+            }
+        }.padding(.bottom, 8).frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func syncState(_ h: PersonHit) -> String {
+        if h.synced || session.social.synced.contains(where: { $0.id == h.id }) { return "SYNCED" }
+        if session.social.incoming.contains(where: { $0.id == h.id }) { return "INCOMING" }
+        return sent.contains(h.id) ? "SENT" : "NONE"
+    }
+
+    private func findPeople() async {
+        allPeople = false
+        let t = peopleQuery(q)
+        guard t.count >= 2, session.me != nil else { people = []; return }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        if Task.isCancelled { return }
+        people = (try? await Backend.shared.searchPeople(t)) ?? []
+        if people.isEmpty == false { session.social.refreshSyncs() }
     }
 }

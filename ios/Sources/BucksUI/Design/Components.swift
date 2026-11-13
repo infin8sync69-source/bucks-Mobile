@@ -527,6 +527,29 @@ public struct CountBadge: View {
     }
 }
 
+/// The small comment box under a post, wherever a post shows (Android's InlineCommentBox): one quiet line until someone types, then a
+/// send arrow. Voting is one tap on an arrow; saying why is this box, never a sheet in the way.
+public struct InlineCommentBox: View {
+    let onSend: (String) -> Void
+    @State private var text = ""
+    @FocusState private var focused: Bool
+    public init(onSend: @escaping (String) -> Void) { self.onSend = onSend }
+    public var body: some View {
+        HStack(spacing: 0) {
+            TextField("", text: Binding(get: { text }, set: { text = String($0.prefix(1000)) }), prompt: Text("Add a comment").foregroundStyle(BucksColor.onSurfaceVariant))
+                .font(.bucks(.bodySmall)).foregroundStyle(BucksColor.onSurface).focused($focused).submitLabel(.send).onSubmit(send)
+                .padding(.vertical, 9)
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(action: send) { Image(systemName: "paperplane.fill").font(.system(size: 16)).foregroundStyle(BucksColor.primary).frame(width: 36, height: 36).contentShape(Circle()) }
+                    .buttonStyle(.plain).accessibilityLabel("Send comment")
+            }
+        }
+        .padding(.leading, 14).padding(.trailing, 4).frame(minHeight: 36)
+        .background(Capsule().fill(BucksColor.surfaceContainer))
+    }
+    private func send() { let t = text.trimmingCharacters(in: .whitespacesAndNewlines); guard !t.isEmpty else { return }; onSend(t); text = ""; focused = false }
+}
+
 /// A top-bar icon with its count riding on the top corner. The count belongs in the button's label, so the badge itself is silent.
 public struct BadgedIcon: View {
     let systemImage: String; let count: Int; var size: CGFloat; var color: Color

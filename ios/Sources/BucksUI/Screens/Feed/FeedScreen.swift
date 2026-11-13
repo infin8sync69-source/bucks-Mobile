@@ -185,6 +185,7 @@ struct PostCard: View {
                 }
                 PostMediaView(media: post.media)
                 actions
+                InlineCommentBox { t in Task { await session.feed.comment(post.id, t) } }.padding(.top, 2)
             }
             .padding(.horizontal, Gutter).padding(.vertical, 14)
             .contextMenu { if mine { Button("Delete post", role: .destructive, action: onDelete) } else { Button("Report post", role: .destructive, action: report) } }
