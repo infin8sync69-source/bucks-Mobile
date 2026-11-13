@@ -44,6 +44,8 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
     val m = vm.myListings
     LaunchedEffect(Unit) { m.refresh() }
     LaunchedEffect(m.vehicles) { if (m.vehicles.isNotEmpty()) m.loadAllVehicleMembers() }
+    // Taxi licences for the vehicles I own (status only; supabase/migrations/billing.sql). Empty while billing is off.
+    val plans = rememberMyLicences(m.vehicles.map { it.id to it.status })
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
             BucksTopBar(stringResource(R.string.g5_veh_title), onBack = onBack, actions = { IconButton(onClick = onStats) { Icon(Icons.Rounded.Leaderboard, stringResource(R.string.g5_veh_stats)) } })
@@ -76,6 +78,7 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
                                 ?: stringResource(R.string.g5_veh_checking_body)
                         }, Modifier.padding(top = 10.dp))
                         Muted(when { people == null -> "…"; people.size <= 1 -> stringResource(R.string.g5_veh_only_you); else -> pluralStringResource(R.plurals.g5_veh_people_drive, people.size, people.size) }, Modifier.padding(top = 4.dp))
+                        if (owner) plans?.firstOrNull { it.vehicleId == v.id }?.let { PlanStatus(it, vehicle = true, modifier = Modifier.padding(top = 12.dp)) }
                         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (owner) SmallButton(stringResource(R.string.g5_edit), tonal = true) { onEdit(v.id) }
                             SmallButton(stringResource(R.string.g5_veh_drivers), tonal = true) { onMembers(v.id) }

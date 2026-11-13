@@ -161,6 +161,8 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
     val steps = goLiveSteps(l, if (l.kind == "BUSINESS" || l.kind == "SKILL") m.items[l.id] else emptyList(), if (l.kind == "DRIVER") emptyList() else vm.services.compliance[l.id], recs, hasVehicle, type)
     val noUpi = vm.dispatch.enabled && vm.dispatch.paymentLinkLoaded && vm.dispatch.paymentLink == null
     LaunchedEffect(Unit) { if (vm.dispatch.enabled && !vm.dispatch.paymentLinkLoaded) vm.dispatch.refreshPaymentLink() }
+    // The owner's licence for this page (status only; supabase/migrations/billing.sql). Nothing shows while billing is off.
+    val plan = if (owner && (l.kind == "SKILL" || l.kind == "BUSINESS")) rememberMyLicences(l.status)?.firstOrNull { it.listingId == l.id } else null
     LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             BucksCard(padding = 0) {
@@ -183,6 +185,7 @@ private fun OverviewTab(vm: BucksViewModel, l: ListingRow, manage: Boolean, owne
                 steps.forEach { s -> GoLiveRow(s) { goTo(s.target) } }
             }
         }
+        if (plan != null) item { PlanCard(plan) }
         if (manage && sells && noUpi && owner) item {
             Notice(stringResource(R.string.g7_dash_add_qr_note))
             SmallButton(stringResource(R.string.g7_dash_add_qr), Modifier.padding(top = 8.dp)) { goTo("PAYMENT") }

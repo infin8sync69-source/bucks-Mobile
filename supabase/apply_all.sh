@@ -67,6 +67,7 @@ files=(
   migrations/checkout_safety.sql
   migrations/guardian_gate.sql
   migrations/map_recommended.sql
+  migrations/billing.sql
 )
 
 case "${1:-}" in

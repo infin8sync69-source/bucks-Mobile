@@ -36,10 +36,17 @@ import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.shareText
 import com.bucks.app.ui.theme.status
+import com.bucks.app.ui.screens.manage.LicencePill
+import com.bucks.app.ui.screens.manage.licenceDay
+import com.bucks.app.ui.screens.manage.licenceLine
+import com.bucks.app.ui.screens.manage.prettyLicenceCode
+import com.bucks.app.ui.screens.manage.rememberMyLicences
 
 /**
  * My Bucks ID as a card: name, the 8-character ID, the account's UUID, a year of validity, a QR code and a barcode.
  * Anyone who scans either (or types the ID) can send a sync request; the phone number stays private.
+ * Providers also see each licence (listing or vehicle) with its code and VALID TILL, on the card and in a list under it
+ * (supabase/migrations/billing.sql, my_licences). Status only: no prices or payment links (Google Play payments policy).
  */
 @Composable
 fun BucksIdScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit) {
@@ -51,6 +58,7 @@ fun BucksIdScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit) {
         val info = BucksIdCardInfo.of(me.idIssuedAt)
         val qr = remember(me.shortCode) { qrBitmap(BucksQr.forBucksId(me.shortCode), 480) }
         val bar = remember(me.shortCode) { barcodeBitmap(BucksQr.forBucksId(me.shortCode)) }
+        val licences = rememberMyLicences(me.id).orEmpty()
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 24.dp)) {
             // The card: natural height (no fixed ratio, so nothing is cut off at large font sizes), brand gradient.
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
@@ -84,6 +92,25 @@ fun BucksIdScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit) {
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.g8_valid_from).uppercase(), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp)); Text(info?.validFrom ?: "–", color = Color.White, style = MaterialTheme.typography.titleSmall) }
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.g8_valid_till).uppercase(), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp)); Text(info?.validTill ?: "–", color = Color.White, style = MaterialTheme.typography.titleSmall) }
                 }
+                // Licences on the card itself: code and VALID TILL for each listing or vehicle (at most three; the list below has all).
+                if (licences.isNotEmpty()) {
+                    HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color.White.copy(alpha = 0.2f))
+                    Row {
+                        Text(stringResource(R.string.lic_section).uppercase(), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp), modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.lic_valid_till_label).uppercase(), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp))
+                    }
+                    licences.take(3).forEach { lic ->
+                        val lapsed = lic.state == "GRACE" || lic.state == "EXPIRED"
+                        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(lic.subject.ifBlank { lic.planLabel }, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                Text(prettyLicenceCode(lic.code) + " · " + lic.planLabel, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace))
+                            }
+                            Text(licenceDay(lic.validTill), color = if (lapsed) Color(0xFFFFC2B8) else Color.White, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 10.dp))
+                        }
+                    }
+                    if (licences.size > 3) Text("+" + (licences.size - 3), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+                }
             }
             // Barcode strip under the card: scans with the same scanner as the QR.
             Box(Modifier.fillMaxWidth().padding(top = 12.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -100,6 +127,27 @@ fun BucksIdScreen(vm: BucksViewModel, onBack: () -> Unit, onSync: () -> Unit) {
                 if (info != null && info.renewable) SmallButton(stringResource(R.string.g8_renew)) { vm.social.renewBucksId() }
             }
             if (info?.expired == true) Notice(stringResource(R.string.g8_expired_notice), Modifier.padding(top = 10.dp))
+
+            // Each licence in full: state, code to type when renewing, what happens next.
+            if (licences.isNotEmpty()) {
+                SectionTitle(stringResource(R.string.lic_section), Modifier.padding(top = 20.dp, bottom = 8.dp))
+                licences.forEach { lic ->
+                    BucksCard(Modifier.padding(bottom = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(lic.subject.ifBlank { lic.planLabel }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            LicencePill(lic)
+                        }
+                        Text(stringResource(R.string.lic_code, prettyLicenceCode(lic.code)) + " · " + stringResource(R.string.lic_title, lic.planLabel),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), modifier = Modifier.padding(top = 6.dp))
+                        Muted(licenceLine(lic, vehicle = lic.vehicleId != null), Modifier.padding(top = 2.dp))
+                        if (lic.state != "EXPIRED") Muted(pluralStringResource(R.plurals.lic_enquiries_30d, lic.enquiries30d, lic.enquiries30d), Modifier.padding(top = 2.dp))
+                        if (lic.founding && lic.foundingBonusUntil != null && lic.state != "EXPIRED")
+                            Muted(stringResource(R.string.lic_founding_bonus, licenceDay(lic.foundingBonusUntil)), Modifier.padding(top = 2.dp))
+                    }
+                }
+                Muted(stringResource(R.string.lic_guarantee), Modifier.padding(top = 2.dp))
+                Muted(stringResource(R.string.lic_how_renew), Modifier.padding(top = 2.dp))
+            }
 
             SectionTitle(stringResource(R.string.g8_scan_to_sync), Modifier.padding(top = 20.dp, bottom = 8.dp))
             Box(Modifier.align(Alignment.CenterHorizontally).size(220.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(10.dp)) {
