@@ -7,6 +7,9 @@
 name: iOS release (App Store)
 
 on:
+  # Pushing a tag ios-v<version> (e.g. ios-v1.0.0) also releases, so it works from any branch before this file is on main.
+  push:
+    tags: ['ios-v*']
   workflow_dispatch:
     inputs:
       version:
@@ -39,12 +42,13 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
-      VERSION: ${{ inputs.version }}
+      VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/ios-v') && github.ref_name) }}
       BUILD: ${{ inputs.build || github.run_number }}
     steps:
       - uses: actions/checkout@v5
       - name: Check the secrets are set
         run: |
+          VERSION="${VERSION#ios-v}"; echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"   # a step-level copy: a job-level env value may win over GITHUB_ENV
           missing=""
           for v in APPSTORE_API_KEY_ID APPSTORE_API_ISSUER_ID APPSTORE_API_KEY_P8_B64 APPLE_TEAM_ID GOOGLE_SERVICE_INFO_PLIST_B64 SUPABASE_URL SUPABASE_ANON_KEY; do
             [ -n "${!v}" ] || missing="$missing $v"
@@ -76,7 +80,7 @@ jobs:
             -archivePath "$RUNNER_TEMP/Bucks.xcarchive" -skipPackagePluginValidation \
             -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" \
             -authenticationKeyID "$APPSTORE_API_KEY_ID" -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID" MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
             2>&1 | tee archive.log | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
           grep -q "ARCHIVE SUCCEEDED" archive.log || { grep -E "error:" archive.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
       - name: The archive is a production build
@@ -105,7 +109,7 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" \
             -authenticationKeyID "$APPSTORE_API_KEY_ID" -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" 2>&1 | tee export.log | tail -30
           grep -q "EXPORT SUCCEEDED" export.log || { echo "::error::upload to App Store Connect failed (see the log above)"; exit 1; }
-          echo "Uploaded Bucks $VERSION ($BUILD). It appears under TestFlight in App Store Connect after Apple finishes processing (10 to 30 minutes)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Uploaded Bucks $APP_VERSION ($BUILD). It appears under TestFlight in App Store Connect after Apple finishes processing (10 to 30 minutes)." >> "$GITHUB_STEP_SUMMARY"
       - name: Remove the key
         if: always()
         run: rm -rf "$RUNNER_TEMP/keys" App/GoogleService-Info.plist Config/Secrets.xcconfig

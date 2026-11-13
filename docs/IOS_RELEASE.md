@@ -3,7 +3,7 @@
 The iOS app is built with Xcode; the project is generated from `ios/project.yml` (XcodeGen) and is not committed.
 
 ## One-time setup
-1. Apple Developer account, App ID `com.bucks.app` with Push Notifications, Background Modes (location, remote notifications) and
+1. Apple Developer account, App ID `com.bucksios.app` with Push Notifications, Background Modes (location, remote notifications) and
    Time Sensitive Notifications enabled.
 2. Firebase console: add the iOS app (same Firebase project as Android), download `GoogleService-Info.plist` into `ios/App/` (gitignored),
    upload an APNs authentication key (Project settings > Cloud Messaging) and add test phone numbers.
@@ -31,11 +31,11 @@ distribution certificate and profile through the API key, so nothing is exported
 
 One-time setup:
 1. **Apple Developer Program** membership (paid, yearly). Note the 10-character Team ID (developer.apple.com > Membership).
-2. **App ID** `com.bucks.app` (Certificates, Identifiers & Profiles > Identifiers) with Push Notifications and Time Sensitive Notifications.
-3. **App record** in App Store Connect (My Apps > +) with bundle id `com.bucks.app`.
+2. **App ID** `com.bucksios.app` (Apple bundle ids are global and every `com.bucks.*` id is taken, so iOS differs from Android's `com.bucks.app`; it is registered, team `Z8SQVR6GUD`) (Certificates, Identifiers & Profiles > Identifiers) with Push Notifications and Time Sensitive Notifications.
+3. **App record** in App Store Connect (My Apps > +) with bundle id `com.bucksios.app`.
 4. **App Store Connect API key** (Users and Access > Integrations > App Store Connect API), role App Manager. Download the `.p8` once;
    note the Key ID and the Issuer ID.
-5. **Firebase**: add the iOS app with bundle id `com.bucks.app`, download `GoogleService-Info.plist`, and upload an APNs authentication
+5. **Firebase**: add the iOS app with bundle id `com.bucksios.app`, download `GoogleService-Info.plist`, and upload an APNs authentication
    key (Project settings > Cloud Messaging). Phone sign-in and push both need it.
 6. **Repository secrets** (run these yourself, from a terminal on your own machine; nothing is printed):
    ```bash
@@ -47,7 +47,8 @@ One-time setup:
    ```
    (`base64 -w0` on Linux; `base64 -i <file>` on a Mac.) `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `MAPBOX_TOKEN` are already set.
 
-Then: Actions > **iOS release (App Store)** > Run workflow, with the version (for example `1.0.0`). The build shows under TestFlight after
+Then: Actions > **iOS release (App Store)** > Run workflow, with the version (for example `1.0.0`), or push a tag from any branch:
+`git tag ios-v1.0.0 && git push origin ios-v1.0.0` (the build number is the run number). The build shows under TestFlight after
 Apple finishes processing. Submitting it for review (screenshots, description, privacy answers, the review demo account) is done in
 App Store Connect.
 

@@ -429,7 +429,7 @@ final class BucksTiles: MKTileOverlay {
 
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
         var req = URLRequest(url: url(forTilePath: path))
-        req.setValue("Bucks-iOS/1.0 (com.bucks.app)", forHTTPHeaderField: "User-Agent")   // OpenStreetMap's tile policy asks for one
+        req.setValue("Bucks-iOS/1.0 (com.bucksios.app)", forHTTPHeaderField: "User-Agent")   // OpenStreetMap's tile policy asks for one
         let muted = self.muted, dark = self.dark
         Self.session.dataTask(with: req) { data, resp, err in
             guard let data, (resp as? HTTPURLResponse)?.statusCode ?? 200 == 200 else { result(nil, err); return }

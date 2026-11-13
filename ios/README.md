@@ -58,7 +58,7 @@ Add `--quit` to exit when a scenario finishes. Screenshots are taken of the harn
 
 You need a Mac with **Xcode 16+** (the App Store app, not just the command-line tools) and an Apple Developer account for a real device.
 
-1. **Firebase.** In the Firebase console (the same project Android uses) add an **iOS app** with bundle ID `com.bucks.app` and download `GoogleService-Info.plist` into `ios/App/` (it is gitignored). Phone sign-in on iOS needs one of: an **APNs authentication key** uploaded under Project settings > Cloud Messaging (silent-push verification and, later, the pushes themselves), or the reCAPTCHA fallback, which works once the URL scheme below is set. For development add test numbers under Authentication > Sign-in method > Phone, as on Android.
+1. **Firebase.** In the Firebase console (the same project Android uses) add an **iOS app** with bundle ID `com.bucksios.app` and download `GoogleService-Info.plist` into `ios/App/` (it is gitignored). Phone sign-in on iOS needs one of: an **APNs authentication key** uploaded under Project settings > Cloud Messaging (silent-push verification and, later, the pushes themselves), or the reCAPTCHA fallback, which works once the URL scheme below is set. For development add test numbers under Authentication > Sign-in method > Phone, as on Android.
 2. **Supabase values.** `./scripts/make_secrets.sh` writes `Config/Secrets.xcconfig` from the repo's `local.properties` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `GEMINI_API_KEY` and `MAPBOX_TOKEN`) and, once the plist is in place, the `REVERSED_CLIENT_ID` that the reCAPTCHA fallback needs. Run it after step 1.
 3. **Generate the project and open it.**
    ```bash
