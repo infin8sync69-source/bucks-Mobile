@@ -172,7 +172,7 @@ struct MainStack: View {
         case .home: HomeScreen()
         case .feed: FeedScreen()
         case .services: ServicesScreen()
-        case .recommended: RecommendedScreen()
+        case .recommended: ExploreScreen()
         case .account: AccountScreen()
         }
     }

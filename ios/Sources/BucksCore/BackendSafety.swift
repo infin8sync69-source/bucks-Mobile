@@ -101,6 +101,8 @@ extension Backend {
     public func recordGuardianConsent(name: String, phone: String, relation: String) async throws {
         try await rpcVoid("record_guardian_consent", ["p_name": name, "p_phone": phone, "p_relation": relation])
     }
+    /// My gender, private to me (profile_private): WOMAN, MAN, NON_BINARY, UNSAID or nil.
+    public func setGender(id: String, code: String?) async throws { try await update("profile_private", ["gender": code], filters: [.eq("profile_id", id)]) }
     /// People by name, or exactly by Bucks ID (send the bare code, see `peopleQuery`).
     public func searchPeople(_ q: String) async throws -> [PersonHit] { try await rpcList("search_people", ["q": q]) }
     /// One person's posts that I'm allowed to see, newest first.

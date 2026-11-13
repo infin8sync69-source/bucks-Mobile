@@ -4,8 +4,8 @@ import BucksCore
 /// The five bottom-bar destinations (Components.kt `BottomTab`).
 public enum BottomTab: CaseIterable, Hashable {
     case home, feed, services, recommended, account
-    var label: String { switch self { case .home: "Home"; case .feed: "Feed"; case .services: "Services"; case .recommended: "For you"; case .account: "Profile" } }
-    var systemImage: String { switch self { case .home: "house.fill"; case .feed: "play.rectangle.on.rectangle.fill"; case .services: "square.grid.2x2.fill"; case .recommended: "chart.bar.fill"; case .account: "person.fill" } }
+    var label: String { switch self { case .home: "Home"; case .feed: "Feed"; case .services: "Services"; case .recommended: "Explore"; case .account: "Profile" } }
+    var systemImage: String { switch self { case .home: "house.fill"; case .feed: "play.rectangle.on.rectangle.fill"; case .services: "square.grid.2x2.fill"; case .recommended: "safari.fill"; case .account: "person.fill" } }
 }
 
 /// Plain equal-width items with a hop on the selected icon, like Android's `BucksBottomBar`.

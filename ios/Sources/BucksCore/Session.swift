@@ -179,6 +179,10 @@ public final class AppSession: DispatchHost {
             if let m = me { p = m } else { p = try await Backend.shared.ensureProfile(name: name, phone: u.phone.isEmpty ? nil : u.phone) }
             try await Backend.shared.updateProfile(id: p.id, name: name, bio: bio, area: area, home: home)
             var q = p; q.name = name; q.area = area; q.bio = bio; me = q; names[q.id] = name
+            // Gender is private (profile_private, profile_details.sql) and saved quietly: a database without the column keeps it on the phone.
+            if let code = ["Woman": "WOMAN", "Man": "MAN", "Non-binary": "NON_BINARY", "Prefer not to say": "UNSAID"][gender] {
+                try? await Backend.shared.setGender(id: p.id, code: code)
+            }
             toast("Welcome to Bucks, \(name.components(separatedBy: " ")[0])")
             phase = .ready
         } catch { toast(friendlyError(error)) }
