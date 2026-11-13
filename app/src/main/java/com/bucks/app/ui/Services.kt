@@ -47,7 +47,7 @@ val SERVICE_CATALOG = listOf(
     ServiceDef("LOCAL_SERVICES", R.string.g6_svc_local_services, Icons.Rounded.ContentCut, R.string.g6_svc_local_services_join, R.string.g6_svc_act_setup_page),
     ServiceDef("BIZ_PRO", R.string.g6_svc_biz_pro, Icons.Rounded.Code, R.string.g6_svc_biz_pro_join, R.string.g6_svc_act_setup_page),
     ServiceDef("COMMUNITY", R.string.g6_svc_community, Icons.Rounded.Groups, R.string.g6_svc_community_join, R.string.g6_svc_act_setup_page),
-    ServiceDef("INSTITUTIONS", R.string.g6_svc_institutions, Icons.Rounded.Apartment, R.string.g6_svc_institutions_join, R.string.g6_svc_act_setup_page),
+    ServiceDef("INSTITUTIONS", R.string.g6_svc_institutions, Icons.Rounded.AccountBalance, R.string.g6_svc_institutions_join, R.string.g6_svc_act_setup_page),
 )
 fun serviceDef(key: String?): ServiceDef? = SERVICE_CATALOG.firstOrNull { it.key == key }
 /** The services a BUSINESS listing can belong to (skills are always Gigs, drivers have none). */

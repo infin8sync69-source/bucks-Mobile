@@ -6,7 +6,7 @@ import Observation
 public struct ServiceDef: Hashable, Sendable, Identifiable {
     public var key: String
     public var label: String
-    /// SF Symbol name.
+    /// SF Symbol name, the closest match to Android's Material icon for the same tile (ui/Services.kt SERVICE_CATALOG).
     public var icon: String
     /// Button on the locked sheet that asks providers to join ("Run a restaurant? List it").
     public var joinPrompt: String
@@ -19,15 +19,20 @@ public struct ServiceDef: Hashable, Sendable, Identifiable {
 public let serviceCatalog: [ServiceDef] = [
     ServiceDef(key: "TAXI", label: "Taxi", icon: "car.fill", joinPrompt: "Drive a cab?", joinAction: "Add your cab"),
     ServiceDef(key: "AUTO", label: "Auto", icon: "car.side.fill", joinPrompt: "Drive an auto?", joinAction: "Add your auto"),
-    ServiceDef(key: "PARCEL", label: "Parcel", icon: "shippingbox.fill", joinPrompt: "Ride a bike?", joinAction: "Add your bike"),
+    ServiceDef(key: "PARCEL", label: "Parcel", icon: "scooter", joinPrompt: "Ride a bike?", joinAction: "Add your bike"),
     ServiceDef(key: "FOOD", label: "Food", icon: "fork.knife", joinPrompt: "Run a restaurant?", joinAction: "List it", categories: ["Restaurant", "Bakery", "Cafe", "Sweets", "Cloud kitchen", "Tiffin"]),
     ServiceDef(key: "GROCERY", label: "Grocery", icon: "cart.fill", joinPrompt: "Run a grocery store?", joinAction: "List it", categories: ["Grocery", "Supermarket", "Dairy"]),
     ServiceDef(key: "VEGETABLES", label: "Vegetables", icon: "leaf.fill", joinPrompt: "Sell vegetables or fruit?", joinAction: "List your stall", categories: ["Vegetables", "Fruits"]),
-    ServiceDef(key: "MEAT", label: "Meat", icon: "flame.fill", joinPrompt: "Run a meat or fish shop?", joinAction: "List it", categories: ["Chicken", "Mutton", "Fish", "Eggs"]),
+    ServiceDef(key: "MEAT", label: "Meat", icon: "fish.fill", joinPrompt: "Run a meat or fish shop?", joinAction: "List it", categories: ["Chicken", "Mutton", "Fish", "Eggs"]),
     ServiceDef(key: "SHOPPING", label: "Shopping", icon: "bag.fill", joinPrompt: "Run a shop?", joinAction: "List it", categories: ["Electronics", "Mobile repair", "Hardware", "Furniture", "Clothing", "Stationery", "Salon", "Tailor", "Other"]),
-    ServiceDef(key: "GIGS", label: "Gigs", icon: "wrench.and.screwdriver.fill", joinPrompt: "Have a skill?", joinAction: "Offer it"),
+    ServiceDef(key: "GIGS", label: "Gigs", icon: "hammer.fill", joinPrompt: "Have a skill?", joinAction: "Offer it"),
     ServiceDef(key: "JOBS", label: "Jobs", icon: "briefcase.fill", joinPrompt: "Hiring?", joinAction: "Post a job from your business"),
     ServiceDef(key: "PROPERTIES", label: "Properties", icon: "building.2.fill", joinPrompt: "Have a place to rent or sell?", joinAction: "List it", categories: ["Property owner", "Real estate agent", "Builder"]),
+    // Page types beyond shops (Android ui/PageTypes.kt, page_types.sql): the tile opens search filtered to that service.
+    ServiceDef(key: "LOCAL_SERVICES", label: "Local services", icon: "scissors", joinPrompt: "Run a salon, clinic or repair service?", joinAction: "Set up your page"),
+    ServiceDef(key: "BIZ_PRO", label: "Companies", icon: "chevron.left.forwardslash.chevron.right", joinPrompt: "Run a company or a firm?", joinAction: "Set up your page"),
+    ServiceDef(key: "COMMUNITY", label: "NGOs and groups", icon: "person.3.fill", joinPrompt: "Run an NGO or a community group?", joinAction: "Set up your page"),
+    ServiceDef(key: "INSTITUTIONS", label: "Institutions", icon: "building.columns.fill", joinPrompt: "Run a school, college or association?", joinAction: "Set up your page"),
 ]
 public func serviceDef(_ key: String?) -> ServiceDef? { serviceCatalog.first { $0.key == key } }
 /// The services a BUSINESS listing can belong to (skills are always Gigs, drivers have none).
