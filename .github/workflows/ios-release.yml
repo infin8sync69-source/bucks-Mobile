@@ -56,6 +56,14 @@ jobs:
           [ -z "$missing" ] || { echo "::error::Missing repository secrets:$missing (see docs/IOS_RELEASE.md)"; exit 1; }
           printf '%s' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' || { echo "::error::version must look like 1.0 or 1.0.0"; exit 1; }
           printf '%s' "$BUILD" | grep -Eq '^[0-9]+$' || { echo "::error::build must be a whole number"; exit 1; }
+      - name: Xcode 26
+        # App Store Connect only accepts builds made with the iOS 26 SDK or later; the runner's default Xcode can be older.
+        run: |
+          x="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          [ -n "$x" ] || { ls -d /Applications/Xcode*.app; echo "::error::no Xcode 26 on this runner image"; exit 1; }
+          sudo xcode-select -s "$x/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos
       - name: XcodeGen
         run: brew install xcodegen
       - name: Config and Firebase file
