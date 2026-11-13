@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">言語を選択</string>
+    <string name="onb_language_hint">あとで設定から変更できます。</string>
+    <string name="onb_continue">続ける</string>
+
+    <string name="onb_phone_title">電話番号を入力してください</string>
+    <string name="onb_phone_hint">SMSでコードをお送りします。</string>
+    <string name="onb_phone_number">電話番号</string>
+    <string name="onb_phone_invalid">番号を確認してください</string>
+    <string name="onb_agree_terms">利用規約とプライバシーポリシーに同意します。</string>
+    <string name="onb_terms">利用規約</string>
+    <string name="onb_privacy">プライバシー</string>
+    <string name="onb_guidelines">ガイドライン</string>
+    <string name="onb_get_code">コードを受け取る</string>
+    <string name="onb_use_email">メールを使う</string>
+
+    <string name="onb_country_title">国</string>
+    <string name="onb_country_search">検索</string>
+    <string name="onb_country_change">国を変更（現在：%1$s）</string>
+
+    <string name="onb_code_title">コードを入力</string>
+    <string name="onb_code_sent_to">%1$s に送信しました</string>
+    <string name="onb_code_edit">編集</string>
+    <string name="onb_code_demo">デモ用コード：1234</string>
+    <string name="onb_code_verify">確認</string>
+    <string name="onb_code_checking">確認中…</string>
+    <string name="onb_code_resend">コードを再送信</string>
+    <string name="onb_code_resend_in">%1$d 秒後に再送信</string>
+    <string name="onb_code_field">確認コード</string>
+
+    <string name="onb_name_title">お名前を教えてください</string>
+    <string name="onb_name_hint">名前はプロフィールに表示されます。誕生日は表示されません。</string>
+    <string name="onb_dob_label">生年月日</string>
+    <string name="onb_dob_day">日</string>
+    <string name="onb_dob_month">月</string>
+    <string name="onb_dob_year">年</string>
+    <string name="onb_dob_invalid">日付を確認してください</string>
+    <string name="onb_dob_title">誕生日はいつですか？</string>
+    <string name="onb_dob_hint">アカウント設定を完了するために一度だけ必要です。プロフィールには表示されません。</string>
+    <string name="onb_blocked_title">現在アカウントを作成できません</string>
+    <string name="onb_blocked_hint">Bucks はまだご利用いただけません。</string>
+    <string name="onb_name_label">お名前</string>
+    <string name="onb_name_cta">はじめる</string>
+</resources>
