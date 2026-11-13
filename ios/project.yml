@@ -53,6 +53,9 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Bucks
+        # From the build settings, so the release workflow's MARKETING_VERSION / CURRENT_PROJECT_VERSION reach the app.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
           UIColorName: AccentColor
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

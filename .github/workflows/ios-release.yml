@@ -103,6 +103,8 @@ jobs:
           test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is missing from the archive"; exit 1; }
           key="$(/usr/libexec/PlistBuddy -c 'Print :GeminiAPIKey' "$app/Info.plist" 2>/dev/null || true)"
           [ -z "$key" ] || { echo "::error::the release build carries a Gemini key"; exit 1; }
+          v="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")"; b="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist")"
+          [ "$v" = "$APP_VERSION" ] && [ "$b" = "$BUILD" ] || { echo "::error::the app says $v ($b), expected $APP_VERSION ($BUILD)"; exit 1; }
           ents="$(codesign -d --entitlements - --xml "$app" 2>/dev/null || true)"
           for e in aps-environment com.apple.developer.usernotifications.time-sensitive; do
             printf '%s' "$ents" | grep -q "$e" || { echo "::error::the archive lost the $e entitlement"; exit 1; }
