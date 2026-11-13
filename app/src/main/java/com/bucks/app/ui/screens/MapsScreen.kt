@@ -194,7 +194,7 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
         dest?.let { add(pinAt(it.at, it.name, MaterialTheme.colorScheme.primary)) }
     }
     Box(Modifier.fillMaxSize()) {
-        BucksMap(Modifier.fillMaxSize(), pins, route = line, commands = cmds, satellite = satellite,
+        BucksMap(Modifier.fillMaxSize(), pins, route = line, commands = cmds, satellite = satellite, zoomButtons = false, recentre = here == null,
             onLongPress = if (navigating) null else { p -> dest = MapServices.PlaceHit(droppedPin, "", p); q = droppedPin; hits = emptyList() },
             onUserMove = { follow = false })
         // Long-pressed pins get a street name when the search server answers.
@@ -229,8 +229,9 @@ fun MapsScreen(vm: BucksViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            // Map buttons: where am I, zoom, satellite.
-            Column(Modifier.align(Alignment.TopEnd).padding(top = 150.dp, end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
+            // Map buttons: where am I, zoom, satellite. They step aside while the results list (or its "no places" card) is open under the search bar.
+            val listOpen = dest == null && (hits.isNotEmpty() || (q.trim().length >= 3 && !searching))
+            if (!listOpen) Column(Modifier.align(Alignment.TopEnd).padding(top = 150.dp, end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
                 MapButton(Icons.Rounded.MyLocation, stringResource(R.string.g8_cd_my_location), busy = locating) {
                     val ok = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     if (ok) locate() else askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))

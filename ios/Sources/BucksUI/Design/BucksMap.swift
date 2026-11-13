@@ -18,8 +18,12 @@ public struct MapPin: Identifiable {
     public var title: String
     public var tint: Color
     public var isMe: Bool
-    public init(id: String, at: LatLng, title: String = "", tint: Color = BucksColor.primary, isMe: Bool = false) {
-        self.id = id; self.at = at; self.title = title; self.tint = tint; self.isMe = isMe
+    /// Drawn as a small rounded label with this text (a place's rank and recommend count) instead of a dot.
+    public var badge: String?
+    /// The chosen place: its label is drawn filled.
+    public var selected: Bool
+    public init(id: String, at: LatLng, title: String = "", tint: Color = BucksColor.primary, isMe: Bool = false, badge: String? = nil, selected: Bool = false) {
+        self.id = id; self.at = at; self.title = title; self.tint = tint; self.isMe = isMe; self.badge = badge; self.selected = selected
     }
 }
 
@@ -35,6 +39,8 @@ extension LatLng {
     public func zoomIn() { coordinator?.zoom(by: 0.5) }
     public func zoomOut() { coordinator?.zoom(by: 2) }
     public func moveTo(_ at: LatLng, zoom: Double? = nil) { coordinator?.move(to: at, zoom: zoom) }
+    /// The area on screen now (south, west, north, east); nil before the map has been laid out.
+    public func bounds() -> (s: Double, w: Double, n: Double, e: Double)? { coordinator?.bounds() }
 }
 
 /// Real street map, drawn from the same tiles as Android: Mapbox Streets (or Satellite with streets) when a token is built in, else
@@ -42,6 +48,8 @@ extension LatLng {
 /// - Normal mode: the camera fits all pins and the route whenever that set changes meaningfully (about 100 m), and tracks `followPin`.
 /// - Pick mode (`onCenterChange` set): the user owns the camera. It centres once on the first pin, then only reports where the map centre is.
 /// `commands` moves and zooms it from outside, `onLongPress` drops a point, `onUserMove` fires when the person drags the map.
+/// `recentre` false (Home): the camera centres on my pin once, then only the person and `commands` move it, so riders appearing or my
+/// position updating never pull the map away from what the person is looking at. `onPinTap` gets the id of a tapped pin.
 public struct BucksMap: MapViewRepresentable {
     var pins: [MapPin]
     var route: [LatLng]
@@ -53,13 +61,16 @@ public struct BucksMap: MapViewRepresentable {
     var satellite: Bool
     var onLongPress: ((LatLng) -> Void)?
     var onUserMove: (() -> Void)?
+    var recentre: Bool
+    var onPinTap: ((String) -> Void)?
     @Environment(\.colorScheme) private var scheme
 
     public init(pins: [MapPin], route: [LatLng] = [], circle: (center: LatLng, meters: Double)? = nil, zoomMeters: Double = 3000, followPin: String? = nil,
                 onCenterChange: ((LatLng) -> Void)? = nil, commands: MapCommands? = nil, satellite: Bool = false,
-                onLongPress: ((LatLng) -> Void)? = nil, onUserMove: (() -> Void)? = nil) {
+                onLongPress: ((LatLng) -> Void)? = nil, onUserMove: (() -> Void)? = nil, recentre: Bool = true, onPinTap: ((String) -> Void)? = nil) {
         self.pins = pins; self.route = route; self.circle = circle; self.zoomMeters = zoomMeters; self.followPin = followPin; self.onCenterChange = onCenterChange
         self.commands = commands; self.satellite = satellite; self.onLongPress = onLongPress; self.onUserMove = onUserMove
+        self.recentre = recentre; self.onPinTap = onPinTap
     }
 
     public func makeCoordinator() -> BucksMapCoordinator { BucksMapCoordinator() }
@@ -82,7 +93,7 @@ public struct BucksMap: MapViewRepresentable {
         press.minimumPressDuration = 0.5
         map.addGestureRecognizer(press)
         #endif
-        let start = pins.first?.at ?? Geo.center
+        let start = (pins.first(where: \.isMe) ?? pins.first)?.at ?? Geo.center
         context.coordinator.attach(map)
         context.coordinator.setRegion(MKCoordinateRegion(center: start.coordinate, latitudinalMeters: zoomMeters, longitudinalMeters: zoomMeters), animated: false)
         return map
@@ -153,17 +164,18 @@ public struct MapAttribution: View {
     // MARK: pins
 
     private func syncPins(_ map: MKMapView, _ pins: [MapPin]) {
+        let tappable = parent?.onPinTap != nil
         let ids = Set(pins.map(\.id))
         for (id, a) in annotations where !ids.contains(id) { map.removeAnnotation(a); annotations[id] = nil }
         for pin in pins {
             if let a = annotations[pin.id] {
                 if a.coordinate.latitude != pin.at.lat || a.coordinate.longitude != pin.at.lng { a.coordinate = pin.at.coordinate }
-                if a.title != pin.title || a.isMe != pin.isMe || a.tint != pin.tint {
-                    a.title = pin.title; a.isMe = pin.isMe; a.tint = pin.tint
+                if a.title != pin.title || a.isMe != pin.isMe || a.tint != pin.tint || a.badge != pin.badge || a.selected != pin.selected || a.tappable != tappable {
+                    a.title = pin.title; a.isMe = pin.isMe; a.tint = pin.tint; a.badge = pin.badge; a.selected = pin.selected; a.tappable = tappable
                     (map.view(for: a) as? PinAnnotationView)?.refresh()
                 }
             } else {
-                let a = PinAnnotation(pin); annotations[pin.id] = a; map.addAnnotation(a)
+                let a = PinAnnotation(pin); a.tappable = tappable; annotations[pin.id] = a; map.addAnnotation(a)
             }
         }
     }
@@ -217,6 +229,17 @@ public struct MapAttribution: View {
         return v
     }
 
+    // A tapped pin with an id goes to onPinTap; MapKit's own selection is cleared so the same pin can be tapped again.
+    nonisolated public func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+        MainActor.assumeIsolated {
+            guard let a = view.annotation as? PinAnnotation else { return }
+            mapView.deselectAnnotation(a, animated: false)
+            guard a.tappable, let cb = parent?.onPinTap else { return }
+            let id = a.pinId
+            DispatchQueue.main.async { cb(id) }
+        }
+    }
+
     // MARK: camera
 
     func setRegion(_ r: MKCoordinateRegion, animated: Bool) {
@@ -246,7 +269,22 @@ public struct MapAttribution: View {
         }
     }
 
+    func bounds() -> (s: Double, w: Double, n: Double, e: Double)? {
+        guard let map, map.bounds.width > 0, map.bounds.height > 0 else { return nil }
+        let r = map.region
+        return (r.center.latitude - r.span.latitudeDelta / 2, r.center.longitude - r.span.longitudeDelta / 2,
+                r.center.latitude + r.span.latitudeDelta / 2, r.center.longitude + r.span.longitudeDelta / 2)
+    }
+
     private func syncCamera(_ map: MKMapView, _ p: BucksMap) {
+        // Centre once on me, then leave the camera to the person and to commands.
+        if !p.recentre {
+            if !centred, let me = (p.pins.first(where: \.isMe) ?? p.pins.first) {
+                centred = true
+                setRegion(MKCoordinateRegion(center: me.at.coordinate, latitudinalMeters: p.zoomMeters, longitudinalMeters: p.zoomMeters), animated: false)
+            }
+            return
+        }
         let key = p.commands == nil ? fitKey(p) : targetKey(p)
         if !key.isEmpty, key != lastFit {
             if p.onCenterChange != nil {
@@ -359,25 +397,48 @@ private struct MainBox<T>: @unchecked Sendable {
 
 final class PinAnnotation: NSObject, MKAnnotation {
     @objc dynamic var coordinate: CLLocationCoordinate2D
+    let pinId: String
     var title: String?
     var isMe: Bool
     var tint: Color
-    init(_ pin: MapPin) { coordinate = pin.at.coordinate; title = pin.title; isMe = pin.isMe; tint = pin.tint }
+    var badge: String?
+    var selected: Bool
+    var tappable = false
+    init(_ pin: MapPin) { pinId = pin.id; coordinate = pin.at.coordinate; title = pin.title; isMe = pin.isMe; tint = pin.tint; badge = pin.badge; selected = pin.selected }
 }
 
-/// A filled dot with a white ring, larger for "me" (the markers Android draws).
+/// A filled dot with a white ring, larger for "me" (the markers Android draws), or for a place a rounded label with its rank and count.
+/// A pin you can tap is drawn inside a 44-point square so a small dot is still easy to hit.
 final class PinAnnotationView: MKAnnotationView {
     static let reuse = "bucks-pin"
     func refresh() {
         guard let a = annotation as? PinAnnotation else { return }
         let size: CGFloat = a.isMe ? 18 : 12, ring: CGFloat = 2.5
-        let full = size + ring * 2
+        let dot = size + ring * 2
         #if canImport(UIKit)
-        image = UIGraphicsImageRenderer(size: CGSize(width: full, height: full)).image { ctx in
-            UIColor.white.setFill(); ctx.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: full, height: full))
-            UIColor(a.tint).setFill(); ctx.cgContext.fillEllipse(in: CGRect(x: ring, y: ring, width: size, height: size))
+        let tint = UIColor(a.tint)
+        if let badge = a.badge {
+            let font = UIFont.systemFont(ofSize: 13, weight: .bold)
+            let text = NSAttributedString(string: badge, attributes: [.font: font, .foregroundColor: a.selected ? UIColor.white : tint])
+            let h: CGFloat = 26, w = max(text.size().width + 18, h)
+            let box = CGSize(width: max(w + 4, 44), height: 44)
+            image = UIGraphicsImageRenderer(size: box).image { _ in
+                let r = CGRect(x: (box.width - w) / 2, y: (box.height - h) / 2, width: w, height: h)
+                let path = UIBezierPath(roundedRect: r.insetBy(dx: 1, dy: 1), cornerRadius: h / 2)
+                (a.selected ? tint : UIColor.systemBackground).setFill(); path.fill()
+                tint.setStroke(); path.lineWidth = 2; path.stroke()
+                let ts = text.size(); text.draw(at: CGPoint(x: r.midX - ts.width / 2, y: r.midY - ts.height / 2))
+            }
+        } else {
+            let full = a.tappable && !a.isMe ? 44 : dot
+            image = UIGraphicsImageRenderer(size: CGSize(width: full, height: full)).image { ctx in
+                let o = (full - dot) / 2
+                UIColor.white.setFill(); ctx.cgContext.fillEllipse(in: CGRect(x: o, y: o, width: dot, height: dot))
+                tint.setFill(); ctx.cgContext.fillEllipse(in: CGRect(x: o + ring, y: o + ring, width: size, height: size))
+            }
         }
         #else
+        let full = dot
         image = NSImage(size: NSSize(width: full, height: full), flipped: false) { _ in
             NSColor.white.setFill(); NSBezierPath(ovalIn: NSRect(x: 0, y: 0, width: full, height: full)).fill()
             NSColor(a.tint).setFill(); NSBezierPath(ovalIn: NSRect(x: ring, y: ring, width: size, height: size)).fill()
@@ -385,11 +446,11 @@ final class PinAnnotationView: MKAnnotationView {
         }
         #endif
         centerOffset = .zero
-        displayPriority = a.isMe ? .required : .defaultHigh
-        zPriority = a.isMe ? .max : .defaultUnselected
+        displayPriority = a.isMe || a.badge != nil ? .required : .defaultHigh
+        zPriority = a.isMe ? .max : (a.selected ? .defaultSelected : .defaultUnselected)
         canShowCallout = false
         #if canImport(UIKit)
-        isAccessibilityElement = true; accessibilityLabel = a.title
+        isAccessibilityElement = true; accessibilityLabel = a.title; accessibilityTraits = a.tappable ? .button : .none
         #else
         setAccessibilityLabel(a.title)
         #endif

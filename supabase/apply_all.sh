@@ -66,6 +66,7 @@ files=(
   migrations/job_notifications.sql
   migrations/checkout_safety.sql
   migrations/guardian_gate.sql
+  migrations/map_recommended.sql
 )
 
 case "${1:-}" in

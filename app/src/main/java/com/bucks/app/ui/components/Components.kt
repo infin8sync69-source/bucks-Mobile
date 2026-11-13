@@ -300,7 +300,12 @@ fun ListRow(title: String, subtitle: String? = null, leading: @Composable () -> 
     }
 }
 
-data class MapPin(val x: Float, val y: Float, val label: String, val color: Color, val big: Boolean = false, val at: com.bucks.app.data.LatLng? = null)
+/**
+ * A point on [BucksMap]. A pin with an [id] can be tapped (BucksMap's onPinTap) and gets a 48 dp touch area. A pin with a [badge] is drawn as
+ * a small rounded label with that text (a place's rank and recommend count) instead of a dot; [selected] draws it filled.
+ */
+data class MapPin(val x: Float, val y: Float, val label: String, val color: Color, val big: Boolean = false, val at: com.bucks.app.data.LatLng? = null,
+    val id: String? = null, val badge: String? = null, val selected: Boolean = false)
 fun pinAt(at: com.bucks.app.data.LatLng, label: String, color: Color, big: Boolean = false) = com.bucks.app.data.Geo.toPercent(at).let { (x, y) -> MapPin(x, y, label, color, big, at) }
 
 /** Simulated map. Swap for Google Maps Compose once an API key exists; pins use 0–100 percent coordinates. */

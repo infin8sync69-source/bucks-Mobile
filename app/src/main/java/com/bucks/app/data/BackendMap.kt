@@ -28,6 +28,21 @@ object MapBackend {
     suspend fun setPostOnMap(postId: String, on: Boolean) { db.rpc("set_post_on_map", buildJsonObject { put("p_post", postId); put("p_on", on) }) }
     /** "This shows my home or me": off the map at once, and a report for staff. */
     suspend fun reportLocation(postId: String, detail: String) { db.rpc("report_map_location", buildJsonObject { put("p_post", postId); put("p_detail", detail) }) }
+
+    /** Recommended places in a box (map_recommended.sql: map_places), best first. [days] 0 = all time; [cat] FOOD, SHOPS, SERVICES or null for all. */
+    suspend fun places(s: Double, w: Double, n: Double, e: Double, days: Int, cat: String?): List<MapPlace> =
+        db.rpc("map_places", buildJsonObject { put("s", s); put("w", w); put("n", n); put("e", e); put("p_days", days); if (cat != null) put("p_cat", cat) }).decodeList()
+    /** The posts behind one place, best first, as feed rows. */
+    suspend fun placePosts(place: String, placeId: String): List<FeedRow> =
+        db.rpc("map_place_posts", buildJsonObject { put("p_place", place); put("p_place_id", placeId) }).decodeList()
+}
+
+/** One place on the Recommended map: a Bucks page (LISTING, with [listingId]) or a locality centre (LOCALITY). Never a person. */
+@Serializable data class MapPlace(val place: String, @SerialName("place_id") val placeId: String, @SerialName("listing_id") val listingId: String? = null,
+    val name: String = "", val category: String = "AREA", val lat: Double, val lng: Double, val posts: Int = 0, val up: Int = 0, val down: Int = 0,
+    val latest: String = "", val score: Double = 0.0) {
+    val key get() = "$place:$placeId"
+    val at get() = LatLng(lat, lng)
 }
 
 /** One thing my synced people recommend (social_lenses.sql: for_you). [kind]: POST, LISTING or PRODUCT; for a PRODUCT [id] is its

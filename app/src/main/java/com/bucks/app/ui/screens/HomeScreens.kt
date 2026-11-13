@@ -168,7 +168,7 @@ private fun ActiveRideCard(r: Ride, onReturn: () -> Unit) {
 }
 
 @Composable
-fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }, onPlace: () -> Unit = {}, onReturnToRide: () -> Unit = {}) {
+fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onSearch: () -> Unit, onRide: () -> Unit, onQuery: (String) -> Unit, onServices: () -> Unit, onProCreate: () -> Unit, onEarnings: () -> Unit, onListings: () -> Unit, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit = { _, _ -> }, onPlace: () -> Unit = {}, onReturnToRide: () -> Unit = {}, onListing: (String) -> Unit = {}, onPost: () -> Unit = {}) {
     val s by vm.state.collectAsState(); val drivers by vm.repo.drivers.collectAsState(); val providers by vm.repo.providers.collectAsState(); val chats by vm.repo.chats.collectAsState()
     // Back on Home while on duty or with a trip open puts Bucks in the background instead of closing it (closing would take the driver off the map).
     val hostActivity = LocalContext.current.findActivity()
@@ -191,13 +191,32 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
     }
     val wide = windowWidth() != Width.COMPACT
     val unread = vm.unreadCount(chats)
+    // The map: centred on me once, then mine to move. My location re-centres it; the Recommended layer adds places (RecommendedMap.kt).
+    val cmds = remember { MapCommands() }; val rec = rememberRecommendedLayer(); val ctx = LocalContext.current
+    val cloud = vm.social.enabled && vm.social.me != null
+    if (cloud) RecommendedLoader(rec, cmds, signedIn = true)
+    var locating by remember { mutableStateOf(false) }
+    fun locate() {
+        val ok = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!ok) { cmds.moveTo(vm.mePos, 15.0); vm.toast(Str.get(R.string.g8_allow_location_prompt)); return }
+        locating = true
+        runCatching {
+            com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(ctx).getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { l -> locating = false; val p = l?.let { com.bucks.app.data.LatLng(it.latitude, it.longitude) }; if (p != null) vm.onLocation(p, false); cmds.moveTo(p ?: vm.mePos, 15.0) }
+                .addOnFailureListener { locating = false; cmds.moveTo(vm.mePos, 15.0) }
+        }.onFailure { locating = false; cmds.moveTo(vm.mePos, 15.0) }
+    }
+    val onPinTap: (MapPin) -> Unit = { pin -> rec.places.firstOrNull { it.key == pin.id }?.let { rec.selected = it; cmds.moveTo(it.at) } }
+    val onMapMoved: () -> Unit = { if (rec.on && rec.loaded) rec.stale = true }
     // Drivers with a checked vehicle get the button while offline too (it opens the sheet with their vehicle switch), on every layout.
     val showFab = s.receiving || vm.cloudVehicle != null
     run {
         // Provider pins come from the demo seed only (cloud sign-in clears it); cloud listings have no map position here, so the map shows me and the riders online.
         val shopPins = providers.filter { it.scope == Scope.LOCAL }.take(6)
         // Me and online riders at their real positions; the demo's sample shops keep their spots on the Bengaluru grid.
-        val pins = listOf(pinAt(vm.mePos, stringResource(R.string.g3_map_you), MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) }
+        val pins = listOf(pinAt(vm.mePos, stringResource(R.string.g3_map_you), MeColor, big = true)) + shopPins.map { MapPin(it.x, it.y, it.name, MaterialTheme.colorScheme.primary) } + drivers.filter { it.online }.map { pinAt(it.pos, "", MaterialTheme.status.good) } +
+            (if (cloud) rec.pins(MaterialTheme.colorScheme.primary) else emptyList())
         // Same content on phones (in the sheet) and wide screens (in the side panel): an unfinished ride, the vehicle note, the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
             s.ride?.let { r -> ActiveRideCard(r, onReturnToRide) }
@@ -207,20 +226,24 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
                 Notice(if (v.status == "SUSPENDED") stringResource(R.string.g3_vehicle_suspended, vName, v.plate)
                        else stringResource(R.string.g3_vehicle_checking, vName, v.plate))
                 SmallButton(stringResource(R.string.g3_menu_manage_listings), Modifier.padding(top = 8.dp), tonal = true, onClick = onListings) } }
+            if (cloud) RecommendedSheetContent(vm, rec, s.me, onListing = onListing, onPlace = onPlace, onPost = onPost)
             val hint = stringResource(R.string.g3_home_search_hint)
             if (vm.social.enabled) HomeSearch(vm, hint, onSearchAll = onQuery, onPlace = onPlace) else SearchBar(hint, onClick = onSearch)
         }
         if (wide) Column(Modifier.fillMaxSize()) {
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
             Row(Modifier.weight(1f)) {
-                Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins); MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp), shops = shopPins.isNotEmpty())
+                Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins, commands = cmds, recentre = s.me == null, onPinTap = onPinTap, onUserMove = onMapMoved, onMyLocation = ::locate, locating = locating)
+                    if (cloud) RecommendedControls(rec, Modifier.align(Alignment.TopCenter).padding(top = 10.dp))
+                    MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp), shops = shopPins.isNotEmpty())
                     if (showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 32.dp)) { showOnline = true } }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter), content = panel) }
         }
         // Phone: full-bleed map with the wordmark bar laid over it; the sheet holds the search pill, services live in the Services tab.
         else Box(Modifier.fillMaxSize()) {
-            BucksMap(Modifier.fillMaxSize(), pins)
+            BucksMap(Modifier.fillMaxSize(), pins, commands = cmds, recentre = s.me == null, onPinTap = onPinTap, onUserMove = onMapMoved, onMyLocation = ::locate, locating = locating)
             BucksTopBar(onMenu = onMenu, unread = unread, onChat = onMessages)
+            if (cloud) RecommendedControls(rec, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
             // Kept clear of the top bar; a panel taller than the space left (large text, ride card and notes together) scrolls instead of pushing off screen.
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(top = 64.dp)) {
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())

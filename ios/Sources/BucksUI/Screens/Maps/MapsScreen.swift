@@ -192,6 +192,8 @@ struct MapsScreen: View {
 
     // MARK: browsing (search, buttons, the destination sheet)
 
+    private var listOpen: Bool { dest == nil && (!hits.isEmpty || (q.trimmingCharacters(in: .whitespaces).count >= 3 && !searching)) }
+
     private var browseOverlay: some View {
         ZStack {
             VStack(spacing: 0) {
@@ -200,8 +202,8 @@ struct MapsScreen: View {
                 results
                 Spacer(minLength: 0)
             }.padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: 720)
-            // Map buttons: where am I, zoom, satellite.
-            VStack(alignment: .trailing, spacing: 8) {
+            // Map buttons: where am I, zoom, satellite. They step aside while the results list (or its "no places" card) is open under the search bar.
+            if !listOpen { VStack(alignment: .trailing, spacing: 8) {
                 MapRoundButton(systemImage: "location.fill", label: "My location", busy: locating) { locate() }
                 MapRoundButton(systemImage: "plus", label: "Zoom in") { cmds.zoomIn() }
                 MapRoundButton(systemImage: "minus", label: "Zoom out") { cmds.zoomOut() }
@@ -215,7 +217,7 @@ struct MapsScreen: View {
                 }
                 Spacer()
             }
-            .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 150).padding(.trailing, 12)
+            .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 150).padding(.trailing, 12) }
             VStack(spacing: 0) {
                 Spacer()
                 HStack { MapAttribution(); Spacer() }.padding(.horizontal, 12).padding(.vertical, 4)

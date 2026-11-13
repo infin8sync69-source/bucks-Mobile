@@ -15,3 +15,14 @@ and free tier when choosing.
 
 Every map call fails soft. When offline, Bucks draws straight lines, uses straight-line distance for the fare, and offers
 the built-in list of places.
+
+## The Recommended layer on Home
+
+Home's map has a "Recommended" layer (Android `ui/screens/RecommendedMap.kt`, iOS `Screens/Home/RecommendedMap.swift`). It shows places,
+never people: Bucks pages and locality centres that posts are tagged to, read through `map_places` and `map_place_posts`
+(`supabase/migrations/map_recommended.sql`, built on the guardrails in `map_guardrails.sql`). Places are ranked by the Wilson lower bound of
+recommend votes. The top ten get numbered labels and a matching strip in the sheet; tapping a pin opens a card with See posts, Directions,
+Open page and Share. The layer loads for the area on screen, then again only on "Search this area" or a chip change.
+
+Both apps' maps centre on you once (after the first real location fix) and then stay where the person puts them; the My location button
+brings them back.
