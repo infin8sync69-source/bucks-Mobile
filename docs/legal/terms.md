@@ -3,7 +3,7 @@ title: Bucks terms of use
 ---
 # Terms of use
 
-> **Draft for legal review.** Last updated: 13 November 2026 (version 2026-11-13). The company name and other details on this page are placeholders until a lawyer has reviewed them. Nothing here takes away rights you have under Indian law, including the Consumer Protection Act, 2019.
+> Last updated: 13 November 2026 (version 2026-11-13). The company name on this page is still being confirmed. Nothing here takes away rights you have under Indian law, including the Consumer Protection Act, 2019.
 
 By creating an account or using Bucks you agree to these terms with **Bucks Technologies Private Limited** ("Bucks", "we"). If you don't agree, don't use Bucks.
 

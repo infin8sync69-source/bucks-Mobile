@@ -3,7 +3,7 @@ title: Bucks legal and safety pages
 ---
 # Bucks legal and safety pages
 
-> **Draft for legal review.** Company name, address, contacts and officer names on these pages are placeholders until legal review is complete.
+> The company name and address on these pages are still being confirmed.
 
 - [Privacy policy](privacy)
 - [Terms of use](terms)

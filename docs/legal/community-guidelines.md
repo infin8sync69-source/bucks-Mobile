@@ -3,7 +3,7 @@ title: Bucks community guidelines
 ---
 # Community guidelines
 
-> **Draft for legal review.** Last updated: 9 November 2026.
+> Last updated: 9 November 2026.
 
 Bucks is for you and the people close to you. Keep it a place people want to be.
 

@@ -3,7 +3,7 @@ title: Bucks privacy policy
 ---
 # Privacy policy
 
-> **Draft for legal review.** Last updated: 13 November 2026. The company name, address, contacts and officer names on this page are placeholders until legal review is complete.
+> Last updated: 14 November 2026. The company name and address on this page are still being confirmed.
 
 Bucks is an app for people, local services and shops near you, run by **Bucks Technologies Private Limited**, 2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038, India ("we"). This policy explains what we collect, why, who we share it with, and your rights under India's Digital Personal Data Protection Act, 2023 (DPDP Act).
 
@@ -88,8 +88,8 @@ We check every request before we answer it, share only what it covers, and keep 
 
 ## Your rights
 
-You can access, correct or erase your data, withdraw consent, and nominate someone to exercise your rights if you die or become unable to. Most of this is in the app (Edit profile, Settings, Delete account). For anything else, email support@bucks.example or our grievance officer (see [Grievance](grievance)). You may also complain to the Data Protection Board of India.
+You can access, correct or erase your data, withdraw consent, and nominate someone to exercise your rights if you die or become unable to. Most of this is in the app (Edit profile, Settings, Delete account). For anything else, email infin8sync69@gmail.com or our grievance officer (see [Grievance](grievance)). You may also complain to the Data Protection Board of India.
 
 ## Contact
 
-Bucks Technologies Private Limited, 2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038, India · support@bucks.example · Grievance officer: A. Sharma, grievance@bucks.example
+Bucks Technologies Private Limited, 2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038, India · infin8sync69@gmail.com · Grievance officer: Shafeeq Duddiyanda, infin8sync69@gmail.com

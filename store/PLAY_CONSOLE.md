@@ -56,7 +56,7 @@ Report any post, comment, message or profile. Teen accounts need a parent's cons
 | Phone screenshots (2–8, 1080×1920 or similar) | Run the **Screenshots** workflow in GitHub Actions, or take them on a phone: Home map, Feed, Services, a shop page, For you, Profile |
 
 **Category:** Social. **Tags:** Social, Local, Shopping.
-**Contact email:** support@bucks.example (**MOCK**). **Website:** https://infin8sync69-source.github.io/bucks-Mobile/legal/
+**Contact email:** infin8sync69@gmail.com. **Website:** https://infin8sync69-source.github.io/bucks-Mobile/legal/
 
 ## App content (Policy → App content)
 
@@ -126,12 +126,14 @@ Audio is **not** collected: voice search uses the phone's speech recogniser and 
 
 ## MOCK details to replace after legal review
 
+Legal review done (14 November 2026). Still open: the company name and address.
+
 | Placeholder | Where |
 |---|---|
 | Company: **Bucks Technologies Private Limited** | all legal pages |
 | Address: **2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038** | privacy, grievance |
-| Support email: **support@bucks.example** | privacy, delete-account, Play contact email, GitHub secret `SUPPORT_EMAIL` |
-| Grievance officer: **A. Sharma, grievance@bucks.example** | privacy, grievance, GitHub secret `GRIEVANCE_OFFICER` |
+| ✅ Support email: **infin8sync69@gmail.com** (set 14 Nov) | privacy, delete-account, Play contact email, GitHub secret `SUPPORT_EMAIL` |
+| ✅ Grievance officer: **Shafeeq Duddiyanda, infin8sync69@gmail.com** (set 14 Nov) | privacy, grievance, GitHub secret `GRIEVANCE_OFFICER` |
 | Courts: **Bengaluru** | terms |
 | Retention: files 30 days, reports 180 days, ride and order records 8 years (anonymised), email deletion within 7 days | privacy, delete-account. Check the 8-year record rule against `delete_my_account()` before relying on it |
 
