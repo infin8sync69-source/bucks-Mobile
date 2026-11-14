@@ -43,35 +43,10 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * Opens a chat or post attachment inside Bucks: photos in a full-screen viewer (pinch to zoom, double-tap to reset), videos in the
- * player. Nothing here sends the person to a browser.
- */
+/** Opens one chat or post attachment full screen (MediaViewer): photos zoom, videos play. Nothing here sends the person to a browser. */
 @Composable
-fun AttachmentViewer(vm: BucksViewModel, bucket: String, path: String, mime: String, onClose: () -> Unit) {
-    val ctx = LocalContext.current; val scope = rememberCoroutineScope()
-    val save: () -> Unit = { scope.launch { vm.toast(if (MediaSaver.save(ctx, vm.social, bucket, path, mime)) "Saved to your gallery, in the Bucks album." else "Couldn't save. Check your connection and try again.") } }
-    val askStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) save() else vm.toast("Allow storage access to save to your gallery.") }
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            if (mime.startsWith("video/")) {
-                val url by produceState<String?>(null, path) { value = runCatching { vm.social.fileUrl(bucket, path) }.getOrNull() }
-                url?.let { MomentVideo(it, paused = false, modifier = Modifier.fillMaxSize(), loop = true) } ?: BucksLoader(color = Color.White, label = "Loading")
-            } else {
-                var scale by remember { mutableFloatStateOf(1f) }; var dx by remember { mutableFloatStateOf(0f) }; var dy by remember { mutableFloatStateOf(0f) }
-                SignedImage(vm, bucket, path, Modifier.fillMaxSize()
-                    .pointerInput(Unit) { detectTapGestures(onDoubleTap = { scale = 1f; dx = 0f; dy = 0f }) }
-                    .pointerInput(Unit) { detectTransformGestures { _, pan, zoom, _ -> scale = (scale * zoom).coerceIn(1f, 5f); if (scale > 1f) { dx += pan.x; dy += pan.y } else { dx = 0f; dy = 0f } } }
-                    .graphicsLayer { scaleX = scale; scaleY = scale; translationX = dx; translationY = dy }, ContentScale.Fit)
-            }
-            Row(Modifier.align(Alignment.TopEnd).statusBarsPadding(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton({ if (Build.VERSION.SDK_INT < 29 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) askStorage.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else save() }) { Text("Save", color = Color.White) }
-                IconButton({ scope.launch { if (!FileOpener.share(ctx, vm.social, bucket, path, mime)) vm.toast("Couldn't share that. Check your connection.") } }) { Icon(Icons.Rounded.Share, "Share", tint = Color.White) }
-                IconButton(onClose) { Icon(Icons.Rounded.Close, "Close", tint = Color.White) }
-            }
-        }
-    }
-}
+fun AttachmentViewer(vm: BucksViewModel, bucket: String, path: String, mime: String, onClose: () -> Unit) =
+    MediaViewer(vm, listOf(ViewerMedia.Stored(bucket, path, mime)), onClose = onClose)
 
 /** Downloads an attachment to the cache and opens it with the phone's own app for that type (PDF viewer, Word, …). */
 object FileOpener {
@@ -92,8 +67,12 @@ object FileOpener {
     }.getOrDefault(false)
 
     /** The system share sheet for an attachment (save to Drive, send on WhatsApp…). False when the download failed. */
-    suspend fun share(ctx: Context, social: Social, bucket: String, path: String, mime: String): Boolean = runCatching {
-        val file = download(ctx, social.fileUrl(bucket, path), path.substringAfterLast('/'))
+    suspend fun share(ctx: Context, social: Social, bucket: String, path: String, mime: String): Boolean =
+        runCatching { shareUrl(ctx, social.fileUrl(bucket, path), mime, path.substringAfterLast('/')) }.getOrDefault(false)
+
+    /** The share sheet for a file at a public [url] (a profile picture, a gallery photo). */
+    suspend fun shareUrl(ctx: Context, url: String, mime: String, name: String = url.substringAfterLast('/').substringBefore('?')): Boolean = runCatching {
+        val file = download(ctx, url, name)
         val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
         ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType(mime.ifBlank { "*/*" }).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true
@@ -102,12 +81,16 @@ object FileOpener {
 
 /** Saves a photo or video into the phone's gallery (Pictures/Bucks or Movies/Bucks). No permission is needed on Android 10 and newer. */
 object MediaSaver {
-    suspend fun save(ctx: Context, social: Social, bucket: String, path: String, mime: String): Boolean = runCatching {
+    suspend fun save(ctx: Context, social: Social, bucket: String, path: String, mime: String): Boolean =
+        runCatching { saveUrl(ctx, social.fileUrl(bucket, path), mime, path.substringAfterLast('/')) }.getOrDefault(false)
+
+    /** Saves the photo or video at a public [url] into the gallery. */
+    suspend fun saveUrl(ctx: Context, url: String, mime: String, name: String = url.substringAfterLast('/').substringBefore('?')): Boolean = runCatching {
         val video = mime.startsWith("video/")
         val ext = when { mime == "image/png" -> "png"; mime == "image/webp" -> "webp"; mime == "image/gif" -> "gif"; video -> "mp4"; else -> "jpg" }
         val outMime = if (mime.startsWith("image/") || video) mime else "image/jpeg"
         val name = "Bucks_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.ENGLISH).format(java.util.Date()) + "." + ext
-        val src = FileOpener.download(ctx, social.fileUrl(bucket, path), path.substringAfterLast('/'))
+        val src = FileOpener.download(ctx, url, name)
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             if (Build.VERSION.SDK_INT >= 29) {
                 val cr = ctx.contentResolver

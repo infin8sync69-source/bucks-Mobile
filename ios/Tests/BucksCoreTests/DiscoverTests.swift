@@ -363,7 +363,7 @@ import Testing
     }
 
     @Test func serviceCatalogMapsCategoriesLikeTheServer() {
-        #expect(serviceCatalog.map(\.key) == ["TAXI", "AUTO", "PARCEL", "FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING", "GIGS", "JOBS", "PROPERTIES"])
+        #expect(serviceCatalog.map(\.key) == ["TAXI", "AUTO", "PARCEL", "FOOD", "GROCERY", "VEGETABLES", "MEAT", "SHOPPING", "GIGS", "JOBS", "PROPERTIES", "LOCAL_SERVICES", "BIZ_PRO", "COMMUNITY", "INSTITUTIONS"])
         #expect(serviceForCategory("bakery") == "FOOD"); #expect(serviceForCategory(" Dairy ") == "GROCERY"); #expect(serviceForCategory("Fish") == "MEAT")
         #expect(serviceForCategory("Something else") == "SHOPPING"); #expect(serviceForCategory(nil) == "SHOPPING")
         #expect(serviceDef("JOBS")?.joinAction == "Post a job from your business"); #expect(serviceDef("nope") == nil)

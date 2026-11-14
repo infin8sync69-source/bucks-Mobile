@@ -19,6 +19,27 @@ class Picked(val bytes: ByteArray, val name: String, val mime: String) {
 }
 
 object Upload {
+    /** A JPEG of a frame one second into a video, at most [maxPx] on its long side, for its thumbnail. Null when the phone can't decode the video. */
+    fun videoPoster(bytes: ByteArray, maxPx: Int = 960): ByteArray? = runCatching {
+        val r = android.media.MediaMetadataRetriever()
+        try {
+            r.setDataSource(object : android.media.MediaDataSource() {
+                override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
+                    if (position >= bytes.size) return -1
+                    val n = minOf(size, (bytes.size - position).toInt()); System.arraycopy(bytes, position.toInt(), buffer, offset, n); return n
+                }
+                override fun getSize(): Long = bytes.size.toLong()
+                override fun close() {}
+            })
+            val frame = r.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: r.frameAtTime
+            if (frame == null) null else {
+                val scale = maxPx.toFloat() / maxOf(frame.width, frame.height)
+                val bmp = if (scale < 1f) Bitmap.createScaledBitmap(frame, (frame.width * scale).toInt().coerceAtLeast(1), (frame.height * scale).toInt().coerceAtLeast(1), true) else frame
+                ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
+            }
+        } finally { runCatching { r.release() } }
+    }.getOrNull()
+
     /** Largest file read into memory (chat allows 25 MB, moments 30 MB); bigger files are refused before they can exhaust memory. */
     const val MAX_READ_BYTES = 32L * 1024 * 1024
 
@@ -47,7 +68,46 @@ object Upload {
             val bytes = ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
             return@runCatching Picked(bytes, name.substringBeforeLast('.') + ".jpg", "image/jpeg")
         }
+        // Videos: copied into a fresh MP4 without the camera's location tag (photos lose theirs when re-encoded above).
+        if (mime.startsWith("video/")) withoutLocation(ctx, uri)?.let { return@runCatching Picked(it, name.substringBeforeLast('.') + ".mp4", "video/mp4") }
         val bytes = cr.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
         Picked(bytes, name, mime)
     }.getOrNull()
+
+    /**
+     * Re-muxes a video's audio and video tracks into a new MP4, unchanged, leaving out its metadata (the GPS location many phone
+     * cameras write). Nothing is re-encoded, so it is quick and lossless. Null when the format can't be re-muxed; the caller then
+     * uploads the original.
+     */
+    private fun withoutLocation(ctx: Context, uri: Uri): ByteArray? {
+        val out = java.io.File.createTempFile("clean", ".mp4", ctx.cacheDir)
+        val ex = android.media.MediaExtractor()
+        var mux: android.media.MediaMuxer? = null
+        return try {
+            ex.setDataSource(ctx, uri, null)
+            mux = android.media.MediaMuxer(out.path, android.media.MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val map = HashMap<Int, Int>(); var maxIn = 1 shl 20
+            for (i in 0 until ex.trackCount) {
+                val f = ex.getTrackFormat(i); val m = f.getString(android.media.MediaFormat.KEY_MIME) ?: continue
+                if (!m.startsWith("video/") && !m.startsWith("audio/")) continue
+                if (f.containsKey(android.media.MediaFormat.KEY_MAX_INPUT_SIZE)) maxIn = maxOf(maxIn, f.getInteger(android.media.MediaFormat.KEY_MAX_INPUT_SIZE))
+                if (m.startsWith("video/") && f.containsKey("rotation-degrees")) mux.setOrientationHint(f.getInteger("rotation-degrees"))
+                ex.selectTrack(i); map[i] = mux.addTrack(f)
+            }
+            if (map.isEmpty()) return null
+            mux.start()
+            val buf = java.nio.ByteBuffer.allocate(maxIn); val info = android.media.MediaCodec.BufferInfo()
+            while (true) {
+                val size = ex.readSampleData(buf, 0); if (size < 0) break
+                val track = map[ex.sampleTrackIndex]
+                if (track == null) { ex.advance(); continue }
+                info.set(0, size, ex.sampleTime, if (ex.sampleFlags and android.media.MediaExtractor.SAMPLE_FLAG_SYNC != 0) android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
+                mux.writeSampleData(track, buf, info); ex.advance()
+            }
+            mux.stop()
+            out.readBytes().takeIf { it.size.toLong() <= MAX_READ_BYTES }
+        } catch (e: Exception) { null } finally {
+            runCatching { mux?.release() }; runCatching { ex.release() }; out.delete()
+        }
+    }
 }

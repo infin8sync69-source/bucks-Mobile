@@ -79,11 +79,11 @@ suspend fun Backend.contactForOrder(orderId: String): OrderContactRow? =
     client.postgrest.rpc("contact_for_order", buildJsonObject { put("p_order", orderId) }).decodeList<OrderContactRow>().firstOrNull()
 
 /** Buyer cancels while the order is still PLACED. */
-suspend fun Backend.cancelOrder(orderId: String) { client.postgrest.rpc("cancel_order", buildJsonObject { put("p_order", orderId) }) }
+suspend fun Backend.cancelOrder(orderId: String, reason: String? = null) { client.postgrest.rpc("cancel_order", buildJsonObject { put("p_order", orderId); put("p_reason", reason) }) }
 
 /** Vendor marks an accepted order READY, a pick-up order DELIVERED once collected, or CANCELLED when no rider has it (or the buyer never came). */
-suspend fun Backend.updateOrderStatus(orderId: String, status: String) {
-    client.postgrest.rpc("update_order_status", buildJsonObject { put("p_order", orderId); put("p_status", status) })
+suspend fun Backend.updateOrderStatus(orderId: String, status: String, reason: String? = null) {
+    client.postgrest.rpc("update_order_status", buildJsonObject { put("p_order", orderId); put("p_status", status); put("p_reason", reason) })
 }
 
 /** Inserts and updates on a shop's orders as they happen (row-level security still applies). Close the channel when the screen goes away. */
@@ -107,24 +107,27 @@ fun Backend.liveOrder(orderId: String): Pair<RealtimeChannel, Flow<CloudOrderRow
 // ---------- shipping: orders to an address anywhere, the address book (migration ecommerce.sql) ----------
 /** A saved delivery address; the server checks the mobile number (10 digits) and the pincode (6 digits) again at checkout. */
 @Serializable data class AddressRow(val id: String? = null, val label: String = "", val name: String, val phone: String, val line1: String, val line2: String = "",
-    val city: String, val state: String, val pincode: String, @SerialName("is_default") val isDefault: Boolean = false) {
+    val city: String, val state: String, val pincode: String, @SerialName("is_default") val isDefault: Boolean = false,
+    /** The drop point pinned for local delivery (address_pin.sql); null when not pinned. */
+    val lat: Double? = null, val lng: Double? = null) {
+    val pin: LatLng? get() = if (lat != null && lng != null) LatLng(lat, lng) else null
     val oneLine: String get() = listOf(line1, line2, "$city, $state $pincode").filter { it.isNotBlank() }.joinToString(", ")
     fun json(): JsonObject = buildJsonObject { put("name", name); put("phone", phone); put("line1", line1); put("line2", line2); put("city", city); put("state", state); put("pincode", pincode) }
 }
 
 suspend fun Backend.addresses(): List<AddressRow> = client.postgrest.from("addresses").select { order("created_at", Order.DESCENDING) }.decodeList()
 suspend fun Backend.saveAddress(me: String, a: AddressRow): AddressRow =
-    if (a.id == null) client.postgrest.from("addresses").insert(buildJsonObject { put("profile_id", me); put("label", a.label); put("name", a.name); put("phone", a.phone); put("line1", a.line1); put("line2", a.line2); put("city", a.city); put("state", a.state); put("pincode", a.pincode); put("is_default", a.isDefault) }) { select() }.decodeSingle()
-    else client.postgrest.from("addresses").update({ set("label", a.label); set("name", a.name); set("phone", a.phone); set("line1", a.line1); set("line2", a.line2); set("city", a.city); set("state", a.state); set("pincode", a.pincode); set("is_default", a.isDefault) }) { select(); filter { eq("id", a.id) } }.decodeSingle()
+    if (a.id == null) client.postgrest.from("addresses").insert(buildJsonObject { put("profile_id", me); put("label", a.label); put("name", a.name); put("phone", a.phone); put("line1", a.line1); put("line2", a.line2); put("city", a.city); put("state", a.state); put("pincode", a.pincode); put("is_default", a.isDefault); if (a.lat != null) { put("lat", a.lat); put("lng", a.lng) } }) { select() }.decodeSingle()
+    else client.postgrest.from("addresses").update({ set("label", a.label); set("name", a.name); set("phone", a.phone); set("line1", a.line1); set("line2", a.line2); set("city", a.city); set("state", a.state); set("pincode", a.pincode); set("is_default", a.isDefault); if (a.lat != null) { set("lat", a.lat); set("lng", a.lng) } }) { select(); filter { eq("id", a.id) } }.decodeSingle()
 suspend fun Backend.deleteAddress(id: String) { client.postgrest.from("addresses").delete { filter { eq("id", id) } } }
 
 /** Orders from a shop that ships: the address is checked on the server, the shipping fee comes from the shop's own rule. */
-suspend fun Backend.placeShipOrder(listingId: String, lines: List<Pair<String, Int>>, address: JsonObject, payment: String): String =
-    client.postgrest.rpc("place_order_ship", buildJsonObject {
+suspend fun Backend.placeShipOrder(ref: String, listingId: String, lines: List<Pair<String, Int>>, address: JsonObject, payment: String): String =
+    once("place_order_ship", ref, buildJsonObject {
         put("p_listing", listingId)
         put("p_lines", buildJsonArray { lines.forEach { (item, qty) -> add(buildJsonObject { put("item_id", item); put("qty", qty) }) } })
         put("p_address", address); put("p_payment", payment)
-    }).decodeAs()
+    })
 /** The shop hands an accepted shipped order to a carrier ("Self delivery" is fine) with an optional tracking number and link. */
 suspend fun Backend.shipOrder(orderId: String, carrier: String, tracking: String, url: String) {
     client.postgrest.rpc("ship_order", buildJsonObject { put("p_order", orderId); put("p_carrier", carrier); put("p_tracking", tracking); put("p_url", url) })

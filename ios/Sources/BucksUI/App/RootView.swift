@@ -21,13 +21,18 @@ public struct RootView: View {
 
     public var body: some View {
         Group {
-            switch session.phase {
-            case .launching: LaunchingView()
-            case .signedOut: AuthFlow()
-            case .needsProfile: CreateProfileScreen()
-            case .ready: MainStack()
+            if session.ageBlocked { AgeBlockedScreen() } else {
+                switch session.phase {
+                case .launching: LaunchingView()
+                case .signedOut: AuthFlow()
+                case .needsProfile: CreateProfileScreen()
+                case .ready: if session.termsNeeded != nil { TermsScreen() } else if session.needsBirthDate { BirthDateScreen() } else if session.needsGuardian { GuardianScreen() } else { MainStack() }
+                }
             }
         }
+        // A new colour theme: every colour is looked up again when the screens are rebuilt (the open screens stay open, the router keeps them).
+        .id(Prefs.shared.accent)
+        .sheet(item: Binding(get: { session.reportTarget }, set: { session.reportTarget = $0 })) { t in ReportSheet(target: t) }
         .environment(session)
         .environment(router)
         .bucksToasts(toasts)
@@ -122,6 +127,12 @@ struct MainStack: View {
         .environment(\.openBucksMenu, { withAnimation(.easeOut(duration: 0.25)) { router.menuOpen = true } })
         // The cart next to Messages in every top bar (cloud builds), with the piece count across every shop in it.
         .environment(\.bucksCartAction, session.cloud ? CartAction(count: session.commerce.count) { if router.path.last != .cart { router.push(.cart) } } : nil)
+        // A tap on anyone's name or picture opens their profile; my own opens the Profile tab.
+        .environment(\.openPerson, { id in
+            if id == session.me?.id { router.select(.account, accountTab: "profile") } else if router.path.last != .person(id) { router.push(.person(id)) }
+        })
+        // The notifications bell beside it: sync requests, invites, orders... with their own count.
+        .environment(\.bucksNotifAction, session.cloud ? NotifAction(count: session.chat.notesUnread) { if router.path.last != .notifications { router.push(.notifications) } } : nil)
         .animation(.easeOut(duration: 0.25), value: session.dispatch.driverRide?.id)
         .confirmationGate()
         .rideRing(session.dispatch.driverRide?.status == .ringing)
@@ -165,7 +176,7 @@ struct MainStack: View {
         case .home: HomeScreen()
         case .feed: FeedScreen()
         case .services: ServicesScreen()
-        case .recommended: RecommendedScreen()
+        case .recommended: ExploreScreen()
         case .account: AccountScreen()
         }
     }
@@ -227,6 +238,8 @@ struct MainStack: View {
         case .myApplications: MyApplicationsScreen()
         case .jobsNear: JobsNearScreen()
         case .messages: MessagesScreen()
+        case .notifications: MessagesScreen(startTab: 1)
+        case .person(let id): PersonScreen(id: id)
         case .chat(let id): ChatScreen(id: id)
         case .newGroup: NewGroupScreen()
         case .sync: SyncScreen()
@@ -241,6 +254,7 @@ struct MainStack: View {
         case .settingsAppearance: AppearanceScreen()
         case .settingsBlocked: BlockedScreen()
         case .settingsCloseFriends: CloseFriendsScreen()
+        case .help: HelpScreen()
         case .maps: MapsScreen()
         case .editProfile: CreateProfileScreen(editing: true)
         case .account: AccountScreen()

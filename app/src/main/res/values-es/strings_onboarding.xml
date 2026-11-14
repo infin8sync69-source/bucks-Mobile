@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">Elige tu idioma</string>
+    <string name="onb_language_hint">Puedes cambiarlo después en Ajustes.</string>
+    <string name="onb_continue">Continuar</string>
+
+    <string name="onb_phone_title">¿Cuál es tu número?</string>
+    <string name="onb_phone_hint">Te enviaremos un código por SMS.</string>
+    <string name="onb_phone_number">Número de teléfono</string>
+    <string name="onb_phone_invalid">Revisa el número</string>
+    <string name="onb_agree_terms">Acepto los Términos y la Política de privacidad.</string>
+    <string name="onb_terms">Términos</string>
+    <string name="onb_privacy">Privacidad</string>
+    <string name="onb_guidelines">Normas</string>
+    <string name="onb_get_code">Recibir código</string>
+    <string name="onb_use_email">Usar correo electrónico</string>
+
+    <string name="onb_country_title">País</string>
+    <string name="onb_country_search">Buscar</string>
+    <string name="onb_country_change">Cambiar país, ahora %1$s</string>
+
+    <string name="onb_code_title">Ingresa el código</string>
+    <string name="onb_code_sent_to">Enviado a %1$s</string>
+    <string name="onb_code_edit">Editar</string>
+    <string name="onb_code_demo">Código de prueba: 1234</string>
+    <string name="onb_code_verify">Verificar</string>
+    <string name="onb_code_checking">Verificando…</string>
+    <string name="onb_code_resend">Reenviar código</string>
+    <string name="onb_code_resend_in">Reenviar en %1$d s</string>
+    <string name="onb_code_field">Código de verificación</string>
+
+    <string name="onb_name_title">¿Cómo te llamas?</string>
+    <string name="onb_name_hint">Tu nombre aparece en tu perfil. Tu cumpleaños no.</string>
+    <string name="onb_dob_label">Fecha de nacimiento</string>
+    <string name="onb_dob_day">DD</string>
+    <string name="onb_dob_month">MM</string>
+    <string name="onb_dob_year">AAAA</string>
+    <string name="onb_dob_invalid">Revisa la fecha</string>
+    <string name="onb_dob_title">¿Cuándo es tu cumpleaños?</string>
+    <string name="onb_dob_hint">Lo necesitamos una vez para terminar de crear tu cuenta. No aparece en tu perfil.</string>
+    <string name="onb_blocked_title">No puedes crear una cuenta por ahora</string>
+    <string name="onb_blocked_hint">Bucks todavía no está disponible para ti.</string>
+    <string name="onb_name_label">Tu nombre</string>
+    <string name="onb_name_cta">¡Vamos!</string>
+</resources>

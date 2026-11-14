@@ -1,5 +1,8 @@
 package com.bucks.app.ui.screens
 
+import androidx.compose.ui.res.pluralStringResource
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -50,7 +53,7 @@ fun handleOf(name: String) = "@" + name.trim().lowercase().replace(Regex("[^a-z0
 @Composable
 fun ProfileCover(initials: String, icon: ImageVector? = null, onBack: (() -> Unit)? = null) = Box(Modifier.fillMaxWidth().height(170.dp)) {
     Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimaryContainer))))
-    if (onBack != null) IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onPrimary) }
+    if (onBack != null) IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g1_cd_back), tint = MaterialTheme.colorScheme.onPrimary) }
     Box(Modifier.padding(start = Gutter).align(Alignment.BottomStart).size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface).padding(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
         if (icon != null) Icon(icon, null, Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) else Text(initials, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
@@ -85,38 +88,39 @@ fun PersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onCreatePost:
     val media = (mine.mapNotNull { it.image } + chats.flatMap { c -> c.messages.filter { it.mine && it.attachment?.isImage == true }.mapNotNull { it.attachment?.uri } }).distinct()
     val files = remember(mine, chats) { (mine.mapNotNull { p -> p.attachment?.let { it to p.at } } + chats.flatMap { c -> c.messages.filter { it.mine && it.attachment?.isImage == false }.map { it.attachment!! to it.at } })
         .distinctBy { it.first.uri }.map { (a, at) -> FileEntry(a, sizeOf(ctx, a.uri), at) } }
-    fun share() = ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${u.name} (${handleOf(u.name)}) on Bucks · ${u.area}") }, "Share profile"))
+    val shareText = stringResource(R.string.g1_profile_share_text, u.name, handleOf(u.name), u.area); val shareTitle = stringResource(R.string.g1_profile_share_title)
+    fun share() = ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }, shareTitle))
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         ProfileCover(initials(u.name))
         Column(Modifier.padding(horizontal = Gutter, vertical = 10.dp)) {
             Text(u.name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)); Muted(handleOf(u.name))
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Muted(" ${u.area}") }
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                CountLabel(people.count { it.following } + s.followedProviders.size, "following"); CountLabel(chats.size, "contacts") }
+                CountLabel(people.count { it.following } + s.followedProviders.size, stringResource(R.string.g1_profile_following)); CountLabel(chats.size, stringResource(R.string.g1_profile_contacts)) }
             if (u.bio.isNotBlank()) Text(u.bio, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
             if (u.interests.isNotEmpty()) Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { u.interests.forEach { HashTag(it) } }
-            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { SoftButton("Edit profile", Icons.Rounded.EditNote, onClick = onEditProfile); SoftButton("Share", Icons.Rounded.IosShare) { share() } }
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { SoftButton(stringResource(R.string.g1_profile_edit), Icons.Rounded.EditNote, onClick = onEditProfile); SoftButton(stringResource(R.string.g1_profile_share), Icons.Rounded.IosShare) { share() } }
         }
-        BrandTabs(listOf("Feed", "Media", "Files", "Posts"), tab) { tab = it }
+        BrandTabs(listOf(stringResource(R.string.g1_profile_tab_feed), stringResource(R.string.g1_profile_tab_media), stringResource(R.string.g1_profile_tab_files), stringResource(R.string.g1_profile_tab_posts)), tab) { tab = it }
         when (tab) {
             0 -> {
                 Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Avatar(initials(u.name), size = 40)
-                    Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable(onClick = onCreatePost).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted("Share what's on your mind") }
-                    IconButton(onClick = onCreatePost, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, "Create a post", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Box(Modifier.weight(1f).padding(start = 10.dp).height(40.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).clickable(onClick = onCreatePost).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) { Muted(stringResource(R.string.g1_post_hint)) }
+                    IconButton(onClick = onCreatePost, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, stringResource(R.string.g1_cd_create_post), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                if (mine.isEmpty()) Muted("Nothing here yet. Share what's on your mind above.", Modifier.padding(Gutter))
+                if (mine.isEmpty()) Muted(stringResource(R.string.g1_profile_feed_empty), Modifier.padding(Gutter))
                 mine.forEach { p -> PostCard(p, s.postVotes[p.id] ?: 0, onVote = { vm.votePost(p.id, it) }, onComments = { comments = p.id }, onShare = { sharePost(ctx, p) }, mine = true) }
             }
-            1 -> if (media.isEmpty()) Muted("Photos you post or send in chats appear here.", Modifier.padding(Gutter)) else Column(Modifier.padding(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            1 -> if (media.isEmpty()) Muted(stringResource(R.string.g1_profile_media_empty), Modifier.padding(Gutter)) else Column(Modifier.padding(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 media.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { row.forEach { m -> AsyncImage(m, null, Modifier.weight(1f).aspectRatio(1f).clickable { openUri(ctx, m) }, contentScale = ContentScale.Crop) }; repeat(3 - row.size) { Spacer(Modifier.weight(1f)) } } } }
             2 -> Column(Modifier.padding(Gutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (files.isEmpty()) Muted("Documents you post or send in chats appear here.")
+                if (files.isEmpty()) Muted(stringResource(R.string.g1_profile_files_empty))
                 files.forEach { f -> FileRow(f.a, humanSize(f.size), DATE.format(Date(f.at))) { openUri(ctx, f.a.uri) } }
                 Surface(Modifier.fillMaxWidth().padding(top = 8.dp), shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), color = MaterialTheme.colorScheme.surface) { Column(Modifier.padding(16.dp)) {
-                    Text("Storage summary", style = MaterialTheme.typography.titleSmall)
-                    Row(Modifier.padding(top = 10.dp)) { Column(Modifier.weight(1f)) { Muted("Total files"); Text("${files.size}", style = MaterialTheme.typography.titleMedium) }; Column(Modifier.weight(1f)) { Muted("Total size"); Text(humanSize(files.sumOf { it.size }), style = MaterialTheme.typography.titleMedium) } } } }
+                    Text(stringResource(R.string.g1_profile_storage), style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.padding(top = 10.dp)) { Column(Modifier.weight(1f)) { Muted(stringResource(R.string.g1_profile_total_files)); Text("${files.size}", style = MaterialTheme.typography.titleMedium) }; Column(Modifier.weight(1f)) { Muted(stringResource(R.string.g1_profile_total_size)); Text(humanSize(files.sumOf { it.size }), style = MaterialTheme.typography.titleMedium) } } } }
             }
             else -> Column(Modifier.padding(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TweetComposer(u.name) { vm.addPost(it) }
@@ -133,7 +137,7 @@ fun PersonalProfile(vm: BucksViewModel, onEditProfile: () -> Unit, onCreatePost:
 @Composable private fun CountLabel(n: Int, label: String) = Row(verticalAlignment = Alignment.Bottom) { Text("$n", style = MaterialTheme.typography.titleMedium); Muted(" $label") }
 
 fun openUri(ctx: Context, uri: String) { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) } }
-fun sharePost(ctx: Context, p: Post) = ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${p.who} on Bucks: ${p.text}") }, "Share post"))
+fun sharePost(ctx: Context, p: Post) = ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, Str.get(R.string.g1_post_share_text, p.who, p.text)) }, Str.get(R.string.g1_post_share_title)))
 
 @Composable
 private fun FileRow(a: Attachment, size: String, date: String, onOpen: () -> Unit) {
@@ -143,7 +147,7 @@ private fun FileRow(a: Attachment, size: String, date: String, onOpen: () -> Uni
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, Modifier.size(32.dp), tint = tint)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(a.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis); Muted("$size    $date") }
-            IconButton(onClick = onOpen) { Icon(Icons.Rounded.OpenInNew, "Open ${a.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = onOpen) { Icon(Icons.Rounded.OpenInNew, stringResource(R.string.g1_cd_open_file, a.name), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -154,10 +158,10 @@ private fun TweetComposer(name: String, onTweet: (String) -> Unit) {
     Surface(shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), color = MaterialTheme.colorScheme.surface) { Column(Modifier.padding(14.dp)) {
         Row(verticalAlignment = Alignment.Top) { Avatar(initials(name), size = 32)
             BasicTextField(text, { if (it.length <= 280) text = it }, Modifier.weight(1f).padding(start = 10.dp, top = 6.dp).heightIn(min = 48.dp), textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                decorationBox = { inner -> Box { if (text.isEmpty()) Muted("What's happening?"); inner() } }) }
+                decorationBox = { inner -> Box { if (text.isEmpty()) Muted(stringResource(R.string.g1_post_hint_short)); inner() } }) }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-            Muted("${280 - text.length} characters remaining", Modifier.padding(end = 12.dp))
-            Button({ onTweet(text.trim()); text = "" }, enabled = text.isNotBlank(), shape = CircleShape, contentPadding = PaddingValues(horizontal = 18.dp)) { Text("Post") }
+            Muted(pluralStringResource(R.plurals.g1_post_chars_left, 280 - text.length, 280 - text.length), Modifier.padding(end = 12.dp))
+            Button({ onTweet(text.trim()); text = "" }, enabled = text.isNotBlank(), shape = CircleShape, contentPadding = PaddingValues(horizontal = 18.dp)) { Text(stringResource(R.string.g1_post_action)) }
         }
     } }
 }
@@ -169,27 +173,27 @@ fun CreatePostScreen(vm: BucksViewModel, onClose: () -> Unit) {
     var text by remember { mutableStateOf("") }; var image by remember { mutableStateOf<String?>(null) }; var file by remember { mutableStateOf<Attachment?>(null) }
     fun keep(u: Uri) = runCatching { ctx.contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { u -> u?.let { keep(it); image = it.toString() } }
-    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { u -> u?.let { keep(it); val n = runCatching { ctx.contentResolver.query(it, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: "Document"; file = Attachment(it.toString(), n, false) } }
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { u -> u?.let { keep(it); val n = runCatching { ctx.contentResolver.query(it, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: Str.get(R.string.g1_post_document); file = Attachment(it.toString(), n, false) } }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close") }
-            Text("Create a post", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            Button({ vm.addPost(text.trim(), image, file); onClose() }, enabled = text.isNotBlank() || image != null || file != null, shape = CircleShape) { Text("Post") }
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.g1_cd_close)) }
+            Text(stringResource(R.string.g1_post_create_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            Button({ vm.addPost(text.trim(), image, file); onClose() }, enabled = text.isNotBlank() || image != null || file != null, shape = CircleShape) { Text(stringResource(R.string.g1_post_action)) }
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Gutter)) {
             BasicTextField(text, { text = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp).focusRequester(focus), textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                decorationBox = { inner -> Box { if (text.isEmpty()) Text("Share what's on your mind", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); inner() } })
+                decorationBox = { inner -> Box { if (text.isEmpty()) Text(stringResource(R.string.g1_post_hint), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); inner() } })
             image?.let { Box(Modifier.padding(top = 12.dp)) { AsyncImage(it, null, Modifier.fillMaxWidth().heightIn(max = 280.dp).clip(MaterialTheme.shapes.medium), contentScale = ContentScale.Crop)
-                IconButton({ image = null }, Modifier.align(Alignment.TopEnd)) { Icon(Icons.Rounded.Cancel, "Remove photo", tint = Color.White) } } }
+                IconButton({ image = null }, Modifier.align(Alignment.TopEnd)) { Icon(Icons.Rounded.Cancel, stringResource(R.string.g1_cd_remove_photo), tint = Color.White) } } }
             file?.let { f -> Row(Modifier.padding(top = 12.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.primary); Text(f.name, Modifier.weight(1f).padding(horizontal = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Rounded.Close, "Remove file", Modifier.clickable { file = null }) } }
+                Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.primary); Text(f.name, Modifier.weight(1f).padding(horizontal = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Rounded.Close, stringResource(R.string.g1_cd_remove_file), Modifier.clickable { file = null }) } }
         }
         Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton({ pickImage.launch(arrayOf("image/*")) }) { Icon(Icons.Rounded.Image, "Add photo", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            IconButton({ text += if (text.isEmpty() || text.endsWith(" ")) "@" else " @" }) { Icon(Icons.Rounded.PersonAddAlt, "Tag someone", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            IconButton({ pickFile.launch(arrayOf("application/pdf", "application/zip", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) }) { Icon(Icons.Rounded.Add, "Attach a file", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton({ pickImage.launch(arrayOf("image/*")) }) { Icon(Icons.Rounded.Image, stringResource(R.string.g1_cd_add_photo), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton({ text += if (text.isEmpty() || text.endsWith(" ")) "@" else " @" }) { Icon(Icons.Rounded.PersonAddAlt, stringResource(R.string.g1_cd_tag_someone), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton({ pickFile.launch(arrayOf("application/pdf", "application/zip", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain")) }) { Icon(Icons.Rounded.Add, stringResource(R.string.g1_cd_attach_file), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

@@ -17,6 +17,11 @@ struct JobScreen: View {
         ContentColumn {
             VStack(spacing: 0) {
                 BucksTopBar(title: job?.title ?? "Job", onBack: { router.pop() }) {
+                    // An open job of a business I don't run (the server refuses closed ones). Hidden while the job loads, so it never
+                    // flashes for a manager before their role is known.
+                    if let job, !jobs.loadingJob, let target = ReportTarget.job(job, manager: manager) {
+                        JobsBarButton("flag", "Report job") { session.reportTarget = target }
+                    }
                     JobsBarButton("arrow.clockwise", "Refresh") { jobs.loadJob(id) }
                 }
                 if let job {
@@ -135,11 +140,13 @@ private struct ApplicationCard: View {
         let jobs = session.jobs, a = application, name = jobs.nameOf(a.applicantId), busy = jobs.busy
         BucksCard {
             HStack(spacing: 0) {
+                HStack(spacing: 0) {
                 Avatar(initials: initials(name.isEmpty ? "?" : name), size: 40)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(name).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                     Muted("Applied \(JobsStore.timeSince(a.createdAt))")
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                }.opensProfile(a.applicantId, name: name)
                 ApplicationStatusPill(status: a.status)
             }
             if !a.note.allSatisfy(\.isWhitespace) { Text(a.note).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface).padding(.top, 10) }

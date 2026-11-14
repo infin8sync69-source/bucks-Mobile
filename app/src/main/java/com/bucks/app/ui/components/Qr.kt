@@ -2,6 +2,7 @@ package com.bucks.app.ui.components
 
 import android.content.Context
 import android.graphics.Bitmap
+import com.bucks.app.R
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -46,7 +47,7 @@ fun scanQr(ctx: Context, onResult: (String) -> Unit, onError: (String) -> Unit) 
     val scanner = GmsBarcodeScanning.getClient(ctx, options)
     // The scanner module downloads on first use; ask for it up front so the first scan doesn't fail silently.
     ModuleInstall.getClient(ctx).installModules(ModuleInstallRequest.newBuilder().addApi(scanner).build())
-    scanner.startScan().addOnSuccessListener { b -> b.rawValue?.let(onResult) ?: onError("That code couldn't be read.") }
+    scanner.startScan().addOnSuccessListener { b -> b.rawValue?.let(onResult) ?: onError(com.bucks.app.data.Str.get(R.string.g3_qr_unreadable)) }
         .addOnCanceledListener { }
-        .addOnFailureListener { onError("The scanner isn't available on this phone yet. Type the code instead.") }
+        .addOnFailureListener { onError(com.bucks.app.data.Str.get(R.string.g3_qr_no_scanner)) }
 }

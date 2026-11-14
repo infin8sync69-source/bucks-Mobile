@@ -64,9 +64,9 @@ private struct ListingMembersScreen: View {
             if rows.isEmpty { Muted("Only you so far.") }
             ForEach(rows.sorted { (Self.order[$0.role] ?? 9, name($0.profileId).lowercased()) < (Self.order[$1.role] ?? 9, name($1.profileId).lowercased()) }, id: \.profileId) { m in
                 HStack(spacing: 12) {
-                    Avatar(initials: initials(name(m.profileId).isEmpty ? "?" : name(m.profileId)), size: 40)
+                    Avatar(initials: initials(name(m.profileId).isEmpty ? "?" : name(m.profileId)), size: 40).opensProfile(m.profileId, name: name(m.profileId))
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(name(m.profileId) + (m.profileId == meId ? " (you)" : "")).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+                        Text(name(m.profileId) + (m.profileId == meId ? " (you)" : "")).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface).opensProfile(m.profileId, name: name(m.profileId))
                         Muted(roleLabel(m.role, vehicle: false) + " · " + roleExplain(m.role, vehicle: false), maxLines: 2)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     if owner && m.role != "OWNER" {
@@ -93,6 +93,12 @@ private struct ListingMembersScreen: View {
             Spacer(minLength: 0)
         }
         Muted(roleExplain(role, vehicle: false)).padding(.top, 6)
+        // What a store rider still has to do before an order can ring them, and the app for one who isn't on Bucks yet.
+        if role == "STORE_RIDER" {
+            Muted(storeRiderNeeds(session.commerce.deliveryRadiusLabel)).padding(.top, 6)
+                .task { await session.commerce.loadDeliveryRadius() }
+            ShareSmallButton(title: "Send them the Bucks app", text: Invite.shareText(Invite.storeRider(shop: title)), tonal: true).fixedSize().padding(.top, 8)
+        }
         PrimaryButton("Send invite", enabled: BucksQr.looksLikeBucksId(code) && !sending) { Task { await send() } }.padding(.top, 14)
         let pending = store.sentInvites[listingId] ?? []
         if !pending.isEmpty {

@@ -51,6 +51,17 @@ public final class AppSession: DispatchHost {
     /// What the phone sign-in is doing right now, shown under the code box so a tester can report it.
     public var otpStatus = ""
     public var names: [String: String] = [:]
+    /// True when I'm signed in but the server has no date of birth for me yet: the app asks for it before anything else.
+    public private(set) var needsBirthDate = false
+    /// Under 18 with no guardian consent yet: the guardian step comes before anything else (Safety.pendingStep on Android).
+    public private(set) var needsGuardian = false
+    /// The Terms version I still have to accept (new on iOS, or changed since I accepted): TermsScreen comes before anything else.
+    public private(set) var termsNeeded: String?
+    /// Set on this phone once a date of birth below the sign-up age was entered; the app stays closed to it (as on Android).
+    public private(set) var ageBlocked = UserDefaults.standard.bool(forKey: "ageBlocked")
+    /// What the report sheet is open for; nil while it is closed. Any screen sets it to offer "Report".
+    public var reportTarget: ReportTarget?
+    public private(set) var reporting = false
     /// Cloud features need Supabase and Firebase configured.
     public var cloud: Bool { Backend.shared.enabled }
     public var firebaseProject: String? { auth?.projectName }
@@ -152,6 +163,9 @@ public final class AppSession: DispatchHost {
                 if user == nil || (user?.name.isEmpty ?? true), !p.name.isEmpty { var u = user ?? StoredUser(phone: phone); u.name = p.name; u.area = p.area; u.bio = p.bio; save(u) }
                 phase = (p.name.isEmpty && (user?.name.isEmpty ?? true)) ? .needsProfile : .ready
                 dispatch.startDriversFeed(); dispatch.resume(); social.signedIn(); registerPushIfSignedIn()
+                // A failed read asks again at the next launch rather than locking someone out on a bad connection.
+                if let s = try? await Backend.shared.mySafety() { needsBirthDate = !s.birthDateSet; needsGuardian = s.guardianConsent == false }
+                if let t = try? await Backend.shared.termsStatus(), t.needed { termsNeeded = t.current }
                 return
             } catch is CancellationError { return } catch {
                 tries += 1
@@ -168,6 +182,10 @@ public final class AppSession: DispatchHost {
             if let m = me { p = m } else { p = try await Backend.shared.ensureProfile(name: name, phone: u.phone.isEmpty ? nil : u.phone) }
             try await Backend.shared.updateProfile(id: p.id, name: name, bio: bio, area: area, home: home)
             var q = p; q.name = name; q.area = area; q.bio = bio; me = q; names[q.id] = name
+            // Gender is private (profile_private, profile_details.sql) and saved quietly: a database without the column keeps it on the phone.
+            if let code = ["Woman": "WOMAN", "Man": "MAN", "Non-binary": "NON_BINARY", "Prefer not to say": "UNSAID"][gender] {
+                try? await Backend.shared.setGender(id: p.id, code: code)
+            }
             toast("Welcome to Bucks, \(name.components(separatedBy: " ")[0])")
             phase = .ready
         } catch { toast(friendlyError(error)) }
@@ -175,6 +193,43 @@ public final class AppSession: DispatchHost {
     /// Stores this phone's push token against my profile (no-op without Firebase Messaging or when signed out). Runs once the profile is loaded, which covers launch and a fresh sign-in.
     public func registerPushIfSignedIn() { Push.shared.registerIfSignedIn() }
     private func save(_ u: StoredUser) { user = u; if let d = try? JSONEncoder().encode(u) { defaults.set(d, forKey: "storedUser") } }
+
+    /// Saves my date of birth (yyyy-MM-dd). Returns nil when it is saved, or the sentence to show. Below the sign-up age the phone is
+    /// marked and the account signed out.
+    /// Records a parent's or guardian's consent; answers an error message, or nil once saved.
+    /// "I agree" on TermsScreen; answers an error message, or nil once saved.
+    public func acceptTerms() async -> String? {
+        guard let v = termsNeeded else { return nil }
+        do { try await Backend.shared.recordTerms(v); termsNeeded = nil; return nil }
+        catch { return friendlyError(error) }
+    }
+    public func recordGuardianConsent(name: String, phone: String, relation: String) async -> String? {
+        do { try await Backend.shared.recordGuardianConsent(name: name, phone: phone, relation: relation); needsGuardian = false; return nil }
+        catch { return friendlyError(error) }
+    }
+
+    public func setBirthDate(_ isoDate: String) async -> String? {
+        do { let band = try await Backend.shared.setBirthDate(isoDate); needsBirthDate = false; needsGuardian = band == "TEEN" || band == "CHILD"; return nil }
+        catch {
+            if errorCode(error) == "BK_NOT_ELIGIBLE" || friendlyError(error).lowercased().contains("not eligible") {
+                defaults.set(true, forKey: "ageBlocked"); ageBlocked = true
+                await logout(); return nil
+            }
+            return friendlyError(error)
+        }
+    }
+
+    /// Sends a report; with `alsoBlock` the person is blocked too. True once the server has it (the sheet closes then).
+    public func sendReport(_ t: ReportTarget, reason: ReportReason, detail: String, alsoBlock: Bool) async -> Bool {
+        guard !reporting else { return false }
+        reporting = true; defer { reporting = false }
+        do {
+            _ = try await Backend.shared.reportContent(kind: t.kind, target: t.targetId, reason: reason.rawValue, detail: detail)
+            if alsoBlock, let o = t.ownerId, o != me?.id { social.block(o) }
+            toast("Thanks. Bucks staff will review this report.")
+            return true
+        } catch { toast(friendlyError(error)); return false }
+    }
 
     /// Takes presence off and drops the login while the Firebase user can still sign those requests.
     public func logout() async {
@@ -204,7 +259,7 @@ public final class AppSession: DispatchHost {
     private func clearLocalState() {
         // Cart, orders, search results, listings, jobs, chats and the feed belong to the person who signed out, not the next account on this phone.
         commerce.signedOut(); discover.signedOut(); listings.signedOut(); services.signedOut(); jobs.signedOut(); social.signedOut(); chat.signedOut(); feed.clear()
-        me = nil; user = nil; names = [:]; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
+        me = nil; user = nil; names = [:]; needsBirthDate = false; needsGuardian = false; termsNeeded = nil; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
         defaults.removeObject(forKey: "storedUser")
     }
 
@@ -294,12 +349,14 @@ public final class AppSession: DispatchHost {
         dispatch.requestRide(kind: rideKind, from: from, fromLabel: ridePickup?.name ?? hereLabel ?? "Current location", dest: d, fare: fare(rideKind, km: d.km))
     }
 
-    /// Rider: cancel before the trip starts. Shows the server's answer; success returns home.
-    public func cancelRide() async -> Bool {
+    /// Rider: cancel before the trip starts. [reason] is a `CancelReasons.rider` code, required once a driver has accepted (the
+    /// server refuses without one then). Shows the server's answer; success returns home.
+    public func cancelRide(reason: String? = nil, note: String = "") async -> Bool {
         guard let r = dispatch.ride else { return true }
         if dispatch.cancelling { return false }   // a cancel is already on its way; its own call reports the outcome
         guard [.searching, .noDriver, .matched, .arrived].contains(r.status) else { toast("This trip has already started, so it can't be cancelled here."); return false }
-        if let err = await dispatch.cancelRide() { toast(err); return false }
+        if r.status == .matched || r.status == .arrived, reason == nil { toast("Choose why you're cancelling."); return false }
+        if let err = await dispatch.cancelRide(reason: reason, note: note) { toast(err); return false }
         toast("Ride cancelled. Nothing to pay."); return true
     }
     /// Rider: review the driver (or skip) and clear the ride.

@@ -117,8 +117,10 @@ object Backend {
     suspend fun updateProfile(id: String, name: String, bio: String, area: String, home: LatLng?) {
         db.from("profiles").update({ set("name", name); set("bio", bio); set("area", area); home?.let { set("home", point(it)) } }) { filter { eq("id", id) } }
     }
+    /** Gender is private to me (profile_private, profile_details.sql): WOMAN, MAN, NON_BINARY, UNSAID or null. */
+    suspend fun setGender(id: String, code: String?) { db.from("profile_private").update({ set<String?>("gender", code) }) { filter { eq("profile_id", id) } } }
     /** The columns the API may read from profiles; `home` is withheld (manage.sql), so `select *` would be refused. */
-    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "trust_up", "trust_down", "id_issued_at")
+    private val PROFILE_COLUMNS = Columns.list("id", "short_code", "name", "bio", "area", "photo_url", "cover_url", "trust_up", "trust_down", "id_issued_at")
     suspend fun profiles(ids: Collection<String>): List<ProfileRow> = if (ids.isEmpty()) emptyList() else db.from("profiles").select(PROFILE_COLUMNS) { filter { isIn("id", ids.toList()) } }.decodeList()
     suspend fun profileByCode(code: String): ProfileRow? =
         db.from("profiles").select(PROFILE_COLUMNS) { filter { eq("short_code", code.trim().uppercase()) } }.decodeSingleOrNull()
@@ -143,15 +145,16 @@ object Backend {
         val ids = db.from("listing_members").select { filter { eq("profile_id", me) } }.decodeList<MemberRow>().map { it.listingId }
         return if (ids.isEmpty()) emptyList() else db.from("listings").select { filter { isIn("id", ids) } }.decodeList()
     }
-    suspend fun createListing(me: String, kind: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject = JsonObject(emptyMap()), service: String? = null): ListingRow =
+    /** [typeKey]: the page type of a business (ui/PageTypes.kt); the server derives the service from it and refuses a type that doesn't fit the kind. */
+    suspend fun createListing(me: String, kind: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject = JsonObject(emptyMap()), service: String? = null, typeKey: String? = null): ListingRow =
         db.from("listings").insert(buildJsonObject {
             put("kind", kind); put("owner_id", me); put("title", title); put("category", category); put("description", description); put("area", area)
-            service?.let { put("service", it) }
+            service?.let { put("service", it) }; typeKey?.let { put("type_key", it) }
             at?.let { put("location", point(it)) }; put("details", details)
         }) { select() }.decodeSingle()
-    /** [service]: only sent when it changes (the server refuses a change once the listing is live). */
-    suspend fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, service: String? = null) {
-        db.from("listings").update({ set("title", title); set("category", category); set("description", description); set("area", area); at?.let { set("location", point(it)) }; set("details", details); service?.let { set("service", it) } }) { filter { eq("id", id) } }
+    /** [service] and [typeKey]: only sent when they change (the server refuses a change once the listing is live). */
+    suspend fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, service: String? = null, typeKey: String? = null) {
+        db.from("listings").update({ set("title", title); set("category", category); set("description", description); set("area", area); at?.let { set("location", point(it)) }; set("details", details); service?.let { set("service", it) }; typeKey?.let { set("type_key", it) } }) { filter { eq("id", id) } }
     }
     suspend fun setOnline(id: String, online: Boolean) { db.from("listings").update({ set("online", online) }) { filter { eq("id", id) } } }
     suspend fun deleteListing(id: String) { db.from("listings").delete { filter { eq("id", id) } } }
@@ -205,19 +208,25 @@ object Backend {
     suspend fun contactFor(taskId: String): ContactRow? = db.rpc("contact_for_task", buildJsonObject { put("p_task", taskId) }).decodeList<ContactRow>().firstOrNull()
 
     // ---------- orders ----------
-    suspend fun placeOrder(listingId: String, lines: List<Pair<String, Int>>, drop: LatLng, dropLabel: String, payment: String, mode: String): String =
-        db.rpc("place_order", buildJsonObject {
+    /** [ref] is this checkout attempt's own id (checkout_safety.sql): sending the same one again answers the same order instead of placing a second. */
+    suspend fun placeOrder(ref: String, listingId: String, lines: List<Pair<String, Int>>, drop: LatLng, dropLabel: String, payment: String, mode: String): String =
+        once("place_order", ref, buildJsonObject {
             put("p_listing", listingId)
             put("p_lines", buildJsonArray { lines.forEach { (item, qty) -> add(buildJsonObject { put("item_id", item); put("qty", qty) }) } })
             put("p_lat", drop.lat); put("p_lng", drop.lng); put("p_drop_label", dropLabel); put("p_payment", payment); put("p_mode", mode)
-        }).decodeAs()
+        })
+    /** Calls `<name>_once` with the request id; a database that doesn't have it yet (404) gets the plain call, as before. */
+    suspend fun once(name: String, ref: String, params: JsonObject): String =
+        try { db.rpc(name + "_once", JsonObject(params + ("p_ref" to kotlinx.serialization.json.JsonPrimitive(ref)))).decodeAs() }
+        catch (e: io.github.jan.supabase.exceptions.RestException) { if (e.statusCode != 404) throw e; db.rpc(name, params).decodeAs() }
     suspend fun ordersFor(listingId: String): List<OrderRow> = db.from("orders").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
     suspend fun myOrders(me: String): List<OrderRow> = db.from("orders").select { filter { eq("buyer_id", me) }; order("created_at", Order.DESCENDING) }.decodeList()
-    suspend fun respondOrder(id: String, accept: Boolean) { db.rpc("respond_order", buildJsonObject { put("p_order", id); put("p_accept", accept) }) }
+    suspend fun respondOrder(id: String, accept: Boolean, reason: String? = null) { db.rpc("respond_order", buildJsonObject { put("p_order", id); put("p_accept", accept); put("p_reason", reason) }) }
 
     // ---------- reviews ----------
-    suspend fun review(listingId: String, taskId: String?, orderId: String?, up: Boolean, comment: String) {
-        db.rpc("review", buildJsonObject { put("p_listing", listingId); put("p_task", taskId); put("p_order", orderId); put("p_vote", if (up) 1 else -1); put("p_comment", comment) })
+    /** A verified review after a completed trip or a delivered order; a down needs a reason code (VOTE_REASONS). */
+    suspend fun review(listingId: String, taskId: String?, orderId: String?, up: Boolean, comment: String, reason: String? = null) {
+        db.rpc("review", buildJsonObject { put("p_listing", listingId); put("p_task", taskId); put("p_order", orderId); put("p_vote", if (up) 1 else -1); put("p_comment", comment); put("p_reason", reason) })
     }
     suspend fun reviews(listingId: String): List<ReviewRow> = db.from("reviews").select { filter { eq("listing_id", listingId) }; order("created_at", Order.DESCENDING) }.decodeList()
 
@@ -292,12 +301,18 @@ object Backend {
     // ---------- feed ----------
     suspend fun feed(at: LatLng, beforeIso: String? = null): List<FeedRow> =
         db.rpc("feed", buildJsonObject { put("lat", at.lat); put("lng", at.lng); beforeIso?.let { put("before", it) } }).decodeList()
+    /** The Feed tab: posts from people and pages I'm synced with, and mine (social_lenses.sql). Before that is on the server, the old
+     *  feed filtered to the same people (a page I sync with can't be told apart there, so its posts wait for the server function). */
+    suspend fun feedSynced(at: LatLng, me: String?, beforeIso: String? = null): List<FeedRow> =
+        runCatching { db.rpc("feed_synced", buildJsonObject { beforeIso?.let { put("before", it) } }).decodeList<FeedRow>() }
+            .getOrElse { feed(at, beforeIso).filter { it.synced || it.authorId == me } }
     /** [media]: storage path in the posts bucket to its mime type (image/jpeg, video/mp4), so the feed knows what to show. */
-    suspend fun post(me: String, body: String, media: List<Pair<String, String>>, visibility: String, at: LatLng?, area: String, listingId: String? = null) {
+    /** [posters]: a video's path to the path of its still frame (a JPEG beside it), which Explore shows as the video's thumbnail. */
+    suspend fun post(me: String, body: String, media: List<Pair<String, String>>, visibility: String, at: LatLng?, area: String, listingId: String? = null, posters: Map<String, String> = emptyMap()) {
         db.from("posts").insert(buildJsonObject {
             put("author_id", me); put("body", body); put("visibility", visibility); put("area", area); listingId?.let { put("listing_id", it) }
             at?.let { put("location", point(it)) }
-            put("media", buildJsonArray { media.forEach { (path, mime) -> add(buildJsonObject { put("path", path); put("mime", mime) }) } })
+            put("media", buildJsonArray { media.forEach { (path, mime) -> add(buildJsonObject { put("path", path); put("mime", mime); posters[path]?.let { put("poster", it) } }) } })
         })
     }
     suspend fun deletePost(id: String) { db.from("posts").delete { filter { eq("id", id) } } }
@@ -336,7 +351,9 @@ object Backend {
 @Serializable data class ProfileRow(val id: String, @SerialName("short_code") val shortCode: String, val name: String = "", val bio: String = "", val area: String = "",
     @SerialName("photo_url") val photoUrl: String? = null, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
     /** When the current Bucks ID card was issued; it is valid for a year (studio.sql renew_bucks_id). */
-    @SerialName("id_issued_at") val idIssuedAt: String? = null)
+    @SerialName("id_issued_at") val idIssuedAt: String? = null,
+    /** The band behind the profile (profile_media.sql); a public URL in avatars/<id>/, like [photoUrl]. */
+    @SerialName("cover_url") val coverUrl: String? = null)
 /** A photo in a listing's gallery or a product's photos: a public listing-media URL and an optional caption (studio.sql). */
 @Serializable data class MediaPhoto(val url: String, val caption: String = "")
 @Serializable data class SyncRow(@SerialName("requester_id") val requesterId: String, @SerialName("addressee_id") val addresseeId: String, val status: String)
@@ -345,11 +362,20 @@ object Backend {
     @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0,
     /** FOOD, GROCERY, ... (services.sql); GIGS for skills, null for drivers. */
     val service: String? = null, @SerialName("compliance_hold") val complianceHold: Boolean = false,
+    /** Page type of a business (ui/PageTypes.kt: RETAIL_SHOP, LOCAL_SERVICE, NGO_CHARITY...); null on older rows and on other kinds. */
+    @SerialName("type_key") val typeKey: String? = null,
     /** Up to 20 photos: the shop, a worker's portfolio, the rooms of a flat. The cover stays in [photoUrl]. */
-    val gallery: List<MediaPhoto> = emptyList())
+    val gallery: List<MediaPhoto> = emptyList(),
+    /** The band behind the page (profile_media.sql), a public URL in listing-media/<id>/; [photoUrl] stays the round page picture. */
+    @SerialName("cover_url") val coverUrl: String? = null)
 @Serializable data class SearchHit(val id: String, val kind: String, val title: String, val category: String = "", val description: String = "", @SerialName("photo_url") val photoUrl: String? = null,
     val area: String = "", val online: Boolean = false, @SerialName("trust_up") val trustUp: Int = 0, @SerialName("trust_down") val trustDown: Int = 0, val details: JsonObject = JsonObject(emptyMap()),
-    @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null)
+    @SerialName("distance_m") val distanceM: Double = 0.0, @SerialName("matched_item") val matchedItem: String? = null, @SerialName("min_price") val minPrice: Int? = null,
+    @SerialName("type_key") val typeKey: String? = null, @SerialName("group_key") val groupKey: String? = null,
+    /** The person who runs the page; every page belongs to a phone-verified human (search_listings joins profiles). */
+    @SerialName("owner_id") val ownerId: String? = null, @SerialName("owner_name") val ownerName: String? = null,
+    /** The price of [matchedItem] itself (search_quality.sql); null for free items or before that migration. */
+    @SerialName("matched_price") val matchedPrice: Int? = null)
 /** One line of the Notifications tab (studio: notifications.sql). [route] is where a tap goes, checked by Push.safeRoute. */
 @Serializable data class NotificationRow(val id: String, val kind: String, val title: String, val body: String = "", val route: String? = null,
     @SerialName("created_at") val createdAt: String = "", @SerialName("read_at") val readAt: String? = null)
@@ -382,7 +408,9 @@ object Backend {
     @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String)
 @Serializable data class ReviewRow(val id: String, @SerialName("listing_id") val listingId: String, @SerialName("author_id") val authorId: String, val vote: Int, val comment: String, @SerialName("created_at") val createdAt: String,
     /** Set when the review came from a completed order or trip (verified); null for a direct recommendation. */
-    @SerialName("order_id") val orderId: String? = null, @SerialName("task_id") val taskId: String? = null) {
+    @SerialName("order_id") val orderId: String? = null, @SerialName("task_id") val taskId: String? = null,
+    /** Why a down was given (VOTE_REASONS code), when the voter picked one. */
+    val reason: String? = null) {
     val verified get() = orderId != null || taskId != null
 }
 @Serializable data class JobRow(val id: String, @SerialName("listing_id") val listingId: String, val title: String, val description: String = "", val pay: String = "", @SerialName("job_type") val jobType: String = "FULL_TIME", val open: Boolean = true)
@@ -407,7 +435,9 @@ data class FileRef(val path: String, val name: String, val mime: String, val siz
 @Serializable data class FeedRow(val id: String, @SerialName("author_id") val authorId: String, @SerialName("author_name") val authorName: String, @SerialName("author_code") val authorCode: String,
     @SerialName("listing_id") val listingId: String? = null, @SerialName("listing_title") val listingTitle: String? = null, val body: String = "",
     val media: kotlinx.serialization.json.JsonArray = kotlinx.serialization.json.JsonArray(emptyList()), val visibility: String, val area: String = "", val up: Int = 0, val down: Int = 0,
-    val comments: Int = 0, @SerialName("my_vote") val myVote: Int? = null, @SerialName("created_at") val createdAt: String, val synced: Boolean = false)
+    val comments: Int = 0, @SerialName("my_vote") val myVote: Int? = null, @SerialName("created_at") val createdAt: String, val synced: Boolean = false,
+    /** Explore only (explore.sql): how many of the people I'm synced with voted this up, and the name of one of them. */
+    val recommenders: Int = 0, @SerialName("recommender_name") val recommenderName: String? = null)
 @Serializable data class CommentRow(val id: String, @SerialName("post_id") val postId: String, @SerialName("author_id") val authorId: String, val body: String, @SerialName("created_at") val createdAt: String)
 @Serializable data class TrayRow(@SerialName("author_id") val authorId: String, @SerialName("author_name") val authorName: String, @SerialName("author_code") val authorCode: String,
     @SerialName("listing_title") val listingTitle: String? = null, val moments: Int, val unseen: Int, @SerialName("latest_at") val latestAt: String, @SerialName("is_me") val isMe: Boolean)

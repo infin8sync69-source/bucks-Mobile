@@ -90,6 +90,7 @@ private struct AccountActivityTab: View {
 private struct AccountSettingsHub: View {
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
     let model: AccountModel
     @State private var confirmDelete = false
 
@@ -97,9 +98,8 @@ private struct AccountSettingsHub: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionTitle("Identity").padding(.bottom, 10)
-            BucksIdCard(onSync: { router.push(.sync) })
-            SectionTitle("Preferences").padding(.top, 22).padding(.bottom, 6)
+            // The Bucks Pro ID card and the payment QR are Pro: they live in the Bucks Pro side menu, not here.
+            SectionTitle("Preferences").padding(.bottom, 6)
             AccountSettingRow(icon: "person.fill", label: "Edit profile") { router.push(.editProfile) }
             AccountSettingRow(icon: "arrow.triangle.2.circlepath", label: "Sync", detail: "Requests, people you may know, synced people") { router.push(.sync) }
             AccountSettingRow(icon: "lock.fill", label: "Privacy", detail: "Who can message and sync with you, Moments audience, read receipts") { router.push(.settingsPrivacy) }
@@ -110,9 +110,6 @@ private struct AccountSettingsHub: View {
             if model.isStaff {
                 AccountSettingRow(icon: "checklist", label: "Review documents", detail: "Bucks staff: shop and pro documents waiting for a check") { router.push(.staffReview) }
             }
-            ListRow("Payment QR", subtitle: "How customers pay you by UPI: rides, deliveries and shop orders", onTap: { router.push(.paymentQr) },
-                    leading: { Avatar(systemImage: "qrcode") }, trailing: { Image(systemName: "chevron.right").foregroundStyle(BucksColor.onSurfaceVariant) })
-                .padding(.horizontal, -Gutter)
             SectionTitle("Voice and AI").padding(.top, 22).padding(.bottom, 10)
             BucksCard {
                 VStack(alignment: .leading, spacing: 0) {
@@ -129,11 +126,14 @@ private struct AccountSettingsHub: View {
                     }
                 }
             }
+            // Help and legal, as on Android: how to reach us (App Review guideline 1.2) and the published pages.
+            SectionTitle("Help and legal").padding(.top, 22).padding(.bottom, 6)
+            AccountSettingRow(icon: "questionmark.circle.fill", label: "Help and support", detail: "Questions, contact us, grievance officer") { router.push(.help) }
+            AccountSettingRow(icon: "hand.raised.fill", label: "Community guidelines") { openURL(Legal.url(.guidelines)) }
+            AccountSettingRow(icon: "lock.shield.fill", label: "Privacy policy") { openURL(Legal.url(.privacy)) }
+            AccountSettingRow(icon: "doc.text.fill", label: "Terms of use") { openURL(Legal.url(.terms)) }
             SectionTitle("About").padding(.top, 22).padding(.bottom, 6)
             AccountSettingRow(icon: "arrow.down.app.fill", label: "App version", detail: "Build \(Self.build)", chevron: false) {}
-            AccountSettingRow(icon: "hammer.fill", label: "Community rules") {
-                session.toast("Review only what you actually ordered or booked. Every review needs a reason. One account per person.")
-            }
             SectionTitle("Account").padding(.top, 22).padding(.bottom, 6)
             AccountSettingRow(icon: "rectangle.portrait.and.arrow.right", label: "Log out") { Task { await session.logout() } }
             AccountSettingRow(icon: "trash", label: "Delete account") { confirmDelete = true }

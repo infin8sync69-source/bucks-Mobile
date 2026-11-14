@@ -24,6 +24,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import coil.compose.SubcomposeAsyncImage
 
 /*
@@ -59,7 +61,7 @@ fun ShimmerImage(url: String?, description: String?, modifier: Modifier = Modifi
 
 /** Cards where the product grid will be. */
 @Composable
-fun ProductGridSkeleton(rows: Int = 3, modifier: Modifier = Modifier) = Column(modifier.semantics { contentDescription = "Loading products" }.clearAndSetSemantics { contentDescription = "Loading products" }) {
+fun ProductGridSkeleton(rows: Int = 3, modifier: Modifier = Modifier) = Column(stringResource(R.string.g3_cd_loading_products).let { d -> modifier.semantics { contentDescription = d }.clearAndSetSemantics { contentDescription = d } }) {
     repeat(rows) {
         Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             repeat(2) {
@@ -76,7 +78,7 @@ fun ProductGridSkeleton(rows: Int = 3, modifier: Modifier = Modifier) = Column(m
 
 /** The whole store profile before it arrives: cover, name, stats, buttons, tabs and the first cards. */
 @Composable
-fun ProfileSkeleton(modifier: Modifier = Modifier) = Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "Loading" }) {
+fun ProfileSkeleton(modifier: Modifier = Modifier) = Column(stringResource(R.string.g3_cd_loading).let { d -> modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = d } }) {
     SkeletonBox(Modifier.fillMaxWidth().height(140.dp), RoundedCornerShape(0.dp))
     Column(Modifier.padding(horizontal = Gutter)) {
         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {

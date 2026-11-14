@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">আপোনাৰ ভাষা বাছনি কৰক</string>
+    <string name="onb_language_hint">পিছত ছেটিংছত সলনি কৰিব পাৰিব।</string>
+    <string name="onb_continue">আগবাঢ়ক</string>
+
+    <string name="onb_phone_title">আপোনাৰ নম্বৰটো কি?</string>
+    <string name="onb_phone_hint">আমি আপোনালৈ এটা ক\'ড পঠিয়াম।</string>
+    <string name="onb_phone_number">ফ\'ন নম্বৰ</string>
+    <string name="onb_phone_invalid">নম্বৰটো পৰীক্ষা কৰক</string>
+    <string name="onb_agree_terms">মই চৰ্তাৱলী আৰু গোপনীয়তা নীতিত সন্মত।</string>
+    <string name="onb_terms">চৰ্তাৱলী</string>
+    <string name="onb_privacy">গোপনীয়তা</string>
+    <string name="onb_guidelines">নিৰ্দেশনা</string>
+    <string name="onb_get_code">ক\'ড লওক</string>
+    <string name="onb_use_email">ইয়াৰ সলনি ইমেইল ব্যৱহাৰ কৰক</string>
+
+    <string name="onb_country_title">দেশ</string>
+    <string name="onb_country_search">সন্ধান কৰক</string>
+    <string name="onb_country_change">দেশ সলনি কৰক, এতিয়া %1$s</string>
+
+    <string name="onb_code_title">ক\'ডটো দিয়ক</string>
+    <string name="onb_code_sent_to">%1$sলৈ পঠিওৱা হ\'ল</string>
+    <string name="onb_code_edit">সম্পাদনা</string>
+    <string name="onb_code_demo">ডেমো ক\'ড: 1234</string>
+    <string name="onb_code_verify">ভেৰিফাই কৰক</string>
+    <string name="onb_code_checking">পৰীক্ষা কৰি আছে…</string>
+    <string name="onb_code_resend">ক\'ড পুনৰ পঠিয়াওক</string>
+    <string name="onb_code_resend_in">%1$d ছেকেণ্ডত পুনৰ পঠিয়াওক</string>
+    <string name="onb_code_field">ভেৰিফিকেশ্বন ক\'ড</string>
+
+    <string name="onb_name_title">আপোনাৰ নাম কি?</string>
+    <string name="onb_name_hint">আপোনাৰ নাম প্ৰ\'ফাইলত দেখুওৱা হয়। জন্মদিন দেখুওৱা নহয়।</string>
+    <string name="onb_dob_label">জন্মৰ তাৰিখ</string>
+    <string name="onb_dob_day">দিন</string>
+    <string name="onb_dob_month">মাহ</string>
+    <string name="onb_dob_year">বছৰ</string>
+    <string name="onb_dob_invalid">তাৰিখটো পৰীক্ষা কৰক</string>
+    <string name="onb_dob_title">আপোনাৰ জন্মদিন কেতিয়া?</string>
+    <string name="onb_dob_hint">আপোনাৰ একাউণ্ট ছেট আপ শেষ কৰিবলৈ এবাৰ লাগে। এইটো আপোনাৰ প্ৰ\'ফাইলত দেখুওৱা নহয়।</string>
+    <string name="onb_blocked_title">আপুনি এতিয়া একাউণ্ট খুলিব নোৱাৰে</string>
+    <string name="onb_blocked_hint">Bucks এতিয়াও আপোনাৰ বাবে উপলব্ধ নহয়।</string>
+    <string name="onb_name_label">আপোনাৰ নাম</string>
+    <string name="onb_name_cta">ব\'লক আৰম্ভ কৰোঁ</string>
+</resources>

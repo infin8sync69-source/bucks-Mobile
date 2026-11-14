@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">Pilih bahasamu</string>
+    <string name="onb_language_hint">Kamu bisa menggantinya nanti di Pengaturan.</string>
+    <string name="onb_continue">Lanjut</string>
+
+    <string name="onb_phone_title">Berapa nomormu?</string>
+    <string name="onb_phone_hint">Kami akan kirim kode lewat SMS.</string>
+    <string name="onb_phone_number">Nomor HP</string>
+    <string name="onb_phone_invalid">Cek lagi nomornya</string>
+    <string name="onb_agree_terms">Saya setuju dengan Ketentuan dan Kebijakan Privasi.</string>
+    <string name="onb_terms">Ketentuan</string>
+    <string name="onb_privacy">Privasi</string>
+    <string name="onb_guidelines">Panduan</string>
+    <string name="onb_get_code">Minta kode</string>
+    <string name="onb_use_email">Pakai email saja</string>
+
+    <string name="onb_country_title">Negara</string>
+    <string name="onb_country_search">Cari</string>
+    <string name="onb_country_change">Ganti negara, sekarang %1$s</string>
+
+    <string name="onb_code_title">Masukkan kode</string>
+    <string name="onb_code_sent_to">Dikirim ke %1$s</string>
+    <string name="onb_code_edit">Ubah</string>
+    <string name="onb_code_demo">Kode demo: 1234</string>
+    <string name="onb_code_verify">Verifikasi</string>
+    <string name="onb_code_checking">Mengecek…</string>
+    <string name="onb_code_resend">Kirim ulang kode</string>
+    <string name="onb_code_resend_in">Kirim ulang dalam %1$d dtk</string>
+    <string name="onb_code_field">Kode verifikasi</string>
+
+    <string name="onb_name_title">Siapa namamu?</string>
+    <string name="onb_name_hint">Namamu tampil di profilmu. Tanggal lahirmu tidak.</string>
+    <string name="onb_dob_label">Tanggal lahir</string>
+    <string name="onb_dob_day">HH</string>
+    <string name="onb_dob_month">BB</string>
+    <string name="onb_dob_year">TTTT</string>
+    <string name="onb_dob_invalid">Cek lagi tanggalnya</string>
+    <string name="onb_dob_title">Kapan ulang tahunmu?</string>
+    <string name="onb_dob_hint">Perlu diisi sekali untuk menyelesaikan pengaturan akunmu. Tidak ditampilkan di profilmu.</string>
+    <string name="onb_blocked_title">Kamu belum bisa membuat akun sekarang</string>
+    <string name="onb_blocked_hint">Bucks belum tersedia untukmu.</string>
+    <string name="onb_name_label">Namamu</string>
+    <string name="onb_name_cta">Ayo mulai</string>
+</resources>

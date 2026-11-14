@@ -37,6 +37,13 @@ import Testing
         #expect(friendlyError(e) == "Cannot go from SEARCHING to PAID")
         #expect(isServerRefusal(e)); #expect(!isTransportError(e))
     }
+    @Test func errorCodeComesFromTheDetailNotTheSentence() {
+        let locked = BackendError.http(status: 400, body: #"{"code":"P0001","message":"too many wrong PIN attempts; hand the trip back","details":"BK_PIN_LOCKED","hint":null}"#)
+        #expect(errorCode(locked) == "BK_PIN_LOCKED")
+        #expect(friendlyError(locked) == "Too many wrong PIN attempts; hand the trip back")
+        #expect(errorCode(BackendError.http(status: 400, body: #"{"code":"P0001","message":"mentions BK_PIN_LOCKED in words","details":null}"#)) == nil)
+        #expect(errorCode(BackendError.transport("offline")) == nil)
+    }
     @Test func transientStatusesAreTransport() {
         for s in [401, 408, 429, 500, 503] { #expect(isTransportError(BackendError.http(status: s, body: "")), "\(s)") }
         #expect(friendlyError(BackendError.transport("offline")) == "Couldn't reach Bucks. Check your connection and try again.")

@@ -57,6 +57,11 @@ private struct ListingForm: View {
     @State private var freeDelivery: Bool
     @State private var radius: String
     @State private var cod: Bool
+    // The delivery time the shop promises (BucksCore/DeliveryTimes.swift): a preset, and an optional preferred time of day.
+    @State private var deliveryTime: DeliveryTime?
+    @State private var deliverySlot: String
+    /// The shop's store riders: 0 for a new listing, nil until read (or when it can't be), so the reminder never shows on a guess.
+    @State private var riderCount: Int?
     // E-commerce: ship anywhere in India by courier (customers far away can only order this way).
     @State private var ships: Bool
     @State private var shipFee: String
@@ -97,6 +102,8 @@ private struct ListingForm: View {
         _freeDelivery = State(initialValue: d.sBool("free_delivery"))
         _radius = State(initialValue: d.sInt("delivery_radius_km").map(String.init) ?? "3")
         _cod = State(initialValue: d.sBool("cod"))
+        _deliveryTime = State(initialValue: DeliveryTime.of(d))
+        _deliverySlot = State(initialValue: DeliveryTime.slotOf(d) ?? "")
         _ships = State(initialValue: d.sBool("ships_india"))
         _shipFee = State(initialValue: d.sInt("ship_fee").map(String.init) ?? "")
         _freeAbove = State(initialValue: d.sInt("free_ship_above").map(String.init) ?? "")
@@ -204,7 +211,24 @@ private struct ListingForm: View {
         SectionTitle("Delivery and payment").padding(.top, 6).padding(.bottom, 4)
         SwitchRow(title: "Free delivery", detail: "You pay the rider's fee instead of the customer.", isOn: $freeDelivery)
         BucksField(digits($radius, 2), label: "Delivery radius (km)", placeholder: "3", keyboard: .number)
+        FieldLabel("Delivery time")
+        FlowLayout(spacing: 8) {
+            ForEach(DeliveryTime.allCases, id: \.self) { o in
+                BucksChip(o.label, selected: deliveryTime == o, systemImage: "timer") { deliveryTime = deliveryTime == o ? nil : o }
+            }
+        }
+        Muted("How soon you usually deliver after you accept an order. Customers see it on your page and in the cart. Pick one you can keep: with a Bucks delivery agent it also depends on one being free near you. Tap it again to clear it. You can change it any time.").padding(.top, 6).padding(.bottom, 10)
+        BucksField(limited($deliverySlot, DeliveryTime.slotMax), label: "Preferred delivery time (optional)", placeholder: "6 pm to 9 pm, or mornings only")
         SwitchRow(title: "Cash on delivery", detail: "With your own store riders, or with the courier on shipped orders. You collect the cash.", isOn: $cod)
+            .task(id: existing?.id) {
+                await session.commerce.loadDeliveryRadius()
+                if let id = existing?.id { riderCount = (try? await Backend.shared.storeRiders(id))?.count } else { riderCount = 0 }
+            }
+        // A new shop has no riders of its own, and Bucks delivery agents may not be near it yet: say so while it is being set up.
+        if riderCount == 0 {
+            Notice("Add your own delivery riders. A delivery goes to your own store rider, or to a Bucks delivery agent (someone on a bike for pick-up and drop) who is online near your shop, and there may be none near you yet. After you save, open Team and invite each rider by their Bucks ID as Store rider.").padding(.top, 4)
+            Muted(storeRiderNeeds(session.commerce.deliveryRadiusLabel)).padding(.top, 6).padding(.bottom, 8)
+        }
         SectionTitle("Ship across India").padding(.top, 14).padding(.bottom, 4)
         SwitchRow(title: "Ship by courier", detail: "Customers anywhere can find you and order. You accept, pack, hand it to a courier and enter the tracking number.", isOn: $ships)
         if ships {
@@ -331,6 +355,9 @@ private struct ListingForm: View {
             d["hours"] = .string(hours.trimmingCharacters(in: .whitespaces)); d["free_delivery"] = .bool(freeDelivery)
             d["delivery_radius_km"] = .number(Double(Int(radius) ?? 0)); d["cod"] = .bool(cod)
             d["ships_india"] = .bool(ships)
+            if let t = deliveryTime { d["delivery_time"] = .string(t.rawValue) } else { d.removeValue(forKey: "delivery_time") }
+            let slot = deliverySlot.trimmingCharacters(in: .whitespaces)
+            if slot.isEmpty { d.removeValue(forKey: "delivery_slot") } else { d["delivery_slot"] = .string(String(slot.prefix(DeliveryTime.slotMax))) }
             if ships {
                 d["ship_fee"] = .number(Double(Int(shipFee) ?? 0)); d["free_ship_above"] = .number(Double(Int(freeAbove) ?? 0))
                 d["dispatch_days"] = .string(dispatchDays.trimmingCharacters(in: .whitespaces))

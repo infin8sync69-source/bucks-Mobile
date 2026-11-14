@@ -1,9 +1,13 @@
 package com.bucks.app.data
 
+import androidx.annotation.StringRes
+import com.bucks.app.R
+
 enum class ProviderType { BUSINESS, SKILL }
 enum class Scope { LOCAL, GLOBAL }
-enum class VehicleKind(val wheels: String, val label: String, val farePerKm: Int) {
-    BIKE("2", "Bike", 8), AUTO("3", "Auto", 12), CAB("4", "Cab", 18);
+enum class VehicleKind(val wheels: String, @StringRes private val labelRes: Int, val farePerKm: Int) {
+    BIKE("2", R.string.g3_vehicle_bike, 8), AUTO("3", R.string.g3_vehicle_auto, 12), CAB("4", R.string.g3_vehicle_cab, 18);
+    val label: String get() = Str.get(labelRes)
     /** Bikes carry goods only (pick-up and delivery), never passengers. */
     val carriesPassengers get() = this != BIKE
     companion object { val PASSENGER = entries.filter { it.carriesPassengers } }
@@ -16,7 +20,10 @@ data class Trust(val up: Int, val down: Int) {
 
 /** A vote is a signed record tied to a completed transaction; the comment is public. */
 data class Comment(val who: String, val text: String, val vote: Int, val voterId: String = "", val verified: Boolean = false, val txnId: String = "", val signature: String = "")
-enum class BusinessVariant(val productsLabel: String) { RESTAURANT("Menu"), SUPERMARKET("Aisles"), FURNITURE("Catalogue"), ELECTRONICS("Products"), GENERAL("Products") }
+enum class BusinessVariant(@StringRes private val productsRes: Int) {
+    RESTAURANT(R.string.g3_variant_menu), SUPERMARKET(R.string.g3_variant_aisles), FURNITURE(R.string.g3_variant_catalogue), ELECTRONICS(R.string.g3_variant_products), GENERAL(R.string.g3_variant_products);
+    val productsLabel: String get() = Str.get(productsRes)
+}
 fun variantFor(category: String): BusinessVariant = when (category.lowercase()) {
     "restaurant", "bakery" -> BusinessVariant.RESTAURANT; "grocery", "vegetables", "pharmacy" -> BusinessVariant.SUPERMARKET
     "furniture", "hardware" -> BusinessVariant.FURNITURE; "electronics", "mobile repair" -> BusinessVariant.ELECTRONICS; else -> BusinessVariant.GENERAL
@@ -64,10 +71,16 @@ enum class SyncStatus { SYNCED, SYNCING, OFFLINE }
 data class LinkedDevice(val id: String, val name: String, val lastSeen: String, val thisDevice: Boolean)
 
 data class User(val name: String, val area: String, val bio: String, val phone: String, val up: Int = 0, val down: Int = 0, val email: String = "", val gender: String = "", val interests: List<String> = emptyList(), val id: String = "", val verified: Set<VerificationLevel> = emptySet()) { val trust get() = Trust(up, down) }
-enum class ListingMode(val label: String) { TAXI("Taxi"), RENTAL("Rental"), DELIVERY("Delivery") }
+enum class ListingMode(@StringRes private val labelRes: Int) {
+    TAXI(R.string.g3_mode_taxi), RENTAL(R.string.g3_mode_rental), DELIVERY(R.string.g3_mode_delivery);
+    val label: String get() = Str.get(labelRes)
+}
 /** A listed vehicle. Unverified vehicles show "In Progress" until the community confirms their documents. */
 data class Vehicle(val kind: VehicleKind, val model: String, val plate: String, val mode: ListingMode = ListingMode.TAXI, val verified: Boolean = true, val docs: Int = 0) { val id get() = plate }
-enum class SkillLevel(val label: String) { AMATEUR("Amateur"), INTERMEDIATE("Intermediate"), EXPERT("Expert") }
+enum class SkillLevel(@StringRes private val labelRes: Int) {
+    AMATEUR(R.string.g3_skill_amateur), INTERMEDIATE(R.string.g3_skill_intermediate), EXPERT(R.string.g3_skill_expert);
+    val label: String get() = Str.get(labelRes)
+}
 data class SkillListing(val name: String, val level: SkillLevel = SkillLevel.AMATEUR, val portfolio: Int = 0, val online: Boolean = true)
 data class ProProfile(val vehicles: List<Vehicle> = emptyList(), val skillListings: List<SkillListing> = emptyList(), val rate: String = "", val activeVehicle: String? = null, val upiId: String = "") {
     /** The vehicle used for driver mode: the chosen one if verified, else the first verified one. */
@@ -100,14 +113,24 @@ data class DriverRide(
     val pinAttempts: Int = 0, val pinLocked: Boolean = false,
 )
 
-enum class OrderStatus(val label: String) { REQUESTED("Requested"), ACCEPTED("Accepted by vendor"), PREPARING("Preparing"), OUT("Out for delivery"), DELIVERED("Delivered") }
+enum class OrderStatus(@StringRes private val labelRes: Int) {
+    REQUESTED(R.string.g3_order_requested), ACCEPTED(R.string.g3_order_accepted), PREPARING(R.string.g3_order_preparing), OUT(R.string.g3_order_out), DELIVERED(R.string.g3_order_delivered);
+    val label: String get() = Str.get(labelRes)
+}
 data class Order(val id: String, val providerId: String, val providerName: String, val total: Int, val items: List<String>, val status: OrderStatus, val signature: String = "")
 
-enum class RequestStatus(val label: String) { SENT("Sent"), ACCEPTED("Accepted"), IN_PROGRESS("In progress"), COMPLETED("Completed") }
+enum class RequestStatus(@StringRes private val labelRes: Int) {
+    SENT(R.string.g3_request_sent), ACCEPTED(R.string.g3_request_accepted), IN_PROGRESS(R.string.g3_request_in_progress), COMPLETED(R.string.g3_request_completed);
+    val label: String get() = Str.get(labelRes)
+}
 data class ServiceRequest(val id: String, val providerId: String, val providerName: String, val category: String, val text: String, val status: RequestStatus, val signature: String = "")
 
 /** Which voters count when a list is sorted. Pure counting over a user-chosen voter set; never a hidden model. */
-enum class Lens(val label: String, val explain: String) { ALL("Everyone", "Every review tied to a completed transaction"), FOLLOWING("People I follow", "Only reviews from people you follow"), VERIFIED("ID-verified people", "Only reviews from ID-verified accounts") }
+enum class Lens(@StringRes private val labelRes: Int, @StringRes private val explainRes: Int) {
+    ALL(R.string.g3_lens_all, R.string.g3_lens_all_explain), FOLLOWING(R.string.g3_lens_following, R.string.g3_lens_following_explain), VERIFIED(R.string.g3_lens_verified, R.string.g3_lens_verified_explain);
+    val label: String get() = Str.get(labelRes)
+    val explain: String get() = Str.get(explainRes)
+}
 
 /** An action the agent proposed that needs the user's explicit go-ahead before it runs. */
 data class PendingAction(val title: String, val summary: String, val amount: Int, val counterparty: String, val counterpartyTrust: Trust?, val needsBiometric: Boolean, val run: () -> Unit)

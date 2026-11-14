@@ -48,6 +48,8 @@ async function verifyFirebaseToken(token: string, projectId: string): Promise<st
   if (claims.aud !== projectId || claims.iss !== `https://securetoken.google.com/${projectId}`) throw new Error("token is for another project");
   if (typeof claims.exp !== "number" || claims.exp < now - 60 || (claims.iat ?? 0) > now + 60) throw new Error("token expired");
   if (typeof claims.sub !== "string" || !claims.sub) throw new Error("no user");
+  // Bucks accounts are phone numbers. An anonymous or email sign-in (if one is ever switched on in the Firebase console) gets no role.
+  if (claims.firebase?.sign_in_provider !== "phone" || !claims.phone_number) throw new Error("sign in with your phone number");
   return claims.sub;
 }
 

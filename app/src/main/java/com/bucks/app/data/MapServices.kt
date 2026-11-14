@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -24,7 +25,9 @@ import java.net.URLEncoder
  * Every call fails soft (null / empty), so the app falls back to straight lines and the built-in place list.
  */
 object MapServices {
-    data class PlaceHit(val name: String, val detail: String, val at: LatLng)
+    /** [source]: MAP (OpenStreetMap / Mapbox), or from Bucks (places.sql): BUCKS a live page, AREA an area pages are in,
+     *  PEOPLE a pin someone dropped, POST an India Post locality. */
+    data class PlaceHit(val name: String, val detail: String, val at: LatLng, val source: String = "MAP")
     data class Step(val text: String, val metres: Double, val at: LatLng, val type: String, val modifier: String)
     data class RoadRoute(val km: Double, val minutes: Int, val points: List<LatLng>, val steps: List<Step> = emptyList())
 
@@ -75,6 +78,14 @@ object MapServices {
     /** Places matching [query], nearest to [near] first. Null when no search server could be reached (so "offline" isn't shown as "no places"). */
     suspend fun searchOrNull(query: String, near: LatLng): List<PlaceHit>? {
         val q = query.trim(); if (q.length < 3) return emptyList()
+        // Bucks' own places first (pages, areas, dropped pins, India Post localities: what maps miss in small towns), then the map's.
+        val ours = runCatching { Backend.searchPlaces(q, near) }.getOrNull()
+        val theirs = mapSearch(q, near)
+        if (ours == null) return theirs
+        return (ours + theirs.orEmpty()).distinctBy { it.name.lowercase() + "@" + Math.round(it.at.lat * 500) + "," + Math.round(it.at.lng * 500) }
+    }
+
+    private suspend fun mapSearch(q: String, near: LatLng): List<PlaceHit>? {
         if (token.isNotBlank()) {
             val m = get("https://api.mapbox.com/search/geocode/v6/forward?q=${enc(q)}&proximity=${near.lng},${near.lat}&limit=8&language=en&access_token=$token") as? JsonObject
             val hits = m?.let { o -> (o["features"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::mapboxHit) } }
@@ -119,18 +130,28 @@ object MapServices {
         return parseRoute(get("$host/route/v1/driving/$xy?overview=full&geometries=geojson&steps=true") as? JsonObject, from, to)
     }
 
+    private fun dir(mod: String): String = when (mod) {
+        "left" -> Str.get(R.string.g3_nav_dir_left); "right" -> Str.get(R.string.g3_nav_dir_right)
+        "slight left" -> Str.get(R.string.g3_nav_dir_slight_left); "slight right" -> Str.get(R.string.g3_nav_dir_slight_right)
+        "sharp left" -> Str.get(R.string.g3_nav_dir_sharp_left); "sharp right" -> Str.get(R.string.g3_nav_dir_sharp_right)
+        "straight" -> Str.get(R.string.g3_nav_dir_straight); "" -> Str.get(R.string.g3_nav_dir_ahead)
+        else -> mod
+    }
+
     private fun words(type: String, mod: String, name: String): String {
-        val onto = if (name.isNotBlank()) " onto $name" else ""
+        val on = name.isNotBlank()
         return when (type) {
-            "depart" -> if (name.isNotBlank()) "Head out on $name" else "Start"
-            "arrive" -> "You have arrived"
-            "roundabout", "rotary", "roundabout turn" -> "Take the roundabout$onto"
-            "merge" -> "Merge$onto"
-            "fork" -> "Keep ${mod.ifBlank { "straight" }} at the fork$onto"
-            "end of road" -> "At the end of the road, turn ${mod.ifBlank { "ahead" }}$onto"
-            "on ramp", "off ramp" -> "Take the ramp$onto"
-            "new name", "continue" -> if (mod == "uturn") "Make a U-turn" else "Continue$onto"
-            else -> if (mod == "uturn") "Make a U-turn" else if (mod.isBlank() || mod == "straight") "Continue straight$onto" else "Turn $mod$onto"
+            "depart" -> if (on) Str.get(R.string.g3_nav_head_out_on, name) else Str.get(R.string.g3_nav_start)
+            "arrive" -> Str.get(R.string.g3_nav_arrived)
+            "roundabout", "rotary", "roundabout turn" -> if (on) Str.get(R.string.g3_nav_roundabout_onto, name) else Str.get(R.string.g3_nav_roundabout)
+            "merge" -> if (on) Str.get(R.string.g3_nav_merge_onto, name) else Str.get(R.string.g3_nav_merge)
+            "fork" -> { val d = dir(mod.ifBlank { "straight" }); if (on) Str.get(R.string.g3_nav_fork_onto, d, name) else Str.get(R.string.g3_nav_fork, d) }
+            "end of road" -> { val d = dir(mod); if (on) Str.get(R.string.g3_nav_road_end_onto, d, name) else Str.get(R.string.g3_nav_road_end, d) }
+            "on ramp", "off ramp" -> if (on) Str.get(R.string.g3_nav_ramp_onto, name) else Str.get(R.string.g3_nav_ramp)
+            "new name", "continue" -> if (mod == "uturn") Str.get(R.string.g3_nav_uturn) else if (on) Str.get(R.string.g3_nav_continue_onto, name) else Str.get(R.string.g3_nav_continue)
+            else -> if (mod == "uturn") Str.get(R.string.g3_nav_uturn)
+                else if (mod.isBlank() || mod == "straight") { if (on) Str.get(R.string.g3_nav_straight_onto, name) else Str.get(R.string.g3_nav_straight) }
+                else { if (on) Str.get(R.string.g3_nav_turn_onto, dir(mod), name) else Str.get(R.string.g3_nav_turn, dir(mod)) }
         }
     }
 

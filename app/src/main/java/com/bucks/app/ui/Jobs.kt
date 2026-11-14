@@ -1,5 +1,6 @@
 package com.bucks.app.ui
 
+import com.bucks.app.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,11 +49,11 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
     private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: Exception) { toast(friendly(e)) } }
     /** Our own database errors come back wrapped; show just the sentence we wrote. */
     private fun friendly(e: Exception): String {
-        val m = e.message ?: return "Something went wrong. Try again."
+        val m = e.message ?: return Str.get(R.string.g7_jobs_err_generic)
         val msg = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(m)?.groupValues?.get(1) ?: m.substringAfter("message: ", m).substringBefore("\n").take(140)
         return when {
-            msg.contains("duplicate key") -> "You already applied to this job."
-            msg.contains("row-level security") -> "You're not allowed to do that."
+            msg.contains("duplicate key") -> Str.get(R.string.g7_jobs_err_already_applied)
+            msg.contains("row-level security") -> Str.get(R.string.g7_jobs_err_not_allowed)
             else -> msg
         }
     }
@@ -74,20 +75,20 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
         val me = social.me?.id ?: return@go
         write {
             Backend.postJob(listingId, me, title.trim(), description.trim(), pay.trim(), type)
-            toast("Job posted. People nearby can apply now.")
+            toast(Str.get(R.string.g7_jobs_posted))
             jobs = Backend.jobsWithCounts(listingId)
             then()
         }
     }
     fun closeJob(jobId: String) = go { write {
         Backend.closeJob(jobId)
-        toast("Job closed. No new applications will come in.")
+        toast(Str.get(R.string.g7_jobs_closed))
         job?.let { j -> if (j.id == jobId) job = j.copy(open = false) }
         jobs = jobs.map { if (it.id == jobId) it.copy(open = false) else it }
     } }
     fun reopenJob(jobId: String) = go { write {
         Backend.reopenJob(jobId)
-        toast("Job reopened. It shows up nearby again.")
+        toast(Str.get(R.string.g7_jobs_reopened))
         job?.let { j -> if (j.id == jobId) job = j.copy(open = true) }
         jobs = jobs.map { if (it.id == jobId) it.copy(open = true) else it }
     } }
@@ -114,20 +115,21 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
         val me = social.me?.id ?: return@go
         write {
             Backend.apply(jobId, me, skillIds, note.trim())
-            toast("Applied. The business will see your application.")
+            com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.JOB_APPLIED, "skills" to skillIds.size)
+            toast(Str.get(R.string.g7_jobs_applied))
             applications = Backend.jobApplications(jobId)
         }
     }
     fun withdraw(applicationId: String) = go { write {
         Backend.setApplicationStatus(applicationId, "WITHDRAWN")
-        toast("Application withdrawn.")
+        toast(Str.get(R.string.g7_jobs_withdrawn))
         applications = applications.map { if (it.id == applicationId) it.copy(status = "WITHDRAWN") else it }
         myApplications = myApplications.map { if (it.id == applicationId) it.copy(status = "WITHDRAWN") else it }
     } }
     fun setApplicationStatus(applicationId: String, status: String) = go { write {
         Backend.setApplicationStatus(applicationId, status)
-        val who = applications.firstOrNull { it.id == applicationId }?.let { social.nameOf(it.applicantId) } ?: "They"
-        toast(when (status) { "SHORTLISTED" -> "$who shortlisted. They can see it in their applications."; "HIRED" -> "$who hired. Close the job when you've filled it."; "REJECTED" -> "$who turned down."; else -> "Updated." })
+        val who = applications.firstOrNull { it.id == applicationId }?.let { social.nameOf(it.applicantId) } ?: Str.get(R.string.g7_jobs_applicant)
+        toast(when (status) { "SHORTLISTED" -> Str.get(R.string.g7_jobs_shortlisted, who); "HIRED" -> Str.get(R.string.g7_jobs_hired, who); "REJECTED" -> Str.get(R.string.g7_jobs_rejected, who); else -> Str.get(R.string.g7_jobs_updated) })
         applications = applications.map { if (it.id == applicationId) it.copy(status = status) else it }
         job?.let { j -> jobs = jobs.map { if (it.id == j.id) it.copy(newApplications = applications.count { a -> a.status == "APPLIED" }) else it } }
     } }
@@ -154,10 +156,10 @@ class Jobs(private val scope: CoroutineScope, private val social: Social, privat
 
     companion object {
         val MANAGER_ROLES = setOf("OWNER", "ADMIN")
-        val TYPES = listOf("FULL_TIME" to "Full time", "PART_TIME" to "Part time", "GIG" to "One-off")
+        val TYPES: List<Pair<String, String>> get() = listOf("FULL_TIME" to Str.get(R.string.g7_jobs_type_full_time), "PART_TIME" to Str.get(R.string.g7_jobs_type_part_time), "GIG" to Str.get(R.string.g7_jobs_type_gig))
         fun typeLabel(type: String) = TYPES.firstOrNull { it.first == type }?.second ?: type.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
-        fun statusLabel(status: String) = when (status) { "APPLIED" -> "Applied"; "SHORTLISTED" -> "Shortlisted"; "HIRED" -> "Hired"; "REJECTED" -> "Not selected"; "WITHDRAWN" -> "Withdrawn"; else -> status }
+        fun statusLabel(status: String) = when (status) { "APPLIED" -> Str.get(R.string.g7_jobs_status_applied); "SHORTLISTED" -> Str.get(R.string.g7_jobs_status_shortlisted); "HIRED" -> Str.get(R.string.g7_jobs_status_hired); "REJECTED" -> Str.get(R.string.g7_jobs_status_rejected); "WITHDRAWN" -> Str.get(R.string.g7_jobs_status_withdrawn); else -> status }
         /** "450 m" or "2.3 km". */
-        fun distance(m: Double) = if (m < 950) "${m.toInt()} m" else "%.1f km".format(m / 1000)
+        fun distance(m: Double) = if (m < 950) Str.get(R.string.g7_dist_m, m.toInt()) else Str.get(R.string.g7_dist_km, "%.1f".format(m / 1000))
     }
 }

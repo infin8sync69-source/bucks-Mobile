@@ -7,7 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 // Firebase (phone sign-in, live rides) switches on when app/google-services.json exists; without it the app runs its on-device demo.
-if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+// Crashlytics rides along: it uploads the R8 mapping file with release builds so crash stacks are readable.
+if (file("google-services.json").exists()) { apply(plugin = "com.google.gms.google-services"); apply(plugin = "com.google.firebase.crashlytics") }
 
 android {
     namespace = "com.bucks.app"
@@ -34,6 +35,11 @@ android {
         fun cfg(k: String) = props.getProperty(k) ?: System.getenv(k) ?: ""
         buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("SUPABASE_ANON_KEY")}\"")
+        // Help, grievance and legal pages (IT Rules 2021, DPDP Act, Play policy). Override per environment; the defaults are the public
+        // pages published from docs/legal by GitHub Pages.
+        buildConfigField("String", "SUPPORT_EMAIL", "\"${cfg("SUPPORT_EMAIL")}\"")
+        buildConfigField("String", "GRIEVANCE_OFFICER", "\"${cfg("GRIEVANCE_OFFICER")}\"")
+        buildConfigField("String", "LEGAL_BASE_URL", "\"${cfg("LEGAL_BASE_URL").ifBlank { "https://infin8sync69-source.github.io/bucks-Mobile/legal" }}\"")
         // Mapbox public token (pk.*, made to ship inside apps): map tiles, place search and routes. Override with MAPBOX_TOKEN in local.properties or CI; empty falls back to OpenStreetMap servers.
         buildConfigField("String", "MAPBOX_TOKEN", "\"${props.getProperty("MAPBOX_TOKEN") ?: System.getenv("MAPBOX_TOKEN") ?: ""}\"")
     }
@@ -60,6 +66,8 @@ android {
         release {
             if (uploadKeystore != null) signingConfig = signingConfigs.getByName("upload")
             buildConfigField("boolean", "SELF_UPDATE", "false")
+            // Never ship a raw Gemini key in a Play build (it would be extractable); release uses the on-device rules only.
+            buildConfigField("String", "GEMINI_API_KEY", "\"\"")
             // R8 shrinks and optimises the release build; Compose is several times faster than in a debug build.
             isMinifyEnabled = true
             isShrinkResources = true
@@ -72,10 +80,14 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    // Android 13+ lists the app's languages in system settings (generated from the res/values-* folders; see res/resources.properties).
+    androidResources { generateLocaleConfig = true }
 }
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.libphonenumber)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -102,6 +114,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.appcheck.playintegrity)
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.realtime)

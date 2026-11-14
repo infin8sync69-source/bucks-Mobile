@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">اختر لغتك</string>
+    <string name="onb_language_hint">يمكنك تغييرها لاحقًا من الإعدادات.</string>
+    <string name="onb_continue">متابعة</string>
+
+    <string name="onb_phone_title">ما رقم هاتفك؟</string>
+    <string name="onb_phone_hint">سنرسل لك رمزًا في رسالة.</string>
+    <string name="onb_phone_number">رقم الهاتف</string>
+    <string name="onb_phone_invalid">تحقق من الرقم</string>
+    <string name="onb_agree_terms">أوافق على الشروط وسياسة الخصوصية.</string>
+    <string name="onb_terms">الشروط</string>
+    <string name="onb_privacy">الخصوصية</string>
+    <string name="onb_guidelines">الإرشادات</string>
+    <string name="onb_get_code">أرسل الرمز</string>
+    <string name="onb_use_email">استخدم البريد الإلكتروني بدلًا من ذلك</string>
+
+    <string name="onb_country_title">الدولة</string>
+    <string name="onb_country_search">بحث</string>
+    <string name="onb_country_change">تغيير الدولة، الحالية %1$s</string>
+
+    <string name="onb_code_title">أدخل الرمز</string>
+    <string name="onb_code_sent_to">أُرسل إلى %1$s</string>
+    <string name="onb_code_edit">تعديل</string>
+    <string name="onb_code_demo">رمز تجريبي: 1234</string>
+    <string name="onb_code_verify">تحقق</string>
+    <string name="onb_code_checking">جارٍ التحقق…</string>
+    <string name="onb_code_resend">أعد إرسال الرمز</string>
+    <string name="onb_code_resend_in">إعادة الإرسال بعد %1$d ث</string>
+    <string name="onb_code_field">رمز التحقق</string>
+
+    <string name="onb_name_title">ما اسمك؟</string>
+    <string name="onb_name_hint">يظهر اسمك في ملفك الشخصي. أما تاريخ ميلادك فلا يظهر.</string>
+    <string name="onb_dob_label">تاريخ الميلاد</string>
+    <string name="onb_dob_day">يوم</string>
+    <string name="onb_dob_month">شهر</string>
+    <string name="onb_dob_year">سنة</string>
+    <string name="onb_dob_invalid">تحقق من التاريخ</string>
+    <string name="onb_dob_title">متى عيد ميلادك؟</string>
+    <string name="onb_dob_hint">نحتاجه مرة واحدة لإكمال إعداد حسابك. لا يظهر في ملفك الشخصي.</string>
+    <string name="onb_blocked_title">لا يمكنك إنشاء حساب الآن</string>
+    <string name="onb_blocked_hint">Bucks غير متاح لك بعد.</string>
+    <string name="onb_name_label">اسمك</string>
+    <string name="onb_name_cta">هيا بنا</string>
+</resources>

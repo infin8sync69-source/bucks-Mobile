@@ -25,27 +25,30 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.util.Locale
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.data.Str
 
 /* ---------- words the buyer and the shopkeeper see ---------- */
 
-fun rupees(n: Int): String = "₹" + "%,d".format(n)
+fun rupees(n: Int): String = com.bucks.app.data.Money.format(n)
 
 /** Short order id for receipts and UPI notes: the last 6 characters, upper case. */
 fun shortOrderId(id: String) = id.replace("-", "").takeLast(6).uppercase()
 
-fun deliveryModeLabel(mode: String) = when (mode) { "STORE_RIDER" -> "Store's own rider"; "PICKUP" -> "Pick up from the shop"; "SHIP" -> "Shipped to an address"; else -> "Delivery by a Bucks rider" }
-fun paymentLabel(payment: String) = if (payment == "COD") "Cash on delivery" else "UPI"
+fun deliveryModeLabel(mode: String) = when (mode) { "STORE_RIDER" -> Str.get(R.string.g6_order_mode_store_rider); "PICKUP" -> Str.get(R.string.g6_order_mode_pickup); "SHIP" -> Str.get(R.string.g6_order_mode_ship); else -> Str.get(R.string.g6_order_mode_bucks_rider) }
+fun paymentLabel(payment: String) = if (payment == "COD") Str.get(R.string.g6_order_pay_cod) else Str.get(R.string.g6_order_pay_upi)
 
 /** Buyer-facing status, in plain words. */
 fun orderStatusLabel(status: String, mode: String = "MARKETPLACE") = when (status) {
-    "PLACED" -> "Waiting for the shop"
-    "ACCEPTED" -> "Accepted"
-    "READY" -> if (mode == "PICKUP") "Ready to collect" else "Packed"
-    "PICKED_UP" -> "On the way"
-    "SHIPPED" -> "Shipped"
-    "DELIVERED" -> if (mode == "PICKUP") "Collected" else "Delivered"
-    "REJECTED" -> "Not accepted"
-    "CANCELLED" -> "Cancelled"
+    "PLACED" -> Str.get(R.string.g6_order_st_placed)
+    "ACCEPTED" -> Str.get(R.string.g6_order_st_accepted)
+    "READY" -> if (mode == "PICKUP") Str.get(R.string.g6_order_st_ready_pickup) else Str.get(R.string.g6_order_st_packed)
+    "PICKED_UP" -> Str.get(R.string.g6_order_st_on_way)
+    "SHIPPED" -> Str.get(R.string.g6_order_st_shipped)
+    "DELIVERED" -> if (mode == "PICKUP") Str.get(R.string.g6_order_st_collected) else Str.get(R.string.g6_order_st_delivered)
+    "REJECTED" -> Str.get(R.string.g6_order_st_rejected)
+    "CANCELLED" -> Str.get(R.string.g6_order_st_cancelled)
     else -> status.lowercase().replaceFirstChar { it.uppercase() }
 }
 fun orderDone(status: String) = status in setOf("DELIVERED", "REJECTED", "CANCELLED")
@@ -60,11 +63,11 @@ fun OrderStatusPill(status: String, mode: String = "MARKETPLACE") = when (status
 }
 
 /** "2 × Toor dal, 1 × Rice" for list rows. */
-fun orderLinesSummary(lines: List<OrderLine>) = lines.joinToString(", ") { "${it.qty} × ${it.name}" }
+fun orderLinesSummary(lines: List<OrderLine>) = lines.joinToString(Str.get(R.string.g6_order_list_sep)) { Str.get(R.string.g6_order_qty_name, it.qty.toString(), it.name) }
 
 @Composable
 fun OrderLineRow(line: OrderLine) = Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-    Text("${line.name} × ${line.qty}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+    Text(stringResource(R.string.g6_order_name_qty, line.name, line.qty.toString()), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
     Text(rupees(line.price * line.qty), style = MaterialTheme.typography.titleSmall)
 }
 
@@ -75,24 +78,24 @@ fun OrderLineRow(line: OrderLine) = Row(Modifier.fillMaxWidth().padding(vertical
  */
 @Composable
 fun OrderTotals(o: CloudOrderRow, forShop: Boolean = false) {
-    Row(Modifier.padding(top = 6.dp)) { Muted("Items", Modifier.weight(1f)); Muted(rupees(o.subtotal)) }
-    if (o.deliveryMode == "SHIP") Row(Modifier.padding(top = 4.dp)) { Muted("Shipping", Modifier.weight(1f)); Muted(if (o.deliveryFee == 0) "Free" else rupees(o.deliveryFee)) }
+    Row(Modifier.padding(top = 6.dp)) { Muted(stringResource(R.string.g6_order_items), Modifier.weight(1f)); Muted(rupees(o.subtotal)) }
+    if (o.deliveryMode == "SHIP") Row(Modifier.padding(top = 4.dp)) { Muted(stringResource(R.string.g6_order_shipping), Modifier.weight(1f)); Muted(if (o.deliveryFee == 0) stringResource(R.string.g6_order_free) else rupees(o.deliveryFee)) }
     else if (o.deliveryMode != "PICKUP") Row(Modifier.padding(top = 4.dp)) {
-        Muted(if (o.feeAtDoor > 0) "Delivery fee · to the rider" else "Delivery fee", Modifier.weight(1f))
-        Muted(if (o.feePaidBy == "VENDOR") "${rupees(o.deliveryFee)} · ${if (forShop) "paid by you" else "paid by the shop"}" else rupees(o.deliveryFee))
+        Muted(if (o.feeAtDoor > 0) stringResource(R.string.g6_order_fee_to_rider) else stringResource(R.string.g6_order_fee), Modifier.weight(1f))
+        Muted(if (o.feePaidBy == "VENDOR") stringResource(if (forShop) R.string.g6_order_fee_paid_by_you else R.string.g6_order_fee_paid_by_shop, rupees(o.deliveryFee)) else rupees(o.deliveryFee))
     }
     Divider()
     Row(Modifier.padding(top = 8.dp)) {
         Text(when {
-            forShop -> if (o.payment == "COD") "Customer pays in cash" else "Customer pays you"
-            o.payment == "COD" -> "To pay in cash"
-            o.feeAtDoor > 0 -> "To pay the shop"
-            else -> "To pay"
+            forShop -> if (o.payment == "COD") stringResource(R.string.g6_order_cust_pays_cash) else stringResource(R.string.g6_order_cust_pays_you)
+            o.payment == "COD" -> stringResource(R.string.g6_order_to_pay_cash)
+            o.feeAtDoor > 0 -> stringResource(R.string.g6_order_to_pay_shop)
+            else -> stringResource(R.string.g6_order_to_pay)
         }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         Text(rupees(o.toShop), style = MaterialTheme.typography.titleLarge)
     }
-    if (o.feeAtDoor > 0) Muted(if (forShop) "The customer pays the rider's ${rupees(o.feeAtDoor)} fee to the rider at the door." else "+ ${rupees(o.feeAtDoor)} to the rider at the door (UPI or cash).", Modifier.padding(top = 4.dp))
-    else if (forShop && o.feePaidBy == "VENDOR" && o.deliveryMode == "MARKETPLACE") Muted("Free delivery: hand the rider ${rupees(o.deliveryFee)} when they collect it.", Modifier.padding(top = 4.dp))
+    if (o.feeAtDoor > 0) Muted(if (forShop) stringResource(R.string.g6_order_door_fee_shop, rupees(o.feeAtDoor)) else stringResource(R.string.g6_order_door_fee_buyer, rupees(o.feeAtDoor)), Modifier.padding(top = 4.dp))
+    else if (forShop && o.feePaidBy == "VENDOR" && o.deliveryMode == "MARKETPLACE") Muted(stringResource(R.string.g6_order_free_delivery_shop, rupees(o.deliveryFee)), Modifier.padding(top = 4.dp))
 }
 
 /* ---------- time ---------- */

@@ -128,7 +128,7 @@ private struct ListingPost: View {
 
 /// Details keys the About tab renders with a proper label; everything else gets a generic row.
 private let knownDetails: Set<String> = ["hours", "free_delivery", "delivery_radius_km", "delivery_radius_m", "rate", "level", "languages", "vehicle_kind", "vehicle", "kind", "model", "bio",
-                                         "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "source",
+                                         "cod", "ships_india", "ship_fee", "free_ship_above", "dispatch_days", "delivery_time", "delivery_slot", "source",
                                          "mode", "price", "price_unit", "deposit", "area_sqft", "bedrooms", "furnishing", "available_from", "year", "km_driven", "negotiable"]
 
 struct AboutTab: View {
@@ -196,6 +196,7 @@ struct AboutTab: View {
             if let v = det.str("hours") { AboutRow(icon: "clock", label: "Hours", value: v) }
             if let v = det.str("free_delivery") { AboutRow(icon: "shippingbox", label: "Delivery", value: v == "true" ? "Free delivery" : "Delivery charged") }
             if let v = det.str("delivery_radius_km").map({ "\($0) km" }) ?? det.str("delivery_radius_m").flatMap(Double.init).map(formatDistance) { AboutRow(icon: "location", label: "Delivers within", value: v) }
+            if let v = DeliveryTime.summary(det) { AboutRow(icon: "timer", label: "Delivery time", value: v) }
             if det.str("ships_india") == "true" {
                 let fee = det.str("ship_fee").flatMap { Int($0) } ?? 0, above = det.str("free_ship_above").flatMap { Int($0) } ?? 0
                 AboutRow(icon: "truck.box", label: "Ships across India", value: [fee == 0 ? "Free shipping" : "Shipping \(inr(fee))", fee > 0 && above > 0 ? "free above \(inr(above))" : nil,
@@ -265,11 +266,13 @@ struct ReviewsTab: View {
             }
             ForEach(p.reviews) { r in
                 let up = r.vote > 0, name = session.social.nameOf(r.authorId)
+                // Someone else's words on a live page (the owner can report one too); a bare vote has nothing to report.
+                let report = ReportTarget.review(r, pageLive: l.status == "LIVE", me: session.me?.id, authorName: name == "…" ? "" : name)
                 HStack(alignment: .top, spacing: 12) {
-                    Avatar(initials: initials(name).isEmpty ? "?" : initials(name), size: 40)
+                    Avatar(initials: initials(name).isEmpty ? "?" : initials(name), size: 40).opensProfile(r.authorId, name: name)
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 0) {
-                            Text(name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1)
+                            Text(name).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).lineLimit(1).opensProfile(r.authorId, name: name)
                             Muted("  \(discoverAgo(r.createdAt))")
                         }
                         if !r.comment.trimmingCharacters(in: .whitespaces).isEmpty { Text(r.comment).bucks(.bodySmall).foregroundStyle(BucksColor.onSurface).padding(.top, 2) }
@@ -280,6 +283,12 @@ struct ReviewsTab: View {
                         Image(systemName: up ? "arrow.up" : "arrow.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(up ? BucksColor.good : BucksColor.bad)
                             .accessibilityLabel(up ? "Recommends" : "Doesn't recommend")
                         if up { PillGood("Recommends") } else { PillBad("Doesn't recommend") }
+                        if let report {
+                            Button { session.reportTarget = report } label: {
+                                Image(systemName: "flag").font(.system(size: 15)).foregroundStyle(BucksColor.onSurfaceVariant)
+                                    .frame(width: 44, height: 44, alignment: .trailing).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityLabel("Report this recommendation")
+                        }
                     }
                 }.padding(.vertical, 14)
                 BucksDivider()

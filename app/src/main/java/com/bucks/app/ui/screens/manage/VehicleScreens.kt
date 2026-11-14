@@ -1,5 +1,10 @@
 package com.bucks.app.ui.screens.manage
 
+import com.bucks.app.data.Money
+import com.bucks.app.data.Str
+import com.bucks.app.R
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -31,7 +36,7 @@ import com.bucks.app.ui.screens.SignedImage
 private const val MAX_DOC_BYTES = 10 * 1024 * 1024
 
 @Composable
-private fun StatusPill(v: VehicleRow) { when (v.status) { "ACTIVE" -> PillGood("Active"); "SUSPENDED" -> PillBad("Suspended"); else -> PillWarn("Documents being checked") } }
+private fun StatusPill(v: VehicleRow) { when (v.status) { "ACTIVE" -> PillGood(stringResource(R.string.g5_veh_active)); "SUSPENDED" -> PillBad(stringResource(R.string.g5_veh_suspended)); else -> PillWarn(stringResource(R.string.g5_veh_checking)) } }
 
 /** Vehicles I own or drive: status, who drives them, and the owner dashboard. */
 @Composable
@@ -39,17 +44,19 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
     val m = vm.myListings
     LaunchedEffect(Unit) { m.refresh() }
     LaunchedEffect(m.vehicles) { if (m.vehicles.isNotEmpty()) m.loadAllVehicleMembers() }
+    // Taxi licences for the vehicles I own (status only; supabase/migrations/billing.sql). Empty while billing is off.
+    val plans = rememberMyLicences(m.vehicles.map { it.id to it.status })
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
-            BucksTopBar("Vehicles", onBack = onBack, actions = { IconButton(onClick = onStats) { Icon(Icons.Rounded.Leaderboard, "Earnings and trips") } })
+            BucksTopBar(stringResource(R.string.g5_veh_title), onBack = onBack, actions = { IconButton(onClick = onStats) { Icon(Icons.Rounded.Leaderboard, stringResource(R.string.g5_veh_stats)) } })
             if (m.loading && !m.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
             LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val err = m.error
                 if (err != null && !m.loaded && m.vehicles.isEmpty()) item { LoadError(err) { m.refresh() } }
                 if (m.vehicles.isEmpty() && m.loaded) item {
                     BucksCard {
-                        Text("No vehicles yet", style = MaterialTheme.typography.titleMedium)
-                        Muted("Add the bike, auto or cab you drive with its RC, insurance and permit photos. Bucks checks them, then you can go online and take rides or deliveries. You can also invite other drivers to use your vehicle.", Modifier.padding(top = 4.dp))
+                        Text(stringResource(R.string.g5_veh_none), style = MaterialTheme.typography.titleMedium)
+                        Muted(stringResource(R.string.g5_veh_none_body), Modifier.padding(top = 4.dp))
                     }
                 }
                 items(m.vehicles, key = { it.id }) { v ->
@@ -59,28 +66,29 @@ fun VehiclesScreen(vm: BucksViewModel, onBack: () -> Unit, onEdit: (id: String?)
                             Avatar(icon = vehicleIcon(v.kind), size = 56)
                             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                                 Text(v.model.ifBlank { vehicleKindLabel(v.kind) }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Muted("${vehicleKindLabel(v.kind)} · ${v.plate}")
-                                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { StatusPill(v); if (!owner) PillGrey("Driver") }
+                                Muted(stringResource(R.string.g5_acct_amount_status, vehicleKindLabel(v.kind), v.plate))
+                                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { StatusPill(v); if (!owner) PillGrey(stringResource(R.string.g5_veh_driver)) }
                             }
                         }
                         Muted(when (v.status) {
-                            "ACTIVE" -> "Ready. Go online from Home to take " + (if (v.kind == "BIKE") "deliveries." else "rides and deliveries.")
-                            "SUSPENDED" -> "Suspended: it can't go online. Contact Bucks support."
+                            "ACTIVE" -> stringResource(if (v.kind == "BIKE") R.string.g5_veh_ready_deliveries else R.string.g5_veh_ready_rides)
+                            "SUSPENDED" -> stringResource(R.string.g5_veh_suspended_body)
                             else -> vehicleDocKinds(v.kind).filter { dk -> dk.required && docs.none { it.kind == dk.key } }.takeIf { it.isNotEmpty() && owner }
-                                ?.let { missing -> "Still needed: ${missing.joinToString(", ") { it.label }}. Bucks checks them before the vehicle can go online." }
-                                ?: "Bucks is checking the documents. You'll be able to go online once it's active."
+                                ?.let { missing -> stringResource(R.string.g5_veh_still_needed, missing.joinToString(", ") { it.label }) }
+                                ?: stringResource(R.string.g5_veh_checking_body)
                         }, Modifier.padding(top = 10.dp))
-                        Muted(when { people == null -> "…"; people.size <= 1 -> "Only you drive it"; else -> "${people.size} people can drive it" }, Modifier.padding(top = 4.dp))
+                        Muted(when { people == null -> "…"; people.size <= 1 -> stringResource(R.string.g5_veh_only_you); else -> pluralStringResource(R.plurals.g5_veh_people_drive, people.size, people.size) }, Modifier.padding(top = 4.dp))
+                        if (owner) plans?.firstOrNull { it.vehicleId == v.id }?.let { PlanStatus(it, vehicle = true, modifier = Modifier.padding(top = 12.dp)) }
                         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (owner) SmallButton("Edit", tonal = true) { onEdit(v.id) }
-                            SmallButton("Drivers", tonal = true) { onMembers(v.id) }
+                            if (owner) SmallButton(stringResource(R.string.g5_edit), tonal = true) { onEdit(v.id) }
+                            SmallButton(stringResource(R.string.g5_veh_drivers), tonal = true) { onMembers(v.id) }
                         }
                     }
                 }
-                if (m.vehicles.isNotEmpty()) item { GhostButton("Earnings and trips", onClick = onStats) }
+                if (m.vehicles.isNotEmpty()) item { GhostButton(stringResource(R.string.g5_veh_stats), onClick = onStats) }
             }
         }
-        PrimaryButton("Add vehicle", Modifier.padding(horizontal = Gutter, vertical = 12.dp)) { onEdit(null) }
+        PrimaryButton(stringResource(R.string.g5_veh_add), Modifier.padding(horizontal = Gutter, vertical = 12.dp)) { onEdit(null) }
     }
 }
 
@@ -93,9 +101,9 @@ fun VehicleEditScreen(vm: BucksViewModel, id: String?, onBack: () -> Unit) {
     // The form snapshots the documents once, and Save writes that list back, so it must not open before they are known:
     // an empty snapshot would wipe the RC, insurance and permit references (and their files) on the next Save.
     if (id != null && (existing == null || !m.vehicleDocs.containsKey(id))) {
-        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Edit vehicle", onBack = onBack)
+        ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g5_veh_edit), onBack = onBack)
             val err = m.error
-            if (m.loaded && existing == null) Column(Modifier.padding(Gutter)) { Text("Vehicle not found", style = MaterialTheme.typography.titleMedium); Muted("It may have been removed, or you no longer drive it.", Modifier.padding(top = 4.dp)); SmallButton("Back", Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
+            if (m.loaded && existing == null) Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g5_veh_not_found), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g5_veh_not_found_body), Modifier.padding(top = 4.dp)); SmallButton(stringResource(R.string.g5_back), Modifier.padding(top = 14.dp), tonal = true, onClick = onBack) }
             else if (err != null && !m.loaded) LoadError(err, Modifier.padding(Gutter)) { m.refresh() }
             else CenteredLoading() }
         return
@@ -121,9 +129,9 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
         if (uri != null && k != null) {
             val f = Upload.read(ctx, uri)
             when {
-                f == null -> vm.toast("Couldn't read that file. Try a photo of the document.")
-                f.bytes.size > MAX_DOC_BYTES -> vm.toast("Documents up to 10 MB. Take a smaller photo.")
-                !(f.isImage || f.mime == "application/pdf") -> vm.toast("Photos (JPG, PNG) or PDF only.")
+                f == null -> vm.toast(Str.get(R.string.g5_doc_read_failed))
+                f.bytes.size > MAX_DOC_BYTES -> vm.toast(Str.get(R.string.g5_doc_too_big))
+                !(f.isImage || f.mime == "application/pdf") -> vm.toast(Str.get(R.string.g5_doc_types))
                 else -> { added[k] = f; kept.removeAll { it.kind == k } }
             }
         }
@@ -132,31 +140,31 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
 
     fun save() {
         val p = plate.trim().uppercase().replace(" ", "")
-        if (kind.isBlank()) { vm.toast("Pick the vehicle type."); return }
-        if (p.length < 6) { vm.toast("Enter the full number plate, like KA05AB1234."); return }
+        if (kind.isBlank()) { vm.toast(Str.get(R.string.g5_veh_pick_type)); return }
+        if (p.length < 6) { vm.toast(Str.get(R.string.g5_veh_plate_short)); return }
         if (existing == null) m.addVehicle(kind, model.trim(), p, added.map { it.key to it.value }) { onBack() }
         else m.updateVehicle(existing.id, kind, model.trim(), p, before, kept.toList(), added.map { it.key to it.value }) { onBack() }
     }
 
     Column(Modifier.fillMaxSize()) {
         ContentColumn(Modifier.weight(1f)) {
-            BucksTopBar(if (existing == null) "Add vehicle" else "Edit vehicle", onBack = onBack)
+            BucksTopBar(stringResource(if (existing == null) R.string.g5_veh_add else R.string.g5_veh_edit), onBack = onBack)
             if (m.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(top = 8.dp, bottom = 16.dp)) {
-                if (!owner) Notice("You drive this vehicle but don't own it, so only the owner can change it.", Modifier.padding(bottom = 14.dp))
-                else if (existing?.status == "ACTIVE") Notice("This vehicle is checked and active. Changing its type, number plate or documents puts it back under review; it can't go online until Bucks checks it again.", Modifier.padding(bottom = 14.dp))
-                Label("Vehicle type")
+                if (!owner) Notice(stringResource(R.string.g5_veh_not_owner), Modifier.padding(bottom = 14.dp))
+                else if (existing?.status == "ACTIVE") Notice(stringResource(R.string.g5_veh_active_warn), Modifier.padding(bottom = 14.dp))
+                Label(stringResource(R.string.g5_veh_type))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { VEHICLE_KINDS.forEach { (k, l) -> Chip(l, selected = kind == k, icon = vehicleIcon(k)) { if (owner) kind = k } } }
                 Spacer(Modifier.height(14.dp))
-                BucksField(model, { if (owner) model = it.take(60) }, "Model", "Honda Activa, Bajaj RE, Maruti Dzire", readOnly = !owner)
-                BucksField(plate, { if (owner) plate = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12) }, "Number plate", "KA05AB1234", readOnly = !owner, keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Characters))
+                BucksField(model, { if (owner) model = it.take(60) }, stringResource(R.string.g5_veh_model), stringResource(R.string.g5_veh_model_hint), readOnly = !owner)
+                BucksField(plate, { if (owner) plate = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(12) }, stringResource(R.string.g5_veh_plate), "KA05AB1234", readOnly = !owner, keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Characters))
                 val kinds = vehicleDocKinds(kind.ifBlank { "CAB" })
                 val requiredDone = kinds.count { dk -> dk.required && (added.containsKey(dk.key) || kept.any { it.kind == dk.key }) }; val requiredAll = kinds.count { it.required }
                 Row(Modifier.padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SectionTitle("Documents", Modifier.weight(1f)); if (requiredDone == requiredAll) PillGood("All required added") else PillWarn("$requiredDone of $requiredAll required")
+                    SectionTitle(stringResource(R.string.g5_veh_documents), Modifier.weight(1f)); if (requiredDone == requiredAll) PillGood(stringResource(R.string.g5_veh_all_required)) else PillWarn(stringResource(R.string.g5_veh_n_of_m_required, requiredDone, requiredAll))
                 }
                 LinearProgressIndicator(progress = { requiredDone.toFloat() / requiredAll }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(4.dp).clip(MaterialTheme.shapes.small))
-                Muted("Clear photos or PDFs. Bucks checks them before the vehicle can go online; nobody else sees them.", Modifier.padding(bottom = 8.dp))
+                Muted(stringResource(R.string.g5_veh_docs_note), Modifier.padding(bottom = 8.dp))
                 kinds.forEach { dk -> val k = dk.key; val label = dk.label
                     val have = kept.firstOrNull { it.kind == k }; val new = added[k]
                     val optional = !dk.required
@@ -170,12 +178,12 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
                             }
                         }
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(label + if (optional) " (optional)" else "", style = MaterialTheme.typography.titleSmall)
-                            Muted(when { new != null -> "Ready to upload: ${new.name}"; have != null -> "Uploaded"; else -> dk.hint })
+                            Text(if (optional) stringResource(R.string.g5_optional_label, label) else label, style = MaterialTheme.typography.titleSmall)
+                            Muted(when { new != null -> stringResource(R.string.g5_ready_to_upload, new.name); have != null -> stringResource(R.string.g5_uploaded); else -> dk.hint })
                         }
                         if (owner) {
-                            if (new != null || have != null) IconButton(onClick = { added.remove(k); kept.removeAll { it.kind == k } }) { Icon(Icons.Rounded.Close, "Remove") }
-                            SmallButton(if (new != null || have != null) "Replace" else "Add", tonal = true) { pickDoc(k) }
+                            if (new != null || have != null) IconButton(onClick = { added.remove(k); kept.removeAll { it.kind == k } }) { Icon(Icons.Rounded.Close, stringResource(R.string.g5_remove)) }
+                            SmallButton(stringResource(if (new != null || have != null) R.string.g5_replace else R.string.g5_add), tonal = true) { pickDoc(k) }
                         }
                     }
                     Divider()
@@ -183,11 +191,11 @@ private fun VehicleForm(vm: BucksViewModel, existing: VehicleRow?, onBack: () ->
             }
         }
         if (owner) Column(Modifier.padding(horizontal = Gutter, vertical = 12.dp)) {
-            PrimaryButton(if (m.busy) "Uploading…" else if (existing == null) "Add vehicle" else "Save changes", enabled = !m.busy) { save() }
-            if (existing != null) BadButton("Remove this vehicle", Modifier.padding(top = 4.dp)) { confirmDelete = true }
+            PrimaryButton(stringResource(if (m.busy) R.string.g5_uploading else if (existing == null) R.string.g5_veh_add else R.string.g5_save_changes), enabled = !m.busy) { save() }
+            if (existing != null) BadButton(stringResource(R.string.g5_veh_remove), Modifier.padding(top = 4.dp)) { confirmDelete = true }
         }
     }
-    if (confirmDelete && existing != null) ConfirmDialog("Remove ${existing.model.ifBlank { vehicleKindLabel(existing.kind) }} (${existing.plate})?", "Its documents are deleted and drivers you invited lose access. Past trips stay in your records.", "Remove",
+    if (confirmDelete && existing != null) ConfirmDialog(stringResource(R.string.g5_veh_remove_title, existing.model.ifBlank { vehicleKindLabel(existing.kind) }, existing.plate), stringResource(R.string.g5_veh_remove_body), stringResource(R.string.g5_remove),
         onConfirm = { m.deleteVehicle(existing.id) { onBack() } }, onDismiss = { confirmDelete = false })
 }
 
@@ -198,19 +206,19 @@ fun VehicleStatsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     LaunchedEffect(Unit) { m.refreshStats(); if (!m.loaded) m.refresh() }
     val rows = m.stats
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Earnings and trips", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g5_veh_stats), onBack = onBack)
         LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 BucksCard(tint = true) {
-                    Muted("Last 30 days, all vehicles")
-                    Text("₹${rows.sumOf { it.earnings }}", style = MaterialTheme.typography.displaySmall)
-                    Muted("${rows.sumOf { it.completed }} trips completed · ${"%.1f".format(rows.sumOf { it.km })} km")
+                    Muted(stringResource(R.string.g5_veh_last30))
+                    Text(Money.format(rows.sumOf { it.earnings }), style = MaterialTheme.typography.displaySmall)
+                    Muted(pluralStringResource(R.plurals.g5_veh_trips_km, rows.sumOf { it.completed }, rows.sumOf { it.completed }, "%.1f".format(rows.sumOf { it.km })))
                 }
             }
             if (rows.isEmpty()) item {
                 BucksCard {
-                    Text(if (m.loaded && m.vehicles.isEmpty()) "No vehicles yet" else "Nothing to show yet", style = MaterialTheme.typography.titleMedium)
-                    Muted(if (m.loaded && m.vehicles.isEmpty()) "Add a vehicle under Vehicles. Once it's active and online, every ride and delivery lands here." else "Trips taken with your vehicles in the last 30 days appear here: accepted, missed, completed, distance and fares.", Modifier.padding(top = 4.dp))
+                    Text(stringResource(if (m.loaded && m.vehicles.isEmpty()) R.string.g5_veh_none else R.string.g5_nothing_yet), style = MaterialTheme.typography.titleMedium)
+                    Muted(stringResource(if (m.loaded && m.vehicles.isEmpty()) R.string.g5_veh_stats_no_vehicle else R.string.g5_veh_stats_empty), Modifier.padding(top = 4.dp))
                 }
             }
             items(rows, key = { it.vehicleId }) { s ->
@@ -218,12 +226,12 @@ fun VehicleStatsScreen(vm: BucksViewModel, onBack: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Avatar(icon = vehicleIcon(s.kind), size = 44)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) { Text(s.model.ifBlank { vehicleKindLabel(s.kind) }, style = MaterialTheme.typography.titleMedium); Muted(s.plate) }
-                        Text("₹${s.earnings}", style = MaterialTheme.typography.titleLarge)
+                        Text(Money.format(s.earnings), style = MaterialTheme.typography.titleLarge)
                     }
                     Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Stat("${s.accepted}", "Accepted"); Stat("${s.rejected}", "Missed"); Stat("${s.completed}", "Completed"); Stat("%.1f".format(s.km), "km")
+                        Stat("${s.accepted}", stringResource(R.string.g5_stat_accepted)); Stat("${s.rejected}", stringResource(R.string.g5_stat_missed)); Stat("${s.completed}", stringResource(R.string.g5_stat_completed)); Stat("%.1f".format(s.km), stringResource(R.string.g5_stat_km))
                     }
-                    if (s.accepted + s.rejected > 0 && s.rejected > s.accepted) Muted("More requests missed than accepted. Staying online only when you're free keeps your acceptance up.", Modifier.padding(top = 10.dp))
+                    if (s.accepted + s.rejected > 0 && s.rejected > s.accepted) Muted(stringResource(R.string.g5_veh_missed_warn), Modifier.padding(top = 10.dp))
                 }
             }
         }

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">ನಿಮ್ಮ ಭಾಷೆ ಆಯ್ಕೆ ಮಾಡಿ</string>
+    <string name="onb_language_hint">ಆಮೇಲೆ ಸೆಟ್ಟಿಂಗ್ಸ್‌ನಲ್ಲಿ ಬದಲಾಯಿಸಬಹುದು.</string>
+    <string name="onb_continue">ಮುಂದುವರಿಸಿ</string>
+
+    <string name="onb_phone_title">ನಿಮ್ಮ ಫೋನ್ ನಂಬರ್ ಏನು?</string>
+    <string name="onb_phone_hint">ನಿಮಗೆ ಒಂದು ಕೋಡ್ ಮೆಸೇಜ್ ಮಾಡುತ್ತೇವೆ.</string>
+    <string name="onb_phone_number">ಫೋನ್ ನಂಬರ್</string>
+    <string name="onb_phone_invalid">ನಂಬರ್ ಸರಿಯಾಗಿದೆಯಾ ನೋಡಿ</string>
+    <string name="onb_agree_terms">ನಿಯಮಗಳು ಮತ್ತು ಪ್ರೈವಸಿ ಪಾಲಿಸಿಗೆ ನಾನು ಒಪ್ಪುತ್ತೇನೆ.</string>
+    <string name="onb_terms">ನಿಯಮಗಳು</string>
+    <string name="onb_privacy">ಪ್ರೈವಸಿ</string>
+    <string name="onb_guidelines">ಮಾರ್ಗಸೂಚಿಗಳು</string>
+    <string name="onb_get_code">ಕೋಡ್ ಪಡೆಯಿರಿ</string>
+    <string name="onb_use_email">ಬದಲಿಗೆ ಇಮೇಲ್ ಬಳಸಿ</string>
+
+    <string name="onb_country_title">ದೇಶ</string>
+    <string name="onb_country_search">ಹುಡುಕಿ</string>
+    <string name="onb_country_change">ದೇಶ ಬದಲಾಯಿಸಿ, ಈಗ %1$s</string>
+
+    <string name="onb_code_title">ಕೋಡ್ ಹಾಕಿ</string>
+    <string name="onb_code_sent_to">%1$s ಗೆ ಕಳುಹಿಸಲಾಗಿದೆ</string>
+    <string name="onb_code_edit">ಎಡಿಟ್ ಮಾಡಿ</string>
+    <string name="onb_code_demo">ಡೆಮೋ ಕೋಡ್: 1234</string>
+    <string name="onb_code_verify">ವೆರಿಫೈ ಮಾಡಿ</string>
+    <string name="onb_code_checking">ಚೆಕ್ ಮಾಡುತ್ತಿದ್ದೇವೆ…</string>
+    <string name="onb_code_resend">ಕೋಡ್ ಮತ್ತೆ ಕಳುಹಿಸಿ</string>
+    <string name="onb_code_resend_in">%1$d ಸೆಕೆಂಡ್‌ನಲ್ಲಿ ಮತ್ತೆ ಕಳುಹಿಸಿ</string>
+    <string name="onb_code_field">ವೆರಿಫಿಕೇಶನ್ ಕೋಡ್</string>
+
+    <string name="onb_name_title">ನಿಮ್ಮ ಹೆಸರು ಏನು?</string>
+    <string name="onb_name_hint">ನಿಮ್ಮ ಹೆಸರು ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಕಾಣುತ್ತದೆ. ಹುಟ್ಟುಹಬ್ಬ ಕಾಣುವುದಿಲ್ಲ.</string>
+    <string name="onb_dob_label">ಹುಟ್ಟಿದ ದಿನಾಂಕ</string>
+    <string name="onb_dob_day">ದಿನ</string>
+    <string name="onb_dob_month">ತಿಂಗಳು</string>
+    <string name="onb_dob_year">ವರ್ಷ</string>
+    <string name="onb_dob_invalid">ದಿನಾಂಕ ಸರಿಯಾಗಿದೆಯಾ ನೋಡಿ</string>
+    <string name="onb_dob_title">ನಿಮ್ಮ ಹುಟ್ಟುಹಬ್ಬ ಯಾವಾಗ?</string>
+    <string name="onb_dob_hint">ನಿಮ್ಮ ಅಕೌಂಟ್ ಸೆಟಪ್ ಮುಗಿಸಲು ಒಮ್ಮೆ ಬೇಕು. ಇದು ನಿಮ್ಮ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಕಾಣುವುದಿಲ್ಲ.</string>
+    <string name="onb_blocked_title">ಈಗ ನೀವು ಅಕೌಂಟ್ ಮಾಡಲು ಆಗುವುದಿಲ್ಲ</string>
+    <string name="onb_blocked_hint">Bucks ಇನ್ನೂ ನಿಮಗೆ ಲಭ್ಯವಿಲ್ಲ.</string>
+    <string name="onb_name_label">ನಿಮ್ಮ ಹೆಸರು</string>
+    <string name="onb_name_cta">ಶುರು ಮಾಡೋಣ</string>
+</resources>

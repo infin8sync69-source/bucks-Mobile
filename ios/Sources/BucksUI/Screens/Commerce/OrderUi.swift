@@ -224,7 +224,7 @@ struct OrderTimeline: View {
             switch stale ? "NO_DRIVER" : task?.status {
             case nil: rider = "Finding a rider near the shop."
             case "SEARCHING": rider = "Ringing riders near the shop."
-            case "NO_DRIVER": rider = "No rider free right now. Call the shop: they can send their own rider or cancel the order."
+            case "NO_DRIVER": rider = "No rider free right now. Call the shop: it can send its own rider if it has one, or cancel the order."
             case "CANCELLED": rider = "The delivery was cancelled. Call the shop to sort it out."
             case "ARRIVED": rider = "The rider is at the shop."
             default: rider = "A rider is on the way to the shop."
@@ -237,4 +237,9 @@ struct OrderTimeline: View {
         default: return forShop ? "Done." : "Tell others how it went with a review on the shop's page."
         }
     }
+}
+
+/// What a store rider still has to do before a shop's order can ring them (the listing form, the dashboard, Team).
+func storeRiderNeeds(_ radius: String) -> String {
+    "To be rung for deliveries, a store rider accepts the invite, adds a bike under My listings > Vehicles and waits for Bucks to check it, then goes online within \(radius) of the shop."
 }

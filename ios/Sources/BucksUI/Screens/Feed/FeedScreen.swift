@@ -185,38 +185,44 @@ struct PostCard: View {
                 }
                 PostMediaView(media: post.media)
                 actions
+                InlineCommentBox { t in Task { await session.feed.comment(post.id, t) } }.padding(.top, 2)
             }
             .padding(.horizontal, Gutter).padding(.vertical, 14)
-            .contextMenu { if mine { Button("Delete post", role: .destructive, action: onDelete) } }
+            .contextMenu { if mine { Button("Delete post", role: .destructive, action: onDelete) } else { Button("Report post", role: .destructive, action: report) } }
             BucksDivider()
         }
     }
 
     private var header: some View {
         HStack(spacing: 10) {
+            // Picture and name open the author's profile (Android's SocialPostCard header).
+            HStack(spacing: 10) {
             Avatar(initials: initials(post.authorName), size: 40)
             VStack(alignment: .leading, spacing: 0) {
                 (Text(post.listingTitle ?? post.authorName).font(.bucks(.titleMedium)).foregroundColor(BucksColor.onSurface)
                  + Text(mine ? "  ·  You" : (post.synced ? "  ·  Synced" : "")).font(.bucks(.bodySmall)).foregroundColor(BucksColor.onSurfaceVariant)).lineLimit(1)
                 Muted([feedAgo(post.createdAt), post.area.isEmpty ? nil : post.area, post.visibility == "SYNCED" ? "Synced only" : (post.visibility == "PUBLIC" ? "Public" : nil)].compactMap { $0 }.joined(separator: " · "))
             }.frame(maxWidth: .infinity, alignment: .leading)
+            }.opensProfile(post.authorId, name: post.authorName)
             if mine {
                 Menu { Button("Delete post", role: .destructive, action: onDelete) } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 18)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44).contentShape(Rectangle())
+                }.accessibilityLabel("More")
+            } else {
+                Menu { Button("Report post", role: .destructive, action: report) } label: {
                     Image(systemName: "ellipsis").font(.system(size: 18)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44).contentShape(Rectangle())
                 }.accessibilityLabel("More")
             }
         }
     }
 
+    private func report() { session.reportTarget = ReportTarget(kind: "POST", targetId: post.id, ownerId: post.authorId, ownerName: post.authorName) }
+
     private var actions: some View {
-        let my = post.myVote ?? 0
-        let upColor = my == 1 ? BucksColor.good : BucksColor.onSurfaceVariant
-        let downColor = my == -1 ? BucksColor.bad : BucksColor.onSurfaceVariant
-        return HStack(spacing: 0) {
-            actionButton("arrow.up", "Recommend", " \(post.up)", upColor, icon: 20) { onVote(1) }
-            actionButton("arrow.down", "Not recommended", " \(post.down)", downColor, icon: 20) { onVote(-1) }
+        HStack(spacing: 0) {
+            VotePill(my: post.myVote ?? 0, up: post.up, down: post.down, onVote: onVote)
+            actionButton("bubble.left", "Comments", post.comments > 0 ? " \(post.comments)" : "", BucksColor.onSurfaceVariant, icon: 18, action: onComments).padding(.leading, 6)
             Spacer(minLength: 0)
-            actionButton("bubble.left", "Comments", " \(post.comments)", BucksColor.onSurfaceVariant, icon: 18, action: onComments)
             ShareLink(item: "\(post.authorName) on Bucks: \(post.body)") {
                 Image(systemName: "square.and.arrow.up").font(.system(size: 18)).foregroundStyle(BucksColor.onSurfaceVariant).frame(width: 48, height: 48).contentShape(Rectangle())
             }.accessibilityLabel("Share")
@@ -237,6 +243,15 @@ struct PostCard: View {
 
 struct CommentsSheet: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.openPerson) private var openPerson
+    @Environment(\.dismiss) private var dismissSheet
+    /// Closes the comments, then opens the commenter's profile underneath.
+    private func openFromSheet(_ id: String) {
+        guard let openPerson else { return }
+        dismissSheet()
+        Task { @MainActor in try? await Task.sleep(nanoseconds: 350_000_000); openPerson(id) }
+    }
+    @State private var reporting: ReportTarget?
     let postId: String
     @State private var rows: [CommentRow] = []
     @State private var reply = ""
@@ -249,12 +264,21 @@ struct CommentsSheet: View {
             ScrollView {
                 SheetBody {
                     Text("Comments").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
+                        .sheet(item: $reporting) { ReportSheet(target: $0) }
                     if rows.isEmpty { Muted("Be the first to reply.").padding(.vertical, 12) }
                     ForEach(rows) { c in
                         VStack(alignment: .leading, spacing: 0) {
-                            (Text(feed.nameOf(c.authorId)).font(.bucks(.titleSmall)).foregroundColor(BucksColor.onSurface) + Text("  \(feedAgo(c.createdAt))").font(.bucks(.bodySmall)).foregroundColor(BucksColor.onSurfaceVariant))
+                            Button { openFromSheet(c.authorId) } label: {
+                                (Text(feed.nameOf(c.authorId)).font(.bucks(.titleSmall)).foregroundColor(BucksColor.onSurface) + Text("  \(feedAgo(c.createdAt))").font(.bucks(.bodySmall)).foregroundColor(BucksColor.onSurfaceVariant))
+                            }.buttonStyle(.plain).accessibilityHint("Opens \(feed.nameOf(c.authorId))'s profile")
                             Text(c.body).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface)
-                        }.padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+                        }.padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        // This sheet is already on screen, so the report opens from here rather than from the app's root.
+                        .contextMenu {
+                            if c.authorId != session.me?.id {
+                                Button("Report comment", role: .destructive) { reporting = ReportTarget(kind: "COMMENT", targetId: c.id, ownerId: c.authorId, ownerName: feed.nameOf(c.authorId)) }
+                            }
+                        }
                         BucksDivider()
                     }
                 }

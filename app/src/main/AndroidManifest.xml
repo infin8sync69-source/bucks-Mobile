@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <!-- No advertising ID: Bucks shows no ads and never links people across apps (Data safety, Families policy). -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -27,6 +29,10 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Bucks">
+        <!-- Analytics starts off; data/Analytics.kt turns it on only for adults who haven't opted out. No ad ID, no ad personalisation. -->
+        <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
         <service android:name=".data.DriverLocationService" android:foregroundServiceType="location" android:exported="false" />
         <!-- Push notifications (Firebase Cloud Messaging); see data/Push.kt and docs/PUSH_SETUP.md. -->
         <!-- Icon and colour Firebase uses when it shows a notification itself (app in the background). -->
@@ -41,7 +47,11 @@
         <provider android:name=".FilesProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <activity android:name=".MainActivity" android:exported="true" android:theme="@style/Theme.Bucks.Starting" android:windowSoftInputMode="adjustResize">
+        <!-- Below Android 13, AppCompat stores the chosen app language itself and restores it at launch. -->
+        <service android:name="androidx.appcompat.app.AppLocalesMetadataHolderService" android:enabled="false" android:exported="false">
+            <meta-data android:name="autoStoreLocales" android:value="true" />
+        </service>
+        <activity android:name=".MainActivity" android:exported="true" android:theme="@style/Theme.Bucks.Starting" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

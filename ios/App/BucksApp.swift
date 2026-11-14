@@ -20,6 +20,9 @@ struct BucksApp: App {
         let config = BackendConfig(url: info["SupabaseURL"] as? String ?? "", anonKey: info["SupabaseAnonKey"] as? String ?? "")
         // Mapbox tiles, search and routes when a token is built in; OpenStreetMap's servers otherwise (same as Android).
         MapServices.token = (info["MapboxToken"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        // Help's support address and grievance officer (same secrets as Android); without them Help points to the grievance page.
+        Legal.supportEmail = (info["SupportEmail"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        Legal.grievanceOfficer = (info["GrievanceOfficer"] as? String ?? "").trimmingCharacters(in: .whitespaces)
         session.configure(config, auth: firebaseReady ? FirebasePhoneAuth() : nil)
     }
 

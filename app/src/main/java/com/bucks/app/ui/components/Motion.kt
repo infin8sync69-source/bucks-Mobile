@@ -22,6 +22,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +85,30 @@ fun Modifier.shakeOn(trigger: Int): Modifier {
     val x = remember { Animatable(0f) }
     LaunchedEffect(trigger) { if (trigger > 0) for (v in listOf(10f, -8f, 6f, -4f, 2f, 0f)) x.animateTo(v, tween(50)) }
     return graphicsLayer { translationX = x.value * density }
+}
+
+/** A quick pop each time [count] goes up (a new message, notification or cart piece); nothing when it goes down. */
+@Composable
+fun Modifier.bumpOnIncrease(count: Int, amount: Float = 0.3f): Modifier {
+    val reduced = rememberReducedMotion(); val s = remember { Animatable(1f) }; var last by remember { mutableIntStateOf(count) }
+    LaunchedEffect(count) { if (count > last && !reduced) { s.snapTo(1f + amount); s.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)) }; last = count }
+    return graphicsLayer { scaleX = s.value; scaleY = s.value }
+}
+
+/** A short ring, like a bell, each time [count] goes up. Swings from the top. */
+@Composable
+fun Modifier.ringOnIncrease(count: Int): Modifier {
+    val reduced = rememberReducedMotion(); val r = remember { Animatable(0f) }; var last by remember { mutableIntStateOf(count) }
+    LaunchedEffect(count) { if (count > last && !reduced) for (a in listOf(14f, -11f, 7f, -4f, 0f)) r.animateTo(a, tween(70)); last = count }
+    return graphicsLayer { rotationZ = r.value; transformOrigin = TransformOrigin(0.5f, 0.1f) }
+}
+
+/** A small hop in the arrow's direction ([dir] -1 down, 1 up) when it becomes [active]: the vote registered. */
+@Composable
+fun Modifier.nudgeWhen(active: Boolean, dir: Int): Modifier {
+    val reduced = rememberReducedMotion(); val y = remember { Animatable(0f) }; var was by remember { mutableIntStateOf(if (active) 1 else 0) }
+    LaunchedEffect(active) { if (active && was == 0 && !reduced) { y.animateTo(-4f * dir, tween(Motion.SHORT / 2)); y.animateTo(0f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)) }; was = if (active) 1 else 0 }
+    return graphicsLayer { translationY = y.value * density }
 }
 
 /** Gentle scale loop that draws the eye to the one action that matters (accept a ride, you're online). */

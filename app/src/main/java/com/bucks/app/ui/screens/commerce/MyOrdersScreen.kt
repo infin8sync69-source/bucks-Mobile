@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.commerce
 
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,20 +26,20 @@ fun MyOrdersScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> U
     // Refresh on open and every 15 seconds while the list is showing, so an accept or delivery shows up without a tap.
     LaunchedEffect(Unit) { while (true) { commerce.refreshMyOrders(); delay(15_000) } }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("My orders", onBack = onBack, actions = { IconButton({ commerce.refreshMyOrders() }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
+        BucksTopBar(stringResource(R.string.g7_orders_title), onBack = onBack, actions = { IconButton({ commerce.refreshMyOrders() }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.g7_cd_refresh)) } })
         when {
             !commerce.myOrdersLoaded -> Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { BucksLoader() }
             commerce.myOrders.isEmpty() -> Column(Modifier.fillMaxWidth().padding(Gutter).padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(icon = Icons.Rounded.ShoppingBag, size = 72)
-                Text("No orders yet", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
-                Muted("Search for groceries, food or anything nearby, open a shop and tap Add. Your orders will show up here.", Modifier.padding(top = 6.dp), TextAlign.Center)
-                SmallButton("Find a shop", Modifier.padding(top = 18.dp), onClick = onBack)
+                Text(stringResource(R.string.g7_orders_empty), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
+                Muted(stringResource(R.string.g7_orders_empty_sub), Modifier.padding(top = 6.dp), TextAlign.Center)
+                SmallButton(stringResource(R.string.g7_orders_find_shop), Modifier.padding(top = 18.dp), onClick = onBack)
             }
             else -> LazyColumn {
                 val live = commerce.myOrders.filter { orderLive(it.status) }; val past = commerce.myOrders.filterNot { orderLive(it.status) }
-                if (live.isNotEmpty()) item { SectionTitle("In progress", Modifier.padding(horizontal = Gutter).padding(top = 8.dp, bottom = 4.dp)) }
+                if (live.isNotEmpty()) item { SectionTitle(stringResource(R.string.g7_orders_in_progress), Modifier.padding(horizontal = Gutter).padding(top = 8.dp, bottom = 4.dp)) }
                 items(live, key = { it.id }) { o -> OrderListRow(vm, o.id, o.listingId, buyerTotal(o.subtotal, o.deliveryFee, o.feePaidBy), o.status, o.deliveryMode, o.createdAt) { onOpen(o.id) } }
-                if (past.isNotEmpty()) item { SectionTitle("Earlier", Modifier.padding(horizontal = Gutter).padding(top = 16.dp, bottom = 4.dp)) }
+                if (past.isNotEmpty()) item { SectionTitle(stringResource(R.string.g7_orders_earlier), Modifier.padding(horizontal = Gutter).padding(top = 16.dp, bottom = 4.dp)) }
                 items(past, key = { it.id }) { o -> OrderListRow(vm, o.id, o.listingId, buyerTotal(o.subtotal, o.deliveryFee, o.feePaidBy), o.status, o.deliveryMode, o.createdAt) { onOpen(o.id) } }
                 item { Spacer(Modifier.height(24.dp)) }
             }

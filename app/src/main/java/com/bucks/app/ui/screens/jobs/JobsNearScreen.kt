@@ -1,5 +1,7 @@
 package com.bucks.app.ui.screens.jobs
 
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,19 +26,19 @@ fun JobsNearScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) -> U
     LaunchedEffect(s.me) { jobs.refreshNear() }
     val list = jobs.near.filter { type.isEmpty() || it.jobType == type }
     ContentColumn(Modifier.fillMaxHeight()) {
-        BucksTopBar("Jobs near me", onBack = onBack, actions = {
-            if (onMyApplications != null) IconButton(onMyApplications) { Icon(Icons.Rounded.Assignment, "My applications") }
-            IconButton({ jobs.refreshNear() }) { Icon(Icons.Rounded.Refresh, "Refresh") } })
+        BucksTopBar(stringResource(R.string.g5_jobs_near_title), onBack = onBack, actions = {
+            if (onMyApplications != null) IconButton(onMyApplications) { Icon(Icons.Rounded.Assignment, stringResource(R.string.g5_acct_my_applications)) }
+            IconButton({ jobs.refreshNear() }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.g5_cd_refresh)) } })
         Row(Modifier.padding(horizontal = Gutter, vertical = 4.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("All", selected = type.isEmpty()) { type = "" }
+            Chip(stringResource(R.string.g5_all), selected = type.isEmpty()) { type = "" }
             Jobs.TYPES.forEach { (k, label) -> Chip(label, selected = type == k) { type = if (type == k) "" else k } }
         }
         LazyColumn(contentPadding = PaddingValues(horizontal = Gutter, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (!s.locationGranted) item { Notice("Location is off, so this shows jobs around the city centre. Allow location in Settings to see jobs around you.") }
+            if (!s.locationGranted) item { Notice(stringResource(R.string.g5_jobs_location_off)) }
             when {
-                jobs.loadingNear && jobs.near.isEmpty() -> item { JobsLoading("Finding jobs near you…") }
-                jobs.near.isEmpty() -> item { Muted("No open jobs within 15 km right now. Businesses post here when they need people; check back in a day or two. Meanwhile, add a skill profile under Menu > Bucks Pro so they can find you.", Modifier.padding(top = 8.dp)) }
-                list.isEmpty() -> item { Muted("No ${Jobs.typeLabel(type).lowercase()} jobs nearby. Tap All to see every job.", Modifier.padding(top = 8.dp)) }
+                jobs.loadingNear && jobs.near.isEmpty() -> item { JobsLoading(stringResource(R.string.g5_jobs_finding)) }
+                jobs.near.isEmpty() -> item { Muted(stringResource(R.string.g5_jobs_none), Modifier.padding(top = 8.dp)) }
+                list.isEmpty() -> item { Muted(stringResource(R.string.g5_jobs_none_type, Jobs.typeLabel(type)), Modifier.padding(top = 8.dp)) }
                 else -> items(list, key = { it.id }) { j ->
                     JobCard(j.title, j.pay, j.jobType, j.createdAt, details = listOf(j.listingTitle, listOf(j.area, Jobs.distance(j.distanceM)).filter { it.isNotBlank() }.joinToString(", "))) { onOpen(j.id) }
                 }

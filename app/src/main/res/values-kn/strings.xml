@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Bucks</string>
+    <!-- Shared content descriptions and actions used across screens. -->
+    <string name="cd_back">ಹಿಂದೆ</string>
+</resources>

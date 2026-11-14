@@ -13,7 +13,10 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Order matters: services.sql before studio.sql (studio replaces listing_service_rules and place_order), ecommerce.sql after studio.sql
-# (it replaces place_order again), the two hardening files last (they carry the latest version of every function they redefine).
+# (it replaces place_order again), then the pilot files in the order they went live (catalogue_tab.sql replaces two guards from page_types.sql),
+# hardening_dispatch.sql, then review_fixes.sql (its advance_task builds on hardening_dispatch's and closes the cancel and hand-back routes;
+# its release_task takes over the hand-back cap), then hardening_platform.sql (it carries the latest version of every function it redefines,
+# including page_types' search_listings), then social_safety.sql (which carries the hardening versions of the two functions it redefines).
 files=(
   schema.sql
   migrations/manage.sql
@@ -33,8 +36,40 @@ files=(
   migrations/aspire_media.sql
   migrations/product_feedback.sql
   migrations/ecommerce.sql
+  migrations/trust_phase0.sql
+  migrations/page_types.sql
+  migrations/catalogue_tab.sql
+  migrations/showcase_docs.sql
+  migrations/cancellation.sql
   migrations/hardening_dispatch.sql
+  migrations/review_fixes.sql
+  migrations/pilot_grants.sql
+  migrations/review_merge.sql
   migrations/hardening_platform.sql
+  migrations/social_safety.sql
+  migrations/feedback_board.sql
+  migrations/profile_media.sql
+  migrations/own_post_votes.sql
+  migrations/pro_profile.sql
+  migrations/delivery_assignment.sql
+  migrations/search_quality.sql
+  migrations/address_pin.sql
+  migrations/places.sql
+  migrations/map_guardrails.sql
+  migrations/social_lenses.sql
+  migrations/explore.sql
+  migrations/profile_details.sql
+  migrations/report_more_kinds.sql
+  migrations/search_path_fixes.sql
+  migrations/onboarding_v2.sql
+  migrations/security_hardening.sql
+  migrations/job_notifications.sql
+  migrations/checkout_safety.sql
+  migrations/guardian_gate.sql
+  migrations/map_recommended.sql
+  migrations/billing.sql
+  migrations/risk_hardening.sql
+  migrations/legal_hold.sql
 )
 
 case "${1:-}" in

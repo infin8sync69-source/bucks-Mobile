@@ -164,6 +164,15 @@ async function ringDrivers(t: Row, exclude: string[]): Promise<Note[]> {
   return ids.map((to_) => ({ to: to_, key: "tasks", type: "ride", urgent: true, title: ride ? "New ride request" : "New delivery request", body: `${from}${to}${km}${money}. Open Bucks to accept.`, route: "home", tag: `ring-${t.id}` } as Note));
 }
 
+/** A delivery's shop team (owners and admins): who hears that a rider took it or that nobody did. */
+async function toShop(t: Row, title: string, body: string): Promise<Note[]> {
+  if (!t.order_id) return [];
+  const o = await one("orders", `id=eq.${t.order_id}&select=listing_id`);
+  if (!o) return [];
+  const staff = await select<{ profile_id: string }>("listing_members", `listing_id=eq.${o.listing_id}&role=in.(OWNER,ADMIN)&select=profile_id`);
+  return staff.map((s) => ({ to: s.profile_id, key: "orders", type: "orders", urgent: true, tag: `delivery-${t.id}`, title, body, route: `orders-for/${o.listing_id}` } as Note));
+}
+
 async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
   const ride = t.type === "RIDE";
   const nm = await names([t.driver_id, old?.driver_id].filter(Boolean) as string[]);
@@ -178,7 +187,9 @@ async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
   const toDriver = (to: string, title: string, body: string): Note => ({ to, key: "tasks", type: "tasks", title, body, route: "home", urgent: true, tag: `task-${t.id}` });
   switch (String(t.status)) {
     case "MATCHED":
-      return [ride ? note("Rider found", `${driver} is coming to ${pickup}. Share PIN ${t.pin} when they arrive.`) : note("Rider assigned", `${driver} is going to ${pickup} to pick up your order.`)];
+      return ride ? [note("Rider found", `${driver} is coming to ${pickup}. Share PIN ${t.pin} when they arrive.`)]
+        : [note("Rider assigned", `${driver} is going to ${pickup} to pick up your order.`),
+           ...(await toShop(t, `${driver} is coming to collect`, `${t.drop_label ? `Order for ${t.drop_label}. ` : ""}Hand it over with the pickup PIN on the order.`))];
     case "ARRIVED":
       return [ride ? note("Your rider is here", `${driver} is at ${pickup}. Share PIN ${t.pin} to start the trip.`) : note("Rider at the shop", `${driver} is collecting your order from ${pickup}.`)];
     case "IN_PROGRESS":
@@ -191,7 +202,18 @@ async function forTaskStatus(t: Row, old: Row | null): Promise<Note[]> {
         const dropped = nameOf(nm, old.driver_id);
         return [note("Looking for another rider", `${dropped} could not take it. Ringing other riders nearby.`), ...(await ringDrivers(t, [old.driver_id]))];
       }
-      return old && String(old.status) === "SEARCHING" ? [] : ringDrivers(t, []);
+      if (old && String(old.status) === "SEARCHING") {
+        // Still searching, but a fresh round (status_at moved): the shop rang again or chose a rider (reassign_delivery), or a chosen
+        // rider's exclusive window ended and the request widened (expire_tasks). Whoever had it alone was already rung.
+        if (String(old.status_at) === String(t.status_at)) return [];
+        const exclude = old.exclusive_until && !t.exclusive_until && old.preferred_rider ? [String(old.preferred_rider)] : [];
+        return ringDrivers(t, exclude);
+      }
+      return ringDrivers(t, []);
+    case "NO_DRIVER":
+      // Nobody took a shop's delivery in time: the shop can ring again or send its own rider; the buyer hears it's being sorted.
+      return ride || !t.order_id ? [] : [note("Finding a rider", "No rider took your order yet. The shop is arranging delivery."),
+        ...(await toShop(t, "No rider took a delivery", `${t.drop_label || "An order"}: ring again or send your own rider.`))];
     case "CANCELLED":
       // The customer cancelled: tell the driver who was on the way.
       return old?.driver_id ? [toDriver(old.driver_id, ride ? "Trip cancelled" : "Delivery cancelled", "The customer cancelled. Stay online for the next one.")] : [];
@@ -335,9 +357,34 @@ async function accessToken(sa: ServiceAccount): Promise<string> {
 
 type SendResult = "sent" | "gone" | "failed";
 
-async function sendOne(sa: ServiceAccount, bearer: string, token: string, n: Note, quiet: boolean): Promise<SendResult> {
+// The category ids the iOS app registers (ios/Sources/BucksCore/Push.swift PushKind.categoryId), by note type.
+const APNS_CATEGORY: Record<string, string> = { messages: "bucks_messages", orders: "bucks_orders", tasks: "bucks_trips", ride: "bucks_ride_request", social: "bucks_social" };
+const APNS_COLLAPSE_MAX = 64;   // bytes; APNs rejects a longer apns-collapse-id with 400 BadCollapseId
+
+// iPhones: a data-only message does not show in the background there, so they also get an alert. The app reads the same data keys on tap.
+// Needs the APNs auth key (.p8) uploaded in the Firebase console (Project settings > Cloud Messaging), or FCM answers 401 for iOS tokens.
+function apnsFor(n: Note, quiet: boolean) {
+  // "ride": a new request ringing a driver: it lapses with the ring window and rings with the Bucks tune (ios/App/ride_request.wav).
+  const ttl = n.type === "ride" ? 120 : n.type === "tasks" ? 900 : 86400;
+  const collapse = n.tag && new TextEncoder().encode(n.tag).length <= APNS_COLLAPSE_MAX ? { "apns-collapse-id": n.tag } : {};
+  return {
+    headers: { "apns-push-type": "alert", "apns-priority": quiet ? "5" : "10", "apns-expiration": String(Math.floor(Date.now() / 1000) + ttl), ...collapse },
+    payload: {
+      aps: {
+        alert: { title: n.title, body: n.body },
+        "thread-id": n.type,
+        category: quiet ? "bucks_quiet" : APNS_CATEGORY[n.type] ?? "bucks_social",
+        "interruption-level": quiet ? "passive" : n.type === "tasks" || n.type === "ride" ? "time-sensitive" : "active",
+        ...(quiet ? {} : { sound: n.type === "ride" ? "ride_request.wav" : "default" }),
+      },
+    },
+  };
+}
+
+async function sendOne(sa: ServiceAccount, bearer: string, token: string, platform: string, n: Note, quiet: boolean): Promise<SendResult> {
   const message = {
     token,
+    ...(platform === "ios" ? { apns: apnsFor(n, quiet) } : {}),
     android: { priority: quiet ? "normal" : "high", ttl: n.type === "ride" ? "120s" : n.type === "tasks" ? "900s" : "86400s", ...(n.tag ? { collapse_key: n.tag } : {}) },
     data: { type: n.type, title: n.title, body: n.body, route: n.route, quiet: quiet ? "true" : "false" },
   };
@@ -358,19 +405,19 @@ async function deliver(notes: Note[]): Promise<Row> {
   const settings = new Map((await select<Settings & { profile_id: string }>("user_settings", `profile_id=${inList(people)}&select=profile_id,notify,quiet_hours`)).map((s) => [s.profile_id, s]));
   const wanted = notes.filter((n) => wants(settings.get(n.to), n.key));
   if (wanted.length === 0) return { recipients: people.length, sent: 0, skipped: "everyone turned this off" };
-  const tokens = await select<{ token: string; profile_id: string }>("device_tokens", `profile_id=${inList([...new Set(wanted.map((n) => n.to))])}&select=token,profile_id`);
+  const tokens = await select<{ token: string; profile_id: string; platform: string }>("device_tokens", `profile_id=${inList([...new Set(wanted.map((n) => n.to))])}&select=token,profile_id,platform`);
   if (tokens.length === 0) return { recipients: people.length, sent: 0, skipped: "no phones registered" };
   const sa = JSON.parse(FCM_SERVICE_ACCOUNT) as ServiceAccount;
   const bearer = await accessToken(sa);
-  const jobs: { token: string; note: Note; quiet: boolean }[] = [];
+  const jobs: { token: string; platform: string; note: Note; quiet: boolean }[] = [];
   for (const n of wanted) {
     const quiet = !n.urgent && inQuietHours(settings.get(n.to));
-    for (const t of tokens) if (t.profile_id === n.to) jobs.push({ token: t.token, note: n, quiet });
+    for (const t of tokens) if (t.profile_id === n.to) jobs.push({ token: t.token, platform: t.platform, note: n, quiet });
   }
   let sent = 0, failed = 0;
   const gone: string[] = [];
   for (let i = 0; i < jobs.length; i += BATCH) {
-    const results = await Promise.all(jobs.slice(i, i + BATCH).map((j) => sendOne(sa, bearer, j.token, j.note, j.quiet).catch((e) => { console.error(e); return "failed" as SendResult; })));
+    const results = await Promise.all(jobs.slice(i, i + BATCH).map((j) => sendOne(sa, bearer, j.token, j.platform, j.note, j.quiet).catch((e) => { console.error(e); return "failed" as SendResult; })));
     results.forEach((res, k) => { if (res === "sent") sent++; else if (res === "gone") gone.push(jobs[i + k].token); else failed++; });
   }
   if (gone.length > 0) await remove("device_tokens", `token=${inList([...new Set(gone)])}`);

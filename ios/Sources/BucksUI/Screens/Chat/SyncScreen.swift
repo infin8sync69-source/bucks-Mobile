@@ -13,11 +13,13 @@ struct PersonRow<Trailing: View>: View {
         let line = sub ?? p.area
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                HStack(spacing: 0) {
                 Avatar(initials: initials(p.name), size: 40)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(p.name).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                     Muted(line.isEmpty ? BucksIdCode.pretty(p.shortCode) : line)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                }.opensProfile(p.id, name: p.name)
                 trailing
             }.padding(.vertical, 8)
             BucksDivider()
@@ -80,6 +82,7 @@ struct SyncScreen: View {
             Button(social.links[p.id] != nil ? "Edit contact details" : "Contact details") { linkFor = p }
             Button(close ? "Remove from close friends" : "Add to close friends") { social.setClose(p.id, on: !close) }
             Button("Unsync") { social.unsync(p.id) }
+            Button("Report", role: .destructive) { session.reportTarget = ReportTarget(kind: "PROFILE", targetId: p.id, ownerId: p.id, ownerName: p.name) }
             Button("Block", role: .destructive) { social.block(p.id) }
             Button("Close", role: .cancel) {}
         }
@@ -105,11 +108,13 @@ struct SyncScreen: View {
     private func suggestion(_ s: PersonSuggestion) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                HStack(spacing: 0) {
                 Avatar(initials: initials(s.name), size: 40)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(s.name).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                     Muted([s.area.isEmpty ? nil : s.area, s.mutual > 0 ? "\(s.mutual) mutual" : nil, s.distanceM.map { String(format: "%.1f km", $0 / 1000) }].compactMap { $0 }.joined(separator: " · "))
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                }.opensProfile(s.id, name: s.name)
                 SmallButton("Sync", tonal: true) { social.syncWith(s.id, name: s.name) }
             }.padding(.vertical, 8)
             BucksDivider()

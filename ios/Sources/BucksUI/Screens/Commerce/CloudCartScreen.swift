@@ -11,6 +11,9 @@ struct CloudCartScreen: View {
     @State private var payments: [String: String] = [:]
     @State private var hasRiders: [String: Bool] = [:]
     @State private var points: [String: LatLng] = [:]
+    /// Per shop: its store riders, and the delivery agents (bikes) online near it now. Missing = not known, and then nothing is said.
+    @State private var riderIds: [String: Set<String>] = [:]
+    @State private var agents: [String: Set<String>] = [:]
     @State private var dropLabel = ""
     @State private var confirmClear = false
     @State private var seeded = false
@@ -41,10 +44,13 @@ struct CloudCartScreen: View {
                       message: stores.count > 1 ? "Everything from all \(stores.count) shops will be removed." : "Everything from \(stores.first?.listing.title ?? "this shop") will be removed.",
                       confirmTitle: "Empty it", cancelTitle: "Keep", destructive: true) { commerce.clear() }
         .onAppear { if !seeded { seeded = true; dropLabel = session.me?.area ?? "" } }
+        .task { await commerce.refreshCart() }
+        .onDisappear { commerce.clearCartNotes() }
         .task(id: stores.map(\.listing.id)) {
             for id in stores.map(\.listing.id) {
-                if hasRiders[id] == nil { hasRiders[id] = (try? await commerce.hasStoreRiders(id)) ?? false }
+                if hasRiders[id] == nil { let r = await commerce.storeRiderIds(id); if let r { riderIds[id] = r }; hasRiders[id] = !(r ?? []).isEmpty }
                 if points[id] == nil, let p = try? await Backend.shared.listingPoint(id) { points[id] = p }
+                if agents[id] == nil, let at = points[id], let a = await commerce.agentsOnlineNear(at) { agents[id] = a }
             }
             commerce.loadAddresses()
         }
@@ -64,6 +70,21 @@ struct CloudCartScreen: View {
     }
 
     // MARK: rules per store
+
+    /// What to warn about when a shop's delivery may find nobody, or nil. `agents` is everyone online on a bike near the shop now (nil:
+    /// not known, say nothing). A Bucks rider delivery can go to any of them; a store-rider delivery only to the shop's own riders among
+    /// them. With no agent online the shop's own riders aren't online either (they are counted in `agents`), so only pick-up is offered.
+    private func noRiderWarning(_ shop: String, mode: String, near: Bool, riderIds: Set<String>?, agents: Set<String>?) -> String? {
+        guard near, let agents else { return nil }
+        switch mode {
+        case "MARKETPLACE":
+            return agents.isEmpty ? "No Bucks delivery agent is online within \(commerce.deliveryRadiusLabel) of \(shop) right now, so this delivery may find nobody. Agents can come online at any time. I'll pick up works without a rider." : nil
+        case "STORE_RIDER":
+            guard let riderIds, !riderIds.contains(where: agents.contains) else { return nil }
+            return "None of \(shop)'s own riders is online right now, so this delivery may wait or find nobody. I'll pick up works without a rider."
+        default: return nil
+        }
+    }
 
     /// A shop is "near" when it is inside its own delivery radius (5 km when it hasn't set one); farther away only shipping works.
     /// Until the position or the shop's location is known, treat it as near so the usual options show.
@@ -108,6 +129,7 @@ struct CloudCartScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    ForEach(commerce.cartNotes, id: \.self) { Notice($0).padding(.bottom, 8) }
                     if stores.count > 1 {
                         Notice("\(stores.count) shops, so \(stores.count) separate orders and deliveries. Each has its own delivery fee, payment and time.").padding(.bottom, 12)
                     }
@@ -168,6 +190,14 @@ struct CloudCartScreen: View {
                 }
             }
             Notice(modeNotice(st, mode: mode, freeDelivery: freeDelivery)).padding(.top, 12).padding(.bottom, 12)
+            // The shop's own delivery-time promise, for the local delivery modes (shipping has its own "ships in").
+            if ["MARKETPLACE", "STORE_RIDER"].contains(mode), let t = DeliveryTime.summary(shop.details) { Muted("\(shop.title) usually delivers: \(t).").padding(.bottom, 10) }
+            // Nobody online to carry it right now: say so before the order is placed, offer what works, and let them invite an agent.
+            if let w = noRiderWarning(shop.title, mode: mode, near: near(st), riderIds: riderIds[shop.id], agents: agents[shop.id]) {
+                Notice(w).padding(.bottom, 8)
+                ShareSmallButton(title: "Invite a delivery agent", text: Invite.shareText(Invite.deliveryAgent(near: shop.area.isEmpty ? shop.title : shop.area)), tonal: true)
+                    .fixedSize().padding(.bottom, 12)
+            }
             if mode == "SHIP" {
                 HStack {
                     Muted("Items \(rupees(st.amount)) + shipping \(shipFee(st) == 0 ? "free" : rupees(shipFee(st)))")

@@ -53,9 +53,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://lboxctryrktwdsvywfqp.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3hjdHJ5cmt0d2Rzdnl3ZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Nzg4NjgsImV4cCI6MjEwNjA1NDg2OH0.f723OaejTwcD3AZsASkaF6XYLMIhYmdIqVWphasImcg' }}
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
         run: |
-          # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does)
-          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\n' "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" > Config/Secrets.xcconfig
+          # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does); Help's contact
+          # details are free text that may hold a link, so every slash in them gets a $() after it.
+          xc() { printf '%s' "$1" | sed 's#/#/$()#g'; }
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\nSUPPORT_EMAIL = %s\nGRIEVANCE_OFFICER = %s\n' "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" \
+            "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" "$(xc "$SUPPORT_EMAIL")" "$(xc "$GRIEVANCE_OFFICER")" > Config/Secrets.xcconfig
           xcodegen generate
       - name: Build for the iOS Simulator
         run: |
@@ -69,3 +74,17 @@ jobs:
           test -n "$app" || { echo "::error::Bucks.app not found in DerivedData"; exit 1; }
           test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is missing from $app"; exit 1; }
           plutil -lint "$app/PrivacyInfo.xcprivacy"
+      - name: Help's contact details reach the app
+        # The release build takes the same path (secret, Config/Secrets.xcconfig, project.yml, Info.plist). Values are compared, never printed.
+        env:
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
+        run: |
+          app="$(find ~/Library/Developer/Xcode/DerivedData -type d -name Bucks.app -path '*Debug-iphonesimulator*' | head -1)"
+          test -n "$app" || { echo "::error::Bucks.app not found in DerivedData"; exit 1; }
+          trim() { printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          for pair in SupportEmail:SUPPORT_EMAIL GrievanceOfficer:GRIEVANCE_OFFICER; do
+            key="${pair%%:*}"; var="${pair#*:}"
+            got="$(/usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" 2>/dev/null)" || { echo "::error::Info.plist has no $key (ios/project.yml)"; exit 1; }
+            [ "$(trim "$got")" = "$(trim "${!var}")" ] || { echo "::error::$key in the app differs from the $var secret (check the escaping in Config/Secrets.xcconfig)"; exit 1; }
+          done

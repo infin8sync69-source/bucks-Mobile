@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onb_language_title">ଆପଣଙ୍କ ଭାଷା ବାଛନ୍ତୁ</string>
+    <string name="onb_language_hint">ଆପଣ ଏହାକୁ ପରେ ସେଟିଂସ୍‌ରେ ବଦଳାଇପାରିବେ।</string>
+    <string name="onb_continue">ଜାରି ରଖନ୍ତୁ</string>
+
+    <string name="onb_phone_title">ଆପଣଙ୍କ ନମ୍ବର କେତେ?</string>
+    <string name="onb_phone_hint">ଆମେ ଆପଣଙ୍କୁ SMSରେ ଏକ କୋଡ୍ ପଠାଇବୁ।</string>
+    <string name="onb_phone_number">ଫୋନ୍ ନମ୍ବର</string>
+    <string name="onb_phone_invalid">ନମ୍ବରଟି ଯାଞ୍ଚ କରନ୍ତୁ</string>
+    <string name="onb_agree_terms">ମୁଁ ସର୍ତ୍ତାବଳୀ ଏବଂ ଗୋପନୀୟତା ନୀତିରେ ରାଜି।</string>
+    <string name="onb_terms">ସର୍ତ୍ତାବଳୀ</string>
+    <string name="onb_privacy">ଗୋପନୀୟତା</string>
+    <string name="onb_guidelines">ନିୟମାବଳୀ</string>
+    <string name="onb_get_code">କୋଡ୍ ପାଆନ୍ତୁ</string>
+    <string name="onb_use_email">ବଦଳରେ ଇମେଲ୍ ବ୍ୟବହାର କରନ୍ତୁ</string>
+
+    <string name="onb_country_title">ଦେଶ</string>
+    <string name="onb_country_search">ଖୋଜନ୍ତୁ</string>
+    <string name="onb_country_change">ଦେଶ ବଦଳାନ୍ତୁ, ଏବେ %1$s</string>
+
+    <string name="onb_code_title">କୋଡ୍ ଦିଅନ୍ତୁ</string>
+    <string name="onb_code_sent_to">%1$sକୁ ପଠାଯାଇଛି</string>
+    <string name="onb_code_edit">ଏଡିଟ୍ କରନ୍ତୁ</string>
+    <string name="onb_code_demo">ଡେମୋ କୋଡ୍: 1234</string>
+    <string name="onb_code_verify">ଯାଞ୍ଚ କରନ୍ତୁ</string>
+    <string name="onb_code_checking">ଯାଞ୍ଚ ହେଉଛି…</string>
+    <string name="onb_code_resend">କୋଡ୍ ପୁଣି ପଠାନ୍ତୁ</string>
+    <string name="onb_code_resend_in">%1$d ସେକେଣ୍ଡ ପରେ ପୁଣି ପଠାନ୍ତୁ</string>
+    <string name="onb_code_field">ଯାଞ୍ଚ କୋଡ୍</string>
+
+    <string name="onb_name_title">ଆପଣଙ୍କ ନାମ କ\'ଣ?</string>
+    <string name="onb_name_hint">ଆପଣଙ୍କ ନାମ ପ୍ରୋଫାଇଲ୍‌ରେ ଦେଖାଯିବ। ଜନ୍ମଦିନ ଦେଖାଯିବ ନାହିଁ।</string>
+    <string name="onb_dob_label">ଜନ୍ମ ତାରିଖ</string>
+    <string name="onb_dob_day">DD</string>
+    <string name="onb_dob_month">MM</string>
+    <string name="onb_dob_year">YYYY</string>
+    <string name="onb_dob_invalid">ତାରିଖଟି ଯାଞ୍ଚ କରନ୍ତୁ</string>
+    <string name="onb_dob_title">ଆପଣଙ୍କ ଜନ୍ମଦିନ କେବେ?</string>
+    <string name="onb_dob_hint">ଆକାଉଣ୍ଟ ସେଟଅପ୍ ସାରିବା ପାଇଁ ଥରେ ଦରକାର। ଏହା ଆପଣଙ୍କ ପ୍ରୋଫାଇଲ୍‌ରେ ଦେଖାଯିବ ନାହିଁ।</string>
+    <string name="onb_blocked_title">ଆପଣ ଏବେ ଆକାଉଣ୍ଟ ଖୋଲିପାରିବେ ନାହିଁ</string>
+    <string name="onb_blocked_hint">Bucks ଏବେ ଆପଣଙ୍କ ପାଇଁ ଉପଲବ୍ଧ ନାହିଁ।</string>
+    <string name="onb_name_label">ଆପଣଙ୍କ ନାମ</string>
+    <string name="onb_name_cta">ଚାଲନ୍ତୁ</string>
+</resources>
