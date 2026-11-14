@@ -266,6 +266,8 @@ struct ReviewsTab: View {
             }
             ForEach(p.reviews) { r in
                 let up = r.vote > 0, name = session.social.nameOf(r.authorId)
+                // Someone else's words on a live page (the owner can report one too); a bare vote has nothing to report.
+                let report = ReportTarget.review(r, pageLive: l.status == "LIVE", me: session.me?.id, authorName: name == "…" ? "" : name)
                 HStack(alignment: .top, spacing: 12) {
                     Avatar(initials: initials(name).isEmpty ? "?" : initials(name), size: 40).opensProfile(r.authorId, name: name)
                     VStack(alignment: .leading, spacing: 0) {
@@ -281,6 +283,12 @@ struct ReviewsTab: View {
                         Image(systemName: up ? "arrow.up" : "arrow.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(up ? BucksColor.good : BucksColor.bad)
                             .accessibilityLabel(up ? "Recommends" : "Doesn't recommend")
                         if up { PillGood("Recommends") } else { PillBad("Doesn't recommend") }
+                        if let report {
+                            Button { session.reportTarget = report } label: {
+                                Image(systemName: "flag").font(.system(size: 15)).foregroundStyle(BucksColor.onSurfaceVariant)
+                                    .frame(width: 44, height: 44, alignment: .trailing).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityLabel("Report this recommendation")
+                        }
                     }
                 }.padding(.vertical, 14)
                 BucksDivider()

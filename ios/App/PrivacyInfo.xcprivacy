@@ -11,8 +11,10 @@
 
   Collected data, all linked to the account and used only to run the service (rides, deliveries, orders, chat, posts):
     name, phone number (sign-in), delivery addresses, precise location (pick-up, drivers online), photos and videos (posts, Moments,
-    chat, documents), in-app messages, other user content (posts, comments, reviews), user ID, purchase history (orders) and payment
-    info (the UPI ID drivers and shops add to get paid). Contacts are read on the phone only and never uploaded, so they are not listed.
+    chat, documents), in-app messages, other user content (posts, comments, reviews), user ID, purchase history (orders), payment
+    info (the UPI ID drivers and shops add to get paid), contacts (only the details a person chooses to link to someone on Bucks,
+    saved to their account and visible only to them; the phonebook itself is read on the phone and not uploaded) and other data
+    (the date of birth, sent once by set_birth_date for the age rules).
 -->
 <plist version="1.0">
 <dict>
@@ -99,6 +101,18 @@
 		</dict>
 		<dict>
 			<key>NSPrivacyCollectedDataType</key><string>NSPrivacyCollectedDataTypePaymentInfo</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key><true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key><false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key><array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key><string>NSPrivacyCollectedDataTypeContacts</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key><true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key><false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key><array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key><string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key><true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key><false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key><array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>

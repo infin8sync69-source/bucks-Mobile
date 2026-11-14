@@ -17,6 +17,11 @@ struct JobScreen: View {
         ContentColumn {
             VStack(spacing: 0) {
                 BucksTopBar(title: job?.title ?? "Job", onBack: { router.pop() }) {
+                    // An open job of a business I don't run (the server refuses closed ones). Hidden while the job loads, so it never
+                    // flashes for a manager before their role is known.
+                    if let job, !jobs.loadingJob, let target = ReportTarget.job(job, manager: manager) {
+                        JobsBarButton("flag", "Report job") { session.reportTarget = target }
+                    }
                     JobsBarButton("arrow.clockwise", "Refresh") { jobs.loadJob(id) }
                 }
                 if let job {

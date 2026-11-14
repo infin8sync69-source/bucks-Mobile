@@ -47,7 +47,8 @@ One-time setup:
    base64 -w0 AuthKey_<key id>.p8 | gh secret set APPSTORE_API_KEY_P8_B64
    base64 -w0 GoogleService-Info.plist | gh secret set GOOGLE_SERVICE_INFO_PLIST_B64
    ```
-   (`base64 -w0` on Linux; `base64 -i <file>` on a Mac.) `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `MAPBOX_TOKEN` are already set.
+   (`base64 -w0` on Linux; `base64 -i <file>` on a Mac.) `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `MAPBOX_TOKEN` are already set, and so
+   are `SUPPORT_EMAIL` and `GRIEVANCE_OFFICER` (Android's; iOS shows the same two in Help, and the release warns when either is empty).
 
 Then: Actions > **iOS release (App Store)** > Run workflow, with the version (for example `1.0.0`), or push a tag from any branch:
 `git tag ios-v1.0.0 && git push origin ios-v1.0.0` (the build number is the run number). The build shows under TestFlight after
@@ -57,7 +58,10 @@ App Store Connect.
 ## Before submitting for review
 - **Demo account.** App Review cannot receive an SMS. Add one Firebase *test* phone number and code (Authentication > Sign-in method >
   Phone > Phone numbers for testing) and give both in App Review Information, with a note that it is a test number.
-- **Report and block.** The Report sheet is on posts, comments, moments, messages, pages, chats and people; Block is in the same menus (guideline 1.2).
+- **Report and block.** The Report sheet is on posts, comments, moments, messages, pages, chats, people, reviews and recommendations
+  (a page's Reviews tab) and jobs; Block is in the same menus (guideline 1.2).
+- **Contact details.** Help and support (Account > Settings, and the side menu) shows the support address, the grievance officer and the
+  legal pages (guideline 1.2).
 - **Account deletion** is under Account > Settings (guideline 5.1.1(v)).
 - **Background location** is used only while a driver is online; say so in the review notes.
 

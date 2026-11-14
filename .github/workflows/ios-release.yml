@@ -4,6 +4,7 @@
 #   APPSTORE_API_KEY_ID, APPSTORE_API_ISSUER_ID, APPSTORE_API_KEY_P8_B64   App Store Connect API key (role: Admin; cloud signing needs it)
 #   APPLE_TEAM_ID                                                         the 10-character team id
 #   GOOGLE_SERVICE_INFO_PLIST_B64                                         Firebase's iOS config file (GoogleService-Info.plist), base64
+#   SUPPORT_EMAIL, GRIEVANCE_OFFICER                                      shown in Help, as on Android (a warning when empty)
 name: iOS release (App Store)
 
 on:
@@ -43,6 +44,8 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+      SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+      GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
       VERSION: ${{ inputs.version || ((startsWith(github.ref, 'refs/tags/ios-v') || startsWith(github.ref, 'refs/tags/release-v')) && github.ref_name) }}
       BUILD: ${{ inputs.build || github.run_number }}
     steps:
@@ -55,6 +58,8 @@ jobs:
             [ -n "${!v}" ] || missing="$missing $v"
           done
           [ -z "$missing" ] || { echo "::error::Missing repository secrets:$missing (see docs/IOS_RELEASE.md)"; exit 1; }
+          if [ -z "$SUPPORT_EMAIL" ]; then echo "::warning::No SUPPORT_EMAIL secret: Help has no contact address (it points to the grievance page instead)."; fi
+          if [ -z "$GRIEVANCE_OFFICER" ]; then echo "::warning::No GRIEVANCE_OFFICER secret: Help shows no grievance officer (only the grievance page)."; fi
           printf '%s' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' || { echo "::error::version must look like 1.0 or 1.0.0"; exit 1; }
           printf '%s' "$BUILD" | grep -Eq '^[0-9]+$' || { echo "::error::build must be a whole number"; exit 1; }
       - name: Xcode 26
@@ -76,8 +81,10 @@ jobs:
           # (GOOGLE_APP_ID 1:N:ios:H becomes app-1-N-ios-H), as Firebase's phone-auth guide says.
           rev="$(/usr/libexec/PlistBuddy -c 'Print :REVERSED_CLIENT_ID' App/GoogleService-Info.plist 2>/dev/null || true)"
           [ -n "$rev" ] || rev="app-$(/usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' App/GoogleService-Info.plist | tr ':' '-')"
-          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\nREVERSED_CLIENT_ID = %s\n' \
-            "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" "$rev" > Config/Secrets.xcconfig
+          # Help's contact details are free text that may hold a link: every slash gets a $() after it (as scripts/make_secrets.sh does).
+          xc() { printf '%s' "$1" | sed 's#/#/$()#g'; }
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\nMAPBOX_TOKEN = %s\nREVERSED_CLIENT_ID = %s\nSUPPORT_EMAIL = %s\nGRIEVANCE_OFFICER = %s\n' \
+            "$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')" "$SUPABASE_ANON_KEY" "$MAPBOX_TOKEN" "$rev" "$(xc "$SUPPORT_EMAIL")" "$(xc "$GRIEVANCE_OFFICER")" > Config/Secrets.xcconfig
           xcodegen generate
       - name: App Store Connect API key
         run: |
@@ -106,6 +113,9 @@ jobs:
           [ -z "$key" ] || { echo "::error::the release build carries a Gemini key"; exit 1; }
           v="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")"; b="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist")"
           [ "$v" = "$APP_VERSION" ] && [ "$b" = "$BUILD" ] || { echo "::error::the app says $v ($b), expected $APP_VERSION ($BUILD)"; exit 1; }
+          for k in SupportEmail GrievanceOfficer; do   # Help reads them (App Review guideline 1.2 asks for contact details)
+            /usr/libexec/PlistBuddy -c "Print :$k" "$app/Info.plist" > /dev/null 2>&1 || { echo "::error::Info.plist has no $k (ios/project.yml)"; exit 1; }
+          done
           ents="$(codesign -d --entitlements - --xml "$app" 2>/dev/null || true)"
           for e in aps-environment com.apple.developer.usernotifications.time-sensitive; do
             printf '%s' "$ents" | grep -q "$e" || { echo "::error::the archive lost the $e entitlement"; exit 1; }

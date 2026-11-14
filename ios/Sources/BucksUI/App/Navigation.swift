@@ -19,7 +19,7 @@ public enum Route: Hashable {
     // Social
     case messages, notifications, person(String), chat(String), newGroup, sync, moments(String), momentNew, post(String), createPost, contacts, bucksId
     // Settings
-    case settingsPrivacy, settingsNotifications, settingsAppearance, settingsBlocked, settingsCloseFriends
+    case settingsPrivacy, settingsNotifications, settingsAppearance, settingsBlocked, settingsCloseFriends, help
     // Maps
     case maps
 
