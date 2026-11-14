@@ -52,7 +52,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Bucks uses the camera to take photos and videos for posts, Moments and messages, and to scan recommendation codes.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Bucks reads your contacts on this phone to help you call, message and invite people. They are never uploaded.</string>
+	<string>Bucks reads your contacts on this phone to help you call, message and invite people. Your phonebook isn't uploaded. If you link a contact to someone on Bucks, the details you choose are saved to your account, visible only to you.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Bucks asks for Face ID before confirming larger orders and payments.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

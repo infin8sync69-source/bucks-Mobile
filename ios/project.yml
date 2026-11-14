@@ -69,7 +69,7 @@ targets:
         NSSpeechRecognitionUsageDescription: Bucks turns what you say into a search or command.
         NSPhotoLibraryUsageDescription: Bucks reads the photos and videos you choose, such as a vehicle document, a post or your UPI QR code.
         NSPhotoLibraryAddUsageDescription: Bucks saves photos and videos you choose to keep to your gallery.
-        NSContactsUsageDescription: Bucks reads your contacts on this phone to help you call, message and invite people. They are never uploaded.
+        NSContactsUsageDescription: Bucks reads your contacts on this phone to help you call, message and invite people. Your phonebook isn't uploaded. If you link a contact to someone on Bucks, the details you choose are saved to your account, visible only to you.
         NSFaceIDUsageDescription: Bucks asks for Face ID before confirming larger orders and payments.
         GeminiAPIKey: $(GEMINI_API_KEY)
         MapboxToken: $(MAPBOX_TOKEN)
