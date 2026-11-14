@@ -90,6 +90,7 @@ private struct AccountActivityTab: View {
 private struct AccountSettingsHub: View {
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
     let model: AccountModel
     @State private var confirmDelete = false
 
@@ -125,11 +126,14 @@ private struct AccountSettingsHub: View {
                     }
                 }
             }
+            // Help and legal, as on Android: how to reach us (App Review guideline 1.2) and the published pages.
+            SectionTitle("Help and legal").padding(.top, 22).padding(.bottom, 6)
+            AccountSettingRow(icon: "questionmark.circle.fill", label: "Help and support", detail: "Questions, contact us, grievance officer") { router.push(.help) }
+            AccountSettingRow(icon: "hand.raised.fill", label: "Community guidelines") { openURL(Legal.url(.guidelines)) }
+            AccountSettingRow(icon: "lock.shield.fill", label: "Privacy policy") { openURL(Legal.url(.privacy)) }
+            AccountSettingRow(icon: "doc.text.fill", label: "Terms of use") { openURL(Legal.url(.terms)) }
             SectionTitle("About").padding(.top, 22).padding(.bottom, 6)
             AccountSettingRow(icon: "arrow.down.app.fill", label: "App version", detail: "Build \(Self.build)", chevron: false) {}
-            AccountSettingRow(icon: "hammer.fill", label: "Community rules") {
-                session.toast("Review only what you actually ordered or booked. Every review needs a reason. One account per person.")
-            }
             SectionTitle("Account").padding(.top, 22).padding(.bottom, 6)
             AccountSettingRow(icon: "rectangle.portrait.and.arrow.right", label: "Log out") { Task { await session.logout() } }
             AccountSettingRow(icon: "trash", label: "Delete account") { confirmDelete = true }

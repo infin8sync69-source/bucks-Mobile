@@ -2,7 +2,7 @@ import SwiftUI
 import BucksCore
 
 /// The "Bucks Pro" menu (Android's navigation drawer): my Bucks Pro ID and its validity, the payment QR, my listings with their online switches, the driver's vehicle switch,
-/// invites, orders, jobs, recommendations, maps, account settings and logout. Slides in over a scrim.
+/// invites, orders, jobs, recommendations, maps, account settings, help and logout. Slides in over a scrim.
 struct SideMenu: View {
     @Binding var isOpen: Bool
     @State private var logoutAsk = false
@@ -91,6 +91,8 @@ struct SideMenu: View {
     private var footer: some View {
         VStack(spacing: 1) {
             item("gearshape", "Account settings") { close(); router.select(.account, accountTab: "settings") }
+            // Next to settings, as in Android's drawer: how to reach us and the legal pages (App Review guideline 1.2).
+            item("questionmark.circle", "Help and support", selected: router.path.last == .help) { go(.help) }
             // Log out stays in view at the foot of the menu, whatever the length of the list above; it asks first.
             item("rectangle.portrait.and.arrow.right", "Log out") { logoutAsk = true }
         }.padding(12)

@@ -58,6 +58,20 @@ public struct ReportTarget: Identifiable, Hashable, Sendable {
         default: ownerName.isEmpty ? "Report this account" : "Report \(ownerName)"
         }
     }
+
+    /// A recommendation or review in a page's Reviews tab (ReviewsTab in ListingProfileScreen.kt): someone else's, with words in it, on a
+    /// live page; report_content refuses the rest (report_more_kinds.sql). Nil when there is nothing to report.
+    public static func review(_ r: ReviewRow, pageLive: Bool, me: String?, authorName: String) -> ReportTarget? {
+        guard pageLive, r.authorId != me, !r.comment.allSatisfy(\.isWhitespace) else { return nil }
+        return ReportTarget(kind: "REVIEW", targetId: r.id, ownerId: r.authorId, ownerName: authorName)
+    }
+
+    /// A job (JobScreen.kt): open, at a business I don't run; report_content refuses closed jobs. A business is not a person to block, so
+    /// there is no owner, and the sheet names the business ("Sharma Stores won't know who reported it").
+    public static func job(_ j: JobPageRow, manager: Bool) -> ReportTarget? {
+        guard j.open, !manager else { return nil }
+        return ReportTarget(kind: "JOB", targetId: j.id, ownerId: nil, ownerName: j.listingTitle)
+    }
 }
 
 /// The reasons the server accepts (social_safety.sql reports.reason), with the words shown for each.
