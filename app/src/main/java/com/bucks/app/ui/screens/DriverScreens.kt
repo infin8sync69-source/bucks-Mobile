@@ -112,9 +112,11 @@ fun RideRequestCard(dr: DriverRide, onAccept: () -> Unit, onDecline: () -> Unit,
     }
 }
 
-/** Round "bucks" button shown on Home while any listing is online. */
+/** Round "bucks" button on Home that opens the online switches. Rings around it only while [live] (I'm online), as on iOS. */
 @Composable
-fun OnlineFab(modifier: Modifier = Modifier, onClick: () -> Unit) = PulseRings(modifier.size(104.dp), periodMs = 2600) { OnlineFabCore(onClick) }
+fun OnlineFab(modifier: Modifier = Modifier, live: Boolean = true, onClick: () -> Unit) =
+    if (live) PulseRings(modifier.size(104.dp), periodMs = 2600) { OnlineFabCore(onClick) }
+    else Box(modifier.size(104.dp), contentAlignment = Alignment.Center) { OnlineFabCore(onClick) }
 /** Round "bucks" button; the rings around it say "you're live and receiving". */
 @Composable
 private fun OnlineFabCore(onClick: () -> Unit) = Box(Modifier.size(72.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable(onClick = onClick), contentAlignment = Alignment.Center) {

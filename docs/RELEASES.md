@@ -33,6 +33,7 @@ Android release run. iOS: the iOS release run number. They don't need to match e
 | 1.0.1 | `7926f89` (Android); `b7f256f` (iOS) | 1000105 (12 Nov) | 4 (13 Nov) | Different commits: iOS has Revision 1, Android doesn't |
 | 1.0.2 | `fe0248b` | — | 5 (13 Nov) | iOS only |
 | **1.0.3** | **`db90e9f`** | 1000306 (14 Nov, tag `v1.0.3`, before the support email was set); **1000307** (14 Nov, same tag, Help shows the support email and grievance officer): upload 1000307 | **6** (13 Nov, tag `ios-v1.0.3`) | **First release where both apps are the same code** |
+| 1.0.4 (next, for the stores) | one `release-v1.0.4` tag | Go-online button always on Home for a driver with a checked vehicle (phones showed it only while online) | Help with the support email and grievance officer, Report on reviews and jobs, corrected contacts prompt and privacy manifest | Tag it once both are in and CI is green on that commit |
 
 ## Where things stand (14 November 2026)
 

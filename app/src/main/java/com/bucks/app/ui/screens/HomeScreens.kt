@@ -236,7 +236,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
                 Box(Modifier.weight(1.2f).fillMaxHeight()) { BucksMap(Modifier.fillMaxSize(), pins, commands = cmds, recentre = s.me == null, onPinTap = onPinTap, onUserMove = onMapMoved, onMyLocation = ::locate, locating = locating)
                     if (cloud) RecommendedControls(rec, Modifier.align(Alignment.TopCenter).padding(top = 10.dp))
                     MapFooter(Modifier.align(Alignment.BottomStart).padding(8.dp), shops = shopPins.isNotEmpty())
-                    if (showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 32.dp)) { showOnline = true } }
+                    if (showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 32.dp), live = vm.providerOnline) { showOnline = true } }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(Gutter), content = panel) }
         }
         // Phone: full-bleed map with the wordmark bar laid over it; the sheet holds the search pill, services live in the Services tab.
@@ -248,11 +248,13 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(top = 64.dp)) {
                 MapFooter(Modifier.padding(horizontal = Gutter, vertical = 8.dp), shops = shopPins.isNotEmpty())
                 Sheet(Modifier.weight(1f, fill = false), scrollable = true) { panel()
-                    if (vm.canGoOnline) Box(Modifier.padding(top = 6.dp)) { Chip(stringResource(R.string.g3_home_offline_chip), icon = Icons.Rounded.PowerSettingsNew) { showOnline = true } }
+                    // A shop or pro owner who is offline gets this small chip; a driver with a checked vehicle has the button instead.
+                    if (vm.canGoOnline && !showFab) Box(Modifier.padding(top = 6.dp)) { Chip(stringResource(R.string.g3_home_offline_chip), icon = Icons.Rounded.PowerSettingsNew) { showOnline = true } }
                     Spacer(Modifier.height(24.dp)) }
             }
-            // Only while I'm online (a driver switch or a live shop / pro listing); offline, a small chip in the sheet opens the same switches.
-            if (vm.providerOnline) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp)) { showOnline = true }
+            // While I'm online as anything, and always for a driver with a checked vehicle (as on tablets and iOS): going online is one tap,
+            // not a chip at the bottom of the sheet under the Recommended list. The rings show only while online.
+            if (vm.providerOnline || showFab) OnlineFab(Modifier.align(Alignment.BottomEnd).padding(end = Gutter - 16.dp, bottom = 174.dp), live = vm.providerOnline) { showOnline = true }
             // A customer with a ride or an order open: what is happening, one tap away.
             if (activity.isNotEmpty()) ActivityFab(activity, Modifier.align(Alignment.BottomStart).padding(start = Gutter - 4.dp, bottom = 198.dp)) { if (activity.size == 1) vm.open(activity[0].route) else showActivity = true }
         }
