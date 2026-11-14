@@ -5,6 +5,55 @@ jobs, rides and driver mode) for Android on Google Play, India, ages 13+. Form a
 
 Legend: ✅ done · 🔧 fixed in this audit · ⬜ open. Owner: **You**, **Code** (Claude can do it), **Legal**.
 
+## 0. Status on 14 November 2026 (Android and iOS)
+
+Neither app is public: Google Play has no page for `com.bucks.app` and the App Store has none for `com.bucksios.app`. Both are on
+1.0.3 from commit `db90e9f` (versions and tracks: `docs/RELEASES.md`). Checked from the repository, GitHub, the live Supabase project
+and the public store pages. Play Console, App Store Connect and Firebase need a sign-in, so items that depend on them say "check".
+
+**Done since 9 November:** B1 (the token has the `workflow` scope), B2 (upload key; signed bundles build), B3 except the two contact
+secrets, B4 (2 staff reviewers), D3, A1 and A3 (as `guardian_gate.sql`) on live. Live passes every launch check except the 6 pilot settings.
+
+**Done on 14 November:** lawyer review of the legal pages; support email and grievance officer on the pages and in the `SUPPORT_EMAIL` and `GRIEVANCE_OFFICER` secrets (G2); `notify` redeployed with the iPhone alert (G10, server side); `checkout_safety.sql` applied (G14); the `anon` grants revoked (G15).
+
+**Blocks public release on both stores**
+
+| # | Item | Owner |
+|---|---|---|
+| G1 | The operator's real legal name and address on privacy, terms, grievance and the index page (they still show the placeholder "Bucks Technologies Private Limited, Indiranagar" with a "still being confirmed" note). The E-Commerce Rules need the legal name and address shown. Contacts and lawyer review: ✅ 14 Nov | You |
+| G2 | ✅ 14 Nov. `SUPPORT_EMAIL` and `GRIEVANCE_OFFICER` are set; Android 1.0.3 was rebuilt so Help shows them | — |
+| G3 | Licences for what 1.0 offers: Motor Vehicle Aggregator licence in each launch state (rides), E-Commerce Rules, FSSAI (food sellers), GST (L2, L3). Being open source doesn't exempt Bucks: its server matches riders with drivers and sets the fare, which is what Section 93 of the Motor Vehicles Act calls an aggregator, and the licence goes to whoever runs the service. Without a licence: launch with TAXI and AUTO set to `OFF` (their tiles show "Soon") and add a server check that refuses ride requests and going online while they are off | Legal + your call |
+| G4 | On launch day, revert the pilot settings (D1). 6 live checks fail: `min_recommendations` 1 (7), `recommender_min_account_days` 0 (14), `vote_min_account_days` 0 (3), `pilot_skip_checks` 1 (0), 15 services forced ON (0), PARCEL ON (OFF) | You, or Code with your OK |
+| G5 | Firebase console (D2): delete the test numbers except the reviewers' one, SMS to +91 only, API key restrictions, budget alert. Check | You |
+| G6 | Trip safety is live on the server (`trip_safety.sql`, the `trip` function, `bucks-ride-watch` every minute) but its app screens are uncommitted and in no build. Ship it in the next release of both apps with `notify` redeployed, or switch the checks off until then (`ride_*_minutes` and `ride_offroute_m` to 0) | Code + your OK |
+
+**Google Play production**
+
+| # | Item | Owner |
+|---|---|---|
+| G7 | Upload 1.0.3 (1000307, artifact `bucks-play-1.0.3-1000307`) to the closed track, so Android testers run the same code as iOS testers | You |
+| G8 | 12+ testers opted in for 14 days in a row on closed testing, then Apply for production. Check the start date and tester count in Play Console | You |
+| G9 | App content forms (Data safety, foreground service with the video, content rating, target audience, child safety) and the Play app-signing SHA-1 in Firebase (B5). Check | You |
+
+**App Store review**
+
+| # | Item | Owner |
+|---|---|---|
+| G10 | iPhone push in the background. ✅ `notify` version 6 (with the APNs block) deployed 14 Nov. Left: upload the APNs key (.p8) in Firebase (Project settings > Cloud Messaging); until then FCM refuses iPhone sends and drivers on iPhone aren't rung | You |
+| G11 | Contact details inside the iOS app (guideline 1.2 asks for them in apps with user content): iOS has no Help screen, support email or grievance contact | Code |
+| G12 | Report on reviews and jobs on iOS (Android has it), and the staff report queue on iOS | Code |
+| G13 | App Store Connect: screenshots, description, App Privacy answers, age rating, Support URL, review demo account (one Firebase test number), background-location note | You |
+
+**Soon after (P1)**
+
+| # | Item | Owner |
+|---|---|---|
+| G14 | ✅ 14 Nov. `checkout_safety.sql` applied: a retried checkout returns the first order | — |
+| G15 | ✅ 14 Nov. Signed-out users hold no table privileges in `public` | — |
+| G16 | iOS: Crashlytics and App Check (App Attest). App Check can't be enforced for sign-in until iOS has it | Code |
+| G17 | iOS: the 20 languages Android has (iOS is English only), profile photos, Feedback board, Pro profile (`docs/PARITY.md`) | Code |
+| G18 | Supabase plan with backups and point-in-time recovery, and a load test (LAUNCH_READINESS 15). Check the plan | You |
+
 ## 1. What the audit covered
 
 | Area | How | Result |

@@ -8,8 +8,9 @@ name: iOS release (App Store)
 
 on:
   # Pushing a tag ios-v<version> (e.g. ios-v1.0.0) also releases, so it works from any branch before this file is on main.
+  # release-v<version> releases iOS and Android together from the same commit (android-release.yml listens to it too).
   push:
-    tags: ['ios-v*']
+    tags: ['ios-v*', 'release-v*']
   workflow_dispatch:
     inputs:
       version:
@@ -42,13 +43,13 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
-      VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/ios-v') && github.ref_name) }}
+      VERSION: ${{ inputs.version || ((startsWith(github.ref, 'refs/tags/ios-v') || startsWith(github.ref, 'refs/tags/release-v')) && github.ref_name) }}
       BUILD: ${{ inputs.build || github.run_number }}
     steps:
       - uses: actions/checkout@v5
       - name: Check the secrets are set
         run: |
-          VERSION="${VERSION#ios-v}"; echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"   # a step-level copy: a job-level env value may win over GITHUB_ENV
+          VERSION="${VERSION#ios-v}"; VERSION="${VERSION#release-v}"; echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"   # a step-level copy: a job-level env value may win over GITHUB_ENV
           missing=""
           for v in APPSTORE_API_KEY_ID APPSTORE_API_ISSUER_ID APPSTORE_API_KEY_P8_B64 APPLE_TEAM_ID GOOGLE_SERVICE_INFO_PLIST_B64 SUPABASE_URL SUPABASE_ANON_KEY; do
             [ -n "${!v}" ] || missing="$missing $v"

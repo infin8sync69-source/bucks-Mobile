@@ -18,12 +18,14 @@ xcodebuild -project Bucks.xcodeproj -scheme Bucks -destination 'generic/platform
 Simulator sign-in uses a Firebase *test* phone number (the debug build switches app verification off on the simulator only).
 
 ## TestFlight
-1. Pick the build number: the same counter as the Android build (`BUILD_NUMBER` from `android-build.yml`, i.e. the number in the release tag
-   `build-<n>`). Set it with `xcodebuild ... CURRENT_PROJECT_VERSION=<n>` (or edit `ios/project.yml`); `MARKETING_VERSION` follows `0.2.<n>`'s
-   major.minor, so both apps show the same version.
+Releases normally come from CI (next section): a `release-v<version>` tag builds iOS and Android from the same commit with the same
+version (`docs/RELEASES.md`, which also keeps the log of every release). By hand from a Mac:
+1. Use the version of the matching Android release and a build number higher than the last upload:
+   `xcodebuild ... MARKETING_VERSION=<version> CURRENT_PROJECT_VERSION=<n>`.
 2. Product > Archive in Xcode (or `xcodebuild archive`), then Distribute App > App Store Connect > Upload.
 3. In App Store Connect add testers to the internal group; external testers need a short beta review.
-4. Tag the commit `ios-build-<n>` so Android's `build-<n>` and iOS's `ios-build-<n>` point at the same code.
+4. Add a row to `docs/RELEASES.md` with the commit. Don't push an `ios-v` or `release-v` tag for a build uploaded by hand: either tag
+   starts the CI release, which would upload the same version again.
 
 ## Releasing from CI (no Mac needed)
 `.github/workflows/ios-release.yml` archives the app and uploads it to App Store Connect. Signing is cloud-managed: Xcode creates the
