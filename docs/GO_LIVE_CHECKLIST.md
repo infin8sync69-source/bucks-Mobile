@@ -39,7 +39,7 @@ secrets, B4 (2 staff reviewers), D3, A1 and A3 (as `guardian_gate.sql`) on live.
 
 | # | Item | Owner |
 |---|---|---|
-| G10 | iPhone push in the background. ✅ `notify` version 6 (with the APNs block) deployed 14 Nov. Left: upload the APNs key (.p8) in Firebase (Project settings > Cloud Messaging); until then FCM refuses iPhone sends and drivers on iPhone aren't rung | You |
+| G10 | iPhone push in the background. ✅ `notify` version 6 (with the APNs block) deployed 14 Nov. ✅ Production APNs key uploaded to Bucks iOS in Firebase on 14 Nov. The duplicate iOS app (`com.bucks.app`) was removed the same day | — |
 | G11 | Contact details inside the iOS app (guideline 1.2 asks for them in apps with user content): iOS has no Help screen, support email or grievance contact | Code |
 | G12 | Report on reviews and jobs on iOS (Android has it), and the staff report queue on iOS | Code |
 | G13 | App Store Connect: every field, the App Privacy answers and the review notes are in `store/APP_STORE_CONNECT.md`. Still yours: iPhone 6.9-inch screenshots and the reviewers' Firebase test number | You |
