@@ -33,14 +33,14 @@ Android release run. iOS: the iOS release run number. They don't need to match e
 | 1.0.1 | `7926f89` (Android); `b7f256f` (iOS) | 1000105 (12 Nov) | 4 (13 Nov) | Different commits: iOS has Revision 1, Android doesn't |
 | 1.0.2 | `fe0248b` | — | 5 (13 Nov) | iOS only |
 | **1.0.3** | **`db90e9f`** | 1000306 (14 Nov, tag `v1.0.3`, before the support email was set); **1000307** (14 Nov, same tag, Help shows the support email and grievance officer): upload 1000307 | **6** (13 Nov, tag `ios-v1.0.3`) | **First release where both apps are the same code** |
-| 1.0.4 (next, for the stores) | one `release-v1.0.4` tag | Go-online button always on Home for a driver with a checked vehicle (phones showed it only while online) | Help with the support email and grievance officer, Report on reviews and jobs, corrected contacts prompt and privacy manifest | Tag it once both are in and CI is green on that commit |
+| **1.0.4** | **`6550bfe`** (tag `release-v1.0.4`) | **1000408** (14 Nov): go-online button always on Home for a driver with a checked vehicle | **7** (14 Nov): Help with the support email and grievance officer, Report on reviews and jobs, corrected contacts prompt and privacy manifest | **For the stores.** Both apps from one tag |
 
 ## Where things stand (14 November 2026)
 
 | | Android | iOS |
 |---|---|---|
 | Public store page | None. play.google.com returns 404 for `com.bucks.app` | None. Apple's lookup finds no `com.bucksios.app` |
-| Latest build | 1.0.3 (1000307), artifact `bucks-play-1.0.3-1000307` of Android release run 7. Upload it to Play | 1.0.3 (6) on TestFlight |
+| Latest build | 1.0.4 (1000408), artifact `bucks-play-1.0.4-1000408` of Android release run 8. Upload it to Play | 1.0.4 (7) on TestFlight |
 | Test track | Closed testing ran before Revision 1 (12 Nov). Check Play Console for the current track and tester count | TestFlight. Check App Store Connect for the testers and whether a version was submitted for review |
 
 ## Backend: what the apps need on live
