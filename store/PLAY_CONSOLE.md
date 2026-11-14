@@ -126,12 +126,12 @@ Audio is **not** collected: voice search uses the phone's speech recogniser and 
 
 ## MOCK details to replace after legal review
 
-Legal review done (14 November 2026). Still open: the company name and address.
+Legal review done (14 November 2026). Operator and address set the same day.
 
 | Placeholder | Where |
 |---|---|
-| Company: **Bucks Technologies Private Limited** | all legal pages |
-| Address: **2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038** | privacy, grievance |
+| ✅ Operator: **Shafeeq Duddiyanda** (set 14 Nov) | all legal pages |
+| ✅ Address: **2nd Block, 3rd Ward, Gonikoppal, Karnataka 571213, India** (set 14 Nov) | privacy, grievance |
 | ✅ Support email: **infin8sync69@gmail.com** (set 14 Nov) | privacy, delete-account, Play contact email, GitHub secret `SUPPORT_EMAIL` |
 | ✅ Grievance officer: **Shafeeq Duddiyanda, infin8sync69@gmail.com** (set 14 Nov) | privacy, grievance, GitHub secret `GRIEVANCE_OFFICER` |
 | Courts: **Bengaluru** | terms |

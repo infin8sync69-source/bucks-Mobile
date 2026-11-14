@@ -29,7 +29,7 @@ Free. Availability: India.
 | Keywords (100 max) | `nearby,shops,rides,auto,cab,food,grocery,plumber,services,jobs,chat,neighbourhood,recommend` |
 | Support URL | https://infin8sync69-source.github.io/bucks-Mobile/legal/grievance (it has the contact email) |
 | Marketing URL | Leave empty |
-| Copyright | `2026 <the operator's legal name>` (the name still missing from the legal pages) |
+| Copyright | `2026 Shafeeq Duddiyanda` |
 | Screenshots | iPhone 6.9-inch display, portrait, 3 to 10 images (1290 × 2796 or 1320 × 2868). Home map, Feed, Services, a shop page, Explore, Profile. Take them on an iPhone Pro Max from TestFlight, or in the Simulator. iPad: none, the app is iPhone only |
 | Build | The 1.0.x build from TestFlight with the same version as the Android release |
 | Version release | Manually release this version, so both stores go public on the same day |

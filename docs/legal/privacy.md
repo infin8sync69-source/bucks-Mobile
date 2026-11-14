@@ -3,9 +3,9 @@ title: Bucks privacy policy
 ---
 # Privacy policy
 
-> Last updated: 14 November 2026. The company name and address on this page are still being confirmed.
+> Last updated: 14 November 2026.
 
-Bucks is an app for people, local services and shops near you, run by **Bucks Technologies Private Limited**, 2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038, India ("we"). This policy explains what we collect, why, who we share it with, and your rights under India's Digital Personal Data Protection Act, 2023 (DPDP Act).
+Bucks is an app for people, local services and shops near you, run by **Shafeeq Duddiyanda**, 2nd Block, 3rd Ward, Gonikoppal, Karnataka 571213, India ("we"). This policy explains what we collect, why, who we share it with, and your rights under India's Digital Personal Data Protection Act, 2023 (DPDP Act).
 
 ## What we collect
 
@@ -92,4 +92,4 @@ You can access, correct or erase your data, withdraw consent, and nominate someo
 
 ## Contact
 
-Bucks Technologies Private Limited, 2nd Floor, 12th Main Road, Indiranagar, Bengaluru, Karnataka 560038, India · infin8sync69@gmail.com · Grievance officer: Shafeeq Duddiyanda, infin8sync69@gmail.com
+Shafeeq Duddiyanda, 2nd Block, 3rd Ward, Gonikoppal, Karnataka 571213, India · infin8sync69@gmail.com · Grievance officer: Shafeeq Duddiyanda, infin8sync69@gmail.com
