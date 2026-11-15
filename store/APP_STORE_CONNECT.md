@@ -44,38 +44,40 @@ Free. Availability: India.
 | Contact | Your name, phone and email |
 
 Notes. Version 1.0.4 was rejected under guideline 2.1 (Information Needed, 15 November 2026). Apple asked for the six items below. Paste
-the block as it is, after you fill in the two `<...>` parts: the video link and your answer to item 6. Keep it under 4,000 characters.
-Attach the screen recording under App Review Information > Attachment, or link to an unlisted video.
+the block as it is, after you fill in the one `<...>` part, the video. Keep it under 4,000 characters. Attach the screen recording under
+App Review Information > Attachment, or link to an unlisted video. Do the steps in "Before resubmitting" below first.
 
 ```
 1. SCREEN RECORDING
-Recorded on an iPhone running the latest iOS: <link, or "attached">. It starts at app launch and shows: sign-up and sign-in with a phone number, the date of birth and terms, creating a profile, Home, Feed, a shop page and an order, booking a ride, chat, reporting a post and a review, blocking a person, Help and support, and deleting the account.
+Recorded on an iPhone running the latest iOS: <link, or "attached">. It starts at launch and shows sign-up and sign-in, date of birth and terms, creating a profile, Home, Feed, a shop and an order, a ride, chat, reporting a post and a review, blocking a person, Help, and deleting the account.
 
 2. PURPOSE AND AUDIENCE
-Bucks is a local app for neighbourhoods in India. It helps people find nearby shops, service professionals (plumbers, tutors, electricians) and auto and cab rides, and choose them by recommendations from people they know, not paid ads. A business appears only after people who have used it in person recommend it. Bucks also has a local feed, Moments, chat and local jobs. It is for adults and teenagers aged 13 and over in India. Under-13s are refused, and 13 to 17 year olds need a parent's or guardian's consent in the app. It solves a real problem: in small towns, good local businesses and drivers are found by word of mouth, which Bucks puts in one trusted place.
+Bucks is a local app for neighbourhoods in India. People find nearby shops, professionals (plumbers, tutors, electricians) and auto and cab rides, chosen by recommendations from people they know, not paid ads: a business appears only after people who used it in person recommend it. It also has a local feed, Moments, chat and jobs. It is for people aged 13 and over in India; under-13s are refused and 13 to 17 year olds need a parent's consent in the app. In small towns good businesses and drivers are found by word of mouth; Bucks puts that in one trusted place.
 
-3. HOW TO SET UP AND USE THE APP
-Sign in with the demo phone number and code in the Sign-in fields. It is a Firebase test number, so no SMS is sent. Enter any date of birth over 18, accept the terms, and create a profile.
-The app shows what is near your location. Our demo shops, drivers and people are in Whitefield, Bengaluru, India. <how a reviewer outside India sees them>
-- Home: map, search and rides. Services: shops and pros by category.
-- Feed: posts. Long-press or the "..." menu on a post, comment, Moment, message, chat, page or person opens Report and Block. A page's Reviews tab and a job have a flag button to report them.
-- Account > Settings > Help and support: contact email, grievance officer and legal pages.
-- Account deletion: Account > Settings > Delete account. It deletes the account and its data. Signing in again with the demo number creates a new, empty account.
-There is no paid content and nothing to buy in the app.
+3. SETUP
+Sign in with the demo number and code in the Sign-in fields. It is a Firebase test number, so no SMS is sent. Enter a date of birth over 18, accept the terms and create a profile.
+The app shows what is near you. This demo account always stands in Whitefield, Bengaluru, wherever you are, so you see our demo shops, professionals, posts and people. Drivers may not be online during review, so a ride request can go unanswered; the video shows a ride.
+- Home: map, search, rides. Services: shops and pros by category.
+- Report and Block: the "..." menu or a long press on posts, comments, Moments, messages, chats, pages and people; a flag button on reviews and jobs.
+- Help: Account > Settings > Help and support (contact email, grievance officer, legal pages).
+- Delete account: Account > Settings > Delete account.
+- Background location is used only while a driver is online, and stops when they go offline.
+There is no paid content, subscription or in-app purchase. Nothing is sold in the app and businesses pay nothing to be listed.
 
 4. EXTERNAL SERVICES
-- Supabase: database, storage and server functions (our backend).
-- Firebase Authentication (Google): phone number sign-in. Firebase Cloud Messaging and Apple Push Notification service: notifications.
-- Mapbox: maps, place search and routes. OpenStreetMap tiles, Photon (Komoot), Nominatim and OSRM: the fallback when Mapbox is unavailable.
-- India Post pincode API (api.postalpincode.in): fills in the area from a pincode.
-- Apple frameworks on the device: MapKit, Speech (voice search, turned into text on the phone), Contacts (read on the phone, the phonebook isn't uploaded), Face ID.
-- UPI apps and WhatsApp: opened by link, to pay or to invite someone. Bucks does not process payments, and it has no AI service in the release build.
+- Supabase: our backend (database, storage, server functions).
+- Firebase Authentication: phone sign-in. Firebase Cloud Messaging and APNs: notifications.
+- Mapbox: maps, place search, routes. OpenStreetMap, Photon, Nominatim and OSRM as a fallback.
+- India Post pincode API: the area from a pincode.
+- On the device: MapKit, Speech (voice search), Contacts (read on the phone, not uploaded), Face ID.
+- UPI apps and WhatsApp, opened by link to pay or invite. Bucks processes no payments and uses no AI service.
 
 5. REGIONAL DIFFERENCES
-The app is available only in India. It works the same everywhere in India. What you see depends on your location: shops, pros, drivers and local posts within a few kilometres. Services such as Food and Rides open in an area only once enough checked local providers are there, so some may show as locked.
+Available only in India, and the same everywhere in India. You see shops, pros, drivers and posts within a few kilometres. A service such as Food or Rides opens in an area once enough local providers are there, so some may show as locked.
 
-6. REGULATED SERVICES
-<your answer>
+6. REGULATED SERVICES AND THIRD-PARTY MATERIAL
+Bucks is not in a regulated industry such as banking, payments, lending, insurance, health care, gambling or crypto. It holds and moves no money: customers pay shops and drivers directly in cash or with their own UPI app. Bucks employs no drivers and owns no vehicles. Drivers, shops and professionals are independent and hold their own licences; drivers add their driving licence, registration, insurance and permit, and food businesses their FSSAI licence.
+Map data: OpenStreetMap and Mapbox, credited on the map. Demo product photos: Wikimedia Commons under Creative Commons, credited at https://infin8sync69-source.github.io/bucks-Mobile/DEMO_CREDITS. Everything else is ours or posted by users.
 ```
 
 How to record the video (item 1). Use a physical iPhone on the latest iOS, with Settings > Control Centre > Screen Recording. Record in India,
@@ -92,15 +94,24 @@ deleting the account. Show, in this order:
 8. Account > Settings > Help and support: the email and grievance officer.
 9. Account > Settings > Delete account > Delete. End on the logged-out screen.
 
-Items 3 and 6 of the notes need your decision. Item 3 depends on how a reviewer outside India will see content (see below). Item 6 is a
-legal answer: Bucks lists rides and shops, drivers upload their own licence and vehicle papers, and payment goes from person to person.
-Whether you need a ride-aggregator licence or anything else in India is for you and your lawyer to answer. If you need none, say why in
-plain words.
+About item 6. Apple asks for documents only from apps in regulated fields (finance, health, gambling and the like). Bucks is not one, and
+the answer says so without claiming any certificate. It's all true as of 15 November: no billing tables are on the live database, so
+nobody pays. Two things stay with you and your lawyer. India's Motor Vehicle Aggregator Guidelines 2020 may ask a ride platform for a state
+licence; that is a question for Indian law, not for App Review. And if provider licences go on sale later (`docs/BILLING_SETUP.md`),
+guideline 3.1.3 needs another look first.
 
-**Location risk.** Apple reviews from outside India (usually the US). Home, Services and the nearby lists use the phone's real position
-(`Session.here`). The demo world is in Bengaluru, Kodagu and Kanyakumari. A reviewer in Cupertino will probably see an empty map and
-locked services, and that leads to a rejection under 2.1 (app incomplete). The notes cannot fix this alone. Either the reviewers' account
-sees the demo world from anywhere, or the recording and notes must carry the review.
+## Before resubmitting
+
+1. **Supabase**: apply `supabase/migrations/review_accounts.sql`, then add the reviewers' number in the SQL editor:
+   `insert into public.review_accounts (phone, lat, lng, label, note) values ('+91XXXXXXXXXX', 13.003, 77.745, 'Whitefield, Bengaluru', 'App Review');`
+   That number then stands in Whitefield (14 live demo listings) wherever it signs in. Nobody else is affected.
+2. **Firebase**: the same number under Authentication > Sign-in method > Phone > Phone numbers for testing, with its code. Put both in the
+   Sign-in fields above.
+3. **New build**: tag `release-v1.0.5` (`docs/RELEASES.md`). It has the reviewer position and registers for push at launch, so phone sign-in
+   is checked by a silent push instead of the "I'm not a robot" page on firebaseapp.com.
+4. **Check it on your iPhone** from TestFlight: sign in with a real number (no robot page should appear), then sign in with the reviewers'
+   number and see Whitefield shops on Home.
+5. **Record the video** (above), fill in item 1, choose build 1.0.5 on the version page, and reply in App Store Connect with **Submit**.
 
 ## App Privacy
 

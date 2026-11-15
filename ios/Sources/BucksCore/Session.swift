@@ -73,6 +73,8 @@ public final class AppSession: DispatchHost {
     public private(set) var hereLabel: String?
     public private(set) var mockLocation = false
     public private(set) var locationGranted = false
+    /// Set for an App Store or Play reviewer's number: the app stands at the demo world instead of the phone's GPS (ReviewAnchor).
+    public private(set) var reviewAnchor: ReviewAnchor?
     public var mePos: LatLng { here }
 
     // MARK: ride planning
@@ -159,6 +161,8 @@ public final class AppSession: DispatchHost {
             do {
                 let p = try await Backend.shared.ensureProfile(name: name, phone: phone.isEmpty ? nil : phone)
                 me = p; names[p.id] = p.name
+                // Before the first screen loads, so a reviewer's Home opens at the demo world.
+                if let a = try? await Backend.shared.reviewAnchor() { useReviewAnchor(a) }
                 // A returning person on a new phone already has a name and area on the server.
                 if user == nil || (user?.name.isEmpty ?? true), !p.name.isEmpty { var u = user ?? StoredUser(phone: phone); u.name = p.name; u.area = p.area; u.bio = p.bio; save(u) }
                 phase = (p.name.isEmpty && (user?.name.isEmpty ?? true)) ? .needsProfile : .ready
@@ -259,13 +263,15 @@ public final class AppSession: DispatchHost {
     private func clearLocalState() {
         // Cart, orders, search results, listings, jobs, chats and the feed belong to the person who signed out, not the next account on this phone.
         commerce.signedOut(); discover.signedOut(); listings.signedOut(); services.signedOut(); jobs.signedOut(); social.signedOut(); chat.signedOut(); feed.clear()
-        me = nil; user = nil; names = [:]; needsBirthDate = false; needsGuardian = false; termsNeeded = nil; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
+        me = nil; user = nil; names = [:]; reviewAnchor = nil; needsBirthDate = false; needsGuardian = false; termsNeeded = nil; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
         defaults.removeObject(forKey: "storedUser")
     }
 
     // MARK: location
 
-    public func onLocation(_ p: LatLng, mocked: Bool) {
+    public func onLocation(_ fix: LatLng, mocked fixMocked: Bool) {
+        // A reviewer's account stays at its review position whatever the GPS says.
+        let p = reviewAnchor?.at ?? fix, mocked = reviewAnchor == nil ? fixMocked : false
         let wasMocked = mockLocation
         here = p; hereKnown = true; lastFixAt = Date(); mockLocation = mocked; locationGranted = true
         if mocked && !wasMocked { toast("A fake-location app is on. Turn it off to book or take rides.") }
@@ -281,8 +287,18 @@ public final class AppSession: DispatchHost {
     }
     /// A fix taken now, for booking. False when there is none (no permission, location switched off, no answer in time); a fix under 90 s old still counts.
     public func refreshLocation() async -> Bool {
+        if let a = reviewAnchor { onLocation(a.at, mocked: false); return true }
         if let f = await location.fresh() { onLocation(f.at, mocked: f.mocked); return true }
         return hereKnown && (lastFixAt.map { Date().timeIntervalSince($0) < 90 } ?? false)
+    }
+
+    /// Puts a reviewer's account at its review position at once (no GPS fix or permission needed) and names it.
+    func useReviewAnchor(_ a: ReviewAnchor) {
+        reviewAnchor = a
+        // With a name from the server there is no map lookup to make.
+        if !a.label.isEmpty { labelledAt = a.at }
+        onLocation(a.at, mocked: false)
+        if !a.label.isEmpty { hereLabel = a.label }
     }
 
     // MARK: going online

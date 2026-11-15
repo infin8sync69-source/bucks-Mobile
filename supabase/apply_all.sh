@@ -70,6 +70,7 @@ files=(
   migrations/billing.sql
   migrations/risk_hardening.sql
   migrations/legal_hold.sql
+  migrations/review_accounts.sql
 )
 
 case "${1:-}" in
