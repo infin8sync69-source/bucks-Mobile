@@ -35,6 +35,11 @@ struct BucksApp: App {
     }
 }
 
+/// The APNs token once iOS has handed it over (nil before that, and always on the Simulator). Phone sign-in waits a moment for it.
+enum APNs {
+    nonisolated(unsafe) static var token: Data?
+}
+
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     static var firebaseAvailable: Bool { Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil }
     private let push = FirebasePush()
@@ -50,6 +55,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             #endif
             Messaging.messaging().delegate = push
             Push.shared.provider = push
+            // Phone sign-in proves the app is genuine with a silent push, which needs the APNs token before the first code is sent. Without it
+            // Firebase falls back to a reCAPTCHA web page on <project>.firebaseapp.com. Registering needs no permission from the person.
+            application.registerForRemoteNotifications()
         }
         UNUserNotificationCenter.current().delegate = self
         // iOS has no channels: a category per kind (and the thread id in each push) groups notifications the way Android's channels do.
@@ -61,6 +69,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // delegate, which breaks phone sign-in ("notification not forwarded"). These three methods are what it would have added.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         guard FirebaseApp.app() != nil else { return }
+        APNs.token = deviceToken
         Auth.auth().setAPNSToken(deviceToken, type: .unknown)
         Messaging.messaging().apnsToken = deviceToken
     }

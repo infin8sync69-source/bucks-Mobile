@@ -58,6 +58,8 @@ App Store Connect.
 ## Before submitting for review
 - **Demo account.** App Review cannot receive an SMS. Add one Firebase *test* phone number and code (Authentication > Sign-in method >
   Phone > Phone numbers for testing) and give both in App Review Information, with a note that it is a test number.
+  Add the same number to `public.review_accounts` (`supabase/migrations/review_accounts.sql`) so it stands at the demo world in
+  Whitefield, Bengaluru wherever the reviewer is. Without it a reviewer outside India sees an empty map.
 - **Report and block.** The Report sheet is on posts, comments, moments, messages, pages, chats, people, reviews and recommendations
   (a page's Reviews tab) and jobs; Block is in the same menus (guideline 1.2).
 - **Contact details.** Help and support (Account > Settings, and the side menu) shows the support address, the grievance officer and the
