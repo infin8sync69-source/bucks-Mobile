@@ -34,13 +34,14 @@ Android release run. iOS: the iOS release run number. They don't need to match e
 | 1.0.2 | `fe0248b` | — | 5 (13 Nov) | iOS only |
 | **1.0.3** | **`db90e9f`** | 1000306 (14 Nov, tag `v1.0.3`, before the support email was set); **1000307** (14 Nov, same tag, Help shows the support email and grievance officer): upload 1000307 | **6** (13 Nov, tag `ios-v1.0.3`) | **First release where both apps are the same code** |
 | **1.0.4** | **`6550bfe`** (tag `release-v1.0.4`) | **1000408** (14 Nov): go-online button always on Home for a driver with a checked vehicle | **7** (14 Nov): Help with the support email and grievance officer, Report on reviews and jobs, corrected contacts prompt and privacy manifest | **For the stores.** Both apps from one tag |
+| **1.0.5** | **`fb43a59`** (tag `release-v1.0.5`) | **1000509** (15 Nov): same app code as 1.0.4 (the release has iOS and server changes only) | **8** (15 Nov): App Review store reviewers stand at the Whitefield demo world (`review_accounts`), phone sign-in registers for push at launch so it no longer falls back to the reCAPTCHA page | **For the stores.** iOS answers the 2.1 rejection of 1.0.4 (`store/APP_STORE_CONNECT.md`) |
 
 ## Where things stand (14 November 2026)
 
 | | Android | iOS |
 |---|---|---|
 | Public store page | None. play.google.com returns 404 for `com.bucks.app` | None. Apple's lookup finds no `com.bucksios.app` |
-| Latest build | 1.0.4 (1000408), artifact `bucks-play-1.0.4-1000408` of Android release run 8. Upload it to Play | 1.0.4 (7) on TestFlight |
+| Latest build | 1.0.5 (1000509), artifact `bucks-play-1.0.5-1000509` of Android release run 9. Upload it to Play | 1.0.5 (8) on TestFlight |
 | Test track | Closed testing ran before Revision 1 (12 Nov). Check Play Console for the current track and tester count | TestFlight. Check App Store Connect for the testers and whether a version was submitted for review |
 
 ## Backend: what the apps need on live
