@@ -48,6 +48,10 @@ jobs:
       GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
       VERSION: ${{ inputs.version || ((startsWith(github.ref, 'refs/tags/ios-v') || startsWith(github.ref, 'refs/tags/release-v')) && github.ref_name) }}
       BUILD: ${{ inputs.build || github.run_number }}
+      # Not secrets: Bucks iOS in Firebase (Project settings > General) and the team of the APNs key uploaded there
+      # (Project settings > Cloud Messaging). Phone sign-in's silent push needs both to match the build.
+      FIREBASE_IOS_APP_ID: "1:717745308020:ios:124f5a784071eb2748ec21"
+      APNS_KEY_TEAM_ID: Z8SQVR6GUD
     steps:
       - uses: actions/checkout@v5
       - name: Check the secrets are set
@@ -77,6 +81,14 @@ jobs:
           # xcconfig reads // as a comment, so the scheme's slashes are spelled with $() (as scripts/make_secrets.sh does)
           printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > App/GoogleService-Info.plist
           plutil -lint App/GoogleService-Info.plist
+          # The file must belong to Bucks iOS (com.bucksios.app). One from the deleted duplicate app still signs people in, but its
+          # app has no APNs key, so every sign-in falls back to the reCAPTCHA page. The app id isn't secret; print it.
+          bid="$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' App/GoogleService-Info.plist)"
+          gid="$(/usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' App/GoogleService-Info.plist)"
+          echo "GoogleService-Info.plist: BUNDLE_ID $bid, GOOGLE_APP_ID $gid"
+          [ "$bid" = "com.bucksios.app" ] || { echo "::error::GoogleService-Info.plist is for $bid, not com.bucksios.app. Download it again from Firebase > Project settings > Bucks iOS and update GOOGLE_SERVICE_INFO_PLIST_B64"; exit 1; }
+          [ "$gid" = "$FIREBASE_IOS_APP_ID" ] || { echo "::error::GoogleService-Info.plist has GOOGLE_APP_ID $gid, but Bucks iOS is $FIREBASE_IOS_APP_ID. Download it again from Firebase and update GOOGLE_SERVICE_INFO_PLIST_B64"; exit 1; }
+          [ "$APPLE_TEAM_ID" = "$APNS_KEY_TEAM_ID" ] || { echo "::error::APPLE_TEAM_ID is not the team of the APNs key in Firebase ($APNS_KEY_TEAM_ID): pushes and phone sign-in's silent push would fail"; exit 1; }
           # Phone sign-in comes back through REVERSED_CLIENT_ID, or, in newer config files that lack it, the encoded app id
           # (GOOGLE_APP_ID 1:N:ios:H becomes app-1-N-ios-H), as Firebase's phone-auth guide says.
           rev="$(/usr/libexec/PlistBuddy -c 'Print :REVERSED_CLIENT_ID' App/GoogleService-Info.plist 2>/dev/null || true)"

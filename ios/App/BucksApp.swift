@@ -70,7 +70,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         guard FirebaseApp.app() != nil else { return }
         APNs.token = deviceToken
-        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+        // Said outright rather than guessed from the provisioning profile (Firebase's guess has a TestFlight gap): builds from Xcode
+        // use the sandbox APNs, TestFlight and the App Store use production, which is where the Firebase APNs key is.
+        #if DEBUG
+        Auth.auth().setAPNSToken(deviceToken, type: .sandbox)
+        #else
+        Auth.auth().setAPNSToken(deviceToken, type: .prod)
+        #endif
         Messaging.messaging().apnsToken = deviceToken
     }
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
