@@ -68,6 +68,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // Firebase's automatic delegate hooking is switched off (Info.plist FirebaseAppDelegateProxyEnabled = NO): in a SwiftUI app it can miss the
     // delegate, which breaks phone sign-in ("notification not forwarded"). These three methods are what it would have added.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Push.shared.apnsStatus = "Registered"
         guard FirebaseApp.app() != nil else { return }
         APNs.token = deviceToken
         // Said outright rather than guessed from the provisioning profile (Firebase's guess has a TestFlight gap): builds from Xcode
@@ -78,6 +79,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         Auth.auth().setAPNSToken(deviceToken, type: .prod)
         #endif
         Messaging.messaging().apnsToken = deviceToken
+    }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        let ns = error as NSError
+        Push.shared.apnsStatus = "Failed: \(ns.localizedDescription) (\(ns.domain) \(ns.code))"
     }
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         if FirebaseApp.app() != nil, Auth.auth().canHandleNotification(userInfo) { completionHandler(.noData); return }

@@ -72,6 +72,9 @@ public final class Push {
     public static let shared = Push()
     /// Set by the app at launch; nil in builds without Firebase (registration then does nothing).
     public var provider: PushTokenProvider?
+    /// What iOS answered when the app registered for push, shown in Help: phone sign-in's silent check and every notification need
+    /// it, and when it fails iOS says why (for example a build signed without the push entitlement).
+    public var apnsStatus = "Not registered yet"
     private var registered: String?
     /// Set while (and after) signing out, so a token FCM hands out in the meantime is not stored against the leaving person.
     private var signingOut = false

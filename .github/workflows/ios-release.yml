@@ -132,6 +132,36 @@ jobs:
           for e in aps-environment com.apple.developer.usernotifications.time-sensitive; do
             printf '%s' "$ents" | grep -q "$e" || { echo "::error::the archive lost the $e entitlement"; exit 1; }
           done
+      - name: The App Store build can receive pushes
+        # The archive above is signed locally; the App Store signature (and the aps-environment Apple's profile allows) only exists after
+        # export. Export once without uploading and read it: phone sign-in's silent check and every notification need aps-environment.
+        run: |
+          cat > "$RUNNER_TEMP/InspectOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Bucks.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/InspectOptions.plist" \
+            -exportPath "$RUNNER_TEMP/inspect" -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${APPSTORE_API_KEY_ID}.p8" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" > inspect.log 2>&1 \
+            || { tail -30 inspect.log; echo "::error::export for inspection failed"; exit 1; }
+          ipa="$(ls "$RUNNER_TEMP"/inspect/*.ipa | head -1)"
+          mkdir -p "$RUNNER_TEMP/ipa" && unzip -q "$ipa" -d "$RUNNER_TEMP/ipa"
+          app="$RUNNER_TEMP/ipa/Payload/Bucks.app"
+          codesign -d --entitlements - --xml "$app" > "$RUNNER_TEMP/ents.plist" 2>/dev/null || true
+          echo "Entitlements of the App Store build:"; plutil -p "$RUNNER_TEMP/ents.plist" || true
+          security cms -D -i "$app/embedded.mobileprovision" > "$RUNNER_TEMP/profile.plist" 2>/dev/null || true
+          echo "aps-environment its profile allows: $(plutil -extract Entitlements.aps-environment raw "$RUNNER_TEMP/profile.plist" 2>/dev/null || echo none)"
+          aps="$(plutil -extract aps-environment raw "$RUNNER_TEMP/ents.plist" 2>/dev/null || true)"
+          [ "$aps" = "production" ] || { echo "::error::the App Store build has aps-environment '${aps:-missing}', not production: iOS gives it no push token, so phone sign-in shows the reCAPTCHA page and no notification arrives. Turn on Push Notifications for com.bucksios.app in the Apple Developer account (Identifiers)"; exit 1; }
+          rm -rf "$RUNNER_TEMP/inspect" "$RUNNER_TEMP/ipa" "$RUNNER_TEMP/ents.plist" "$RUNNER_TEMP/profile.plist"
       - name: Upload to App Store Connect
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
