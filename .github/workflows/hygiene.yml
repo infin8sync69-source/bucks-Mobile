@@ -1,0 +1,19 @@
+# Code hygiene gate for both apps on every pull request: scripts/hygiene.sh (debug output, unfinished-work markers, conflict markers,
+# secrets, large files, and backend calls that only one app makes without a note in docs/PARITY.md).
+name: Hygiene
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Hygiene checks
+        run: scripts/hygiene.sh

@@ -33,8 +33,22 @@ Status: **=** same on both, **A** Android only so far, **i** iOS only so far, **
 | Revision 1 (first closed test): notification bell and one red count badge, sync requests answered from Notifications, log out asks first, people cards in Home search, one-tap arrows with the inline comment box, Explore tab (search, pills, video / image / file pages, places and products my people recommend, viewer with previous and next) | `ui/BucksAppUi.kt`, `ui/components/Components.kt`, `ui/screens/HomeScreens.kt`, `ui/social/Discover.kt`, `ui/screens/ExploreScreen.kt`, `ui/MediaViewer.kt` | `Design/Components.swift` (`NotifAction`, `CountBadge`, `InlineCommentBox`), `Screens/Chat/MessagesScreen.swift`, `Screens/Discover/HomeSearch.swift`, `Screens/Chat/PersonScreen.swift`, `Screens/Discover/ExploreScreen.swift`, `BucksCore/BackendExplore.swift` | = except: iOS doesn't save a still frame (poster) with a new video yet, so Explore shows its videos on a plain dark card |
 | About you onboarding step (photo, private gender, one line) | `ui/onboarding/OnboardingScreens.kt` (`AboutYouScreen`) | `Screens/Auth/CreateProfileScreen.swift` already asks gender and the line at sign-up; gender is saved to `profile_private` | A: profile pictures (upload, and showing them on avatars) aren't on iOS yet |
 
-Every backend call (RPC and table) the Android app makes in live mode is also made by the iOS app; the RPC names and parameters are
-the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `open_moments`).
+## Backend calls only Android makes
+
+`scripts/hygiene.sh` (the Hygiene check on every pull request) compares the RPCs the two apps call and fails when Android calls one
+that iOS doesn't and this table doesn't list. Port the feature, then delete its row. Audited 15 November 2026.
+
+| Feature not on iOS yet | Android | RPCs iOS doesn't call | Size |
+|---|---|---|---|
+| Showcase documents on a page (add, check, request and grant access, view log), category suggestions | `data/BackendDocs.kt`, `ui/screens/manage/ShowcaseDocsManageScreen.kt`, `ui/screens/discover/ShowcaseDocsUi.kt` | `showcase_docs`, `add_showcase_doc`, `update_showcase_doc`, `delete_showcase_doc`, `open_showcase_doc`, `check_showcase_doc`, `clear_showcase_check`, `request_doc_access`, `decide_doc_request`, `revoke_doc_access`, `doc_requests_for`, `doc_view_log`, `category_suggestions` | Large (about 650 lines of Kotlin) |
+| Map privacy: consent to show posts on the map, my map posts, "it shows my location" report | `data/BackendMap.kt`, `ui/screens/MapPrivacyScreen.kt` | `set_map_consent`, `set_post_on_map`, `my_map_posts`, `report_map_location`, `for_you` | Small |
+| Delivery riders for a shop's order (assign, reassign), rating the rider, my review of an order | `data/BackendDelivery.kt`, `data/BackendStudio.kt`, `ui/Commerce.kt` | `order_delivery`, `reassign_delivery`, `rate_rider`, `my_order_review` | Medium |
+| Staff queues: reports, vehicle checks | `ui/Safety.kt`, `ui/screens/manage/DocumentsScreens.kt` | `report_queue`, `review_report`, `vehicles_to_review`, `review_vehicle` | Medium (staff only) |
+| Places in search (find a place, add one), the page owner line and phone on a page | `data/BackendDiscover.kt`, `ui/screens/discover/OwnerLine.kt` | `search_places`, `add_place`, `listing_owner`, `listing_phone` | Medium |
+| Cancellation history shown before cancelling | `data/BackendCancel.kt`, `ui/components/CancelSheet.kt` | `my_cancel_stats` | Small |
+| App language (20 languages on Android; iOS is English only) | `data/AppLanguages.kt`, `res/values-*/` | `set_my_locale` | Large: every iOS string is hard-coded in English |
+| Synced-only feed tab, Moments by author | `data/Backend.kt` | `feed_synced`, `moments_of` | Small (`moments_of` is unused on Android too) |
+| Pro profile (table access, no RPC) and analytics / Crashlytics | `ui/screens/pro/*`, `data/BackendPro.kt`, `data/Analytics.kt` | n/a | Large |
 
 ## Intentional differences
 
@@ -64,7 +78,7 @@ the same. Android's `Backend.momentsOf` is unused (both apps open Moments with `
 | Store reviewers stand at the demo world | Not yet | `BucksCore/ReviewAnchor.swift`, `AppSession.useReviewAnchor`: a number in `review_accounts` (`supabase/migrations/review_accounts.sql`) gets a fixed position from `review_anchor()` instead of GPS | Android: call `review_anchor()` after sign-in and use it in place of the location fix, so Play's reviewers see the demo world too |
 | Help: common questions, contact us, grievance officer (IT Rules 2021), legal pages | `ui/social/Settings.kt` (`HelpScreen`), `ui/social/Legal.kt`; `SUPPORT_EMAIL`, `GRIEVANCE_OFFICER` from `app/build.gradle.kts` | `BucksUI/Screens/Settings/HelpScreen.swift`, `BucksCore/Legal.swift`; the same two secrets reach Info.plist (`SupportEmail`, `GrievanceOfficer`) through `Config/Secrets.xcconfig`; opened from Account > Settings (Help and legal) and the side menu | = except: no feedback board link (iOS has no board yet); with no support address in the build, iOS shows the grievance page link where Android shows only a line of text; the FAQ answers name the iOS screens (Home search and Sync instead of Discover, press and hold a message to report it, Profile > Settings) and the Nearby audience Moments have on both apps |
 | People search, person profile | `ui/social/Discover.kt`, `Profile.kt` | `Screens/Discover/HomeSearch.swift` (people cards), `Screens/Chat/PersonScreen.swift` | = (no cover/profile photos, see About you) |
-| Feedback board | `ui/social/Feedback.kt` | Not yet | |
+| Feedback board | `ui/social/Feedback.kt`, `data/BackendFeedback.kt` | `Screens/Settings/FeedbackBoardScreen.swift`, `BucksCore/BackendFeedback.swift` | = |
 | Pro profile (Bucks Pro menu): intro, experience, education, skills, certificates, services, preferences, visibility, CV files | `ui/screens/pro/*`, `data/BackendPro.kt`, `supabase/migrations/pro_profile.sql` | Not yet | Reading a CV to fill the profile is planned (AI waitlist) |
 | Colour themes (Purple, Sapphire, Emerald, Ruby, Graphite) in Appearance | `ui/theme/Theme.kt` (`Accent`), `ui/screens/SettingsScreens.kt` | `BucksUI/Design/Theme.swift` (colour tables per `Prefs.Accent`), `Screens/Account/AppearanceScreen.swift` | Same values on both; change them together |
 | Analytics (adults only) and Crashlytics | `data/Analytics.kt` | Not yet | |

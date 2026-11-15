@@ -55,6 +55,7 @@ public struct ReportTarget: Identifiable, Hashable, Sendable {
         case "LISTING": "Report this page"
         case "REVIEW": "Report this recommendation"
         case "JOB": "Report this job"
+        case "FEEDBACK": "Report this feedback post"
         default: ownerName.isEmpty ? "Report this account" : "Report \(ownerName)"
         }
     }
