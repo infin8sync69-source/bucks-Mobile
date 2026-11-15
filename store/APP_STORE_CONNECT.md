@@ -43,17 +43,64 @@ Free. Availability: India.
 | Password | That number's fixed code |
 | Contact | Your name, phone and email |
 
-Notes (paste as is):
+Notes. Version 1.0.4 was rejected under guideline 2.1 (Information Needed, 15 November 2026). Apple asked for the six items below. Paste
+the block as it is, after you fill in the two `<...>` parts: the video link and your answer to item 6. Keep it under 4,000 characters.
+Attach the screen recording under App Review Information > Attachment, or link to an unlisted video.
 
 ```
-Sign in with the phone number and code above. It is a Firebase test number, so no SMS is sent. Choose any date of birth over 18.
+1. SCREEN RECORDING
+Recorded on an iPhone running the latest iOS: <link, or "attached">. It starts at app launch and shows: sign-up and sign-in with a phone number, the date of birth and terms, creating a profile, Home, Feed, a shop page and an order, booking a ride, chat, reporting a post and a review, blocking a person, Help and support, and deleting the account.
 
-Report and Block are in the menu on posts, comments, Moments, messages, chats, pages and people. Account deletion: Account > Settings > Delete account.
+2. PURPOSE AND AUDIENCE
+Bucks is a local app for neighbourhoods in India. It helps people find nearby shops, service professionals (plumbers, tutors, electricians) and auto and cab rides, and choose them by recommendations from people they know, not paid ads. A business appears only after people who have used it in person recommend it. Bucks also has a local feed, Moments, chat and local jobs. It is for adults and teenagers aged 13 and over in India. Under-13s are refused, and 13 to 17 year olds need a parent's or guardian's consent in the app. It solves a real problem: in small towns, good local businesses and drivers are found by word of mouth, which Bucks puts in one trusted place.
 
-Background location is used only while a driver is online with a checked vehicle (the round bucks button on Home > go online). It stops when they go offline.
+3. HOW TO SET UP AND USE THE APP
+Sign in with the demo phone number and code in the Sign-in fields. It is a Firebase test number, so no SMS is sent. Enter any date of birth over 18, accept the terms, and create a profile.
+The app shows what is near your location. Our demo shops, drivers and people are in Whitefield, Bengaluru, India. <how a reviewer outside India sees them>
+- Home: map, search and rides. Services: shops and pros by category.
+- Feed: posts. Long-press or the "..." menu on a post, comment, Moment, message, chat, page or person opens Report and Block. A page's Reviews tab and a job have a flag button to report them.
+- Account > Settings > Help and support: contact email, grievance officer and legal pages.
+- Account deletion: Account > Settings > Delete account. It deletes the account and its data. Signing in again with the demo number creates a new, empty account.
+There is no paid content and nothing to buy in the app.
 
-Rides and shop orders are paid directly between people by UPI or cash, outside the app. Bucks sells nothing in the app.
+4. EXTERNAL SERVICES
+- Supabase: database, storage and server functions (our backend).
+- Firebase Authentication (Google): phone number sign-in. Firebase Cloud Messaging and Apple Push Notification service: notifications.
+- Mapbox: maps, place search and routes. OpenStreetMap tiles, Photon (Komoot), Nominatim and OSRM: the fallback when Mapbox is unavailable.
+- India Post pincode API (api.postalpincode.in): fills in the area from a pincode.
+- Apple frameworks on the device: MapKit, Speech (voice search, turned into text on the phone), Contacts (read on the phone, the phonebook isn't uploaded), Face ID.
+- UPI apps and WhatsApp: opened by link, to pay or to invite someone. Bucks does not process payments, and it has no AI service in the release build.
+
+5. REGIONAL DIFFERENCES
+The app is available only in India. It works the same everywhere in India. What you see depends on your location: shops, pros, drivers and local posts within a few kilometres. Services such as Food and Rides open in an area only once enough checked local providers are there, so some may show as locked.
+
+6. REGULATED SERVICES
+<your answer>
 ```
+
+How to record the video (item 1). Use a physical iPhone on the latest iOS, with Settings > Control Centre > Screen Recording. Record in India,
+near the demo world, so the screens show content. Use a spare Firebase test number, not the reviewers' one, because the recording ends by
+deleting the account. Show, in this order:
+
+1. Launch from the home screen: splash, Log in, phone number, code, date of birth, terms, create profile (name, area).
+2. Home map, Services, and a shop page with its products and Reviews tab.
+3. Put something in the cart and place a cash or UPI order. No money moves in the app.
+4. Book a ride from Home: destination, vehicle, request, then cancel.
+5. Feed: a post, a comment, a Moment. Open chat and send a message.
+6. Report: the "..." menu on a post > Report > pick a reason > send. Then the flag on a review, and the flag on a job.
+7. Block: a person's profile > "..." > Block. Show that their content is gone.
+8. Account > Settings > Help and support: the email and grievance officer.
+9. Account > Settings > Delete account > Delete. End on the logged-out screen.
+
+Items 3 and 6 of the notes need your decision. Item 3 depends on how a reviewer outside India will see content (see below). Item 6 is a
+legal answer: Bucks lists rides and shops, drivers upload their own licence and vehicle papers, and payment goes from person to person.
+Whether you need a ride-aggregator licence or anything else in India is for you and your lawyer to answer. If you need none, say why in
+plain words.
+
+**Location risk.** Apple reviews from outside India (usually the US). Home, Services and the nearby lists use the phone's real position
+(`Session.here`). The demo world is in Bengaluru, Kodagu and Kanyakumari. A reviewer in Cupertino will probably see an empty map and
+locked services, and that leads to a rejection under 2.1 (app incomplete). The notes cannot fix this alone. Either the reviewers' account
+sees the demo world from anywhere, or the recording and notes must carry the review.
 
 ## App Privacy
 
