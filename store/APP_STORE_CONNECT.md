@@ -111,7 +111,7 @@ guideline 3.1.3 needs another look first.
    is checked by a silent push instead of the "I'm not a robot" page on firebaseapp.com.
 4. **Check it on your iPhone** from TestFlight: sign in with a real number (no robot page should appear), then sign in with the reviewers'
    number and see Whitefield shops on Home.
-5. **Record the video** (above), fill in item 1, choose build 1.0.5 on the version page, and reply in App Store Connect with **Submit**.
+5. **Record the video** (above), fill in item 1, choose build 1.0.6 (9) on the version page, and reply in App Store Connect with **Submit**.
 
 ## App Privacy
 
