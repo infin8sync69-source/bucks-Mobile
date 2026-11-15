@@ -55,12 +55,19 @@ struct HelpScreen: View {
                         AccountSettingRow(icon: "lock.shield.fill", label: "Privacy policy") { openURL(Legal.url(.privacy)) }
                         AccountSettingRow(icon: "doc.text.fill", label: "Terms of use") { openURL(Legal.url(.terms)) }
                         AccountSettingRow(icon: "figure.and.child.holdinghands", label: "Child safety standards") { openURL(Legal.url(.childSafety)) }
+                        // For support: the build, and whether iOS gave this phone a push token (sign-in and notifications need one).
+                        Muted("Bucks \(appVersion) · Push: \(Push.shared.apnsStatus)").textSelection(.enabled).padding(.top, 24)
                     }.padding(Gutter).padding(.bottom, 16)
                 }
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .bucksBackground().bucksHideNavigationBar()
+    }
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        return "\(info["CFBundleShortVersionString"] as? String ?? "") (\(info["CFBundleVersion"] as? String ?? ""))"
     }
 
     private func heading(_ text: String) -> some View {
