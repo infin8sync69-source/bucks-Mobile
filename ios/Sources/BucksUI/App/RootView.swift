@@ -255,6 +255,7 @@ struct MainStack: View {
         case .settingsBlocked: BlockedScreen()
         case .settingsCloseFriends: CloseFriendsScreen()
         case .help: HelpScreen()
+        case .feedback: FeedbackBoardScreen()
         case .maps: MapsScreen()
         case .editProfile: CreateProfileScreen(editing: true)
         case .account: AccountScreen()

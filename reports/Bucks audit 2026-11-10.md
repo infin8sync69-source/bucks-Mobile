@@ -73,7 +73,7 @@ What held up: all 70 tables have row security; signed-out users can call nothing
 | B5 | Medium | Server messages are English only, in an app shipping 20 languages. | The server functions raise plain English sentences, and `friendlyError` shows them as is. | Same fix as B4: codes on the server, text in the app. |
 | B6 | Medium | Job applications send no notifications. | `applications` has only its check and guard triggers; nothing in `notifications.sql` or the `notify` function mentions it. | Notify the employer on apply and the applicant on shortlist, hire and reject. |
 | B7 | Low | `NameScreen` has a hard-coded "Try again." and its own error parsing. | `OnboardingScreens.kt:238`. | Use `friendlyError` and a string resource. |
-| B8 | Low | Auto and cab copy still promises deliveries; only bikes get them. | Noted in `Flow`; `claim_task` matches on vehicle kind. | Fix the copy. |
+| B8 | Low | Auto and cab copy still promises deliveries; only bikes get them. | Noted in `docs/notes/core-flows.md`; `claim_task` matches on vehicle kind. | Fix the copy. |
 
 ### Experience
 

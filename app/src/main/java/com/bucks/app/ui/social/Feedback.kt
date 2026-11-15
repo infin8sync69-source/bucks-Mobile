@@ -71,10 +71,11 @@ fun FeedbackBoardScreen(vm: BucksViewModel, onBack: () -> Unit) {
                     listOf("TOP" to R.string.g4_fb_sort_top, "NEW" to R.string.g4_fb_sort_new).forEachIndexed { i, (k, l) -> SegmentedButton(sort == k, { sort = k }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(stringResource(l)) } }
                 }
             }
+            val list = rows
             when {
-                rows == null -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-                rows!!.isEmpty() -> item { Muted(if (filter == "MINE") stringResource(R.string.g4_fb_empty_mine) else stringResource(R.string.g4_fb_empty), Modifier.padding(Gutter)) }
-                else -> items(rows!!, key = { it.id }) { r -> FeedbackCard(r, staff = vm.services.isStaff, onVote = { vote(r) }, onStaff = { staffFor = r },
+                list == null -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                list.isEmpty() -> item { Muted(if (filter == "MINE") stringResource(R.string.g4_fb_empty_mine) else stringResource(R.string.g4_fb_empty), Modifier.padding(Gutter)) }
+                else -> items(list, key = { it.id }) { r -> FeedbackCard(r, staff = vm.services.isStaff, onVote = { vote(r) }, onStaff = { staffFor = r },
                     onDelete = { scope.launch { runCatching { BackendFeedback.delete(r.id) }.onSuccess { rows = rows?.filterNot { it.id == r.id } }.onFailure { vm.toast(Str.get(R.string.g4_fb_delete_failed)) } } },
                     onReport = reporter?.let { rep -> { rep(ReportTarget("FEEDBACK", r.id, null, r.authorName)) } }) }
             }
@@ -98,8 +99,9 @@ private fun FeedbackCard(r: FeedbackRow, staff: Boolean, onVote: () -> Unit, onS
                 Text("${r.votes}", style = MaterialTheme.typography.titleMedium, color = if (r.voted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
             }
             Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                val statusLabel = STATUS[r.status]?.let { stringResource(it) } ?: r.status
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    when (r.status) { "DONE" -> PillGood(stringResource(STATUS[r.status]!!)); "PLANNED", "IN_PROGRESS" -> PillPurple(stringResource(STATUS[r.status]!!)); "DECLINED" -> PillGrey(stringResource(STATUS[r.status]!!)); else -> PillGrey(STATUS[r.status]?.let { stringResource(it) } ?: r.status) }
+                    when (r.status) { "DONE" -> PillGood(statusLabel); "PLANNED", "IN_PROGRESS" -> PillPurple(statusLabel); else -> PillGrey(statusLabel) }
                     Spacer(Modifier.width(6.dp)); PillGrey(CATEGORY[r.category]?.let { stringResource(it) } ?: r.category)
                     Spacer(Modifier.weight(1f))
                     if (r.isMine || staff || onReport != null) Box {
