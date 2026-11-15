@@ -107,7 +107,7 @@ guideline 3.1.3 needs another look first.
    That number then stands in Whitefield (14 live demo listings) wherever it signs in. Nobody else is affected.
 2. **Firebase**: the same number under Authentication > Sign-in method > Phone > Phone numbers for testing, with its code. Put both in the
    Sign-in fields above.
-3. **New build**: tag `release-v1.0.5` (`docs/RELEASES.md`). It has the reviewer position and registers for push at launch, so phone sign-in
+3. **New build**: 1.0.6 (build 9) is on TestFlight (`docs/RELEASES.md`). It has the reviewer position and registers for push at launch, so phone sign-in
    is checked by a silent push instead of the "I'm not a robot" page on firebaseapp.com.
 4. **Check it on your iPhone** from TestFlight: sign in with a real number (no robot page should appear), then sign in with the reviewers'
    number and see Whitefield shops on Home.
