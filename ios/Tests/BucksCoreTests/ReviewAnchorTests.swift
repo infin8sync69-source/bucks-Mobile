@@ -7,7 +7,10 @@ import Testing
 extension DispatchTests {
     private func reviewSession(_ rows: [[String: Any]]) -> AppSession {
         RingAlert.enabled = false
-        FakeServer.handler = { path, _, _ in path == "/rest/v1/rpc/review_anchor" ? (200, rows) : (404, ["message": "no stub"]) }
+        FakeServer.handler = { (path: String, _: String, _: [String: Any]) -> (Int, Any) in
+            if path == "/rest/v1/rpc/review_anchor" { return (200, rows) }
+            return (404, ["message": "no stub"])
+        }
         FakeServer.log = []; FakeServer.calls = []; FakeServer.prefer = [:]
         Backend.shared.configure(BackendConfig(url: "https://x.supabase.co", anonKey: "anon"), identity: FakeIdentity())
         Backend.shared.useProtocolClasses([FakeServer.self])
