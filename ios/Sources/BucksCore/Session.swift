@@ -50,6 +50,9 @@ public final class AppSession: DispatchHost {
     public var tempPhone = ""
     /// What the phone sign-in is doing right now, shown under the code box so a tester can report it.
     public var otpStatus = ""
+    /// True while a code is being requested. Firebase's app check can take several seconds (and may open the reCAPTCHA page); a second
+    /// request meanwhile would text a second code and replace the first, so the first code would no longer work.
+    public private(set) var sendingOtp = false
     public var names: [String: String] = [:]
     /// True when I'm signed in but the server has no date of birth for me yet: the app asks for it before anything else.
     public private(set) var needsBirthDate = false
@@ -133,6 +136,9 @@ public final class AppSession: DispatchHost {
 
     public func sendOtp(resend: Bool = false) async {
         guard let auth else { otpStatus = "Sign-in isn't set up in this build."; return }
+        guard !sendingOtp else { return }
+        sendingOtp = true
+        defer { sendingOtp = false }
         otpStatus = "Asking Firebase to send the code…"
         do {
             switch try await auth.sendCode(phone: tempPhone, resend: resend) {

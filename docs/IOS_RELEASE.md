@@ -38,7 +38,11 @@ One-time setup:
 4. **App Store Connect API key** (Users and Access > Integrations > App Store Connect API), role **Admin** (cloud signing at upload refuses App Manager keys with "Cloud signing permission error"). Download the `.p8` once;
    note the Key ID and the Issuer ID.
 5. **Firebase**: add the iOS app with bundle id `com.bucksios.app`, download `GoogleService-Info.plist`, and upload an APNs authentication
-   key (Project settings > Cloud Messaging). Phone sign-in and push both need it.
+   key (Project settings > Cloud Messaging). Phone sign-in and push both need it. When you create the key in the Apple Developer account
+   (Keys > +, Apple Push Notifications service), set its **Environment to "Sandbox & Production"**. A "Sandbox" key works only for builds
+   installed from Xcode: TestFlight and the App Store use production, so Apple refuses every push (`403 BadEnvironmentKeyInToken` in the
+   `notify` logs) and phone sign-in falls back to the "I'm not a robot" page. Upload the same key to both the development and the
+   production slot in Firebase.
 6. **Repository secrets**: download both files to ~/Downloads and run `ios/scripts/set_release_secrets.sh` (it finds them, reads the Key ID from the file name and asks only for the Issuer ID). Or by hand (run these yourself, from a terminal on your own machine; nothing is printed):
    ```bash
    gh secret set APPLE_TEAM_ID --body "<team id>"
