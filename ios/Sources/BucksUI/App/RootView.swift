@@ -65,7 +65,8 @@ struct AuthFlow: View {
             SplashScreen { path.append(.login) }
                 .navigationDestination(for: Step.self) { step in
                     switch step {
-                    case .login: LoginScreen { path.append(.otp) }
+                    // Once: a second tap on "Send code" would push a second code screen, which requests a second code.
+                    case .login: LoginScreen { if path.last != .otp { path.append(.otp) } }
                     case .otp: OtpScreen()
                     }
                 }
