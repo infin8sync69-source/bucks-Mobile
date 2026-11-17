@@ -38,13 +38,14 @@ Android release run. iOS: the iOS release run number. They don't need to match e
 | **1.0.6** | **`662f001`** (tag `release-v1.0.6`) | **1000610** (15 Nov): same app code as 1.0.4 | **9** (15 Nov): phone sign-in passes the APNs token as production, so Firebase's silent-push check can work instead of the reCAPTCHA page; the release now checks the Firebase file is Bucks iOS and the team matches the APNs key | **For the stores.** Submit iOS build 9 for review |
 | **1.0.7** | **`cbe506f`** (tag `release-v1.0.7`) | **1000711** (15 Nov): same app code as 1.0.4 | **10** (15 Nov): Help shows what iOS answered to push registration; the release checks the signed App Store build has aps-environment production (it does) | Diagnostic build for the reCAPTCHA fallback in phone sign-in |
 | **1.0.8** | **`e297e63`** (tag `release-v1.0.8`) | **1000812** (16 Nov): feedback board without force-unwraps; otherwise as 1.0.7 | **11** (16 Nov): Feedback board; Settings in Android's groups, order and wording, log out asks first; the unused For you screen removed | Parity and hygiene audit (PR 11). Both apps from one tag |
+| **1.0.9** | **`55740f4`** (tag `release-v1.0.9`) | **1000913** (16 Nov): same app code as 1.0.8 | **12** (16 Nov): phone sign-in sends one code request at a time (a second tap on Send code, or Resend while the first request was still in Firebase's check, sent a second SMS and a second reCAPTCHA page and voided the first code) | The APNs key in Firebase was replaced on 16 Nov: the old one (`M872P4JNWM`) was Sandbox-only, so Apple refused every TestFlight push (`BadEnvironmentKeyInToken`); the new one allows Sandbox & Production |
 
 ## Where things stand (14 November 2026)
 
 | | Android | iOS |
 |---|---|---|
 | Public store page | None. play.google.com returns 404 for `com.bucks.app` | None. Apple's lookup finds no `com.bucksios.app` |
-| Latest build | 1.0.8 (1000812), artifact `bucks-play-1.0.8-1000812` of Android release run 12. Upload it to Play | 1.0.8 (11) uploaded to App Store Connect (TestFlight after Apple processes it) |
+| Latest build | 1.0.9 (1000913), artifact `bucks-play-1.0.9-1000913` of Android release run 13. Upload it to Play | 1.0.9 (12) uploaded to App Store Connect (TestFlight after Apple processes it) |
 | Test track | Closed testing ran before Revision 1 (12 Nov). Check Play Console for the current track and tester count | TestFlight. Check App Store Connect for the testers and whether a version was submitted for review |
 
 ## Backend: what the apps need on live
