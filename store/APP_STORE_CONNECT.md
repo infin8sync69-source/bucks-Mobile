@@ -102,16 +102,20 @@ guideline 3.1.3 needs another look first.
 
 ## Before resubmitting
 
-1. **Supabase**: apply `supabase/migrations/review_accounts.sql`, then add the reviewers' number in the SQL editor:
+1. **Supabase** (done 15 Nov): `supabase/migrations/review_accounts.sql` is on live and holds the reviewers' number. A number is added in
+   the SQL editor with
    `insert into public.review_accounts (phone, lat, lng, label, note) values ('+91XXXXXXXXXX', 13.003, 77.745, 'Whitefield, Bengaluru', 'App Review');`
-   That number then stands in Whitefield (14 live demo listings) wherever it signs in. Nobody else is affected.
-2. **Firebase**: the same number under Authentication > Sign-in method > Phone > Phone numbers for testing, with its code. Put both in the
-   Sign-in fields above.
-3. **New build**: 1.0.6 (build 9) is on TestFlight (`docs/RELEASES.md`). It has the reviewer position and registers for push at launch, so phone sign-in
-   is checked by a silent push instead of the "I'm not a robot" page on firebaseapp.com.
-4. **Check it on your iPhone** from TestFlight: sign in with a real number (no robot page should appear), then sign in with the reviewers'
-   number and see Whitefield shops on Home.
-5. **Record the video** (above), fill in item 1, choose build 1.0.6 (9) on the version page, and reply in App Store Connect with **Submit**.
+   and then stands in Whitefield (14 live demo listings) wherever it signs in. Use a made-up number that no Bucks account has: a real one
+   would move that person's account too.
+2. **Firebase** (done 15 Nov): the same number is under Authentication > Sign-in method > Phone > Phone numbers for testing, with its code.
+   Put both in the Sign-in fields above.
+3. **Build**: submit **1.0.9 (build 12)** (`docs/RELEASES.md`). It has the reviewer position, registers for push at launch, and sends one
+   code request at a time (earlier builds could send two SMS and two robot pages). Phone sign-in is checked by a silent push only while
+   Firebase holds an APNs key whose environment is **Sandbox & Production**: the first key was Sandbox-only, so every TestFlight build fell
+   back to the "I'm not a robot" page until it was replaced on 16 Nov.
+4. **Check it on your iPhone** from TestFlight: sign in with a real number (checked 17 Nov on 1.0.9: one SMS, no robot page), then sign
+   in with the reviewers' number and see Whitefield shops on Home.
+5. **Record the video** (above), fill in item 1, choose build 1.0.9 (12) on the version page, and reply in App Store Connect with **Submit**.
 
 ## App Privacy
 
