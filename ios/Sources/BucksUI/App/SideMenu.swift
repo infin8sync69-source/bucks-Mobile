@@ -1,10 +1,11 @@
 import SwiftUI
 import BucksCore
 
-/// The "Bucks Pro" menu (Android's navigation drawer): my Bucks ID, my listings with their online switches, the driver's vehicle switch,
-/// invites, orders, jobs, recommendations, maps, account settings and logout. Slides in over a scrim.
+/// The "Bucks Pro" menu (Android's navigation drawer): my Bucks Pro ID and its validity, the payment QR, my listings with their online switches, the driver's vehicle switch,
+/// invites, orders, jobs, recommendations, maps, account settings, help and logout. Slides in over a scrim.
 struct SideMenu: View {
     @Binding var isOpen: Bool
+    @State private var logoutAsk = false
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
 
@@ -19,6 +20,9 @@ struct SideMenu: View {
         .transition(.opacity)
         .accessibilityAddTraits(.isModal)
         .task { if session.me != nil { m.refresh() } }
+        .bucksConfirm(isPresented: $logoutAsk, title: "Log out?", message: "You can sign back in any time with your mobile number.", confirmTitle: "Log out") {
+            close(); Task { await session.logout() }
+        }
     }
 
     /// Android highlights the home entry on the hub, a listing dashboard or form, the vehicle form and the vehicles list.
@@ -76,6 +80,7 @@ struct SideMenu: View {
 
     private var linksSection: some View {
         VStack(spacing: 1) {
+            item("indianrupeesign.circle", "Payment QR", selected: router.path.last == .paymentQr) { go(.paymentQr) }
             item("envelope", m.pendingCount > 0 ? "Invites (\(m.pendingCount))" : "Invites", selected: router.path.last == .invites) { go(.invites) }
             item("bag", "My orders", selected: router.path.last == .myOrders) { go(.myOrders) }
             item("briefcase", "Jobs and applications", selected: router.path.last == .myApplications) { go(.myApplications) }
@@ -86,16 +91,19 @@ struct SideMenu: View {
     private var footer: some View {
         VStack(spacing: 1) {
             item("gearshape", "Account settings") { close(); router.select(.account, accountTab: "settings") }
-            item("rectangle.portrait.and.arrow.right", "Logout") { close(); Task { await session.logout() } }
+            // Next to settings, as in Android's drawer: how to reach us and the legal pages (App Review guideline 1.2).
+            item("questionmark.circle", "Help and support", selected: router.path.last == .help) { go(.help) }
+            // Log out stays in view at the foot of the menu, whatever the length of the list above; it asks first.
+            item("rectangle.portrait.and.arrow.right", "Log out") { logoutAsk = true }
         }.padding(12)
     }
 
-    /// Bucks ID: a mini card that opens the full card with QR and barcode.
+    /// Bucks Pro ID: my ID and how long the card is valid; opens the full card with QR, barcode and renew.
     private func idCard(_ me: ProfileRow) -> some View {
         let info = BucksIdCardInfo.of(me.idIssuedAt)
         let line: String = {
             guard let info else { return "Tap to show your card" }
-            if info.expired { return "Expired · tap to renew" }
+            if info.expired { return "Expired on \(info.validTill) · tap to renew" }
             if info.renewable { return "Renew soon · valid till \(info.validTill)" }
             return "Valid till \(info.validTill)"
         }()
@@ -103,8 +111,9 @@ struct SideMenu: View {
             HStack(spacing: 12) {
                 Image(systemName: "qrcode").font(.system(size: 22)).foregroundStyle(.white)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Bucks ID  \(BucksIdCode.pretty(me.shortCode))").font(.bucks(.titleSmall)).foregroundStyle(.white)
-                    Text(line).font(.bucks(.bodySmall)).foregroundStyle(.white.opacity(0.8))
+                    Text("Bucks Pro ID").font(.bucks(.labelSmall)).foregroundStyle(.white.opacity(0.8))
+                    Text(BucksIdCode.pretty(me.shortCode)).font(.system(size: 17, weight: .semibold, design: .monospaced)).foregroundStyle(.white)
+                    Text(line).font(.bucks(.bodySmall)).foregroundStyle(.white.opacity(0.85))
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").foregroundStyle(.white)
@@ -112,7 +121,7 @@ struct SideMenu: View {
             .padding(14)
             .background(LinearGradient(colors: [Color(hex: 0x811FF0), Color(hex: 0x4A0AA6)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .buttonStyle(.plain).padding(.horizontal, 12).accessibilityLabel("Bucks ID, show card")
+        .buttonStyle(.plain).padding(.horizontal, 12).accessibilityLabel("Bucks Pro ID, show card")
     }
 
     /// Quick access: a listing I run, one tap to its dashboard, and the switch right here when it's live.

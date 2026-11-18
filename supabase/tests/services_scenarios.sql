@@ -22,9 +22,9 @@ do $$ declare i int; begin for i in 1..7 loop
 end loop; end $$;
 reset role; insert into staff (profile_id) values (pg_temp.pid('staff1')); set role authenticated;
 
-\echo '== 1. The catalogue: eleven services, readable by everyone signed in'
+\echo '== 1. The catalogue: fifteen services (page_types.sql added four), readable by everyone signed in'
 select pg_temp.as_user('stranger');
-select pg_temp.check((select count(*) from service_rules) = 11, 'eleven services: ' || (select string_agg(label, ', ' order by sort) from service_rules));
+select pg_temp.check((select count(*) from service_rules) = 15, 'fifteen services: ' || (select string_agg(label, ', ' order by sort) from service_rules));
 
 \echo '== 2. A listing belongs to one service: skills are Gigs, a business follows its choice or its category'
 select pg_temp.as_user('owner');

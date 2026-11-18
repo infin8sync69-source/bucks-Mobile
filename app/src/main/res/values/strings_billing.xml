@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Provider licences (ui/screens/manage/PlanCard.kt and the Bucks ID screen). Status only: per Google Play's payments policy,
+     no prices, pay buttons or payment links here; the renewal details reach the provider by SMS. -->
+<resources>
+    <string name="lic_title">%1$s licence</string>
+    <string name="lic_code">Licence code %1$s</string>
+    <string name="lic_pill_founding">Founding Member</string>
+    <string name="lic_pill_free">Free</string>
+    <string name="lic_pill_active">Active</string>
+    <string name="lic_pill_renew_soon">Renew soon</string>
+    <string name="lic_pill_expired_grace">Expired</string>
+    <string name="lic_pill_paused">Paused</string>
+    <string name="lic_free_till">Free till %1$s.</string>
+    <string name="lic_valid_till">Valid till %1$s.</string>
+    <plurals name="lic_renew_in_days">
+        <item quantity="one">Valid till %1$s: %2$d day left.</item>
+        <item quantity="other">Valid till %1$s: %2$d days left.</item>
+    </plurals>
+    <string name="lic_grace_till">Expired. It stays live until %1$s; renew before then to keep it in search.</string>
+    <string name="lic_paused_listing">Hidden from search because the licence expired. Your profile and recommendations are kept, and it comes back as soon as it\'s renewed.</string>
+    <string name="lic_paused_vehicle">You can\'t go online with this vehicle until its licence is renewed.</string>
+    <string name="lic_section">Licences</string>
+    <string name="lic_valid_till_label">Valid till</string>
+    <string name="lic_how_renew">Renewing is up to you. To renew, use the licence code with the renewal details we send to your phone by SMS.</string>
+    <string name="lic_founding_bonus">Founding Member: renewals until %1$s count double.</string>
+    <plurals name="lic_enquiries_30d">
+        <item quantity="one">%1$d enquiry through Bucks in the last 30 days.</item>
+        <item quantity="other">%1$d enquiries through Bucks in the last 30 days.</item>
+    </plurals>
+    <string name="lic_guarantee">If a paid month brings you no enquiries, the next month is free.</string>
+</resources>

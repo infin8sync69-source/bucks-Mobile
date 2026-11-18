@@ -50,10 +50,13 @@ private struct TripBody: View {
         .bucksConfirm(isPresented: $endAsk, title: delivery ? "Hand over the order here?" : "End the ride here?",
                       message: delivery ? "Only end the trip once the customer has their order. Then you collect any payment due." : "The customer is asked to pay ₹\(dr.fare) once you end the ride. Only end it at the drop point.",
                       confirmTitle: delivery ? "Yes, delivered" : "End ride", cancelTitle: "Not yet") { d.driverNext() }
-        .alert(cancelTitle, isPresented: $cancel) {
+        // Handing back needs a reason (release_task): the customer or shop hears why, and it counts against the driver's record.
+        .confirmationDialog(cancelTitle, isPresented: $cancel, titleVisibility: .visible) {
+            ForEach(CancelReasons.driver) { why in
+                Button(why.label, role: .destructive) { Task { if await d.driverCancel(reason: why.code) { session.toast("Handed back. Other riders will be rung for it.") } } }
+            }
             Button(delivery ? "Keep delivery" : "Keep ride", role: .cancel) {}
-            Button(cancelConfirm, role: .destructive) { Task { if await d.driverCancel() { session.toast("Handed back. Other riders will be rung for it.") } } }
-        } message: { Text(cancelMessage) }
+        } message: { Text(cancelMessage + " Choose why.") }
         // The field clears once the trip has really started, so a wrong PIN stays for a retry.
         .onChange(of: dr.status) { _, s in if s == .inRide { pin = "" } }
         .task(id: "\(Int(leg.car.lat * 500)),\(Int(leg.car.lng * 500)),\(Int(leg.to.lat * 500)),\(Int(leg.to.lng * 500)),\(travelling)") {
@@ -184,7 +187,6 @@ private struct TripBody: View {
 
     private var atPickup: Bool { dr.status == .arrived }
     private var cancelTitle: String { atPickup ? "Hand this \(delivery ? "delivery" : "ride") back?" : (delivery ? "Cancel this delivery?" : "Cancel this ride?") }
-    private var cancelConfirm: String { atPickup ? "Hand back" : (delivery ? "Cancel delivery" : "Cancel ride") }
     private var cancelMessage: String {
         atPickup ? (delivery ? "Use this when you can't collect the order. " : "Use this when the customer isn't there. ") + "It goes to the next rider and you won't be rung for it again."
                  : "The \(delivery ? "order" : "customer") goes to the next rider."

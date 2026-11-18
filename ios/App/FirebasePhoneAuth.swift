@@ -16,8 +16,12 @@ final class FirebasePhoneAuth: PhoneSignIn, @unchecked Sendable {
     }
 
     func sendCode(phone: String, resend: Bool) async throws -> PhoneSendResult {
+        #if !targetEnvironment(simulator)
+        // Firebase first checks the app is genuine: by a silent push when it has the APNs token, else by a reCAPTCHA web page. The token
+        // arrives a moment after launch, so wait up to 5 s for it rather than send someone to the robot check.
+        for _ in 0..<20 where APNs.token == nil { try? await Task.sleep(nanoseconds: 250_000_000) }
+        #endif
         do {
-            // Firebase first checks the app is genuine (APNs silent push, else a reCAPTCHA page).
             verificationID = try await FirebaseAuth.PhoneAuthProvider.provider().verifyPhoneNumber("+91\(phone)", uiDelegate: nil)
             return .codeSent
         } catch {

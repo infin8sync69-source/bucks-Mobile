@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">选择语言</string>
+    <string name="onb_language_hint">之后可以在设置里更改。</string>
+    <string name="onb_continue">继续</string>
+
+    <string name="onb_phone_title">你的手机号是多少？</string>
+    <string name="onb_phone_hint">我们会发短信验证码给你。</string>
+    <string name="onb_phone_number">手机号</string>
+    <string name="onb_phone_invalid">请检查号码</string>
+    <string name="onb_agree_terms">我同意条款和隐私政策。</string>
+    <string name="onb_terms">条款</string>
+    <string name="onb_privacy">隐私</string>
+    <string name="onb_guidelines">社区准则</string>
+    <string name="onb_get_code">获取验证码</string>
+    <string name="onb_use_email">改用邮箱</string>
+
+    <string name="onb_country_title">国家/地区</string>
+    <string name="onb_country_search">搜索</string>
+    <string name="onb_country_change">更改国家/地区，当前为 %1$s</string>
+
+    <string name="onb_code_title">输入验证码</string>
+    <string name="onb_code_sent_to">已发送至 %1$s</string>
+    <string name="onb_code_edit">修改</string>
+    <string name="onb_code_demo">演示验证码：1234</string>
+    <string name="onb_code_verify">验证</string>
+    <string name="onb_code_checking">正在验证…</string>
+    <string name="onb_code_resend">重新发送验证码</string>
+    <string name="onb_code_resend_in">%1$d 秒后可重新发送</string>
+    <string name="onb_code_field">验证码</string>
+
+    <string name="onb_name_title">你叫什么名字？</string>
+    <string name="onb_name_hint">你的名字会显示在主页上，生日不会。</string>
+    <string name="onb_dob_label">出生日期</string>
+    <string name="onb_dob_day">日</string>
+    <string name="onb_dob_month">月</string>
+    <string name="onb_dob_year">年</string>
+    <string name="onb_dob_invalid">请检查日期</string>
+    <string name="onb_dob_title">你的生日是哪天？</string>
+    <string name="onb_dob_hint">完成账号设置需要填写一次，不会显示在你的主页上。</string>
+    <string name="onb_blocked_title">你目前无法创建账号</string>
+    <string name="onb_blocked_hint">Bucks 暂时还不能为你提供服务。</string>
+    <string name="onb_name_label">你的名字</string>
+    <string name="onb_name_cta">开始吧</string>
+</resources>

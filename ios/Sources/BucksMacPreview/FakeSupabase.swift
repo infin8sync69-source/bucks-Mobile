@@ -138,6 +138,13 @@ final class FakeSupabase: URLProtocol, @unchecked Sendable {
             return (200, [])
         case ("POST", "/rest/v1/rpc/claim_task"): job?.status = "MATCHED"; job?.driverId = "me"; return (200, true)
         case ("POST", "/rest/v1/rpc/pass_task"): job = nil; return (204, [:])
+        // Cancel and hand-back with a reason (cancellation.sql); advance_task no longer does either (review_fixes.sql).
+        case ("POST", "/rest/v1/rpc/cancel_task"):
+            guard params["p_task"] as? String == ride?.id else { return (400, ["message": "ride not found"]) }
+            ride?.cancelled = true; return (204, [:])
+        case ("POST", "/rest/v1/rpc/release_task"):
+            guard params["p_task"] as? String == job?.id else { return (400, ["message": "ride not found"]) }
+            job = Job(); return (204, [:])
         case ("POST", "/rest/v1/rpc/advance_task"):
             let id = params["p_task"] as? String, to = params["p_status"] as? String ?? ""
             if id == ride?.id {

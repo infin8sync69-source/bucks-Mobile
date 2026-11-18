@@ -9,6 +9,7 @@ public enum PushRouting {
         switch r {
         case "sync": return .sync
         case "messages": return .messages
+        case "notifications": return .notifications
         case "invites": return .invites
         case "my/orders": return .myOrders
         case "my/applications": return .myApplications

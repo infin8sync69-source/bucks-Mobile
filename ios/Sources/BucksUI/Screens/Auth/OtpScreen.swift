@@ -22,7 +22,8 @@ struct OtpScreen: View {
                         Muted("We sent a \(length)-digit code to +91 \(session.tempPhone).").padding(.top, 8).padding(.bottom, 28)
                         codeField.shake(on: wrong)
                         PrimaryButton(busy ? "Checking…" : "Verify", enabled: !busy && code.count == length) { verify() }.padding(.top, 20)
-                        Button("Resend code") { Task { await session.sendOtp(resend: true) } }
+                        Button(session.sendingOtp ? "Sending code…" : "Resend code") { Task { await session.sendOtp(resend: true) } }
+                            .disabled(session.sendingOtp)
                             .buttonStyle(.plain).font(.bucks(.labelLarge)).foregroundStyle(BucksColor.primary)
                             .frame(maxWidth: .infinity, minHeight: 44).padding(.top, 8)
                         if !session.otpStatus.isEmpty {

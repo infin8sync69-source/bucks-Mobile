@@ -55,6 +55,15 @@ public extension View {
 
     /// Shakes sideways each time `trigger` goes up: "no", without a dialog.
     func shake(on trigger: Int) -> some View { modifier(Shake(trigger: trigger)) }
+
+    /// A quick pop each time `count` goes up (a new message, notification or cart piece); nothing when it goes down. Android: bumpOnIncrease.
+    func bumpOnIncrease(_ count: Int, amount: CGFloat = 0.3) -> some View { modifier(BumpOnIncrease(count: count, amount: amount)) }
+
+    /// A short ring, like a bell, each time `count` goes up. Swings from the top. Android: ringOnIncrease.
+    func ringOnIncrease(_ count: Int) -> some View { modifier(RingOnIncrease(count: count)) }
+
+    /// A small hop in the arrow's direction (`dir` -1 down, 1 up) when it becomes `active`: the vote registered. Android: nudgeWhen.
+    func nudgeWhen(_ active: Bool, dir: CGFloat) -> some View { modifier(NudgeWhen(active: active, dir: dir)) }
 }
 
 private struct EnterStagger: ViewModifier {
@@ -111,5 +120,42 @@ public struct AnimatedAmount: View {
         var value: Double; var prefix: String; var style: BucksTextStyle; var color: Color
         var animatableData: Double { get { value } set { value = newValue } }
         var body: some View { Text("\(prefix)\(Int(value.rounded()))").bucks(style).foregroundStyle(color).monospacedDigit() }
+    }
+}
+
+private struct BumpOnIncrease: ViewModifier {
+    let count: Int; let amount: CGFloat
+    @State private var scale: CGFloat = 1
+    func body(content: Content) -> some View {
+        content.scaleEffect(scale).onChange(of: count) { old, new in
+            guard new > old, !bucksReduceMotion else { return }
+            scale = 1 + amount
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) { scale = 1 }
+        }
+    }
+}
+
+private struct RingOnIncrease: ViewModifier {
+    let count: Int
+    @State private var angle: Double = 0
+    func body(content: Content) -> some View {
+        content.rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 0.1)).onChange(of: count) { old, new in
+            guard new > old, !bucksReduceMotion else { return }
+            Task { @MainActor in
+                for a: Double in [14, -11, 7, -4, 0] { withAnimation(.easeInOut(duration: 0.07)) { angle = a }; try? await Task.sleep(nanoseconds: 70_000_000) }
+            }
+        }
+    }
+}
+
+private struct NudgeWhen: ViewModifier {
+    let active: Bool; let dir: CGFloat
+    @State private var y: CGFloat = 0
+    func body(content: Content) -> some View {
+        content.offset(y: y).onChange(of: active) { _, now in
+            guard now, !bucksReduceMotion else { return }
+            withAnimation(.easeOut(duration: Motion.short / 2)) { y = -4 * dir }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.45).delay(Motion.short / 2)) { y = 0 }
+        }
     }
 }

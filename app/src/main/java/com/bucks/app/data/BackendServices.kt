@@ -1,5 +1,6 @@
 package com.bucks.app.data
 
+import com.bucks.app.R
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.SerialName
@@ -22,7 +23,7 @@ import kotlinx.serialization.json.put
     val delivery: Boolean = false, @SerialName("delivery_now") val deliveryNow: Boolean = false, val interested: Int = 0, val mine: Boolean = false,
 ) {
     val usable get() = state == "OPEN" || state == "QUIET"
-    val radiusKm get() = if (radiusM % 1000 == 0) "${radiusM / 1000} km" else "%.1f km".format(radiusM / 1000.0)
+    val radiusKm get() = Str.get(R.string.g2_km, if (radiusM % 1000 == 0) "${radiusM / 1000}" else "%.1f".format(radiusM / 1000.0))
 }
 
 /** A document the listing's service asks for and where it stands (listing_compliance). status: MISSING, PENDING, VERIFIED, REJECTED, EXPIRED. */

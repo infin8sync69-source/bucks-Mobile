@@ -36,7 +36,7 @@ object PhoneContacts {
                 }
             }
         }
-        by.map { (id, a) -> PhoneContact(id, a.name.ifBlank { a.phones.values.firstOrNull() ?: a.emails.firstOrNull() ?: "Unknown" }, a.phones.values.toList(), a.emails.toList(), a.org, a.title, a.address) }
+        by.map { (id, a) -> PhoneContact(id, a.name.ifBlank { a.phones.values.firstOrNull() ?: a.emails.firstOrNull() ?: Str.get(com.bucks.app.R.string.g4_contact_unknown) }, a.phones.values.toList(), a.emails.toList(), a.org, a.title, a.address) }
             .filter { it.phones.isNotEmpty() || it.emails.isNotEmpty() }
             .sortedBy { it.name.lowercase() }
     }

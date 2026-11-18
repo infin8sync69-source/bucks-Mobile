@@ -68,7 +68,7 @@ struct VehiclesScreen: View {
 
     private func guidance(_ v: VehicleRow, owner: Bool, docs: [VehicleDoc]) -> String {
         switch v.status {
-        case "ACTIVE": return "Ready. Go online from Home to take " + (v.kind == "BIKE" ? "deliveries." : "rides and deliveries.")
+        case "ACTIVE": return "Ready. Go online from Home to take " + (v.kind == "BIKE" ? "deliveries." : "rides.")
         case "SUSPENDED": return "Suspended: it can't go online. Contact Bucks support."
         default:
             let missing = vehicleDocKinds(v.kind).filter { dk in dk.required && !docs.contains { $0.kind == dk.key } }

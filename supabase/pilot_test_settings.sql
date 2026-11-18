@@ -10,6 +10,8 @@ update service_rules set min_supply = 1, updated_at = now() where mode = 'AUTO';
 -- ---------- revert to the launch values (docs/SERVICES_UNLOCK.md) ----------
 -- update settings set value = '7'  where key = 'min_recommendations';
 -- update settings set value = '14' where key = 'recommender_min_account_days';
+-- update settings set value = '3'  where key = 'vote_min_account_days';
+-- update settings set value = '0'  where key = 'pilot_skip_checks';   -- pages then need recommendations and documents to go live
 -- update service_rules set min_supply = v.n, updated_at = now() from (values
 --   ('TAXI', 3), ('AUTO', 3), ('PARCEL', 4), ('FOOD', 10), ('GROCERY', 5), ('VEGETABLES', 3), ('MEAT', 2),
 --   ('SHOPPING', 5), ('GIGS', 8), ('JOBS', 5), ('PROPERTIES', 10)) v(k, n) where key = v.k;

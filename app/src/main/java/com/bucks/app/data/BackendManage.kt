@@ -36,6 +36,7 @@ private val mdb get() = Backend.client.postgrest
 suspend fun Backend.myRoles(me: String): Map<String, String> =
     mdb.from("listing_members").select { filter { eq("profile_id", me) } }.decodeList<MemberRow>().associate { it.listingId to it.role }
 suspend fun Backend.setListingPhoto(id: String, url: String?) { mdb.from("listings").update({ set("photo_url", url) }) { filter { eq("id", id) } } }
+suspend fun Backend.setListingCover(id: String, url: String?) { mdb.from("listings").update({ set("cover_url", url) }) { filter { eq("id", id) } } }
 /**
  * Deletes a listing through delete_listing() (manage.sql): outright when it never took an order, otherwise it is emptied and kept
  * hidden so buyers keep their order history. Raises a plain sentence while an order is still open.

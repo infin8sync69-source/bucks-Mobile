@@ -1,7 +1,9 @@
 import SwiftUI
 import CoreText
+import BucksCore
 
-/// Palette from Theme.kt (Light / Dark colour schemes plus StatusColors).
+/// Palette from Theme.kt (Light / Dark colour schemes plus StatusColors). The roles that change with the colour theme list one
+/// (light, dark) pair per `Prefs.Accent`, in its order: purple, sapphire, emerald, ruby, graphite (the same values as Android's `Accent`).
 public enum BucksColor {
     // Fixed brand colours.
     public static let purple = Color(hex: 0x811FF0)
@@ -9,26 +11,47 @@ public enum BucksColor {
     public static let purpleTint = Color(hex: 0xEFE6FE)
     public static let ink = Color(hex: 0x15111C)
 
-    public static let primary = Color(light: 0x811FF0, dark: 0xA874FF)
-    public static let onPrimary = Color(light: 0xFFFFFF, dark: 0x23074F)
-    public static let primaryContainer = Color(light: 0xEFE6FE, dark: 0x2A1D45)
-    public static let onPrimaryContainer = Color(light: 0x4A0AA6, dark: 0xD2B8FF)
+    public static let primary = Color(tones: [(0x811FF0, 0xA874FF), (0x1D4ED8, 0x8FB0FF), (0x0A7A5A, 0x5FD3A8), (0xBE185D, 0xFF8FB8), (0x26262C, 0xD6D6DE)])
+    public static let onPrimary = Color(tones: [(0xFFFFFF, 0x23074F), (0xFFFFFF, 0x0A2463), (0xFFFFFF, 0x033526), (0xFFFFFF, 0x4F0625), (0xFFFFFF, 0x1A1A1F)])
+    public static let primaryContainer = Color(tones: [(0xEFE6FE, 0x2A1D45), (0xE4ECFE, 0x172A52), (0xDDF3EA, 0x123528), (0xFCE4EE, 0x46182B), (0xE9E9EC, 0x2B2B32)])
+    public static let onPrimaryContainer = Color(tones: [(0x4A0AA6, 0xD2B8FF), (0x123A9E, 0xC3D5FF), (0x07563F, 0xB4EBD4), (0x8A0F42, 0xFFC4D9), (0x17171B, 0xE6E6EC)])
     /// Dark buttons: ink in light mode, near-white in dark mode.
-    public static let secondary = Color(light: 0x15111C, dark: 0xEFEBF6)
-    public static let onSecondary = Color(light: 0xFFFFFF, dark: 0x15111C)
-    public static let secondaryContainer = Color(light: 0xEDEAF3, dark: 0x2A2533)
-    public static let onSecondaryContainer = Color(light: 0x15111C, dark: 0xEFEBF6)
-    public static let background = Color(light: 0xFAF9FC, dark: 0x0F0C14)
-    public static let surface = Color(light: 0xFFFFFF, dark: 0x15111C)
-    public static let surfaceVariant = Color(light: 0xF3F1F7, dark: 0x1E1926)
-    public static let surfaceContainerLow = Color(light: 0xFBFAFD, dark: 0x17131F)
-    public static let surfaceContainer = Color(light: 0xF6F4F9, dark: 0x1B1723)
-    public static let surfaceContainerHigh = Color(light: 0xF0EDF4, dark: 0x221D2C)
-    public static let onSurface = Color(light: 0x15111C, dark: 0xEFEBF6)
-    public static let onSurfaceVariant = Color(light: 0x5F586C, dark: 0xB2ABBF)
-    public static let outline = Color(light: 0xE4E0EB, dark: 0x2E2838)
-    public static let outlineVariant = Color(light: 0xEDEAF1, dark: 0x241F2D)
+    public static let secondary = Color(tones: [(0x15111C, 0xEFEBF6), (0x11141C, 0xEBEEF6), (0x121B18, 0xECF5F2), (0x1C1115, 0xF6EBEF), (0x151518, 0xEFEFF2)])
+    public static let onSecondary = Color(tones: [(0xFFFFFF, 0x15111C), (0xFFFFFF, 0x11141C), (0xFFFFFF, 0x121B18), (0xFFFFFF, 0x1C1115), (0xFFFFFF, 0x151518)])
+    public static let secondaryContainer = Color(tones: [(0xEDEAF3, 0x2A2533), (0xEAEDF3, 0x252933), (0xEAF3F0, 0x26322E), (0xF3EAED, 0x33252A), (0xEDEDF0, 0x2A2A2E)])
+    public static let onSecondaryContainer = Color(tones: [(0x15111C, 0xEFEBF6), (0x11141C, 0xEBEEF6), (0x121B18, 0xECF5F2), (0x1C1115, 0xF6EBEF), (0x151518, 0xEFEFF2)])
+    public static let background = Color(tones: [(0xFAF9FC, 0x0F0C14), (0xF9FAFC, 0x0C0E14), (0xF9FCFB, 0x0C1411), (0xFCF9FA, 0x140C0F), (0xFAFAFB, 0x0F0F11)])
+    public static let surface = Color(tones: [(0xFFFFFF, 0x15111C), (0xFFFFFF, 0x11141C), (0xFFFFFF, 0x121B18), (0xFFFFFF, 0x1C1115), (0xFFFFFF, 0x151518)])
+    public static let surfaceVariant = Color(tones: [(0xF3F1F7, 0x1E1926), (0xF1F3F7, 0x191D26), (0xF1F7F5, 0x1A2521), (0xF7F1F3, 0x26191D), (0xF3F3F5, 0x1E1E21)])
+    public static let surfaceContainerLow = Color(tones: [(0xFBFAFD, 0x17131F), (0xFAFBFD, 0x13171F), (0xFAFDFC, 0x141E1B), (0xFDFAFB, 0x1F1317), (0xFBFBFC, 0x17171A)])
+    public static let surfaceContainer = Color(tones: [(0xF6F4F9, 0x1B1723), (0xF4F6F9, 0x171B23), (0xF4F9F7, 0x18221F), (0xF9F4F6, 0x23171B), (0xF6F6F7, 0x1C1C1E)])
+    public static let surfaceContainerHigh = Color(tones: [(0xF0EDF4, 0x221D2C), (0xEDEFF4, 0x1D212C), (0xEDF4F2, 0x1E2B27), (0xF4EDEF, 0x2C1D22), (0xF0F0F1, 0x232326)])
+    public static let onSurface = Color(tones: [(0x15111C, 0xEFEBF6), (0x11141C, 0xEBEEF6), (0x121B18, 0xECF5F2), (0x1C1115, 0xF6EBEF), (0x151518, 0xEFEFF2)])
+    public static let onSurfaceVariant = Color(tones: [(0x5F586C, 0xB2ABBF), (0x585E6C, 0xABB1BF), (0x596B65, 0xACBEB8), (0x6C585F, 0xBFABB2), (0x606064, 0xB2B2B7)])
+    public static let outline = Color(tones: [(0xE4E0EB, 0x2E2838), (0xE0E3EB, 0x282D38), (0xE1EAE7, 0x293732), (0xEBE0E4, 0x38282D), (0xE4E4E7, 0x2E2E32)])
+    public static let outlineVariant = Color(tones: [(0xEDEAF1, 0x241F2D), (0xEAECF1, 0x1F232D), (0xEAF1EF, 0x202C28), (0xF1EAEC, 0x2D1F24), (0xEDEDEE, 0x242428)])
     public static let error = Color(light: 0xB42323, dark: 0xF09393)
+
+    /// One theme's own primary, whatever theme is in use: the swatches of the colour picker.
+    public static func swatch(_ accent: Prefs.Accent) -> Color {
+        switch accent {
+        case .purple: Color(light: 0x811FF0, dark: 0xA874FF)
+        case .sapphire: Color(light: 0x1D4ED8, dark: 0x8FB0FF)
+        case .emerald: Color(light: 0x0A7A5A, dark: 0x5FD3A8)
+        case .ruby: Color(light: 0xBE185D, dark: 0xFF8FB8)
+        case .graphite: Color(light: 0x26262C, dark: 0xD6D6DE)
+        }
+    }
+    /// The text colour on that swatch.
+    public static func onSwatch(_ accent: Prefs.Accent) -> Color {
+        switch accent {
+        case .purple: Color(light: 0xFFFFFF, dark: 0x23074F)
+        case .sapphire: Color(light: 0xFFFFFF, dark: 0x0A2463)
+        case .emerald: Color(light: 0xFFFFFF, dark: 0x033526)
+        case .ruby: Color(light: 0xFFFFFF, dark: 0x4F0625)
+        case .graphite: Color(light: 0xFFFFFF, dark: 0x1A1A1F)
+        }
+    }
 
     // Status colours: foreground and pill tint.
     public static let good = Color(light: 0x117A47, dark: 0x6FD39B)

@@ -20,6 +20,9 @@ struct BucksApp: App {
         let config = BackendConfig(url: info["SupabaseURL"] as? String ?? "", anonKey: info["SupabaseAnonKey"] as? String ?? "")
         // Mapbox tiles, search and routes when a token is built in; OpenStreetMap's servers otherwise (same as Android).
         MapServices.token = (info["MapboxToken"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        // Help's support address and grievance officer (same secrets as Android); without them Help points to the grievance page.
+        Legal.supportEmail = (info["SupportEmail"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        Legal.grievanceOfficer = (info["GrievanceOfficer"] as? String ?? "").trimmingCharacters(in: .whitespaces)
         session.configure(config, auth: firebaseReady ? FirebasePhoneAuth() : nil)
     }
 
@@ -30,6 +33,11 @@ struct BucksApp: App {
                 .onOpenURL { url in if FirebaseApp.app() != nil { _ = Auth.auth().canHandle(url) } }
         }
     }
+}
+
+/// The APNs token once iOS has handed it over (nil before that, and always on the Simulator). Phone sign-in waits a moment for it.
+enum APNs {
+    nonisolated(unsafe) static var token: Data?
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -47,6 +55,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             #endif
             Messaging.messaging().delegate = push
             Push.shared.provider = push
+            // Phone sign-in proves the app is genuine with a silent push, which needs the APNs token before the first code is sent. Without it
+            // Firebase falls back to a reCAPTCHA web page on <project>.firebaseapp.com. Registering needs no permission from the person.
+            application.registerForRemoteNotifications()
         }
         UNUserNotificationCenter.current().delegate = self
         // iOS has no channels: a category per kind (and the thread id in each push) groups notifications the way Android's channels do.
@@ -57,9 +68,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // Firebase's automatic delegate hooking is switched off (Info.plist FirebaseAppDelegateProxyEnabled = NO): in a SwiftUI app it can miss the
     // delegate, which breaks phone sign-in ("notification not forwarded"). These three methods are what it would have added.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Push.shared.apnsStatus = "Registered"
         guard FirebaseApp.app() != nil else { return }
-        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+        APNs.token = deviceToken
+        // Said outright rather than guessed from the provisioning profile (Firebase's guess has a TestFlight gap): builds from Xcode
+        // use the sandbox APNs, TestFlight and the App Store use production, which is where the Firebase APNs key is.
+        #if DEBUG
+        Auth.auth().setAPNSToken(deviceToken, type: .sandbox)
+        #else
+        Auth.auth().setAPNSToken(deviceToken, type: .prod)
+        #endif
         Messaging.messaging().apnsToken = deviceToken
+    }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        let ns = error as NSError
+        Push.shared.apnsStatus = "Failed: \(ns.localizedDescription) (\(ns.domain) \(ns.code))"
     }
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         if FirebaseApp.app() != nil, Auth.auth().canHandleNotification(userInfo) { completionHandler(.noData); return }

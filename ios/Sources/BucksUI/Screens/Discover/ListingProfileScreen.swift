@@ -121,6 +121,7 @@ private struct ProfilePlaceholder: View {
 
 /// Cover band (primary gradient), back and share on top, the photo or initials overlapping the bottom edge.
 private struct ProfileCover: View {
+    @Environment(AppSession.self) private var session
     let listing: ListingRow
     /// The status bar's height: the band runs under it.
     let top: CGFloat
@@ -141,6 +142,9 @@ private struct ProfileCover: View {
             HStack {
                 coverButton("chevron.left", "Back", onBack)
                 Spacer()
+                if listing.ownerId != session.me?.id {
+                    coverButton("flag", "Report this page") { session.reportTarget = ReportTarget(kind: "LISTING", targetId: listing.id, ownerId: listing.ownerId, ownerName: listing.title) }
+                }
                 ShareLink(item: shareText) { coverIcon("square.and.arrow.up") }.buttonStyle(.plain).accessibilityLabel("Share")
             }.padding(8).padding(.top, top).frame(maxHeight: .infinity, alignment: .top)
             ZStack {

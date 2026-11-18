@@ -1,6 +1,7 @@
 package com.bucks.app.data
 
 import android.content.Context
+import com.bucks.app.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -101,7 +102,7 @@ class FakeBucksRepository(private val context: Context) : BucksRepository {
     override fun openChat(name: String, role: String): String {
         val existing = chats.value.firstOrNull { it.who == name }
         if (existing != null) return existing.id
-        val c = Chat("c${System.currentTimeMillis()}", name, role, listOf(ChatMessage(false, "Hi, this is $name. How can I help?")), 0, true)
+        val c = Chat("c${System.currentTimeMillis()}", name, role, listOf(ChatMessage(false, Str.get(R.string.g2_chat_greeting, name))), 0, true)
         chats.update { listOf(c) + it }; return c.id
     }
     override fun sendMessage(chatId: String, text: String, mine: Boolean, attachment: Attachment?) = chats.update { l -> l.map { if (it.id == chatId) it.copy(messages = it.messages + ChatMessage(mine, text, attachment), unread = if (mine) it.unread else it.unread + 1) else it } }

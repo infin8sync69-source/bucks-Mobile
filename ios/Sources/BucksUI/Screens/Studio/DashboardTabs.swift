@@ -275,9 +275,9 @@ struct ReviewsManageTab: View {
                     ForEach(rows ?? []) { r in
                         let up = r.vote > 0
                         HStack(alignment: .top, spacing: 12) {
-                            Avatar(initials: initials(m.nameOf(r.authorId)), size: 40)
+                            Avatar(initials: initials(m.nameOf(r.authorId)), size: 40).opensProfile(r.authorId, name: m.nameOf(r.authorId))
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(m.nameOf(r.authorId)).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface)
+                                Text(m.nameOf(r.authorId)).bucks(.titleSmall).foregroundStyle(BucksColor.onSurface).opensProfile(r.authorId, name: m.nameOf(r.authorId))
                                 Muted(Studio.ago(r.createdAt))
                                 Text(r.comment).bucks(.bodyMedium).foregroundStyle(BucksColor.onSurface).padding(.top, 4)
                             }.frame(maxWidth: .infinity, alignment: .leading)

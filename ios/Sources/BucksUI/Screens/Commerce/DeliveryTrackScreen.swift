@@ -115,13 +115,13 @@ private struct DeliveryBody: View {
     private var texts: (String, String) {
         switch t.status {
         case "SEARCHING":
-            return stale ? ("No rider yet", "Nobody nearby took it in time. Message the shop: they can send their own rider or refund you.")
+            return stale ? ("No rider yet", "Nobody nearby took it in time. Message the shop: it can send its own rider if it has one, or refund you.")
                          : ("Finding a rider", "Bikes near \(shopName) are being rung. The first to accept collects your order.")
         case "MATCHED": return ("Rider on the way to the shop", at.map { String(format: "%.1f km from %@", Geo.distanceKm($0, shop), shopName) } ?? "Heading to \(shopName)")
         case "ARRIVED": return ("Rider is at the shop", "They'll call you for the pickup PIN below, then bring your order.")
         case "IN_PROGRESS": return ("On the way to you", at.map { String(format: "%.1f km away", Geo.distanceKm($0, door)) } ?? "Your order has left the shop")
         case "COMPLETED", "PAID": return ("Delivered", "Your order was handed over. Enjoy.")
-        case "NO_DRIVER": return ("No rider was free", "Nobody nearby could take it. The shop can send its own rider or you can reorder.")
+        case "NO_DRIVER": return ("No rider was free", "Nobody nearby could take it. The shop can send its own rider if it has one, or you can reorder.")
         case "CANCELLED": return ("Delivery cancelled", "This delivery was cancelled.")
         default: return (t.status, "")
         }
@@ -177,6 +177,10 @@ private struct DeliveryBody: View {
             Muted("\(t.km) km"); Muted("Delivery fee ₹\(t.fare)")
             if let n = t.orderItems { Muted("\(n) item\(n == 1 ? "" : "s")") }
         }.padding(.top, 10)
+        // Nobody took it: the customer can bring in an agent they know (someone with a bike) so the next order finds one.
+        if t.status == "NO_DRIVER" || stale {
+            ShareSmallButton(title: "Invite a delivery agent", text: Invite.shareText(Invite.deliveryAgent(near: shopName)), tonal: true).fixedSize().padding(.top, 16)
+        }
         if ["COMPLETED", "PAID", "CANCELLED", "NO_DRIVER"].contains(t.status) || stale {
             PrimaryButton("Back to order", action: onDone).padding(.top, 16)
         } else {

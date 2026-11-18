@@ -148,7 +148,7 @@ begin
     if p_status = 'ARRIVED' and t.status = 'MATCHED' then
       perform public.driver_near_check(t.pickup, 'arrive_radius_m', 800, 'the pick-up');
     elsif p_status = 'IN_PROGRESS' and t.status = 'ARRIVED' then
-      if t.pin_attempts >= 5 then raise exception 'too many wrong PIN attempts; hand the trip back'; end if;
+      if t.pin_attempts >= 5 then raise exception 'too many wrong PIN attempts; hand the trip back' using detail = 'BK_PIN_LOCKED'; end if;
       if p_pin is distinct from t.pin then
         update tasks set pin_attempts = pin_attempts + 1 where id = t.id returning * into t;
         t.pin := '';

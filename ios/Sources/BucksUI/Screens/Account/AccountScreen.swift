@@ -90,29 +90,28 @@ private struct AccountActivityTab: View {
 private struct AccountSettingsHub: View {
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
     let model: AccountModel
     @State private var confirmDelete = false
+    @State private var confirmLogout = false
 
+    private static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0" }
     private static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionTitle("Identity").padding(.bottom, 10)
-            BucksIdCard(onSync: { router.push(.sync) })
-            SectionTitle("Preferences").padding(.top, 22).padding(.bottom, 6)
-            AccountSettingRow(icon: "person.fill", label: "Edit profile") { router.push(.editProfile) }
-            AccountSettingRow(icon: "arrow.triangle.2.circlepath", label: "Sync", detail: "Requests, people you may know, synced people") { router.push(.sync) }
-            AccountSettingRow(icon: "lock.fill", label: "Privacy", detail: "Who can message and sync with you, Moments audience, read receipts") { router.push(.settingsPrivacy) }
-            AccountSettingRow(icon: "bell.fill", label: "Notifications", detail: "What Bucks tells you about, and quiet hours") { router.push(.settingsNotifications) }
-            AccountSettingRow(icon: "paintpalette.fill", label: "Appearance and data", detail: "Theme, text size, motion, media on mobile data") { router.push(.settingsAppearance) }
+            // Same groups, order and wording as Android's SettingsList (ui/social/Settings.kt). The Bucks Pro ID card and the payment QR
+            // are Pro: they live in the Bucks Pro side menu, not here.
+            SectionTitle("Account").padding(.bottom, 6)
+            AccountSettingRow(icon: "person.fill", label: "Edit profile", detail: "Name, area and bio") { router.push(.editProfile) }
+            AccountSettingRow(icon: "arrow.triangle.2.circlepath", label: "Synced people and requests") { router.push(.sync) }
+            SectionTitle("Privacy and safety").padding(.top, 22).padding(.bottom, 6)
+            AccountSettingRow(icon: "lock.fill", label: "Privacy", detail: "Who can message you, sync with you and see your Moments") { router.push(.settingsPrivacy) }
             AccountSettingRow(icon: "nosign", label: "Blocked people") { router.push(.settingsBlocked) }
             AccountSettingRow(icon: "heart.fill", label: "Close friends", detail: "Who sees Moments you share with close friends") { router.push(.settingsCloseFriends) }
-            if model.isStaff {
-                AccountSettingRow(icon: "checklist", label: "Review documents", detail: "Bucks staff: shop and pro documents waiting for a check") { router.push(.staffReview) }
-            }
-            ListRow("Payment QR", subtitle: "How customers pay you by UPI: rides, deliveries and shop orders", onTap: { router.push(.paymentQr) },
-                    leading: { Avatar(systemImage: "qrcode") }, trailing: { Image(systemName: "chevron.right").foregroundStyle(BucksColor.onSurfaceVariant) })
-                .padding(.horizontal, -Gutter)
+            SectionTitle("App").padding(.top, 22).padding(.bottom, 6)
+            AccountSettingRow(icon: "bell.fill", label: "Notifications", detail: "What Bucks tells you about, and quiet hours") { router.push(.settingsNotifications) }
+            AccountSettingRow(icon: "paintpalette.fill", label: "Appearance and data", detail: "Theme, text size, motion, media on mobile data") { router.push(.settingsAppearance) }
             SectionTitle("Voice and AI").padding(.top, 22).padding(.bottom, 10)
             BucksCard {
                 VStack(alignment: .leading, spacing: 0) {
@@ -129,19 +128,28 @@ private struct AccountSettingsHub: View {
                     }
                 }
             }
-            SectionTitle("About").padding(.top, 22).padding(.bottom, 6)
-            AccountSettingRow(icon: "arrow.down.app.fill", label: "App version", detail: "Build \(Self.build)", chevron: false) {}
-            AccountSettingRow(icon: "hammer.fill", label: "Community rules") {
-                session.toast("Review only what you actually ordered or booked. Every review needs a reason. One account per person.")
+            SectionTitle("Help and legal").padding(.top, 22).padding(.bottom, 6)
+            AccountSettingRow(icon: "questionmark.circle.fill", label: "Help and support", detail: "Questions, contact us, grievance officer") { router.push(.help) }
+            AccountSettingRow(icon: "lightbulb.fill", label: "Feedback board", detail: "Suggest ideas, report bugs, vote on what's next") { router.push(.feedback) }
+            AccountSettingRow(icon: "hand.raised.fill", label: "Community guidelines") { openURL(Legal.url(.guidelines)) }
+            AccountSettingRow(icon: "lock.shield.fill", label: "Privacy policy") { openURL(Legal.url(.privacy)) }
+            AccountSettingRow(icon: "doc.text.fill", label: "Terms of use") { openURL(Legal.url(.terms)) }
+            if model.isStaff {
+                SectionTitle("Bucks team").padding(.top, 22).padding(.bottom, 6)
+                AccountSettingRow(icon: "checklist", label: "Review documents", detail: "Shop and pro documents waiting for a check") { router.push(.staffReview) }
             }
-            SectionTitle("Account").padding(.top, 22).padding(.bottom, 6)
-            AccountSettingRow(icon: "rectangle.portrait.and.arrow.right", label: "Log out") { Task { await session.logout() } }
-            AccountSettingRow(icon: "trash", label: "Delete account") { confirmDelete = true }
+            SectionTitle("Account actions").padding(.top, 22).padding(.bottom, 6)
+            AccountSettingRow(icon: "rectangle.portrait.and.arrow.right", label: "Log out") { confirmLogout = true }
+            AccountSettingRow(icon: "trash", label: "Delete account", detail: "Removes your profile, posts, Moments and messages") { confirmDelete = true }
+            Muted("Bucks \(Self.version) (\(Self.build))" + (session.me.map { " · \($0.shortCode)" } ?? "")).padding(.vertical, 16)
         }
         .task { await model.loadStaff() }
+        .bucksConfirm(isPresented: $confirmLogout, title: "Log out?", message: "You can sign back in any time with your mobile number.", confirmTitle: "Log out") {
+            Task { await session.logout() }
+        }
         .bucksConfirm(isPresented: $confirmDelete, title: "Delete your account?",
-                      message: "This removes your profile, phone number, payment QR, listings, posts, moments and messages, and your sign-in. Orders and trips stay in the other person's history without your name. It can't be undone.",
-                      confirmTitle: "Delete", destructive: true) {
+                      message: "This permanently removes your profile, phone number, posts, Moments, comments, messages and sign-in. It can't be undone.",
+                      confirmTitle: "Delete my account", destructive: true) {
             Task { await session.deleteAccount() }
         }
     }

@@ -23,6 +23,7 @@ struct AppearanceScreen: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         AccountChoiceGroup(title: "Theme", options: Prefs.Theme.allCases.map { ($0, $0.label) }, selected: prefs.theme) { prefs.chooseTheme($0) }
+                        accentPicker
                         AccountChoiceGroup(title: "Text size", options: Prefs.TextSize.allCases.map { ($0, $0.label) }, selected: prefs.textSize) { prefs.chooseTextSize($0) }
                         AccountToggleRow(label: "Reduce motion", detail: "Turns off pulses and other looping animations.",
                                          isOn: Binding(get: { prefs.reduceMotion }, set: { prefs.enableReduceMotion($0) }))
@@ -38,5 +39,28 @@ struct AppearanceScreen: View {
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .bucksBackground().bucksHideNavigationBar()
+    }
+
+    /// The colour theme: one swatch each, the chosen one ringed and ticked. The app recolours as soon as one is tapped.
+    private var accentPicker: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Colour").bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            HStack(spacing: 6) {
+                ForEach(Prefs.Accent.allCases, id: \.self) { a in
+                    let on = a == prefs.accent
+                    Button { prefs.chooseAccent(a) } label: {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle().strokeBorder(on ? BucksColor.onSurface : Color.clear, lineWidth: 2)
+                                Circle().fill(BucksColor.swatch(a)).padding(5)
+                                if on { Image(systemName: "checkmark").font(.system(size: 15, weight: .bold)).foregroundStyle(BucksColor.onSwatch(a)) }
+                            }.frame(width: 48, height: 48)
+                            Text(a.label).bucks(.labelSmall).foregroundStyle(on ? BucksColor.onSurface : BucksColor.onSurfaceVariant).lineLimit(1)
+                        }.frame(maxWidth: .infinity).padding(.vertical, 8).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).accessibilityLabel(a.label).accessibilityAddTraits(on ? [.isSelected] : [])
+                }
+            }.padding(.top, 6)
+        }.padding(.bottom, 14)
     }
 }

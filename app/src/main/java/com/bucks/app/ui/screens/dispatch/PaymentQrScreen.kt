@@ -36,6 +36,8 @@ import com.google.zxing.common.HybridBinarizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * My payment QR, for drivers and shop owners alike: upload the QR image from a UPI app (or scan a printed one), Bucks reads the
@@ -47,66 +49,67 @@ fun PaymentQrScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val d = vm.dispatch; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     var pending by remember { mutableStateOf<String?>(null) }; var reading by remember { mutableStateOf(false) }; var confirmRemove by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { if (!d.paymentLinkLoaded) d.refreshPaymentLink() }
+    val msgNotUpi = stringResource(R.string.g6_qr_not_upi); val msgNoPayee = stringResource(R.string.g6_qr_no_payee); val msgNoQr = stringResource(R.string.g6_qr_not_found)
     fun accept(raw: String) {
         val link = raw.trim()
-        if (!link.startsWith("upi://pay", ignoreCase = true)) { vm.toast("That QR isn't a UPI payment code. Use the QR from your UPI app (GPay, PhonePe, Paytm, BHIM)."); return }
-        if (upiPayee(link) == null) { vm.toast("That UPI code has no payee address (pa=). Try the QR from your UPI app."); return }
+        if (!link.startsWith("upi://pay", ignoreCase = true)) { vm.toast(msgNotUpi); return }
+        if (upiPayee(link) == null) { vm.toast(msgNoPayee); return }
         pending = link
     }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { u ->
         reading = true
         scope.launch { val raw = withContext(Dispatchers.IO) { runCatching { decodeQrImage(ctx, u) }.getOrNull() }; reading = false
-            if (raw == null) vm.toast("Couldn't find a QR code in that picture. Try a clearer photo, or a screenshot of the QR from your UPI app.") else accept(raw) } } }
+            if (raw == null) vm.toast(msgNoQr) else accept(raw) } } }
     val link = d.paymentLink; val payee = link?.let { upiPayee(it) }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Payment QR", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g6_qr_title), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             when {
-                !d.paymentLinkLoaded -> Row(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp); Muted("  Checking your payment QR") }
+                !d.paymentLinkLoaded -> Row(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp); Muted("  " + stringResource(R.string.g6_qr_checking)) }
                 pending != null -> PendingCard(pending!!, saving = d.busy, onSave = { d.savePaymentLink(pending!!) { pending = null } }, onDiscard = { pending = null })
                 link != null -> BucksCard(tint = true) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Column(Modifier.padding(start = 12.dp)) { Text("UPI payments are on", style = MaterialTheme.typography.titleMedium); Muted("Payments go to ${payee?.first ?: "you"}${payee?.let { " (${it.second})" } ?: ""}") } }
+                        Column(Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.g6_qr_on), style = MaterialTheme.typography.titleMedium); Muted(if (payee != null) stringResource(R.string.g6_qr_payee, payee.first, payee.second) else stringResource(R.string.g6_qr_payee_you)) } }
                     val bmp = remember(link) { qrBitmap(link, 512) }
-                    Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp).size(200.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(8.dp)) { Image(bmp.asImageBitmap(), "Your UPI QR", Modifier.fillMaxSize()) }
-                    Muted("When a customer taps Pay by UPI, after a trip or on an order from your shop, their app opens with this account and the amount already filled in. You can also show this QR for them to scan.", Modifier.padding(top = 14.dp), TextAlign.Center)
+                    Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp).size(200.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(8.dp)) { Image(bmp.asImageBitmap(), stringResource(R.string.g6_cd_your_qr), Modifier.fillMaxSize()) }
+                    Muted(stringResource(R.string.g6_qr_on_detail), Modifier.padding(top = 14.dp), TextAlign.Center)
                 }
                 else -> BucksCard {
                     Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.padding(start = 12.dp)) { Text("No payment QR yet", style = MaterialTheme.typography.titleMedium); Muted("Customers can't pay you by UPI until you add one.") } }
-                    Muted("Add the QR from your UPI app and customers can pay you by UPI: riders straight after a trip or delivery, shoppers for their orders from your shop. Bucks keeps only the payment link, not the picture.", Modifier.padding(top = 12.dp))
+                        Column(Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.g6_qr_none), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g6_qr_none_short)) } }
+                    Muted(stringResource(R.string.g6_qr_none_detail), Modifier.padding(top = 12.dp))
                 }
             }
             if (pending == null && d.paymentLinkLoaded) {
-                SectionTitle(if (link != null) "Replace it" else "Add your QR", Modifier.padding(top = 24.dp, bottom = 8.dp))
+                SectionTitle(if (link != null) stringResource(R.string.g6_qr_replace) else stringResource(R.string.g6_qr_add), Modifier.padding(top = 24.dp, bottom = 8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton(if (reading) "Reading the picture…" else "Upload my UPI QR", enabled = !reading && !d.busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    GhostButton("Scan a printed QR", enabled = !reading && !d.busy) { scanQr(ctx, onResult = { accept(it) }, onError = { vm.toast(it) }) }
-                    if (link != null) BadButton("Remove payment QR") { confirmRemove = true }
+                    PrimaryButton(if (reading) stringResource(R.string.g6_qr_reading) else stringResource(R.string.g6_qr_upload), enabled = !reading && !d.busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    GhostButton(stringResource(R.string.g6_qr_scan), enabled = !reading && !d.busy) { scanQr(ctx, onResult = { accept(it) }, onError = { vm.toast(it) }) }
+                    if (link != null) BadButton(stringResource(R.string.g6_qr_remove)) { confirmRemove = true }
                 }
-                SectionTitle("How to get your QR image", Modifier.padding(top = 24.dp, bottom = 6.dp))
-                listOf("Open your UPI app: Google Pay, PhonePe, Paytm or BHIM.", "Go to your profile and tap your QR code.", "Save or share the QR as an image to this phone.", "Come back here and tap Upload my UPI QR.").forEachIndexed { i, step ->
+                SectionTitle(stringResource(R.string.g6_qr_howto), Modifier.padding(top = 24.dp, bottom = 6.dp))
+                listOf(stringResource(R.string.g6_qr_step1), stringResource(R.string.g6_qr_step2), stringResource(R.string.g6_qr_step3), stringResource(R.string.g6_qr_step4)).forEachIndexed { i, step ->
                     Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) { Avatar("${i + 1}", size = 24); Text(step, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 10.dp)) } }
-                Muted("Only UPI payment codes (upi://pay) are accepted. Money goes straight from the customer's app to your bank; Bucks never holds it.", Modifier.padding(top = 12.dp))
+                Muted(stringResource(R.string.g6_qr_footer), Modifier.padding(top = 12.dp))
             }
             Spacer(Modifier.height(24.dp))
         }
     }
-    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text("Remove your payment QR?") }, text = { Text("Customers won't be able to pay you by UPI, for trips or shop orders, until you add a QR again.") },
-        confirmButton = { TextButton({ confirmRemove = false; d.removePaymentLink() }) { Text("Remove", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmRemove = false }) { Text("Keep it") } })
+    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text(stringResource(R.string.g6_qr_remove_title)) }, text = { Text(stringResource(R.string.g6_qr_remove_msg)) },
+        confirmButton = { TextButton({ confirmRemove = false; d.removePaymentLink() }) { Text(stringResource(R.string.g6_remove), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton({ confirmRemove = false }) { Text(stringResource(R.string.g6_keep)) } })
 }
 
 @Composable
 private fun PendingCard(link: String, saving: Boolean, onSave: () -> Unit, onDiscard: () -> Unit) {
     val payee = upiPayee(link)
     BucksCard(tint = true) {
-        Text("QR read", style = MaterialTheme.typography.titleMedium)
-        Text("Payments go to ${payee?.first ?: "?"} (${payee?.second ?: "?"})", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 6.dp))
-        Muted("Check the name and UPI ID are yours before saving.", Modifier.padding(top = 4.dp))
+        Text(stringResource(R.string.g6_qr_read), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.g6_qr_payee, payee?.first ?: "?", payee?.second ?: "?"), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 6.dp))
+        Muted(stringResource(R.string.g6_qr_check), Modifier.padding(top = 4.dp))
         val bmp = remember(link) { qrBitmap(link, 512) }
-        Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp).size(160.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(8.dp)) { Image(bmp.asImageBitmap(), "UPI QR", Modifier.fillMaxSize()) }
+        Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp).size(160.dp).clip(MaterialTheme.shapes.medium).background(Color.White).padding(8.dp)) { Image(bmp.asImageBitmap(), stringResource(R.string.g6_cd_upi_qr), Modifier.fillMaxSize()) }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SmallButton(if (saving) "Saving…" else "Save", Modifier.weight(1f), enabled = !saving, onClick = onSave)
-            SmallButton("Choose another", Modifier.weight(1f), tonal = true, enabled = !saving, onClick = onDiscard)
+            SmallButton(if (saving) stringResource(R.string.g6_saving) else stringResource(R.string.g6_save), Modifier.weight(1f), enabled = !saving, onClick = onSave)
+            SmallButton(stringResource(R.string.g6_qr_choose_another), Modifier.weight(1f), tonal = true, enabled = !saving, onClick = onDiscard)
         }
     }
 }

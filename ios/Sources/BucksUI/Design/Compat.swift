@@ -14,6 +14,21 @@ extension Color {
         self.init(.sRGB, red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255, opacity: opacity)
     }
 
+    /// A colour that follows light/dark and the chosen colour theme: one (light, dark) pair per `Prefs.Accent`, in its order.
+    /// The pair is picked each time the colour is resolved, so a new theme shows as soon as the views are drawn again.
+    init(tones: [(UInt32, UInt32)]) {
+        #if canImport(UIKit)
+        self.init(UIColor { t in let p = tones[min(AccentState.index, tones.count - 1)]; return UIColor(hex: t.userInterfaceStyle == .dark ? p.1 : p.0) })
+        #elseif canImport(AppKit)
+        self.init(NSColor(name: nil) { a in
+            let p = tones[min(AccentState.index, tones.count - 1)]
+            return NSColor(hex: a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? p.1 : p.0)
+        })
+        #else
+        self.init(hex: tones[0].0)
+        #endif
+    }
+
     /// A colour that follows the system light/dark appearance.
     init(light: UInt32, dark: UInt32) {
         #if canImport(UIKit)

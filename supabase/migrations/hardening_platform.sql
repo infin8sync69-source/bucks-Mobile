@@ -548,29 +548,40 @@ begin
   -- Placed orders keep their ship-to snapshot: the shop needs it for its records.
   if to_regclass('public.addresses') is not null then delete from addresses where profile_id = my; end if;
   if to_regclass('public.product_ratings') is not null then delete from product_ratings where profile_id = my; end if;
+  -- The pilot tables (trust_phase0.sql, showcase_docs.sql) also reference the kept profile row: votes I gave or got as a rider/driver,
+  -- my document access requests, the documents I opened and the checks I made. Deleting my votes recounts the other person's trust.
+  if to_regclass('public.profile_votes') is not null then delete from profile_votes where my in (voter_id, subject_id); end if;
+  if to_regclass('public.doc_access_requests') is not null then delete from doc_access_requests where requester_id = my; end if;
+  if to_regclass('public.doc_views') is not null then delete from doc_views where viewer_id = my; end if;
+  if to_regclass('public.doc_checks') is not null then delete from doc_checks where profile_id = my; end if;
   update profiles set name = '', bio = '', area = '', photo_url = null, home = null, status = 'DELETED', auth_uid = 'deleted:' || id::text where id = my;
 end $$;
 
 -- ---------- P14: search radius and limit ----------
--- search_listings from services.sql and jobs_near from jobs.sql with the radius capped at 50 km and the limit at 100; feed() (schema.sql) gets
--- the same caps, since an unbounded radius returns every LOCAL post that exists.
-create or replace function public.search_listings(q text, lat double precision, lng double precision, radius_m int default 10000, kinds text[] default null,
-                                                  lim int default 40, services text[] default null)
+-- search_listings (latest before this: page_types.sql plus the owner columns applied live, see the note at the end of page_types.sql) and
+-- jobs_near from jobs.sql with the radius capped at 50 km and the limit at 100; feed() (schema.sql) gets the same caps, since an unbounded
+-- radius returns every LOCAL post that exists. search_listings is dropped first because page_types.sql alone returns two columns fewer
+-- (a return type cannot be changed in place); the grants below put its execute rights back.
+drop function if exists public.search_listings(text, double precision, double precision, int, text[], int, text[]);
+create function public.search_listings(q text, lat double precision, lng double precision, radius_m int default 10000, kinds text[] default null,
+                                       lim int default 40, services text[] default null)
 returns table (id uuid, kind text, title text, category text, description text, photo_url text, area text, online boolean, trust_up int, trust_down int,
-               details jsonb, distance_m double precision, matched_item text, min_price int)
+               details jsonb, distance_m double precision, matched_item text, min_price int, type_key text, group_key text, owner_id uuid, owner_name text)
 language sql stable security definer set search_path = public, extensions as $$
   with here as (select public.geo(lat, lng) g), term as (select nullif(trim(q), '') t)
   select l.id, l.kind, l.title, l.category, l.description, l.photo_url, l.area, l.online, l.trust_up, l.trust_down, l.details,
          st_distance(l.location, here.g) as distance_m,
          (select i.name from items i where i.listing_id = l.id and term.t is not null and i.name ilike '%' || term.t || '%' order by i.price limit 1) as matched_item,
-         (select min(i.price) from items i where i.listing_id = l.id and i.in_stock) as min_price
-  from listings l, here, term
+         (select min(i.price) from items i where i.listing_id = l.id and i.in_stock and i.price > 0) as min_price,
+         l.type_key, t.group_key, l.owner_id, coalesce(nullif(o.name, ''), 'Bucks member')
+  from listings l left join listing_types t on t.key = l.type_key join profiles o on o.id = l.owner_id, here, term
   where l.status = 'LIVE'
     and (kinds is null or l.kind = any(kinds))
     and (services is null or l.service = any(services))
     and ((l.location is not null and st_dwithin(l.location, here.g, least(greatest(coalesce(radius_m, 10000), 0), 50000)))
          or (l.kind = 'BUSINESS' and lower(coalesce(l.details->>'ships_india', '')) = 'true'))   -- stores that ship are found from anywhere (ecommerce.sql)
     and (term.t is null or l.search @@ websearch_to_tsquery('simple', term.t) or l.title % term.t or l.category ilike '%' || term.t || '%'
+         or coalesce(t.label, '') ilike '%' || term.t || '%' or o.name ilike '%' || term.t || '%'
          or exists (select 1 from items i where i.listing_id = l.id and i.name ilike '%' || term.t || '%'))
   order by (l.online) desc,
            (case when term.t is null then 0 else ts_rank(l.search, websearch_to_tsquery('simple', term.t)) + similarity(l.title, term.t) end) desc,

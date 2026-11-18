@@ -13,11 +13,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -44,7 +48,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import com.bucks.app.data.Provider
+import com.bucks.app.data.Str
 import com.bucks.app.data.ProviderType
 import com.bucks.app.data.Trust
 import com.bucks.app.data.VehicleKind
@@ -82,22 +91,65 @@ val LocalCartAction = androidx.compose.runtime.compositionLocalOf<CartAction?> {
 fun BucksTopBar(title: String? = null, onMenu: (() -> Unit)? = null, onBack: (() -> Unit)? = null, unread: Int = 0, onChat: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         when {
-            onBack != null -> IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            onMenu != null -> IconButton(onClick = onMenu) { Icon(Icons.Rounded.Menu, "Menu", Modifier.size(28.dp)) }
+            onBack != null -> IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.g4_cd_back)) }
+            onMenu != null -> IconButton(onClick = onMenu) { Icon(Icons.Rounded.Menu, stringResource(R.string.g4_cd_menu), Modifier.size(28.dp)) }
             else -> Spacer(Modifier.width(48.dp))
         }
         if (title == null) Box(Modifier.weight(1f).padding(start = 8.dp)) { BucksWordmark(height = 26.dp) }
         else Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
         if (onChat != null) LocalCartAction.current?.let { c ->
-            IconButton(onClick = c.open) { BadgedBox(badge = { if (c.count > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text(if (c.count > 99) "99+" else "${c.count}") } }) { Icon(Icons.Rounded.ShoppingCart, if (c.count > 0) "Cart, ${c.count} item${if (c.count == 1) "" else "s"}" else "Cart", Modifier.size(26.dp)) } }
+            IconButton(onClick = c.open) { BadgedIcon(Icons.Rounded.ShoppingCart, if (c.count > 0) pluralStringResource(R.plurals.g4_cd_cart_items, c.count, c.count) else stringResource(R.string.g4_cd_cart), c.count) }
         }
-        if (onChat != null) IconButton(onClick = onChat) { BadgedBox(badge = { if (unread > 0) Badge(containerColor = Brand, contentColor = Color.White) { Text("$unread") } }) { Icon(Icons.Rounded.Sms, "Messages", Modifier.size(28.dp)) } }
+        // Notifications (sync requests, invites, orders...) have their own bell, so a waiting request is never hidden inside the chat count.
+        if (onChat != null) LocalNotifAction.current?.let { n ->
+            IconButton(onClick = n.open) { BadgedIcon(Icons.Rounded.NotificationsNone, if (n.count > 0) pluralStringResource(R.plurals.r1_cd_notifications_new, n.count, n.count) else stringResource(R.string.r1_cd_notifications), n.count, ring = true) }
+        }
+        if (onChat != null) IconButton(onClick = onChat) { BadgedIcon(Icons.Rounded.Sms, if (unread > 0) pluralStringResource(R.plurals.r1_cd_messages_unread, unread, unread) else stringResource(R.string.g4_cd_messages), unread) }
     }
 }
 
-enum class BottomTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Rounded.Home), FEED("Feed", Icons.Rounded.VideoLibrary), SERVICES("Services", Icons.Rounded.GridView), RECOMMENDED("For you", Icons.Rounded.Leaderboard), ACCOUNT("Profile", Icons.Rounded.Person)
+/**
+ * Makes a name or picture open that person's profile (my own opens Profile), through LocalOpenPerson. [before] runs first, for a sheet or
+ * dialog that has to close. A blank [id] leaves it as it is.
+ */
+@Composable
+fun Modifier.opensProfile(id: String?, name: String = "", before: (() -> Unit)? = null): Modifier {
+    if (id.isNullOrBlank()) return this
+    val open = com.bucks.app.ui.social.LocalOpenPerson.current
+    val label = if (name.isBlank()) stringResource(R.string.g1_cd_open_profile) else stringResource(R.string.g1_cd_open_profile_of, name)
+    return this.clip(MaterialTheme.shapes.small).clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = label) { before?.invoke(); open(id) }
+}
+
+/** The bell in every top bar that has Messages: how many notifications are unread and what a tap does. Null hides it. */
+class NotifAction(val count: Int, val open: () -> Unit)
+val LocalNotifAction = androidx.compose.runtime.compositionLocalOf<NotifAction?> { null }
+
+/**
+ * The one count badge: a small red pill, "99+" at most. [ringed] gives it a ring in the surface colour so it stays clear of the icon
+ * (or the map) it sits on; without the ring it sits inline, next to a tab label or at the end of a row. Draws nothing for zero.
+ */
+@Composable
+fun CountBadge(count: Int, modifier: Modifier = Modifier, ringed: Boolean = false) {
+    val bump = Modifier.bumpOnIncrease(count)   // before the early return, so 0 → 1 pops too
+    if (count <= 0) return
+    Box(modifier.then(bump).then(if (ringed) Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.5.dp) else Modifier)
+        .defaultMinSize(minWidth = 17.dp, minHeight = 17.dp).background(MaterialTheme.colorScheme.error, CircleShape).padding(horizontal = 4.5.dp), contentAlignment = Alignment.Center) {
+        Text(if (count > 99) "99+" else "$count", color = MaterialTheme.colorScheme.onError, maxLines = 1, softWrap = false,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.sp, platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)))
+    }
+}
+
+/** A top-bar icon with its count riding on the top corner. The count is part of [description], so the badge itself is silent to TalkBack. */
+@Composable
+fun BadgedIcon(icon: ImageVector, description: String, count: Int, size: Int = 26, ring: Boolean = false) = Box {
+    Icon(icon, description, Modifier.size(size.dp).then(if (ring) Modifier.ringOnIncrease(count) else Modifier))
+    CountBadge(count, Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-6).dp), ringed = true)
+}
+
+enum class BottomTab(@StringRes val labelRes: Int, val icon: ImageVector) {
+    HOME(R.string.g4_tab_home, Icons.Rounded.Home), FEED(R.string.g4_tab_feed, Icons.Rounded.VideoLibrary), SERVICES(R.string.g4_tab_services, Icons.Rounded.GridView), RECOMMENDED(R.string.g4_tab_for_you, Icons.Rounded.Explore), ACCOUNT(R.string.g4_tab_profile, Icons.Rounded.Person);
+    val label: String get() = Str.get(labelRes)
 }
 @Composable
 fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
@@ -108,9 +160,10 @@ fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
                 val c by animateColorAsState(if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, tween(Motion.MEDIUM), label = "tabColor")
                 // The newly selected icon hops up and settles; the others stay still.
                 val lift by animateFloatAsState(if (sel) 1f else 0f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), label = "tabLift")
+                val tl = stringResource(t.labelRes)
                 Column(Modifier.weight(1f).fillMaxHeight().clickable { onSelect(t) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Icon(t.icon, t.label, Modifier.size(28.dp).graphicsLayer { translationY = -3.dp.toPx() * lift; val sc = 1f + 0.08f * lift; scaleX = sc; scaleY = sc }, tint = c)
-                    Text(t.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.sp), color = c, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 4.dp))
+                    Icon(t.icon, tl, Modifier.size(28.dp).graphicsLayer { translationY = -3.dp.toPx() * lift; val sc = 1f + 0.08f * lift; scaleX = sc; scaleY = sc }, tint = c)
+                    Text(tl, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 0.sp), color = c, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 4.dp))
                 } }
         }
     }
@@ -119,7 +172,7 @@ fun BucksBottomBar(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
     NavigationRail(containerColor = MaterialTheme.colorScheme.surface, header = { Text("b", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp)) }) {
         Spacer(Modifier.height(12.dp))
-        BottomTab.entries.forEach { t -> NavigationRailItem(selected = t == current, onClick = { onSelect(t) }, icon = { Icon(t.icon, t.label) }, label = { Text(t.label, style = MaterialTheme.typography.labelSmall) }) }
+        BottomTab.entries.forEach { t -> NavigationRailItem(selected = t == current, onClick = { onSelect(t) }, icon = { Icon(t.icon, stringResource(t.labelRes)) }, label = { Text(stringResource(t.labelRes), style = MaterialTheme.typography.labelSmall) }) }
     }
 }
 
@@ -138,10 +191,10 @@ fun BucksRail(current: BottomTab, onSelect: (BottomTab) -> Unit) {
 /** Add, then a -/qty/+ stepper once the item is in the cart; search results and provider products share it. */
 @Composable
 fun AddStepper(qty: Int, onAdd: (Int) -> Unit) =
-    if (qty == 0) SmallButton("Add", tonal = true) { onAdd(1) }
+    if (qty == 0) SmallButton(stringResource(R.string.g4_add), tonal = true) { onAdd(1) }
     else Row(Modifier.height(38.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary), verticalAlignment = Alignment.CenterVertically) {
         val c = MaterialTheme.colorScheme.onPrimary
-        Icon(Icons.Rounded.Remove, "Remove one", Modifier.minimumInteractiveComponentSize().clickable { onAdd(-1) }.padding(10.dp).size(18.dp), tint = c); Text("$qty", style = MaterialTheme.typography.labelMedium, color = c); Icon(Icons.Rounded.Add, "Add one", Modifier.minimumInteractiveComponentSize().clickable { onAdd(1) }.padding(10.dp).size(18.dp), tint = c) }
+        Icon(Icons.Rounded.Remove, stringResource(R.string.g4_cd_remove_one), Modifier.minimumInteractiveComponentSize().clickable { onAdd(-1) }.padding(10.dp).size(18.dp), tint = c); Text("$qty", style = MaterialTheme.typography.labelMedium, color = c); Icon(Icons.Rounded.Add, stringResource(R.string.g4_cd_add_one), Modifier.minimumInteractiveComponentSize().clickable { onAdd(1) }.padding(10.dp).size(18.dp), tint = c) }
 @Composable fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit) = Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick).padding(6.dp)) {
     Box(Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) { Icon(icon, label, tint = MaterialTheme.colorScheme.onSurface) }
     Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -175,10 +228,12 @@ fun Sheet(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @
 @Composable fun Divider() = HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
 @Composable
-fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tinted: Boolean = true) {
+fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tinted: Boolean = true, photoUrl: String? = null) {
     Box(Modifier.size(size.dp).clip(CircleShape).background(if (tinted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+        // The initials stay underneath while the photo loads (and if it can't), so the circle is never blank.
         if (icon != null) Icon(icon, null, tint = if (tinted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size((size * 0.5).dp))
         else Text(text ?: "?", color = if (tinted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, style = if (size >= 64) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleSmall)
+        if (!photoUrl.isNullOrBlank()) coil.compose.AsyncImage(photoUrl, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
     }
 }
 
@@ -187,10 +242,11 @@ fun Avatar(text: String? = null, icon: ImageVector? = null, size: Int = 44, tint
 fun TrustBadge(t: Trust, compact: Boolean = false, onClick: (() -> Unit)? = null) {
     val pct = t.pct; val st = MaterialTheme.status
     val (fg, bg) = when { pct == null -> MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surfaceContainer; pct >= 85 -> st.good to st.goodTint; pct >= 60 -> st.warn to st.warnTint; else -> st.bad to st.badTint }
-    val text = when { pct == null -> if (compact) "New" else "New · no votes yet"; compact -> "$pct% recommend"; else -> "$pct% recommend · ${t.total} votes" }
-    Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = "How is this ranked", onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.ThumbUp, null, tint = fg, modifier = Modifier.size(13.dp)); Spacer(Modifier.width(5.dp))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+    // Recommendations read as votes everywhere: an up count and a down count, never stars or thumbs.
+    Row((if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier).clip(CircleShape).background(bg).then(if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.g4_trust_how_ranked), onClick = onClick) else Modifier).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        val side = shownVote(t.up, t.down)
+        if (side == null) Text(if (compact || pct == null) stringResource(R.string.g4_trust_new) else stringResource(R.string.g4_trust_new_so_far, t.total.toString()), style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1)
+        else VoteMark(t.up, t.down, fg, side = side)
     }
 }
 
@@ -257,7 +313,12 @@ fun ListRow(title: String, subtitle: String? = null, leading: @Composable () -> 
     }
 }
 
-data class MapPin(val x: Float, val y: Float, val label: String, val color: Color, val big: Boolean = false, val at: com.bucks.app.data.LatLng? = null)
+/**
+ * A point on [BucksMap]. A pin with an [id] can be tapped (BucksMap's onPinTap) and gets a 48 dp touch area. A pin with a [badge] is drawn as
+ * a small rounded label with that text (a place's rank and recommend count) instead of a dot; [selected] draws it filled.
+ */
+data class MapPin(val x: Float, val y: Float, val label: String, val color: Color, val big: Boolean = false, val at: com.bucks.app.data.LatLng? = null,
+    val id: String? = null, val badge: String? = null, val selected: Boolean = false)
 fun pinAt(at: com.bucks.app.data.LatLng, label: String, color: Color, big: Boolean = false) = com.bucks.app.data.Geo.toPercent(at).let { (x, y) -> MapPin(x, y, label, color, big, at) }
 
 /** Simulated map. Swap for Google Maps Compose once an API key exists; pins use 0–100 percent coordinates. */
@@ -299,3 +360,116 @@ private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f
 @Composable fun SectionTitle(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); if (action != null && onAction != null) TextButton(onClick = onAction, contentPadding = PaddingValues(0.dp)) { Text(action, style = MaterialTheme.typography.labelMedium) } }
 @Composable fun Muted(text: String, modifier: Modifier = Modifier, align: TextAlign? = null, maxLines: Int = Int.MAX_VALUE, minLines: Int = 1) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier, textAlign = align, maxLines = maxLines, minLines = minLines, overflow = TextOverflow.Ellipsis)
 @Composable fun Headline(text: String, modifier: Modifier = Modifier) = Text(text, style = MaterialTheme.typography.headlineMedium, modifier = modifier)
+
+/*
+ * Recommendations are arrows everywhere: up = recommended, down = not recommended. No words, no thumbs, no stars.
+ * The one number shown is the larger side: a thing with more downs than ups shows the down arrow and the down count.
+ */
+
+/** Fewer people than this and a business, product or driver shows "New" rather than an arrow. */
+const val VOTES_TO_SHOW = 3
+
+/**
+ * Which side a business, product or driver shows: null ("New") until [VOTES_TO_SHOW] people voted; the down side only once
+ * at least [VOTES_TO_SHOW] different people voted down and they outnumber the ups, so one rival can't turn a new shop red.
+ */
+fun shownVote(up: Int, down: Int): Int? = when { up + down < VOTES_TO_SHOW -> null; down > up && down >= VOTES_TO_SHOW -> -1; else -> 1 }
+
+/**
+ * The counts a post's ↑ and ↓ carry, as (up, down); null hides that number. Before I vote, only the larger side shows (ties show the
+ * ups, nothing while nobody voted). Once I've voted, the whole breakdown shows, both numbers, for every post I've voted on.
+ */
+fun postCountsShown(up: Int, down: Int, my: Int): Pair<Int?, Int?> = when {
+    my != 0 -> up to down
+    up >= down -> up.takeIf { it > 0 } to null
+    else -> null to down
+}
+
+/**
+ * The small comment box under a post, wherever a post shows: one quiet line until someone types, then a send arrow. Voting is one tap
+ * on an arrow; saying why is this box, never a sheet in the way.
+ */
+@Composable
+fun InlineCommentBox(modifier: Modifier = Modifier, onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }; val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val send = { val t = text.trim(); if (t.isNotEmpty()) { onSend(t); text = ""; focus.clearFocus() } }
+    val small = MaterialTheme.typography.bodySmall
+    Row(modifier.fillMaxWidth().heightIn(min = 36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.foundation.text.BasicTextField(text, { text = it.take(1000) }, Modifier.weight(1f).padding(vertical = 9.dp), singleLine = true, textStyle = small.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { send() }),
+            decorationBox = { inner -> Box { if (text.isEmpty()) Text(stringResource(R.string.g1_home_add_comment), style = small, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1); inner() } })
+        if (text.isNotBlank()) Icon(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.g1_cd_send_comment), Modifier.clip(CircleShape).clickable(onClick = send).padding(7.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/** Why a down was given; the server takes the same codes (reviews.reason, profile_votes.reason). */
+val VOTE_REASONS: List<Pair<String, String>> get() = listOf("LATE" to Str.get(R.string.g4_reason_late), "QUALITY" to Str.get(R.string.g4_reason_quality), "PRICE" to Str.get(R.string.g4_reason_price),
+    "BEHAVIOUR" to Str.get(R.string.g4_reason_behaviour), "SAFETY" to Str.get(R.string.g4_reason_safety), "OTHER" to Str.get(R.string.g4_reason_other))
+
+/** The larger side of a vote (or [side] when given): the arrow and its count, tinted [tint] (or green / red by the side when null). Ties show up. */
+@Composable
+fun VoteMark(up: Int, down: Int, tint: Color? = null, size: Int = 13, side: Int? = null) {
+    val upWins = side?.let { it > 0 } ?: (up >= down)
+    val c = tint ?: if (upWins) MaterialTheme.status.good else MaterialTheme.status.bad
+    Icon(if (upWins) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (upWins) pluralStringResource(R.plurals.g4_cd_recommended_by, up, up) else pluralStringResource(R.plurals.g4_cd_not_recommended_by, down, down), tint = c, modifier = Modifier.size(size.dp))
+    Text(" ${if (upWins) up else down}", style = MaterialTheme.typography.labelMedium, color = c, maxLines = 1)
+}
+
+/** An up or a down arrow on its own, as a 48dp button; [on] fills it with its colour. */
+@Composable
+fun VoteArrow(up: Boolean, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val st = MaterialTheme.status; val c = if (up) st.good else st.bad
+    Box(modifier.minimumInteractiveComponentSize().heightIn(min = 44.dp).clip(MaterialTheme.shapes.small).background(if (on) c.copy(alpha = 0.15f) else Color.Transparent)
+        .border(if (on) 2.dp else 1.dp, if (on) c else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+        .clickable(onClickLabel = if (up) stringResource(R.string.g4_vote_recommend) else stringResource(R.string.g4_vote_not_recommend), onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+        Icon(if (up) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, if (up) stringResource(R.string.g4_vote_recommend) else stringResource(R.string.g4_vote_not_recommend), Modifier.size(22.dp), tint = if (on) c else MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The box that opens on every arrow tap: the two arrows (the tapped one selected) and a feedback field. [onSubmit] gets the vote
+ * and the trimmed text; the text is optional, so a quick vote is still one more tap.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoteFeedbackSheet(title: String, initial: Int, initialText: String = "", busy: Boolean = false, askReason: Boolean = false, onSubmit: (Int, String, String?) -> Unit, onDismiss: () -> Unit) {
+    var vote by remember { mutableIntStateOf(initial) }; var text by remember { mutableStateOf(initialText) }; var reason by remember { mutableStateOf<String?>(null) }
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
+        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 24.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                VoteArrow(true, vote == 1, Modifier.weight(1f)) { vote = 1 }
+                VoteArrow(false, vote == -1, Modifier.weight(1f)) { vote = -1 }
+            }
+            // After a real order or trip, a down needs a reason: it is what the owner can act on.
+            if (askReason && vote < 0) { Text(stringResource(R.string.g4_vote_what_wrong), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)); ReasonChips(reason) { reason = it } }
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(),
+                placeholder = { Text(if (vote > 0) stringResource(R.string.g4_vote_good_hint) else stringResource(R.string.g4_vote_more_hint)) }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
+            Button({ onSubmit(vote, text.trim(), if (vote < 0) reason else null) }, Modifier.padding(top = 8.dp).fillMaxWidth().heightIn(min = 48.dp), enabled = !busy && !(askReason && vote < 0 && reason == null)) { Text(if (busy) stringResource(R.string.g4_vote_sending) else stringResource(R.string.g4_fb_post)) }
+        }
+    }
+}
+
+/** One of [VOTE_REASONS], as chips; tapping the chosen one again clears it. */
+@Composable
+fun ReasonChips(selected: String?, onPick: (String?) -> Unit) { val reasons = VOTE_REASONS
+    FlowChips(reasons.map { it.second }, setOfNotNull(reasons.firstOrNull { it.first == selected }?.second)) { label ->
+        val code = reasons.first { it.second == label }.first; onPick(if (code == selected) null else code) } }
+
+
+/** One sign-up progress bar used by every setup step: [step] of [of] segments filled, so the steps read as one journey. */
+@Composable fun SetupProgress(step: Int, of: Int, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (1..of).forEach { i -> Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)) }
+    }
+}
+
+/** A bottom sheet's top bar: the drag handle, plus a visible 48 dp close button (swiping down is easy to miss, and some can't). */
+@Composable fun SheetCloseHandle(onClose: () -> Unit) {
+    Box(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
+        IconButton(onClose, Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).size(48.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.g4_cd_close), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}

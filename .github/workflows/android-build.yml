@@ -67,6 +67,9 @@ jobs:
           # The anon key is Supabase's client-side key (safe in the app; row-level security does the protecting). A repository secret overrides it.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://lboxctryrktwdsvywfqp.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3hjdHJ5cmt0d2Rzdnl3ZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Nzg4NjgsImV4cCI6MjEwNjA1NDg2OH0.f723OaejTwcD3AZsASkaF6XYLMIhYmdIqVWphasImcg' }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
+          LEGAL_BASE_URL: ${{ vars.LEGAL_BASE_URL }}
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true

@@ -15,10 +15,12 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.bucks.app.MainActivity
+import com.bucks.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,10 +64,11 @@ object AppLife {
 object RingAlert {
     private const val NOTIF_ID = 0x5121
 
-    enum class Problem(val message: String) {
-        OFF("Notifications are off for Bucks, so a ride request can't ring you while the app isn't open."),
-        CHANNEL("The \"Rides and deliveries\" notifications are switched off, so a ride request can't ring you while the app isn't open."),
-        QUIET("The \"Rides and deliveries\" notifications are set to silent, so a request may not pop up or ring while the app isn't open.")
+    enum class Problem(@StringRes private val messageRes: Int) {
+        OFF(R.string.g5_ring_problem_off),
+        CHANNEL(R.string.g5_ring_problem_channel),
+        QUIET(R.string.g5_ring_problem_quiet);
+        val message: String get() = Str.get(messageRes)
     }
 
     fun ring(dr: DriverRide) {
@@ -100,11 +103,11 @@ object RingAlert {
         val open = Intent(ctx, MainActivity::class.java).apply { action = Intent.ACTION_VIEW; addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP); putExtra(Push.EXTRA_ROUTE, "home") }
         val tap = PendingIntent.getActivity(ctx, NOTIF_ID, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val delivery = dr.kind == VehicleKind.BIKE
-        val away = if (dr.pickupKm < 1) "${(dr.pickupKm * 1000).toInt()} m" else "${dr.pickupKm} km"
+        val away = if (dr.pickupKm < 1) Str.get(R.string.g5_dist_m, (dr.pickupKm * 1000).toInt()) else Str.get(R.string.g5_dist_km, dr.pickupKm.toString())
         val secs = dr.secondsLeft.coerceAtLeast(5)
         val n = NotificationCompat.Builder(ctx, Push.CH_RIDE)
             .setSmallIcon(com.bucks.app.R.drawable.ic_stat_bucks).setColor(0xFF811FF0.toInt())
-            .setContentTitle("${if (delivery) "New delivery" else "New ride request"} · ₹${dr.fare}").setContentText("${dr.pickupAt.substringBefore(" · ")} · $away away · tap to accept")
+            .setContentTitle(Str.get(if (delivery) R.string.g5_ring_title_delivery else R.string.g5_ring_title_ride, Money.format(dr.fare))).setContentText(Str.get(R.string.g5_ring_text, dr.pickupAt.substringBefore(" · "), away))
             .setContentIntent(tap).setAutoCancel(true).setCategory(NotificationCompat.CATEGORY_EVENT).setPriority(NotificationCompat.PRIORITY_MAX).setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setTimeoutAfter(secs * 1000L).setWhen(System.currentTimeMillis() + secs * 1000L).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
             .build().also { it.flags = it.flags or Notification.FLAG_INSISTENT }

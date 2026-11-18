@@ -85,11 +85,13 @@ struct MembersSheet: View {
                     ForEach(members, id: \.profileId) { m in
                         let name = session.social.nameOf(m.profileId)
                         HStack(spacing: 0) {
+                            HStack(spacing: 0) {
                             Avatar(initials: initials(name.isEmpty ? "?" : name), size: 40)
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(m.profileId == meId ? "\(name) (you)" : name).bucks(.titleMedium).foregroundStyle(BucksColor.onSurface).lineLimit(1)
                                 if m.role == "ADMIN" { Muted(group ? "Admin" : "Runs the listing") }
                             }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                            }.opensProfile(m.profileId, name: name, inSheet: true)
                             if group && iAmAdmin && m.profileId != meId {
                                 Button { removeFor = m } label: { Image(systemName: "person.badge.minus").foregroundStyle(BucksColor.onSurfaceVariant).frame(width: 44, height: 44).contentShape(Rectangle()) }
                                     .buttonStyle(.plain).accessibilityLabel("Remove \(name)")

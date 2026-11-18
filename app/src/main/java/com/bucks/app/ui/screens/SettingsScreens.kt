@@ -1,6 +1,20 @@
 package com.bucks.app.ui.screens
 
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -44,31 +58,29 @@ import kotlinx.serialization.json.jsonPrimitive
 fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (String) -> Unit, onEditProfile: () -> Unit, onLogout: () -> Unit, onDeleted: () -> Unit, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val cloud = vm.social.enabled
     var deleteDialog by remember { mutableStateOf(false) }
-    SectionTitle("Identity", Modifier.padding(bottom = 10.dp)); identity()
-    SectionTitle("Preferences", Modifier.padding(top = 22.dp, bottom = 6.dp))
-    SettingRow(Icons.Rounded.Person, "Edit profile", onClick = onEditProfile)
-    if (cloud) SettingRow(Icons.Rounded.Sync, "Sync", "Requests, people you may know, synced people") { onOpen(Routes.SYNC) }
-    SettingRow(Icons.Rounded.Lock, "Privacy", if (cloud) "Who can message and sync with you, Moments audience, read receipts" else "Available once you're signed in with Bucks online") { if (cloud) onOpen(Routes.SETTINGS_PRIVACY) else showToast("Privacy settings need the online build.") }
-    SettingRow(Icons.Rounded.Notifications, "Notifications", "What Bucks tells you about, and quiet hours") { if (cloud) onOpen(Routes.SETTINGS_NOTIFS) else showToast("Notification settings need the online build.") }
-    SettingRow(Icons.Rounded.Palette, "Appearance and data", "Theme, text size, motion, media on mobile data") { onOpen(Routes.SETTINGS_APPEARANCE) }
-    if (cloud) { SettingRow(Icons.Rounded.Block, "Blocked people") { onOpen(Routes.SETTINGS_BLOCKED) }; SettingRow(Icons.Rounded.Favorite, "Close friends", "Who sees Moments you share with close friends") { onOpen(Routes.SETTINGS_CLOSE) } }
+    val privacyOffline = stringResource(R.string.g1_set_privacy_offline); val notifsOffline = stringResource(R.string.g1_set_notifs_offline); val rulesText = stringResource(R.string.g1_set_rules_text)
+    SectionTitle(stringResource(R.string.g1_set_identity), Modifier.padding(bottom = 10.dp)); identity()
+    SectionTitle(stringResource(R.string.g1_set_preferences), Modifier.padding(top = 22.dp, bottom = 6.dp))
+    SettingRow(Icons.Rounded.Person, stringResource(R.string.g1_set_edit_profile), onClick = onEditProfile)
+    if (cloud) SettingRow(Icons.Rounded.Sync, stringResource(R.string.g1_set_sync), stringResource(R.string.g1_set_sync_detail)) { onOpen(Routes.SYNC) }
+    SettingRow(Icons.Rounded.Lock, stringResource(R.string.g1_set_privacy), if (cloud) stringResource(R.string.g1_set_privacy_detail) else stringResource(R.string.g1_set_privacy_signed_out)) { if (cloud) onOpen(Routes.SETTINGS_PRIVACY) else showToast(privacyOffline) }
+    SettingRow(Icons.Rounded.Notifications, stringResource(R.string.g1_set_notifs), stringResource(R.string.g1_set_notifs_detail)) { if (cloud) onOpen(Routes.SETTINGS_NOTIFS) else showToast(notifsOffline) }
+    SettingRow(Icons.Rounded.Palette, stringResource(R.string.g1_set_appearance), stringResource(R.string.g1_set_appearance_detail)) { onOpen(Routes.SETTINGS_APPEARANCE) }
+    if (cloud) { SettingRow(Icons.Rounded.Block, stringResource(R.string.g1_set_blocked)) { onOpen(Routes.SETTINGS_BLOCKED) }; SettingRow(Icons.Rounded.Place, stringResource(R.string.g1_set_map), stringResource(R.string.g1_set_map_detail)) { onOpen(Routes.SETTINGS_MAP) }; SettingRow(Icons.Rounded.Favorite, stringResource(R.string.g1_set_close), stringResource(R.string.g1_set_close_detail)) { onOpen(Routes.SETTINGS_CLOSE) } }
     LaunchedEffect(cloud) { if (cloud) vm.services.checkStaff() }
-    if (vm.services.isStaff) SettingRow(Icons.Rounded.FactCheck, "Review documents", "Bucks staff: shop and pro documents waiting for a check") { onOpen(Routes.STAFF_REVIEW) }
-    if (vm.dispatch.enabled) ListRow("Payment QR", "How customers pay you by UPI: rides, deliveries and shop orders", leading = { Avatar(icon = Icons.Rounded.QrCode2) }, trailing = { Icon(Icons.Rounded.ChevronRight, null) }) { onOpen(Routes.PAYMENT_QR) }
-    SectionTitle("Voice and AI", Modifier.padding(top = 22.dp, bottom = 10.dp))
-    BucksCard { Text("Voice language", style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
-        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Cloud understanding", style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." else "Off. The built-in rules work offline.") }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
-    SectionTitle("About", Modifier.padding(top = 22.dp, bottom = 6.dp))
+    if (vm.services.isStaff) SettingRow(Icons.Rounded.FactCheck, stringResource(R.string.g1_set_review_docs), stringResource(R.string.g1_set_review_docs_detail)) { onOpen(Routes.STAFF_REVIEW) }
+    VoiceAiCard(vm)
+    SectionTitle(stringResource(R.string.g1_set_about), Modifier.padding(top = 22.dp, bottom = 6.dp))
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    SettingRow(Icons.Rounded.SystemUpdate, "App version", "Build ${com.bucks.app.data.AppUpdate.currentBuild}" + if (com.bucks.app.data.AppUpdate.enabled) (if (vm.updates.checking) " · Checking…" else " · Check for updates") else "") { vm.updates.check(ctx, manual = true) }
-    SettingRow(Icons.Rounded.Gavel, "Community rules") { showToast("Review only what you actually ordered or booked. Every review needs a reason. One account per person.") }
-    SectionTitle("Account", Modifier.padding(top = 22.dp, bottom = 6.dp))
-    SettingRow(Icons.Rounded.Logout, "Log out", onClick = onLogout)
-    SettingRow(Icons.Rounded.DeleteOutline, "Delete account") { deleteDialog = true }
-    if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, title = { Text("Delete your account?") },
-        text = { Text(if (cloud) "This removes your profile, phone number, payment QR, listings, posts, moments and messages, and your sign-in. Orders and trips stay in the other person's history without your name. It can't be undone." else "This removes your profile, listings, businesses, saved sign-in and identity key from this device. It can't be undone.") },
-        confirmButton = { TextButton(onClick = { deleteDialog = false; vm.deleteAccount(); onDeleted() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("Cancel") } })
+    SettingRow(Icons.Rounded.SystemUpdate, stringResource(R.string.g1_set_app_version), stringResource(if (com.bucks.app.data.AppUpdate.enabled) (if (vm.updates.checking) R.string.g1_set_build_checking else R.string.g1_set_build_switch) else R.string.g1_set_build_play, com.bucks.app.data.AppUpdate.currentBuild.toString())) { onOpen(com.bucks.app.ui.nav.Routes.APP_VERSIONS) }
+    SettingRow(Icons.Rounded.Gavel, stringResource(R.string.g1_set_rules)) { showToast(rulesText) }
+    SectionTitle(stringResource(R.string.g1_set_account), Modifier.padding(top = 22.dp, bottom = 6.dp))
+    SettingRow(Icons.Rounded.Logout, stringResource(R.string.g1_set_logout), onClick = onLogout)
+    SettingRow(Icons.Rounded.DeleteOutline, stringResource(R.string.g1_set_delete_account)) { deleteDialog = true }
+    if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, title = { Text(stringResource(R.string.g1_set_delete_title)) },
+        text = { Text(if (cloud) stringResource(R.string.g1_set_delete_body_cloud) else stringResource(R.string.g1_set_delete_body_local)) },
+        confirmButton = { TextButton(onClick = { deleteDialog = false; vm.deleteAccount(); onDeleted() }) { Text(stringResource(R.string.g1_action_delete), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text(stringResource(R.string.g1_action_cancel)) } })
 }
 
 /* ---------- pages ---------- */
@@ -77,22 +89,22 @@ fun SettingsHub(vm: BucksViewModel, identity: @Composable () -> Unit, onOpen: (S
 fun PrivacyScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val social = vm.social; val saved = social.settings ?: SettingsRow(social.me?.id ?: "")
     var row by remember(saved) { mutableStateOf(saved) }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Privacy", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g1_set_privacy), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            ChoiceGroup("Who can message me", "People on an active trip or order with you can always message you.", listOf("SYNCED" to "People I've synced with", "EVERYONE" to "Everyone", "NOBODY" to "Nobody new"), row.whoCanMessage) { row = row.copy(whoCanMessage = it) }
-            ChoiceGroup("Who can send me sync requests", null, listOf("EVERYONE" to "Everyone", "NOBODY" to "Nobody"), row.whoCanSync) { row = row.copy(whoCanSync = it) }
-            ChoiceGroup("Default audience for my Moments", "You can change it on each moment.", listOf("SYNCED" to "Synced people", "LOCAL" to "Synced people and neighbours within 5 km", "CLOSE" to "Close friends only"), row.momentsAudience) { row = row.copy(momentsAudience = it) }
-            ToggleRow("Read receipts", "Off: nobody sees when you've read, and you don't see it either.", row.readReceipts) { row = row.copy(readReceipts = it) }
-            ToggleRow("Show when I'm online", null, row.showOnline) { row = row.copy(showOnline = it) }
-            ToggleRow("Suggest me to people nearby", "Off: you won't appear under 'People you may know'.", row.discoverable) { row = row.copy(discoverable = it) }
-            Muted("Your phone number is never shown to other users. Drivers and customers see each other's number only during a trip or delivery.", Modifier.padding(top = 12.dp))
-            PrimaryButton("Save", Modifier.padding(top = 20.dp), enabled = row != saved) { social.saveSettings(row) }
+            ChoiceGroup(stringResource(R.string.g1_priv_message), stringResource(R.string.g1_priv_message_detail), listOf("SYNCED" to stringResource(R.string.g1_priv_synced_with), "EVERYONE" to stringResource(R.string.g1_priv_everyone), "NOBODY" to stringResource(R.string.g1_priv_nobody_new)), row.whoCanMessage) { row = row.copy(whoCanMessage = it) }
+            ChoiceGroup(stringResource(R.string.g1_priv_sync), null, listOf("EVERYONE" to stringResource(R.string.g1_priv_everyone), "NOBODY" to stringResource(R.string.g1_priv_nobody)), row.whoCanSync) { row = row.copy(whoCanSync = it) }
+            ChoiceGroup(stringResource(R.string.g1_priv_moments), stringResource(R.string.g1_priv_moments_detail), listOf("SYNCED" to stringResource(R.string.g1_priv_synced_people), "LOCAL" to stringResource(R.string.g1_priv_local), "CLOSE" to stringResource(R.string.g1_priv_close_only)), row.momentsAudience) { row = row.copy(momentsAudience = it) }
+            ToggleRow(stringResource(R.string.g1_priv_receipts), stringResource(R.string.g1_priv_receipts_detail), row.readReceipts) { row = row.copy(readReceipts = it) }
+            ToggleRow(stringResource(R.string.g1_priv_online), null, row.showOnline) { row = row.copy(showOnline = it) }
+            ToggleRow(stringResource(R.string.g1_priv_suggest), stringResource(R.string.g1_priv_suggest_detail), row.discoverable) { row = row.copy(discoverable = it) }
+            Muted(stringResource(R.string.g1_priv_phone_note), Modifier.padding(top = 12.dp))
+            PrimaryButton(stringResource(R.string.g1_action_save), Modifier.padding(top = 20.dp), enabled = row != saved) { social.saveSettings(row) }
         }
     }
 }
 
 // Keys the notify Edge Function checks (supabase/functions/notify/index.ts, NotifyKey); a missing key means on, except offers.
-private val NOTIFY_KEYS = listOf("messages" to "Messages", "sync_requests" to "Sync requests", "moments" to "Moments from synced people", "comments" to "Comments on my posts", "my_orders" to "Updates on orders I place", "my_trips" to "Updates on rides and deliveries I book", "orders" to "New orders for my businesses", "tasks" to "Trips I drive (cancellations, payments)", "offers" to "Offers and deals nearby")
+private val NOTIFY_KEYS = listOf("messages" to R.string.g1_notify_messages, "sync_requests" to R.string.g1_notify_sync, "moments" to R.string.g1_notify_moments, "comments" to R.string.g1_notify_comments, "my_orders" to R.string.g1_notify_my_orders, "my_trips" to R.string.g1_notify_my_trips, "orders" to R.string.g1_notify_orders, "tasks" to R.string.g1_notify_tasks, "offers" to R.string.g1_notify_offers)
 
 @Composable
 fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
@@ -102,30 +114,55 @@ fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     fun set(k: String, v: Boolean) { row = row.copy(notify = JsonObject(row.notify + (k to JsonPrimitive(v)))) }
     val quiet = row.quietHours; var qOn by remember(saved) { mutableStateOf(quiet != null) }
     var from by remember(saved) { mutableStateOf(quiet?.get("from")?.jsonPrimitive?.content ?: "22:00") }; var to by remember(saved) { mutableStateOf(quiet?.get("to")?.jsonPrimitive?.content ?: "07:00") }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Notifications", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g1_set_notifs), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
             PhoneNotificationStatus()
-            NOTIFY_KEYS.forEach { (k, l) -> ToggleRow(l, null, on(k)) { set(k, it) } }
-            ToggleRow("Quiet hours", "No sounds or banners between these times. Ride requests still ring while you're online.", qOn) { qOn = it }
-            if (qOn) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { BucksField(from, { from = it.take(5) }, "From", "22:00", Modifier.weight(1f)); BucksField(to, { to = it.take(5) }, "To", "07:00", Modifier.weight(1f)) }
-            PrimaryButton("Save", Modifier.padding(top = 20.dp)) {
+            NOTIFY_KEYS.forEach { (k, l) -> ToggleRow(stringResource(l), null, on(k)) { set(k, it) } }
+            ToggleRow(stringResource(R.string.g1_notif_quiet), stringResource(R.string.g1_notif_quiet_detail), qOn) { qOn = it }
+            if (qOn) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { BucksField(from, { from = it.take(5) }, stringResource(R.string.g1_notif_from), "22:00", Modifier.weight(1f)); BucksField(to, { to = it.take(5) }, stringResource(R.string.g1_notif_to), "07:00", Modifier.weight(1f)) }
+            PrimaryButton(stringResource(R.string.g1_action_save), Modifier.padding(top = 20.dp)) {
                 val q = if (qOn && Regex("^\\d{2}:\\d{2}$").matches(from) && Regex("^\\d{2}:\\d{2}$").matches(to)) JsonObject(mapOf("from" to JsonPrimitive(from), "to" to JsonPrimitive(to))) else null
                 social.saveSettings(row.copy(quietHours = q)) }
-            Muted("Notifications reach this phone even when Bucks is closed. Quiet hours make them silent; ride, delivery and new-order alerts still ring, because someone is waiting.", Modifier.padding(top = 12.dp))
+            Muted(stringResource(R.string.g1_notif_note), Modifier.padding(top = 12.dp))
+        }
+    }
+}
+
+@Composable private fun accentLabel(a: com.bucks.app.ui.theme.Accent) = stringResource(when (a) {
+    com.bucks.app.ui.theme.Accent.PURPLE -> R.string.g1_accent_purple; com.bucks.app.ui.theme.Accent.SAPPHIRE -> R.string.g1_accent_sapphire; com.bucks.app.ui.theme.Accent.EMERALD -> R.string.g1_accent_emerald
+    com.bucks.app.ui.theme.Accent.RUBY -> R.string.g1_accent_ruby; com.bucks.app.ui.theme.Accent.GRAPHITE -> R.string.g1_accent_graphite })
+
+/** The colour theme: one swatch each, the chosen one ringed and ticked. The app recolours as soon as one is tapped. */
+@Composable
+private fun AccentPicker() {
+    Label(stringResource(R.string.g1_app_colour))
+    // Each swatch is that theme's own primary for the mode on screen, so what you tap is what the buttons become.
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        com.bucks.app.ui.theme.Accent.entries.forEach { a ->
+            val on = a == Prefs.accent; val name = accentLabel(a); val colors = a.scheme(dark)
+            Column(Modifier.weight(1f).clip(MaterialTheme.shapes.medium).selectable(selected = on, role = Role.RadioButton) { Prefs.chooseAccent(a) }.semantics { contentDescription = name }.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(48.dp).border(2.dp, if (on) MaterialTheme.colorScheme.onSurface else Color.Transparent, CircleShape).padding(5.dp).background(colors.primary, CircleShape), contentAlignment = Alignment.Center) {
+                    if (on) Icon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = colors.onPrimary)
+                }
+                Text(name, style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(top = 6.dp).clearAndSetSemantics {})
+            }
         }
     }
 }
 
 @Composable
 fun AppearanceScreen(onBack: () -> Unit) {
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Appearance and data", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g1_set_appearance), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            ChoiceGroup("Theme", null, Prefs.Theme.entries.map { it to it.label }, Prefs.theme) { Prefs.chooseTheme(it) }
-            ChoiceGroup("Text size", null, Prefs.TextSize.entries.map { it to it.label }, Prefs.textSize) { Prefs.chooseTextSize(it) }
-            ToggleRow("Reduce motion", "Turns off pulses and other looping animations.", Prefs.reduceMotion) { Prefs.enableReduceMotion(it) }
-            ChoiceGroup("Download photos and files", "Applies to chats and Moments on mobile data.", Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }
-            ToggleRow("Data saver", "Lighter maps and smaller images.", Prefs.dataSaver) { Prefs.enableDataSaver(it) }
-            ChoiceGroup("App language", "Menus and buttons. Translations are being added; English is complete.", Prefs.LANGUAGES, Prefs.language) { Prefs.chooseLanguage(it) }
+            ChoiceGroup(stringResource(R.string.g1_app_theme), null, Prefs.Theme.entries.map { it to it.label }, Prefs.theme) { Prefs.chooseTheme(it) }
+            AccentPicker()
+            ChoiceGroup(stringResource(R.string.g1_app_text_size), null, Prefs.TextSize.entries.map { it to it.label }, Prefs.textSize) { Prefs.chooseTextSize(it) }
+            ToggleRow(stringResource(R.string.g1_app_motion), stringResource(R.string.g1_app_motion_detail), Prefs.reduceMotion) { Prefs.enableReduceMotion(it) }
+            ChoiceGroup(stringResource(R.string.g1_app_download), stringResource(R.string.g1_app_download_detail), Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }
+            ToggleRow(stringResource(R.string.g1_app_data_saver), stringResource(R.string.g1_app_data_saver_detail), Prefs.dataSaver) { Prefs.enableDataSaver(it) }
+            ToggleRow(stringResource(R.string.g1_app_usage), stringResource(R.string.g1_app_usage_detail), Prefs.shareUsage) { Prefs.enableShareUsage(it) }
+            ChoiceGroup(stringResource(R.string.g1_app_language), stringResource(R.string.g1_app_language_detail), com.bucks.app.data.AppLanguages.all.map { it.tag to it.native }, com.bucks.app.data.AppLanguages.current().tag) { Prefs.chooseLanguage(it) }
         }
     }
 }
@@ -133,10 +170,10 @@ fun AppearanceScreen(onBack: () -> Unit) {
 @Composable
 fun BlockedScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val social = vm.social; LaunchedEffect(Unit) { social.refreshBlocked() }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Blocked people", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g1_set_blocked), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            if (social.blocked.isEmpty()) Muted("Nobody is blocked. Block someone from a chat or their profile.")
-            social.blocked.forEach { p -> PersonRow(p, trailing = { SmallButton("Unblock", tonal = true) { social.unblock(p.id) } }) }
+            if (social.blocked.isEmpty()) Muted(stringResource(R.string.g1_blocked_empty))
+            social.blocked.forEach { p -> PersonRow(p, trailing = { SmallButton(stringResource(R.string.g1_blocked_unblock), tonal = true) { social.unblock(p.id) } }) }
         }
     }
 }
@@ -144,10 +181,10 @@ fun BlockedScreen(vm: BucksViewModel, onBack: () -> Unit) {
 @Composable
 fun CloseFriendsScreen(vm: BucksViewModel, onBack: () -> Unit) {
     val social = vm.social; LaunchedEffect(Unit) { social.refreshSyncs() }
-    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar("Close friends", onBack = onBack)
+    ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g1_set_close), onBack = onBack)
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Gutter)) {
-            Muted("Moments shared with 'Close friends' are seen only by the people ticked here. They aren't told they're on the list.", Modifier.padding(bottom = 8.dp))
-            if (social.synced.isEmpty()) Muted("Sync with people first.")
+            Muted(stringResource(R.string.g1_close_note), Modifier.padding(bottom = 8.dp))
+            if (social.synced.isEmpty()) Muted(stringResource(R.string.g1_close_empty))
             social.synced.forEach { p -> val on = p.id in social.closeFriends; PersonRow(p, trailing = { Checkbox(on, { social.setClose(p.id, it) }) }) }
         }
     }
@@ -164,15 +201,24 @@ private fun PhoneNotificationStatus() {
     val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { enabled = androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled() }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) { val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) enabled = androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled() }; lifecycle.addObserver(o); onDispose { lifecycle.removeObserver(o) } }
+    val testTitle = stringResource(R.string.g1_notif_test_title); val testBody = stringResource(R.string.g1_notif_test_body)
     BucksCard(Modifier.padding(bottom = 16.dp), tint = !enabled) {
-        Text(if (enabled) "This phone shows Bucks notifications" else "Notifications are off for Bucks on this phone", style = MaterialTheme.typography.titleSmall)
-        Muted(if (enabled) "If a comment, like or message still doesn't appear, tap Send a test. Also check that the phone isn't in Do Not Disturb or battery saver." else "Comments, likes, messages and orders reach this phone but Android hides them. Turn notifications on for Bucks.", Modifier.padding(top = 4.dp))
+        Text(if (enabled) stringResource(R.string.g1_notif_on) else stringResource(R.string.g1_notif_off), style = MaterialTheme.typography.titleSmall)
+        Muted(if (enabled) stringResource(R.string.g1_notif_on_detail) else stringResource(R.string.g1_notif_off_detail), Modifier.padding(top = 4.dp))
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!enabled) SmallButton("Turn on") {
+            if (!enabled) SmallButton(stringResource(R.string.g1_notif_turn_on)) {
                 if (android.os.Build.VERSION.SDK_INT >= 33) ask.launch(android.Manifest.permission.POST_NOTIFICATIONS) else ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName))
             }
-            SmallButton("Open phone settings", tonal = true) { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)) }
-            if (enabled) SmallButton("Send a test", tonal = true) { com.bucks.app.data.Push.show(ctx, "social", "Test from Bucks", "If you can read this, notifications work on this phone.", null, false) }
+            SmallButton(stringResource(R.string.g1_notif_phone_settings), tonal = true) { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)) }
+            if (enabled) SmallButton(stringResource(R.string.g1_notif_send_test), tonal = true) { com.bucks.app.data.Push.show(ctx, "social", testTitle, testBody, null, false) }
         }
     }
+}
+
+/** Voice language and whether free-form commands go to the cloud; in both settings lists. */
+@Composable fun VoiceAiCard(vm: BucksViewModel, modifier: Modifier = Modifier) {
+    val s by vm.state.collectAsState()
+    SectionTitle(stringResource(R.string.g1_voice_title), modifier.padding(top = 22.dp, bottom = 10.dp))
+    BucksCard { Text(stringResource(R.string.g1_voice_language), style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
+        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(stringResource(R.string.g1_voice_cloud), style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) stringResource(R.string.g1_voice_cloud_on) else stringResource(R.string.g1_voice_cloud_off)) }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
 }

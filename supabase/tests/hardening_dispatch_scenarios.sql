@@ -144,7 +144,7 @@ begin
   for i in 1..p_n loop
     begin
       if not public.claim_task(p_task) then exit; end if;
-      perform public.advance_task(p_task, 'SEARCHING');
+      perform public.release_task(p_task, 'OTHER');   -- hand-backs go through release_task (review_fixes.sql)
       done := done + 1;
     exception when others then exit;
     end;
@@ -159,7 +159,7 @@ begin
       if public.claim_task(t.id) then
         select c.phone into ph from public.contact_for_task(t.id) c;
         if ph like '92%' then near := near + 1; elsif ph like '93%' then far := far + 1; end if;
-        perform public.advance_task(t.id, 'SEARCHING');
+        perform public.release_task(t.id, 'OTHER');
       end if;
     exception when others then null;
     end;
@@ -312,7 +312,7 @@ select pg_temp.eq(pg_temp.brute(:'t_a'), 'not cracked', 'D1 looping p_pin 0000..
 select pg_temp.eq(pg_temp.q(format($$select pin_attempts from public.tasks where id = %L$$, :'t_a')), '5', 'D1 five wrong PINs are counted and readable by the driver');
 select pg_temp.check(pg_temp.blocked(format($$select advance_task(%L, 'IN_PROGRESS', '7391')$$, :'t_a'), 'too many wrong PIN'),
                      'D1 after 5 wrong PINs even the right one is refused: hand the trip back');
-select pg_temp.eq(pg_temp.q(format($$select status from advance_task(%L, 'SEARCHING')$$, :'t_a')), 'SEARCHING', 'D1 she can still hand the trip back');
+select pg_temp.eq(pg_temp.q(format($$select status from release_task(%L, 'OTHER')$$, :'t_a')), 'SEARCHING', 'D1 she can still hand the trip back');
 select pg_temp.eq(pg_temp.sq(format($$select (pin <> '7391')::text || ' ' || pin_attempts from public.tasks where id = %L$$, :'t_a')), 'true 0', 'D1 a hand-back resets the counter and rotates the PIN');
 select pg_temp.run(format($$update public.tasks set status = 'CANCELLED' where id = %L$$, :'t_a')) \gset
 
@@ -474,16 +474,16 @@ select pg_temp.clean() \gset
 select pg_temp.as_user('leo');
 select (request_ride('AUTO', 12.9250, 77.5938, 'P', 12.9757, 77.6063, 'D', 7.5, 1)).id as t1 \gset
 select pg_temp.eq((select fare || ' ' || km from tasks_geo where id = :'t1'), '110 7.5', 'D4 a client fare of Rs 1 is recomputed: fare_base 20 + 12/km x 7.5 km = Rs 110');
-select advance_task(:'t1', 'CANCELLED') \gset
+select cancel_task(:'t1', 'PLANS_CHANGED') \gset
 select (request_ride('AUTO', 12.9250, 77.5938, 'P', 12.9757, 77.6063, 'D', 0.5, 1)).id as t2 \gset
 select pg_temp.eq((select fare || ' ' || km from tasks_geo where id = :'t2'), '110 7.5', 'D4 a km below 0.8x the straight line is clamped to 1.3x straight line (7.5 km)');
-select advance_task(:'t2', 'CANCELLED') \gset
+select cancel_task(:'t2', 'PLANS_CHANGED') \gset
 select (request_ride('AUTO', 12.9250, 77.5938, 'P', 12.9757, 77.6063, 'D', 9999, 100000)).id as t3 \gset
 select pg_temp.eq((select fare || ' ' || km from tasks_geo where id = :'t3'), '110 7.5', 'D4 a km above 4x the straight line is clamped too');
-select advance_task(:'t3', 'CANCELLED') \gset
+select cancel_task(:'t3', 'PLANS_CHANGED') \gset
 select (request_ride('CAB', 12.9250, 77.5938, 'P', 12.9757, 77.6063, 'D', 7.5, 1)).id as t4 \gset
 select pg_temp.eq((select fare || ' ' || km from tasks_geo where id = :'t4'), '155 7.5', 'D4 a cab is 20 + 18/km: Rs 155');
-select advance_task(:'t4', 'CANCELLED') \gset
+select cancel_task(:'t4', 'PLANS_CHANGED') \gset
 select pg_temp.check(pg_temp.blocked($$select request_ride('AUTO', 12.9250, 77.5938, 'P', 12.9250, 77.5938, 'P', 0, 20)$$, 'too short'), 'D4 pick-up = drop is refused: that trip is too short');
 select pg_temp.clean() \gset
 select pg_temp.check(pg_temp.blocked($$select request_ride('AUTO', 12.9250, 77.5938, 'P', 28.6139, 77.2090, 'Delhi', 2000, 20)$$, 'too far for Bucks'), 'D4 a 1,750 km trip is refused: that trip is too far for Bucks');

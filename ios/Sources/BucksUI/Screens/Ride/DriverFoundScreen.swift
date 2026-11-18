@@ -66,9 +66,14 @@ struct DriverFoundScreen: View {
             }
             .frame(maxHeight: 520)
         }
-        .bucksConfirm(isPresented: $cancel, title: "Cancel ride", message: "\(first) is already on the way. Cancel anyway?",
-                      confirmTitle: "Cancel ride", cancelTitle: "Keep ride", destructive: true) {
-            Task { if await session.cancelRide() { router.popToRoot() } }
+        // A driver has accepted, so the server needs a reason (cancel_task); the driver is told why.
+        .confirmationDialog("Why are you cancelling?", isPresented: $cancel, titleVisibility: .visible) {
+            ForEach(CancelReasons.rider) { why in
+                Button(why.label) { Task { if await session.cancelRide(reason: why.code) { router.popToRoot() } } }
+            }
+            Button("Keep ride", role: .cancel) {}
+        } message: {
+            Text(r.status == .arrived ? "\(first) is waiting at your pickup. Cancelling wastes their trip." : "\(first) is already on the way to you.")
         }
         .task(id: RouteKey(car, me)) { await loader.load(from: car, to: me) }
         .onAppear { session.dispatch.mapShown() }

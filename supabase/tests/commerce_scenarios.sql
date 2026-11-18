@@ -127,7 +127,9 @@ select 'its delivery task: ' || status from tasks where order_id = current_setti
 select 'buyer can still call the shop -> ' || coalesce(phone, '-') || ' | ' || name from contact_for_order(current_setting('t.o6')::uuid);
 select set_config('t.o7', place_order(pg_temp.shop(), jsonb_build_array(jsonb_build_object('item_id', (select id from items where name = 'Toor dal'), 'qty', 1)), 12.9300, 77.6000, 'Deepa home', 'UPI', 'MARKETPLACE')::text, false) is not null;
 select pg_temp.as_user('owner'); select respond_order(current_setting('t.o7')::uuid, true);
-select pg_temp.as_user('buyer'); select 'buyer cancels the delivery task: ' || (advance_task((select id from tasks where order_id = current_setting('t.o7')::uuid), 'CANCELLED')).status;
+-- A buyer no longer drops an order's delivery task on its own (review_fixes.sql: cancel_task refuses deliveries, advance_task no
+-- longer cancels); the order is what gets cancelled, with a reason.
+select pg_temp.as_user('buyer'); select 'buyer cancels the delivery task directly -> ' || pg_temp.expect_fail(format($$select advance_task(%L, 'CANCELLED')$$, (select id from tasks where order_id = current_setting('t.o7')::uuid)), 'reason is recorded');
 select pg_temp.as_user('owner'); select update_order_status(current_setting('t.o7')::uuid, 'CANCELLED');
 select 'after the buyer dropped the delivery: ' || status || ' by ' || cancelled_by from orders where id = current_setting('t.o7')::uuid;
 select pg_temp.as_user('buyer');

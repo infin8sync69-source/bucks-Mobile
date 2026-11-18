@@ -60,6 +60,7 @@ func noteSymbol(_ kind: String) -> String {
     case "LISTING_PAUSED": "nosign"
     case "DOCUMENT_VERIFIED", "DOCUMENT_REJECTED": "doc.text"
     case "REVIEW": "star"
+    case "JOB_APPLICATION", "JOB_UPDATE": "briefcase"
     default: "bell"
     }
 }

@@ -3,6 +3,8 @@ package com.bucks.app.data
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.annotation.StringRes
+import com.bucks.app.R
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -37,9 +39,11 @@ object Identity {
     fun txnPayload(type: String, txnId: String, actor: String, counterparty: String, amount: Int, at: Long) = "$type|$txnId|$actor|$counterparty|$amount|$at"
 }
 
-enum class VerificationLevel(val label: String, val detail: String) {
-    PHONE("Phone verified", "One mobile number is bound to this key"),
-    DEVICE("Genuine device", "Play Integrity / key attestation passed"),
-    DOCUMENT("ID verified", "Driving licence or vehicle RC checked via DigiLocker partner"),
-    COMMUNITY("Community vouched", "10+ completed, well-rated transactions"),
+enum class VerificationLevel(@StringRes private val labelRes: Int, @StringRes private val detailRes: Int) {
+    PHONE(R.string.g2_verify_phone, R.string.g2_verify_phone_detail),
+    DEVICE(R.string.g2_verify_device, R.string.g2_verify_device_detail),
+    DOCUMENT(R.string.g2_verify_document, R.string.g2_verify_document_detail),
+    COMMUNITY(R.string.g2_verify_community, R.string.g2_verify_community_detail);
+    val label: String get() = Str.get(labelRes)
+    val detail: String get() = Str.get(detailRes)
 }

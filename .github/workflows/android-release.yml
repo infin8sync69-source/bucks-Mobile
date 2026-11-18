@@ -1,6 +1,7 @@
 # Builds the Google Play release: a minified Android App Bundle signed with the upload key, plus the R8 mapping file (upload it to
 # Play Console with the bundle so crash reports are readable). Run it from the Actions tab ("Run workflow") with a version name, or
-# push a tag like v1.0.0. Publishes nothing by itself: download the bundle and upload it to a Play Console track (internal testing first).
+# push a tag like v1.0.0. A release-v1.0.0 tag builds this and the iOS release from the same commit (docs/RELEASES.md).
+# Publishes nothing by itself: download the bundle and upload it to a Play Console track (internal testing first).
 #
 # Needs the UPLOAD_KEYSTORE_B64 and UPLOAD_KEYSTORE_PASSWORD secrets (scripts/setup-upload-signing.sh creates both), and Play App
 # Signing switched on for the app in Play Console. The tester builds (android-build.yml) keep their own pilot key.
@@ -13,7 +14,8 @@ on:
         description: 'Version shown to users, e.g. 1.0.0'
         required: true
   push:
-    tags: ['v*']
+    # v1.2.3: Android only. release-v1.2.3: Android and iOS together (ios-release.yml listens to it too).
+    tags: ['v*', 'release-v*']
 
 permissions:
   contents: read
@@ -44,7 +46,8 @@ jobs:
         env:
           INPUT_VERSION: ${{ github.event.inputs.version_name }}
         run: |
-          name="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
+          ref="${GITHUB_REF_NAME#release-}"
+          name="${INPUT_VERSION:-${ref#v}}"
           if ! [[ "$name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "::error::Version must look like 1.2.3 (got '$name')"; exit 1; fi
           # Play needs a larger version code for every upload: 1.2.3 becomes 10203xx, xx being this workflow's run number (mod 100).
           IFS=. read -r major minor patch <<<"$name"
@@ -57,7 +60,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          GRIEVANCE_OFFICER: ${{ secrets.GRIEVANCE_OFFICER }}
+          LEGAL_BASE_URL: ${{ vars.LEGAL_BASE_URL }}
         run: |
+          if [ -z "$SUPPORT_EMAIL" ]; then echo "::warning::No SUPPORT_EMAIL secret: Help has no contact address."; fi
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then echo "::error::Set the SUPABASE_URL and SUPABASE_ANON_KEY secrets for the production project."; exit 1; fi
           if [ -z "$MAPBOX_TOKEN" ]; then echo "::warning::No MAPBOX_TOKEN: maps would fall back to public OpenStreetMap servers, which do not allow production app traffic."; fi
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true

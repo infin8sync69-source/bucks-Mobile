@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.bucks.app.R
 import com.bucks.app.data.CloudOrderRow
 import com.bucks.app.ui.components.*
 
@@ -29,20 +31,21 @@ fun ShipSheet(onDismiss: () -> Unit, onShip: (carrier: String, tracking: String,
     var pick by remember { mutableStateOf("Delhivery") }; var other by remember { mutableStateOf("") }; var tracking by remember { mutableStateOf("") }; var url by remember { mutableStateOf("") }
     val carrier = if (pick == "Other") other.trim() else pick
     val urlOk = url.isBlank() || Regex("https?://\\S+").matches(url.trim())
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val selfLabel = stringResource(R.string.g4_ship_self_delivery); val otherLabel = stringResource(R.string.g4_ship_other)
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
-            Text("Mark as shipped", style = MaterialTheme.typography.titleLarge)
-            Muted("The customer is told and sees the carrier and tracking number.", Modifier.padding(top = 4.dp, bottom = 8.dp))
-            Label("Carrier")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { CARRIERS.forEach { c -> Chip(c, selected = pick == c) { pick = c } } }
+            Text(stringResource(R.string.g4_ship_title), style = MaterialTheme.typography.titleLarge)
+            Muted(stringResource(R.string.g4_ship_subtitle), Modifier.padding(top = 4.dp, bottom = 8.dp))
+            Label(stringResource(R.string.g4_ship_carrier))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { CARRIERS.forEach { c -> Chip(when (c) { "Self delivery" -> selfLabel; "Other" -> otherLabel; else -> c }, selected = pick == c) { pick = c } } }
             Spacer(Modifier.height(12.dp))
-            if (pick == "Other") BucksField(other, { other = it.take(60) }, "Carrier name", "e.g. Local courier")
+            if (pick == "Other") BucksField(other, { other = it.take(60) }, stringResource(R.string.g4_ship_carrier_name), stringResource(R.string.g4_ship_carrier_name_hint))
             if (pick != "Self delivery") {
-                BucksField(tracking, { tracking = it.take(60) }, "Tracking number", "Optional but helps the customer")
-                BucksField(url, { url = it.take(300) }, "Tracking link (optional)", "https://…", keyboard = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri))
-                if (!urlOk) Muted("The link must start with http:// or https://", Modifier.padding(bottom = 8.dp))
-            } else Muted("You'll deliver it yourself, so no tracking number is needed. Mark it delivered once it reaches them.", Modifier.padding(bottom = 8.dp))
-            Button({ onShip(carrier, if (pick == "Self delivery") "" else tracking.trim(), if (pick == "Self delivery") "" else url.trim()) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = carrier.isNotBlank() && urlOk) { Text("Mark shipped") }
+                BucksField(tracking, { tracking = it.take(60) }, stringResource(R.string.g4_ship_tracking_no), stringResource(R.string.g4_ship_tracking_no_hint))
+                BucksField(url, { url = it.take(300) }, stringResource(R.string.g4_ship_tracking_link), "https://…", keyboard = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri))
+                if (!urlOk) Muted(stringResource(R.string.g4_ship_link_invalid), Modifier.padding(bottom = 8.dp))
+            } else Muted(stringResource(R.string.g4_ship_self_note), Modifier.padding(bottom = 8.dp))
+            Button({ onShip(carrier, if (pick == "Self delivery") "" else tracking.trim(), if (pick == "Self delivery") "" else url.trim()) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = carrier.isNotBlank() && urlOk) { Text(stringResource(R.string.g4_ship_mark_shipped)) }
         }
     }
 }
@@ -52,18 +55,19 @@ fun ShipSheet(onDismiss: () -> Unit, onShip: (carrier: String, tracking: String,
 fun ShipmentCard(o: CloudOrderRow, modifier: Modifier = Modifier) {
     if (!o.shipped || o.carrier.isBlank()) return
     val ctx = LocalContext.current
+    val copiedMsg = stringResource(R.string.g4_ship_copied); val clipLabel = stringResource(R.string.g4_ship_tracking_no)
     BucksCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.LocalShipping, null, tint = MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(if (o.carrier.equals("Self delivery", true)) "Delivered by the shop" else "Shipped with ${o.carrier}", style = MaterialTheme.typography.titleMedium)
-                if (o.trackingNo.isNotBlank()) Muted("Tracking ${o.trackingNo}")
-                o.shippedAt?.let { Muted("Shipped ${com.bucks.app.ui.screens.ago(it)}") }
+                Text(if (o.carrier.equals("Self delivery", true)) stringResource(R.string.g4_ship_by_shop) else stringResource(R.string.g4_ship_with, o.carrier), style = MaterialTheme.typography.titleMedium)
+                if (o.trackingNo.isNotBlank()) Muted(stringResource(R.string.g4_ship_tracking_line, o.trackingNo))
+                o.shippedAt?.let { Muted(stringResource(R.string.g4_ship_shipped_ago, com.bucks.app.ui.screens.ago(it))) }
             }
         }
         if (o.trackingNo.isNotBlank() || o.trackingUrl.isNotBlank()) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (o.trackingNo.isNotBlank()) SmallButton("Copy number", tonal = true) { (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Tracking number", o.trackingNo)); android.widget.Toast.makeText(ctx, "Tracking number copied", android.widget.Toast.LENGTH_SHORT).show() }
-            if (o.trackingUrl.isNotBlank()) SmallButton("Track shipment") { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(o.trackingUrl))) } }
+            if (o.trackingNo.isNotBlank()) SmallButton(stringResource(R.string.g4_ship_copy_number), tonal = true) { (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(clipLabel, o.trackingNo)); android.widget.Toast.makeText(ctx, copiedMsg, android.widget.Toast.LENGTH_SHORT).show() }
+            if (o.trackingUrl.isNotBlank()) SmallButton(stringResource(R.string.g4_ship_track)) { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(o.trackingUrl))) } }
         }
     }
 }
@@ -75,7 +79,7 @@ fun ShipToCard(o: CloudOrderRow, modifier: Modifier = Modifier) {
     BucksCard(modifier) {
         Row(verticalAlignment = Alignment.Top) {
             Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary)
-            Column(Modifier.padding(start = 12.dp)) { Text("Ship to", style = MaterialTheme.typography.titleMedium); Text(o.shipToText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp)) }
+            Column(Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.g4_ship_to), style = MaterialTheme.typography.titleMedium); Text(o.shipToText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp)) }
         }
     }
 }
