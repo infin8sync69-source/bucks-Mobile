@@ -86,6 +86,8 @@ public final class CommerceStore {
             if delta > 0, let stock = item.stock, was >= stock { toast("Only \(stock) of \(item.name) in stock.") }
             return
         }
+        // Added from a page opened from search: counts for that search (DiscoveryLog, adults with usage statistics on).
+        if next > was { DiscoveryLog.shared.acted("ADD_TO_CART", listingId: listing.id) }
         var lines = si.map { stores[$0].lines } ?? []
         if next == 0 { lines.removeAll { $0.item.id == id } }
         else if let li = lines.firstIndex(where: { $0.item.id == id }) { lines[li].qty = next }
@@ -167,7 +169,7 @@ public final class CommerceStore {
                         guard let at = fix else { failed += 1; self.toast("Turn on location to get \(st.listing.title)'s order delivered, or choose pick-up."); continue }
                         id = try await Backend.shared.placeOrder(ref: ref, listingId: st.listing.id, lines: ls, drop: at, dropLabel: c.dropLabel.trimmingCharacters(in: .whitespacesAndNewlines), payment: c.payment, mode: c.mode)
                     }
-                    placed.append(id); self.clearStore(st.listing.id); self.refs[st.listing.id] = nil
+                    placed.append(id); DiscoveryLog.shared.acted("ORDER", listingId: st.listing.id); self.clearStore(st.listing.id); self.refs[st.listing.id] = nil
                 } catch is CancellationError { throw CancellationError() }
                 catch {
                     // The server said no: the next try is a new request. No answer at all: keep the id, the order may have gone through.

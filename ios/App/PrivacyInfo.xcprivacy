@@ -15,6 +15,11 @@
     info (the UPI ID drivers and shops add to get paid), contacts (only the details a person chooses to link to someone on Bucks,
     saved to their account and visible only to them; the phonebook itself is read on the phone and not uploaded) and other data
     (the date of birth, sent once by set_birth_date for the age rules).
+
+  Search measurement (DiscoveryLog.swift, supabase/migrations/discovery_log.sql), adults only and only with Settings > Appearance and data >
+  Help improve Bucks on: search history (the words searched, about where, the filters) and product interaction (the results shown, the
+  one opened, and Message, Sync, Share, Directions, add to cart and order on a page opened from search). Linked to the account, used for
+  analytics and to improve search; switching it off deletes it.
 -->
 <plist version="1.0">
 <dict>
@@ -116,6 +121,18 @@
 			<key>NSPrivacyCollectedDataTypeLinked</key><true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key><false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key><array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key><string>NSPrivacyCollectedDataTypeSearchHistory</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key><true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key><false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key><array><string>NSPrivacyCollectedDataTypePurposeAnalytics</string><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key><string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key><true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key><false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key><array><string>NSPrivacyCollectedDataTypePurposeAnalytics</string><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
 		</dict>
 	</array>
 </dict>

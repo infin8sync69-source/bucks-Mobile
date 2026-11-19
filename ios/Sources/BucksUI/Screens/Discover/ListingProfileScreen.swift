@@ -82,7 +82,9 @@ struct ListingProfileScreen: View {
         } }
     }
 
-    private func message() { d.startListingChat(id) { router.push(.chat($0)) } }
+    // What is done here after opening the page from search counts for that search (DiscoveryLog, adults with usage statistics on):
+    // Message (here and in Products), Sync, Share and Directions, as on Android.
+    private func message() { DiscoveryLog.shared.acted("MESSAGE", listingId: id); d.startListingChat(id) { router.push(.chat($0)) } }
 
     private func shareText(_ l: ListingRow) -> String {
         let extra = [l.category, l.area].filter { !$0.isEmpty }.joined(separator: ", ")
@@ -145,7 +147,8 @@ private struct ProfileCover: View {
                 if listing.ownerId != session.me?.id {
                     coverButton("flag", "Report this page") { session.reportTarget = ReportTarget(kind: "LISTING", targetId: listing.id, ownerId: listing.ownerId, ownerName: listing.title) }
                 }
-                ShareLink(item: shareText) { coverIcon("square.and.arrow.up") }.buttonStyle(.plain).accessibilityLabel("Share")
+                ShareLink(item: shareText) { coverIcon("square.and.arrow.up") }.buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { _ in DiscoveryLog.shared.acted("SHARE", listingId: listing.id) }).accessibilityLabel("Share")
             }.padding(8).padding(.top, top).frame(maxHeight: .infinity, alignment: .top)
             ZStack {
                 Circle().fill(BucksColor.primaryContainer)
@@ -231,9 +234,11 @@ private struct ProfileHeader: View {
                         .foregroundStyle(BucksColor.onPrimary).padding(.horizontal, 12).frame(minWidth: 0, maxWidth: .infinity).frame(height: 44)
                         .background(RoundedRectangle(cornerRadius: BucksRadius.small, style: .continuous).fill(BucksColor.primary)).opacity(d.chatStarting ? 0.4 : 1)
                     }.buttonStyle(.plain).disabled(d.chatStarting)
-                    SyncButton(synced: synced, busy: d.syncing.contains(l.id)) { d.syncListing(l.id, on: !synced) }
-                    ShareLink(item: shareText) { HeaderIconFace(systemImage: "square.and.arrow.up") }.buttonStyle(.plain).accessibilityLabel("Share")
-                    if let at = p.at { HeaderIcon(systemImage: "mappin.and.ellipse", label: "Directions") { openMapsTo(router, name: l.title, detail: l.area, at: at) } }
+                    SyncButton(synced: synced, busy: d.syncing.contains(l.id)) { if !synced { DiscoveryLog.shared.acted("SYNC", listingId: l.id) }; d.syncListing(l.id, on: !synced) }
+                    // ShareLink has no action of its own; the tap is counted alongside it, never instead of it.
+                    ShareLink(item: shareText) { HeaderIconFace(systemImage: "square.and.arrow.up") }.buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded { _ in DiscoveryLog.shared.acted("SHARE", listingId: l.id) }).accessibilityLabel("Share")
+                    if let at = p.at { HeaderIcon(systemImage: "mappin.and.ellipse", label: "Directions") { DiscoveryLog.shared.acted("DIRECTIONS", listingId: l.id); openMapsTo(router, name: l.title, detail: l.area, at: at) } }
                     if l.kind == "BUSINESS" && cartHere && l.online {
                         HeaderIcon(systemImage: "cart.fill", label: "Order", on: true, action: onCart)
                             .overlay(alignment: .topTrailing) { Text("\(session.commerce.count)").bucks(.labelSmall).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.error)).offset(x: 6, y: -6) }

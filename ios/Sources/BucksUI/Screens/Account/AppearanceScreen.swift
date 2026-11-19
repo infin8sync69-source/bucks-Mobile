@@ -11,8 +11,9 @@ extension Prefs {
     }
 }
 
-/// Appearance and data: theme, text size, motion, media downloads, data saver and language. Stored on this phone (Prefs).
+/// Appearance and data: theme, text size, motion, media downloads, data saver, usage statistics and language. Stored on this phone (Prefs).
 struct AppearanceScreen: View {
+    @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
     private var prefs: Prefs { Prefs.shared }
 
@@ -31,6 +32,10 @@ struct AppearanceScreen: View {
                                            options: Prefs.MediaDownload.allCases.map { ($0, $0.label) }, selected: prefs.mediaDownload) { prefs.chooseMediaDownload($0) }
                         AccountToggleRow(label: "Data saver", detail: "Lighter maps and smaller images.",
                                          isOn: Binding(get: { prefs.dataSaver }, set: { prefs.enableDataSaver($0) }))
+                        // iOS has no Firebase Analytics: here the switch covers search measurement only (DiscoveryLog), which is not anonymous.
+                        AccountToggleRow(label: "Help improve Bucks",
+                                         detail: "Share your searches on Bucks and what you open from them, so search gets better. Never your posts, messages or contacts. Always off for people under 18. Turning it off deletes what was shared.",
+                                         isOn: Binding(get: { prefs.shareUsage }, set: { session.setShareUsage($0) }))
                         AccountChoiceGroup(title: "App language", detail: "Menus and buttons. Translations are being added; English is complete.",
                                            options: Prefs.languages.map { ($0.tag, $0.name) }, selected: prefs.language) { prefs.chooseLanguage($0) }
                     }.padding(Gutter)
