@@ -129,7 +129,6 @@
     <string name="g1_app_data_saver">توفير البيانات</string>
     <string name="g1_app_data_saver_detail">خرائط أخف وصور أصغر.</string>
     <string name="g1_app_usage">ساعد في تحسين Bucks</string>
-    <string name="g1_app_usage_detail">شارك إحصاءات استخدام مجهولة الهوية (أي الميزات تُستخدم، وأين يتعثر الناس). لا نشارك أبدًا منشوراتك أو رسائلك أو جهات اتصالك. متوقفة دائمًا لمن هم دون 18 عامًا.</string>
     <string name="g1_app_language">لغة التطبيق</string>
     <string name="g1_app_language_detail">القوائم والأزرار والرسائل.</string>
     <string name="g1_blocked_empty">لا يوجد أحد محظور. يمكنك حظر شخص من المحادثة أو من ملفه الشخصي.</string>

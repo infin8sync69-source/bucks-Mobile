@@ -131,7 +131,9 @@
     <string name="g1_app_data_saver">Data saver</string>
     <string name="g1_app_data_saver_detail">Lighter maps and smaller images.</string>
     <string name="g1_app_usage">Help improve Bucks</string>
-    <string name="g1_app_usage_detail">Share anonymous usage stats (which features are used, where people get stuck). Never your posts, messages or contacts. Always off for people under 18.</string>
+    <!-- Translations removed on 2026-11-19: they promised "anonymous" stats, but this switch now also shares the account-linked search
+         history (DiscoveryLog). Re-translate from this text. -->
+    <string name="g1_app_usage_detail">Share usage stats (which features are used, where people get stuck) and your searches on Bucks with what you open from them, to improve search. Never your posts, messages or contacts. Always off for people under 18. Turning it off deletes your search history.</string>
     <string name="g1_app_language">App language</string>
     <string name="g1_app_language_detail">Menus, buttons and messages.</string>
     <string name="g1_blocked_empty">Nobody is blocked. Block someone from a chat or their profile.</string>
@@ -216,6 +218,20 @@
     <string name="g1_search_empty_query">No results for “%1$s” within %2$d km</string>
     <string name="g1_search_empty_widen">Widen the search to see more.</string>
     <string name="g1_search_empty_first">Be the first: add your shop, service, organisation, skill or vehicle from Menu &gt; Bucks Pro.</string>
+    <string name="g1_help_ask_title">Did %1$s help?</string>
+    <string name="g1_help_ask_body">Your answer tells people near you who to call.</string>
+    <string name="g1_help_ask_yes">Yes, recommend</string>
+    <string name="g1_help_ask_no">Not really</string>
+    <string name="g1_help_ask_later">Not now</string>
+    <string name="g1_search_notify_me">Tell me when one joins</string>
+    <string name="g1_search_notify_done">We\'ll tell you when one joins</string>
+    <string name="g1_search_notify_toast">We\'ll let you know when “%1$s” joins near you.</string>
+    <string name="g1_search_invite">Know one? Invite them</string>
+    <string name="g1_search_invite_message">People near me are looking for “%1$s” on Bucks. If you offer it, list it free so they can find you.</string>
+    <string name="g1_notif_waiting_title">Searches you\'re waiting for</string>
+    <string name="g1_notif_waiting_detail">We tell you once when a page that answers one goes live near where you searched. Each waits for 90 days.</string>
+    <string name="g1_notif_waiting_found">Found: %1$s</string>
+    <string name="g1_notif_waiting_remove">Remove</string>
     <string name="g1_search_empty_try">Try another word: an item (sugar, tap repair) or a category (grocery, electrician, salon).</string>
     <string name="g1_search_wider">Search within %1$d km</string>
     <string name="g1_search_show_all">Show everything</string>

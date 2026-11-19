@@ -75,6 +75,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
         val was = cur?.lines?.firstOrNull { it.item.id == id }?.qty ?: 0
         val next = (was + delta).coerceIn(0, item.stock?.coerceAtLeast(0) ?: 99)
         if (next == was) { if (delta > 0 && item.stock != null && was >= item.stock) toast(Str.get(R.string.g8_only_in_stock, item.stock.toString(), item.name)); return }
+        if (next > was) com.bucks.app.data.DiscoveryLog.acted("ADD_TO_CART", listing.id)
         val old = cur?.lines ?: emptyList()
         val lines = when {
             next == 0 -> old.filterNot { it.item.id == id }
@@ -162,7 +163,7 @@ class Commerce(private val scope: CoroutineScope, private val social: Social, pr
                         if (at == null) { failed++; errors += Str.get(R.string.g8_checkout_need_location, st.listing.title); continue }
                         Backend.placeOrder(ref, st.listing.id, ls, at, c.dropLabel.trim(), c.payment, c.mode)
                     }
-                    placed += id; com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ORDER_PLACED, "mode" to c.mode, "payment" to c.payment, "lines" to ls.size); clearStore(st.listing.id); refs.remove(st.listing.id)
+                    placed += id; com.bucks.app.data.DiscoveryLog.acted("ORDER", st.listing.id); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ORDER_PLACED, "mode" to c.mode, "payment" to c.payment, "lines" to ls.size); clearStore(st.listing.id); refs.remove(st.listing.id)
                 } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     // The server said no: the next try is a new request. No answer at all: keep the id, the order may have gone through.
                     if (isServerRefusal(e)) refs.remove(st.listing.id)

@@ -102,6 +102,8 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
     /** Ids whose sync toggle is in flight. */
     var syncing by mutableStateOf<Set<String>>(emptySet()); private set
     private var searchJob: Job? = null
+    /** The id of the search whose results are on screen, for DiscoveryLog (null when logging is off). */
+    var lastQueryId: String? = null; private set
     private var searchSeq = 0
     private var syncsLoaded = false
 
@@ -122,12 +124,31 @@ class Discover(private val scope: CoroutineScope, private val social: Social, pr
         val n = ++searchSeq
         searchJob = scope.launch {
             searching = true
-            try { results = Backend.search(query.trim(), area?.second ?: social.here, radiusKm * 1000, kind.kinds, service?.let { listOf(it) } ?: kind.services); searched = true }
+            val q = query.trim(); val at = area?.second ?: social.here; val radius = radiusKm * 1000; val svc = service; val started = System.currentTimeMillis()
+            try {
+                results = Backend.search(q, at, radius, kind.kinds, svc?.let { listOf(it) } ?: kind.services); searched = true
+                // What was searched and shown, for measuring search (adults with usage statistics on only; see DiscoveryLog).
+                if (DiscoveryLog.on) {
+                    val qid = DiscoveryLog.newId(); lastQueryId = qid
+                    DiscoveryLog.search(qid, if (svc != null && q.isEmpty()) "SERVICES" else "SEARCH", q.ifEmpty { null }, at, radius,
+                        mapOf("kind" to kind.name, "service" to svc, "area" to if (area != null) "picked" else null), results.size, System.currentTimeMillis() - started)
+                    DiscoveryLog.shown(qid, results.take(10).map { it.id })
+                } else lastQueryId = null
+            }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { toast(friendly(e)) }
             finally { if (n == searchSeq) searching = false }
         }
     }
+    /** Words this person asked to hear about this session ("Tell me when one joins"), so the button says it's done. */
+    var notifyAsked by mutableStateOf<Set<String>>(emptySet()); private set
+    /** Nothing found: tell me once when a page that answers this search goes live near here (supabase/migrations/demand_loop.sql). */
+    fun wantNotify() {
+        val q = query.trim(); if (q.isBlank()) return
+        go { Backend.wantNotify(q, area?.second ?: social.here, radiusKm * 1000); notifyAsked = notifyAsked + q.lowercase(); toast(Str.get(R.string.g1_search_notify_toast, q)) }
+    }
+    /** A result of the search on screen was opened (DiscoveryLog: which one, at which position). */
+    fun opened(id: String) { val qid = lastQueryId ?: return; DiscoveryLog.opened(qid, id, results.indexOfFirst { it.id == id }.coerceAtLeast(0)) }
     // Named selectKind, not setKind: the property's own JVM setter is already setKind(KindFilter).
     fun selectKind(k: KindFilter) { if (kind != k) { kind = k; search() } }
     fun setRadius(km: Int) { if (radiusKm != km) { radiusKm = km; search() } }

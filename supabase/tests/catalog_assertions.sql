@@ -84,7 +84,9 @@ where proname in ('synced', 'settings_of', 'expire_orders', 'expire_moments', 'l
                   'note_recommendation', 'note_listing_status', 'note_document', 'note_review', 'note_comment', 'note_vote', 'note_reaction', 'contact_link_guard',
                   'guard_profile_insert', 'guard_insert_stamps', 'guard_profile_private', 'snap_location', 'guard_listing_reverify', 'prune_recommendations',
                   'vehicle_normalise', 'device_token_cap',
-                  'presence_clamp', 'vehicle_offline', 'tasks_hygiene', 'orders_hygiene', 'dispatch_cfg', 'new_pin', 'driver_near_check', 'expire_tasks')
+                  'presence_clamp', 'vehicle_offline', 'tasks_hygiene', 'orders_hygiene', 'dispatch_cfg', 'new_pin', 'driver_near_check', 'expire_tasks',
+                  'discovery_forget', 'discovery_settled', 'discovery_rollup', 'discovery_mine', 'discovery_purge', 'discovery_daily', 'discovery_safe_text',
+                  'wanted_match', 'wanted_forget', 'demand_area')
   and has_function_privilege('authenticated', oid, 'execute');
 
 -- ---------- what the hardening migration guarantees ----------

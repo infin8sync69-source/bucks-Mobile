@@ -3,7 +3,7 @@ title: Bucks privacy policy
 ---
 # Privacy policy
 
-> Last updated: 14 November 2026.
+> Last updated: 19 November 2026.
 
 Bucks is an app for people, local services and shops near you, run by **Shafeeq Duddiyanda**, 2nd Block, 3rd Ward, Gonikoppal, Karnataka 571213, India ("we"). This policy explains what we collect, why, who we share it with, and your rights under India's Digital Personal Data Protection Act, 2023 (DPDP Act).
 
@@ -24,6 +24,7 @@ Bucks is an app for people, local services and shops near you, run by **Shafeeq 
 | **Approximate location (about 2 km)** | Nearby posts, Moments and services, suggestions | Not shown to anyone. Your exact location isn't stored for posts |
 | **Phone contacts** | Shows which of your contacts are on Bucks, and lets you call, message or invite them | Your phonebook is read on your phone and **not uploaded** |
 | **Contact details you link to a Bucks person** (only if you choose to: their phone numbers, emails, organisation, address, a note) | Keeping what you know about someone together with their Bucks profile | Saved to your account and visible only to you. Deleted with your account |
+| **"Tell me when one joins" requests** (only when you ask) | Telling you once when a page that answers your search goes live near where you searched. We keep the words and an area of about 2 km, never your exact location | Nobody. Bucks staff see totals of what people are waiting for, by area, never who. Remove a request any time in Settings › Notifications |
 | **Reports you make** | Safety review | Our moderation team. The person reported isn't told who reported them |
 | **Feedback board posts** | Improving Bucks | Other Bucks users (under-18s shown as "Bucks member") |
 
@@ -55,6 +56,7 @@ Bucks does not process card or UPI payments itself: payments go directly from th
 | **Push notification token** | Sending you notifications | Firebase Cloud Messaging (Google) |
 | **Crash reports** | Fixing bugs. No user identifier | Firebase Crashlytics (Google) |
 | **Usage statistics** (adults only, and you can turn it off) | Seeing which features are used | Google Analytics for Firebase. No advertising ID, no user ID, never for anyone under 18 |
+| **Your searches on Bucks and what you open from them** (adults only; turning off usage statistics turns this off too and deletes what we kept) | Measuring and improving search: which searches find nothing, which words people use for what, which results help. We keep the words you searched (phone numbers and email addresses removed), an area of about 2 km (never your exact location), what was shown, and what you opened or did next. A search for a person keeps no name | Nobody outside Bucks. Bucks staff see totals and the words searched, never who searched. Never for anyone under 18 |
 | **Voice search** (only when you tap the microphone) | Turning what you say into a search | Your phone's speech service (for example Google) converts it to text. Bucks receives only the text, never the audio |
 | **Map and place searches, routes** | Showing maps, finding places and working out routes | Mapbox; and, when Mapbox has no answer, OpenStreetMap services (Photon by Komoot, Nominatim, OSRM). They receive the search text or the points of the route, not your identity |
 | **Pincode lookups** | Filling in city and state when you type a pincode | api.postalpincode.in receives the pincode only |
@@ -74,7 +76,8 @@ We don't sell personal data, show ads or use an advertising ID.
 - **Registration record after deletion: 180 days.** As the IT Rules, 2021 (rule 3(1)(h)) require, we keep a sealed copy of your registration details for 180 days after you delete your account: name, mobile number, Bucks ID, sign-up date, date of birth and guardian details if you're under 18, the plates of vehicles you registered, and the IDs of your pages, trips and orders. Nobody can see it in the app. Only authorised Bucks staff open it, to answer a lawful request from the authorities or to deal with a safety complaint. After 180 days it's deleted, unless an authority has asked us to preserve it for an investigation.
 - Records of completed rides and orders are kept for 8 years where tax and accounting law requires, with your name and contact details removed.
 - Reports about content stay as moderation records for 180 days, or longer if the IT Rules, 2021 or a legal order require it.
-- Crash reports: 90 days. Usage statistics: 14 months (Google's setting).
+- "Tell me when one joins" requests: until we tell you or 90 days pass; the record then goes within 90 days, and at once if you remove it or delete your account.
+- Crash reports: 90 days. Usage statistics: 14 months (Google's setting). Your searches on Bucks and what you opened from them: 90 days, then only daily totals without names for 13 months; they are deleted at once when you turn usage statistics off or delete your account.
 
 ## Sharing with the police and the authorities
 

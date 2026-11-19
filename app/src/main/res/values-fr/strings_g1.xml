@@ -126,7 +126,6 @@
     <string name="g1_app_data_saver">Économie de données</string>
     <string name="g1_app_data_saver_detail">Cartes plus légères et images plus petites.</string>
     <string name="g1_app_usage">Aider à améliorer Bucks</string>
-    <string name="g1_app_usage_detail">Partager des statistiques d\'utilisation anonymes (fonctions utilisées, endroits où l\'on bloque). Jamais vos publications, messages ni contacts. Toujours désactivé pour les moins de 18 ans.</string>
     <string name="g1_app_language">Langue de l\'app</string>
     <string name="g1_app_language_detail">Menus, boutons et messages.</string>
     <string name="g1_blocked_empty">Personne n\'est bloqué. Bloquez quelqu\'un depuis une discussion ou son profil.</string>

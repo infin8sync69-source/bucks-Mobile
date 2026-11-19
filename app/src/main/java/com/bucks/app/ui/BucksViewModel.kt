@@ -233,7 +233,7 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         }
         repo.deleteAccount(); _s.value = freshState() }
     /** Cart, orders, search results, listing syncs and my listings/vehicles belong to the person who signed out, not the next account on this phone. */
-    private fun signedOutCloud() { commerce.signedOut(); discover.signedOut(); myListings.signedOut(); services.signedOut() }
+    private fun signedOutCloud() { commerce.signedOut(); discover.signedOut(); myListings.signedOut(); services.signedOut(); com.bucks.app.data.HelpAsk.clear() }
     fun switchRole(role: Role) = _s.update { it.copy(role = role, online = false) }
     /** [plate]: in cloud builds, which of my checked vehicles to go online with (null = the first ACTIVE one). */
     fun setOnline(v: Boolean, plate: String? = null) { if (v && s.mockLocation) { toast(Str.get(R.string.g8_mock_go_online)); return }; _s.update { it.copy(online = v) }

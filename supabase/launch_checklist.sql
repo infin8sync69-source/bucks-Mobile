@@ -86,6 +86,23 @@ checks(n, what, expected, actual) as (
             union all select 1 from public.moments where length(caption) > 200
             union all select 1 from public.jobs where length(title) > 100 or length(description) > 2000
             union all select 1 from public.applications where length(note) > 1000) x)
+  union all
+  select 80, 'search_quality2.sql applied (search reads search_lexicon; DISCOVERY_ALGORITHMS Phase 0)', 'true',
+         (to_regclass('public.search_lexicon') is not null and to_regprocedure('public.search_parse(text)') is not null)::text
+  union all
+  select 81, 'discovery_log.sql applied and its nightly job scheduled (bucks-discovery-daily)', 'true',
+         case when to_regclass('public.discovery_queries') is null then 'false'
+              when to_regclass('cron.job') is null then 'pg_cron not installed'
+              else ((xpath('/row/c/text()', query_to_xml($q$select count(*) as c from cron.job where jobname = 'bucks-discovery-daily'$q$, false, true, '')))[1]::text = '1')::text end
+  union all
+  select 83, 'demand_loop.sql applied and its 30-minute job scheduled (bucks-wanted-match)', 'true',
+         case when to_regclass('public.wanted') is null then 'false'
+              when to_regclass('cron.job') is null then 'pg_cron not installed'
+              else ((xpath('/row/c/text()', query_to_xml($q$select count(*) as c from cron.job where jobname = 'bucks-wanted-match'$q$, false, true, '')))[1]::text = '1')::text end
+  union all
+  select 82, 'native-script search words live but not yet checked by a native speaker (DISCOVERY_ALGORITHMS D5)', '0',
+         case when to_regclass('public.search_lexicon') is null then 'search_quality2.sql not applied'
+              else (xpath('/row/c/text()', query_to_xml($q$select count(*) as c from public.search_lexicon where status = 'live' and reviewed_at is null and lang in ('kn', 'hi', 'ta', 'te', 'ml', 'mr')$q$, false, true, '')))[1]::text end
 )
 select n, what as "check", expected, actual, case when actual = expected then 'ok' else 'FAIL' end as result
 from checks

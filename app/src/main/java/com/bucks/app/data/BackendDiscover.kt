@@ -89,3 +89,25 @@ suspend fun Backend.searchPlaces(q: String, near: LatLng): List<MapServices.Plac
 suspend fun Backend.addPlace(name: String, at: LatLng, area: String) {
     client.postgrest.rpc("add_place", buildJsonObject { put("p_name", name); put("p_lat", at.lat); put("p_lng", at.lng); put("p_area", area) })
 }
+
+/** Sends a batch of search events (supabase/migrations/discovery_log.sql, at most 200); returns how many the server kept. */
+suspend fun Backend.logDiscovery(events: kotlinx.serialization.json.JsonArray): Int =
+    client.postgrest.rpc("log_discovery", buildJsonObject { put("p_events", events) }).data.trim().toIntOrNull() ?: 0
+
+/** Deletes this person's search events on the server; called when usage statistics are switched off. */
+suspend fun Backend.discoveryForgetMe() { client.postgrest.rpc("discovery_forget_me") }
+
+/** A "Tell me when one joins" request (supabase/migrations/demand_loop.sql): waiting, or found ([notifiedAt], [foundTitle]). */
+@Serializable data class WantedRow(val id: String, val q: String, val area: String = "", @SerialName("radius_m") val radiusM: Int = 10_000,
+    @SerialName("created_at") val createdAt: String = "", @SerialName("notified_at") val notifiedAt: String? = null,
+    @SerialName("found_listing") val foundListing: String? = null, @SerialName("found_title") val foundTitle: String? = null)
+
+/** Asks to hear once when a page that answers [q] goes live within [radiusM] of [at]; returns the request's id. */
+suspend fun Backend.wantNotify(q: String, at: LatLng, radiusM: Int): String =
+    client.postgrest.rpc("want_notify", buildJsonObject { put("q", q); put("lat", at.lat); put("lng", at.lng); put("radius_m", radiusM) }).data.trim().trim('"')
+
+/** My requests: waiting, or found in the last 90 days. */
+suspend fun Backend.myWanted(): List<WantedRow> = client.postgrest.rpc("my_wanted").decodeList()
+
+/** Stops a request; false when it was already found or isn't mine. */
+suspend fun Backend.cancelWanted(id: String): Boolean = client.postgrest.rpc("cancel_wanted", buildJsonObject { put("p_id", id) }).data.trim() == "true"
