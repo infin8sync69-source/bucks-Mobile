@@ -40,6 +40,8 @@ struct CloudSearchScreen: View {
         }
         .bucksBackground()
         .bucksHideNavigationBar()
+        // Search events wait in a batch; send them when the screen closes (DiscoveryLog).
+        .onDisappear { DiscoveryLog.shared.flush() }
         // A query typed on Home or Services arrives through the store; take it once, then it's ours.
         .task(id: d.query) {
             if !started {
@@ -120,7 +122,7 @@ struct CloudSearchScreen: View {
                     Spacer(minLength: 8)
                     if !d.results.isEmpty { Muted("\(d.results.count) within \(d.radiusKm) km") }
                 }.padding(.horizontal, Gutter).padding(.vertical, 8)
-                ForEach(d.results) { h in DiscoverListingCard(hit: h).padding(.horizontal, Gutter).padding(.bottom, 12) }
+                ForEach(d.results) { h in DiscoverListingCard(hit: h) { d.opened(h.id); router.push(.listing(h.id)) }.padding(.horizontal, Gutter).padding(.bottom, 12) }
                 if d.searched && !d.searching && d.results.isEmpty { EmptyResults() }
             }.padding(.bottom, 24)
         }.scrollDismissesKeyboard(.interactively)
