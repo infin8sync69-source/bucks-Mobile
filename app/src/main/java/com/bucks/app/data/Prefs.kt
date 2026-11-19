@@ -50,6 +50,10 @@ object Prefs {
     var cartJson: String?
         get() = if (::sp.isInitialized) sp.getString("cart", null) else null
         set(v) { if (::sp.isInitialized) sp.edit().apply { if (v == null) remove("cart") else putString("cart", v) }.apply() }
+    /** "Did they help?" asks waiting on this phone (data/HelpAsk.kt, JSON). */
+    var helpAsksJson: String?
+        get() = if (::sp.isInitialized) sp.getString("help_asks", null) else null
+        set(v) { if (::sp.isInitialized) sp.edit().apply { if (v == null) remove("help_asks") else putString("help_asks", v) }.apply() }
     /** The store rider a shop last sent, preselected the next time it chooses one (per listing, on this phone). */
     fun lastRider(listingId: String): String? = if (::sp.isInitialized) sp.getString("rider_$listingId", null) else null
     /** The one-time "counts show after you vote" hint was seen (dismissed, or the person voted). */

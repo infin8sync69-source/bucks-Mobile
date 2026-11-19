@@ -55,7 +55,7 @@ create table if not exists public.discovery_events (
   subject_type text check (subject_type in ('LISTING', 'ITEM', 'PROFILE', 'POST', 'JOB', 'PLACE')),
   subject_id   uuid,
   position     int check (position between 0 and 500),
-  detail       text check (detail in ('WRONG_RESULTS', 'MISSING', 'OTHER'))   -- FEEDBACK only, a fixed choice, never free text
+  detail       text check (detail in ('WRONG_RESULTS', 'MISSING', 'OTHER', 'UP', 'DOWN'))   -- FEEDBACK: what was wrong; VOTE: ↑ or ↓. Never free text
 );
 create index if not exists discovery_events_query on public.discovery_events (query_id);
 create index if not exists discovery_events_at on public.discovery_events (at);
@@ -140,6 +140,8 @@ $$;
 --   {"t": "IMPRESSION", "query_id": uuid, "subject_type": "LISTING", "ids": [uuid, ...]}         one row per id, its index the position
 --   {"t": "OPEN" | "CALL" | ..., "query_id": uuid, "subject_type": "LISTING", "subject_id": uuid, "position": 2}
 --   {"t": "FEEDBACK", "query_id": uuid, "detail": "WRONG_RESULTS" | "MISSING" | "OTHER"}
+--   {"t": "VOTE", "query_id": uuid or absent, "subject_type": "LISTING", "subject_id": uuid, "detail": "UP" | "DOWN"}   the answer to
+--      "Did they help?" or a vote right after opening a result: what the search led to
 -- Anything malformed is skipped, never an error, so an app bug can't break search. Returns how many rows were stored.
 create or replace function public.log_discovery(p_events jsonb) returns int
 language plpgsql security definer set search_path = public, extensions as $$
@@ -190,7 +192,8 @@ begin
         continue when t <> 'FEEDBACK' and qid is null and sid is null;
         insert into discovery_events (query_id, at, viewer, kind, subject_type, subject_id, position, detail)
         values (qid, ts, my, t, st, sid, discovery_int(e->>'position', 0, 500),
-                case when t = 'FEEDBACK' and upper(e->>'detail') in ('WRONG_RESULTS', 'MISSING', 'OTHER') then upper(e->>'detail') end);
+                case when t = 'FEEDBACK' and upper(e->>'detail') in ('WRONG_RESULTS', 'MISSING', 'OTHER') then upper(e->>'detail')
+                     when t = 'VOTE' and upper(e->>'detail') in ('UP', 'DOWN') then upper(e->>'detail') end);
         n := n + 1;
       end if;
     end if;
@@ -334,6 +337,10 @@ begin
     'action_rate', (select round(avg(acted::int)::numeric, 3) from s),
     'reformulation_rate', (select round(reform.n::numeric / nullif((select count(*) from s), 0), 3) from reform),
     'p95_latency_ms', (select percentile_disc(0.95) within group (order by latency_ms) from lat),
+    -- what searches led to: ↑ and ↓ given to pages after contact ("Did they help?") or right after opening a result
+    'outcomes', (select jsonb_build_object('up', count(*) filter (where detail = 'UP'), 'down', count(*) filter (where detail = 'DOWN'),
+                                          'from_search', count(*) filter (where query_id is not null))
+                 from discovery_events where kind = 'VOTE' and at > now() - make_interval(days => d)),
     'top_queries', (select coalesce(jsonb_agg(x order by x.searches desc), '[]') from (
         select q_norm q, count(*) searches, count(distinct viewer) searchers, count(*) filter (where n_results = 0) zero, count(*) filter (where opened) opens
         from s where discovery_safe_text(q_norm) group by q_norm order by count(*) desc limit 25) x),

@@ -4,6 +4,15 @@ Every change to how Bucks orders a list (search, suggestions, For you, Explore, 
 entry says what changed and why, the golden scorecard before and after (`supabase/tests/search_golden_scenarios.sql`), and the field
 numbers before and after once logging has data (`discovery_report`). The process is in [DISCOVERY_ALGORITHMS.md §13](DISCOVERY_ALGORITHMS.md).
 
+## 2026-11-19 · "Did they help?" (Android), not yet released
+
+- **What changed:** a day after someone calls, messages, books or gets directions to a page, Home asks whether it helped. The answer
+  is the page's normal ↑ or ↓, and, for adults with usage statistics on, a `VOTE` outcome tied to the search it came from.
+- **Why:** the trust score has almost no signal (every vote is ↑, most pages have none), and the learning loop had clicks but no
+  outcomes.
+- **Ranking effect:** none directly. More votes after real contact make the Wilson trust term mean something, and the outcomes are the
+  label for fitting weights later (DISCOVERY_ALGORITHMS §13.3).
+
 ## 2026-11-19 · Search v1 (`search_quality2.sql`), not yet applied
 
 - **What changed:** `search_listings` keeps its signature but matches whole words only (plurals fold to one key), forgives typos only

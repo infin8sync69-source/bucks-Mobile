@@ -83,6 +83,14 @@ select pg_temp.fails('the report is staff only', 'select discovery_report(7)', '
 select pg_temp.fails('accepting a word is staff only', $$select lexicon_accept('x', 'y', 'SAME')$$, 'staff only');
 select pg_temp.as_phone('dl_b', '9000000702');
 select pg_temp.check('staff get the report', (select discovery_report(7) ? 'searches' and discovery_report(7) ? 'candidates' and discovery_report(7)->'lexicon' ? 'live'));
+select pg_temp.check('"Did they help?": a ↑ after contact is kept as the outcome of its search', log_discovery(jsonb_build_array(
+  jsonb_build_object('t', 'VOTE', 'query_id', 'a0000000-0000-4000-8000-000000000009', 'subject_type', 'LISTING', 'subject_id', (select shop from dl_ids), 'detail', 'up'),
+  jsonb_build_object('t', 'VOTE', 'subject_type', 'LISTING', 'subject_id', (select shop from dl_ids), 'detail', 'sideways'))) = 2);
+select pg_temp.check('the report counts outcomes', (select (discovery_report(7)->'outcomes'->>'up')::int = 1 and (discovery_report(7)->'outcomes'->>'from_search')::int = 1));
+reset role;
+select pg_temp.check('a vote keeps only up or down, nothing else', (select array_agg(detail order by detail nulls last) = array['UP', null]
+  from discovery_events where kind = 'VOTE' and viewer = pg_temp.pid('dl_b')));
+set role authenticated;
 
 \echo '== forgetting'
 select pg_temp.as_phone('dl_a', '9000000701');

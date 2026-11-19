@@ -216,6 +216,11 @@
     <string name="g1_search_empty_query">No results for “%1$s” within %2$d km</string>
     <string name="g1_search_empty_widen">Widen the search to see more.</string>
     <string name="g1_search_empty_first">Be the first: add your shop, service, organisation, skill or vehicle from Menu &gt; Bucks Pro.</string>
+    <string name="g1_help_ask_title">Did %1$s help?</string>
+    <string name="g1_help_ask_body">Your answer tells people near you who to call.</string>
+    <string name="g1_help_ask_yes">Yes, recommend</string>
+    <string name="g1_help_ask_no">Not really</string>
+    <string name="g1_help_ask_later">Not now</string>
     <string name="g1_search_notify_me">Tell me when one joins</string>
     <string name="g1_search_notify_done">We\'ll tell you when one joins</string>
     <string name="g1_search_notify_toast">We\'ll let you know when “%1$s” joins near you.</string>

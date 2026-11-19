@@ -83,6 +83,19 @@ object DiscoveryLog {
         add(event(kind, o.first, listingId, null))
     }
 
+    /** The search [listingId] was opened from, when it was opened from search in the last 30 minutes. */
+    fun queryFor(listingId: String): String? =
+        lastOpen?.takeIf { it.second == listingId && System.currentTimeMillis() - it.third <= ACTION_WINDOW_MS }?.first
+
+    /** The person rated a page ↑ ([vote] 1) or ↓ (-1): the outcome of the search it came from ([queryId], when known). */
+    fun voted(listingId: String, vote: Int, queryId: String?) {
+        if (!on || vote == 0) return
+        add(buildJsonObject {
+            put("t", "VOTE"); if (queryId != null) put("query_id", queryId); put("subject_type", "LISTING"); put("subject_id", listingId)
+            put("detail", if (vote > 0) "UP" else "DOWN"); put("at", now())
+        })
+    }
+
     /** Sends what is waiting now; it is also sent every 30 s on its own. */
     fun flush() {
         val batch = synchronized(lock) { if (pending.isEmpty()) return; ArrayList(pending).also { pending.clear() } }

@@ -409,6 +409,8 @@ seen    = 0.3 after being shown 3 times without an open or a vote
 - **Order again:** items from my past orders at this shop that are in stock. It is my own record, so it shows to everyone.
 - **After delivery and after a trip:** the arrow prompt, which already exists. Every transaction should end in a vote, because
   that is what feeds the trust score.
+- **After a call, a message, a booking or directions:** "Did they help?" on Home, from 12 hours later (built, Android, §13.8). Most
+  work with plumbers, tutors and shops happens after a call, off the app, so this is where most honest votes can come from.
 - **Product sort "Recommended":** moves from percentage, which puts 1 of 1 above 40 of 45, to the product's trust score.
 
 ### 6.5 Jobs: `jobs_for_me(lat, lng)` and applicants
@@ -745,4 +747,20 @@ an empty result is where the loop continues on the supply side:
    5-person rule.
 4. **Close.** When a matching page goes live in range, the people who asked are told once, and the report's `found` list shows how
    long they waited.
+
+### 13.8 Outcomes: "Did they help?"
+
+Opens and calls say what people tried, not whether it worked. The loop needs outcomes, and the trust score needs honest votes (today
+every vote is ↑ and most pages have none). So after contact the app asks.
+
+- **When:** a person calls, messages, books or gets directions to a page. From 12 hours later and for 7 days, Home shows "Did <page>
+  help?" with ↑ "Yes, recommend", ↓ "Not really" and "Not now". One page at a time, at most one ask a day.
+- **Never asked:** about your own page, a page you already rated, or the same page twice.
+- **The answer:** opens the page's usual recommend sheet with the vote ready, so a ↓ still needs a reason and the vote is the normal
+  public one.
+- **Privacy:** what was contacted stays on the phone (`data/HelpAsk.kt`) until the person answers, and is cleared at sign-out.
+- **The learning loop:** for adults with usage statistics on, the answer is also sent as a `VOTE` event with `UP` or `DOWN`, tied to
+  the search the page came from when there was one. `discovery_report` counts these under `outcomes`. Once there is enough of them,
+  this is the label that fitted weights (§13.3, level 2) learn from: did the search lead to someone who helped.
+- **Status:** built for Android. iOS is next ([PARITY.md](PARITY.md)).
 

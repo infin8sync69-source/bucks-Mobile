@@ -220,6 +220,7 @@ fun HomeScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, o
         // Same content on phones (in the sheet) and wide screens (in the side panel): an unfinished ride, the vehicle note, the search pill; services live in the Services tab.
         val panel: @Composable ColumnScope.() -> Unit = {
             s.ride?.let { r -> ActiveRideCard(r, onReturnToRide) }
+            if (cloud && s.ride == null) HelpAskCard(onListing)
             // A cloud vehicle the server hasn't activated yet: say why there is no online button, and where to look.
             vm.waitingVehicle?.takeIf { !showFab }?.let { v -> Column(Modifier.padding(bottom = 12.dp)) {
                 val vName = v.model.ifBlank { stringResource(R.string.g3_vehicle_generic) }
@@ -363,4 +364,23 @@ fun ServicesScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Uni
         }
     }
     sheetFor?.let { key -> serviceDef(key)?.let { def -> ServiceLockSheet(vm, def, vm.services.state(key), onDismiss = { sheetFor = null }, onList = { sheetFor = null; onListService(key) }, onRecommend = { sheetFor = null; onRecommend() }) } }
+}
+
+/** "Did they help?" (data/HelpAsk.kt): a day after calling, messaging, booking or getting directions to a page, one ask at most a day. */
+@Composable
+private fun HelpAskCard(onListing: (String) -> Unit) {
+    var ask by remember { mutableStateOf(com.bucks.app.data.HelpAsk.due()) }
+    val a = ask ?: return
+    LaunchedEffect(a.id) { com.bucks.app.data.HelpAsk.shown() }
+    Box(Modifier.padding(bottom = 12.dp)) {
+        BucksCard(tint = true) {
+            Text(stringResource(R.string.g1_help_ask_title, a.title), style = MaterialTheme.typography.titleMedium)
+            Muted(stringResource(R.string.g1_help_ask_body), Modifier.padding(top = 2.dp))
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                SmallButton(stringResource(R.string.g1_help_ask_yes)) { com.bucks.app.data.HelpAsk.answer(a.id, 1); ask = null; onListing(a.id) }
+                SmallButton(stringResource(R.string.g1_help_ask_no), tonal = true) { com.bucks.app.data.HelpAsk.answer(a.id, -1); ask = null; onListing(a.id) }
+                TextButton({ com.bucks.app.data.HelpAsk.dismiss(a.id); ask = null }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g1_help_ask_later)) }
+            }
+        }
+    }
 }
