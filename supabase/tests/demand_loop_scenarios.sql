@@ -3,6 +3,7 @@
 \set ON_ERROR_STOP 1
 \pset format unaligned
 \pset tuples_only on
+set search_path = public, extensions;   -- PostGIS (geometry, st_x, st_y) lives in extensions
 create or replace function pg_temp.as_phone(u text, ph text) returns void language sql as $$ select set_config('request.jwt.claims', json_build_object('sub', u, 'phone_number', ph)::text, false) $$;
 create or replace function pg_temp.check(label text, cond boolean) returns text language sql as $$ select case when coalesce(cond, false) then 'ok ' || label else 'FAIL ' || label end $$;
 create or replace function pg_temp.pid(u text) returns uuid language sql as $$ select id from public.profiles where auth_uid = u $$;

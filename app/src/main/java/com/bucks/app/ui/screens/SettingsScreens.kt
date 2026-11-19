@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.bucks.app.data.Prefs
 import com.bucks.app.data.SettingsRow
+import com.bucks.app.data.cancelWanted
+import com.bucks.app.data.myWanted
 import com.bucks.app.ui.BucksViewModel
 import com.bucks.app.ui.VOICE_LANGS
 import com.bucks.app.ui.components.*

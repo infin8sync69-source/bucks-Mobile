@@ -254,8 +254,8 @@ update public.search_lexicon set term = term;   -- recompute the generated keys 
 -- ---------- 3. reading a query ----------
 -- q → {"terms": [{"key", "raw", "generic", "fuzzy", "prefix", "direct": [' word ', …], "concept": [' word ', …]}], "mods": [...],
 --      "price_cap": n}. The longest phrase (up to 4 words) found in the lexicon wins, so "home delivery" is a modifier before "home" is
--- a generic word, and "ac repair" a phrase before "repair". A term's direct forms are its own key, SAME rows either way and one more
--- SAME step forward; its concept forms are CONCEPT rows of those, two steps deep. At most 8 terms.
+-- a generic word, and "ac repair" a phrase before "repair". A term's direct forms are its own key and SAME rows either way, two steps
+-- deep (चाय → tea → chai); its concept forms are CONCEPT rows of those, two steps deep. At most 8 terms.
 create or replace function public.search_parse(q text) returns jsonb
 language plpgsql stable security definer set search_path = public, extensions as $$
 declare
@@ -301,11 +301,12 @@ begin
       ph_raw := array_to_string(raw[i:i + nk - 1], ' ');
       is_generic := kinds is not null and kinds = array['GENERIC'];
       plain := kinds is null;
-      -- direct: the key, SAME either way, then one more SAME step forward
+      -- direct: the key, SAME either way, then one more SAME step either way
       d := array[ph_key]
            || array(select x.means_key from public.search_lexicon x where x.status = 'live' and x.kind = 'SAME' and x.term_key = ph_key)
            || array(select x.term_key from public.search_lexicon x where x.status = 'live' and x.kind = 'SAME' and x.means_key = ph_key);
-      d := d || array(select x.means_key from public.search_lexicon x where x.status = 'live' and x.kind = 'SAME' and x.term_key = any(d));
+      d := d || array(select x.means_key from public.search_lexicon x where x.status = 'live' and x.kind = 'SAME' and x.term_key = any(d))
+             || array(select x.term_key from public.search_lexicon x where x.status = 'live' and x.kind = 'SAME' and x.means_key = any(d));
       d := array(select distinct v from unnest(d) v where v <> '');
       -- concept: CONCEPT rows of the direct forms, then CONCEPT and SAME rows of those
       c := array(select x.means_key from public.search_lexicon x where x.status = 'live' and x.kind = 'CONCEPT' and x.term_key = any(d));
