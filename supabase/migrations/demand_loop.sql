@@ -117,7 +117,11 @@ begin
     update wanted set checked_at = now() where id = w.id;
     select s.id, s.title into hit_id, hit_title
     from search_listings(w.q, st_y(w.at_point::geometry), st_x(w.at_point::geometry), w.radius_m, null, 10) s
-    where s.distance_m is not null and s.distance_m <= w.radius_m and s.owner_id <> w.profile_id and not blocked_between(w.profile_id, s.owner_id)
+    where s.distance_m is not null and s.distance_m <= w.radius_m and s.owner_id <> w.profile_id
+      -- blocks read directly: blocked_between only answers for the signed-in person, and this job runs as nobody (it is never
+      -- callable from the app, so it tells no one who blocked whom)
+      and not exists (select 1 from blocks b where (b.blocker_id = w.profile_id and b.blocked_id = s.owner_id)
+                                              or (b.blocker_id = s.owner_id and b.blocked_id = w.profile_id))
     limit 1;
     if hit_id is not null then
       update wanted set notified_at = now(), found_listing = hit_id where id = w.id;
