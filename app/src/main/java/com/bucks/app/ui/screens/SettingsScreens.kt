@@ -36,6 +36,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.launch
 
 /* ---------- reusable rows ---------- */
 
@@ -124,6 +125,29 @@ fun NotificationsScreen(vm: BucksViewModel, onBack: () -> Unit) {
                 val q = if (qOn && Regex("^\\d{2}:\\d{2}$").matches(from) && Regex("^\\d{2}:\\d{2}$").matches(to)) JsonObject(mapOf("from" to JsonPrimitive(from), "to" to JsonPrimitive(to))) else null
                 social.saveSettings(row.copy(quietHours = q)) }
             Muted(stringResource(R.string.g1_notif_note), Modifier.padding(top = 12.dp))
+            WaitingSearches()
+        }
+    }
+}
+
+/** "Tell me when one joins" requests (supabase/migrations/demand_loop.sql): what this person is waiting for, and a way to stop. */
+@Composable
+private fun WaitingSearches() {
+    if (!com.bucks.app.data.Backend.enabled) return
+    var rows by remember { mutableStateOf<List<com.bucks.app.data.WantedRow>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { rows = runCatching { com.bucks.app.data.Backend.myWanted() }.getOrDefault(emptyList()) }
+    if (rows.isEmpty()) return
+    Text(stringResource(R.string.g1_notif_waiting_title), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+    Muted(stringResource(R.string.g1_notif_waiting_detail))
+    rows.forEach { w ->
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(w.q, style = MaterialTheme.typography.bodyLarge)
+                Muted(if (w.notifiedAt != null) stringResource(R.string.g1_notif_waiting_found, w.foundTitle ?: w.area) else w.area, maxLines = 1)
+            }
+            if (w.notifiedAt == null) TextButton({ scope.launch { if (runCatching { com.bucks.app.data.Backend.cancelWanted(w.id) }.getOrDefault(false)) rows = rows.filterNot { it.id == w.id } } }) {
+                Text(stringResource(R.string.g1_notif_waiting_remove)) }
         }
     }
 }
@@ -161,7 +185,7 @@ fun AppearanceScreen(onBack: () -> Unit) {
             ToggleRow(stringResource(R.string.g1_app_motion), stringResource(R.string.g1_app_motion_detail), Prefs.reduceMotion) { Prefs.enableReduceMotion(it) }
             ChoiceGroup(stringResource(R.string.g1_app_download), stringResource(R.string.g1_app_download_detail), Prefs.MediaDownload.entries.map { it to it.label }, Prefs.mediaDownload) { Prefs.chooseMediaDownload(it) }
             ToggleRow(stringResource(R.string.g1_app_data_saver), stringResource(R.string.g1_app_data_saver_detail), Prefs.dataSaver) { Prefs.enableDataSaver(it) }
-            ToggleRow(stringResource(R.string.g1_app_usage), stringResource(R.string.g1_app_usage_detail), Prefs.shareUsage) { Prefs.enableShareUsage(it) }
+            ToggleRow(stringResource(R.string.g1_app_usage), stringResource(R.string.g1_app_usage_detail), Prefs.shareUsage) { Prefs.enableShareUsage(it); if (!it) com.bucks.app.data.DiscoveryLog.forgetMe() }
             ChoiceGroup(stringResource(R.string.g1_app_language), stringResource(R.string.g1_app_language_detail), com.bucks.app.data.AppLanguages.all.map { it.tag to it.native }, com.bucks.app.data.AppLanguages.current().tag) { Prefs.chooseLanguage(it) }
         }
     }

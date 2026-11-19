@@ -17,6 +17,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # hardening_dispatch.sql, then review_fixes.sql (its advance_task builds on hardening_dispatch's and closes the cancel and hand-back routes;
 # its release_task takes over the hand-back cap), then hardening_platform.sql (it carries the latest version of every function it redefines,
 # including page_types' search_listings), then social_safety.sql (which carries the hardening versions of the two functions it redefines).
+# search_quality2.sql comes after every file that defines search_listings (it carries the last version) and before discovery_log.sql,
+# which logs against its search_norm.
 files=(
   schema.sql
   migrations/manage.sql
@@ -71,6 +73,10 @@ files=(
   migrations/risk_hardening.sql
   migrations/legal_hold.sql
   migrations/review_accounts.sql
+  migrations/search_quality2.sql
+  migrations/search_lexicon_learned.sql
+  migrations/discovery_log.sql
+  migrations/demand_loop.sql
 )
 
 case "${1:-}" in

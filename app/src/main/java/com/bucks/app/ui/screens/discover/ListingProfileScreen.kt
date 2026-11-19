@@ -104,12 +104,13 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val cartHere = cartCount > 0
     val distance = p.at?.let { formatDistance(Geo.distanceKm(social.here, it) * 1000) }
     val synced = d.isSynced(id)
-    fun share() = shareText(ctx, listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) Str.get(R.string.g3_lp_share, l.title) else Str.get(R.string.g3_lp_share_details, l.title, it) })
-    fun message() = d.startListingChat(id, onOpenChat)
+    fun share() { com.bucks.app.data.DiscoveryLog.acted("SHARE", id); shareText(ctx, listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) Str.get(R.string.g3_lp_share, l.title) else Str.get(R.string.g3_lp_share_details, l.title, it) }) }
+    // What is done here after opening the page from search counts for that search (DiscoveryLog, adults with usage statistics on).
+    fun message() { com.bucks.app.data.DiscoveryLog.acted("MESSAGE", id); d.startListingChat(id, onOpenChat) }
     // Shown only when the owner turned calls on; the number is fetched, never part of the page.
     var phone by remember(id) { mutableStateOf<String?>(null) }
     LaunchedEffect(id, l.details) { phone = if (!p.mine && l.details["show_phone"]?.toString()?.trim('"') == "true") Backend.listingPhone(id) else null }
-    fun directions() { p.at?.let { at -> com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
+    fun directions() { com.bucks.app.data.DiscoveryLog.acted("DIRECTIONS", id); p.at?.let { at -> com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -153,13 +154,13 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 else {
                     // The page's own action: Book, Get a quote, Volunteer, Join, Directions... A shop has none here; its cart lives in Products.
                     if (type != null && !type.isShop && type.cta != "CART" && (type.cta != "DIRECTIONS" || p.at != null)) PrimaryButton(type.ctaLabel, Modifier.padding(top = 12.dp), enabled = type.cta == "DIRECTIONS" || !d.chatStarting) {
-                        if (type.cta == "DIRECTIONS") directions() else d.startListingChat(id, onOpenChat, PageTypes.ctaMessage(type, l.title))
+                        if (type.cta == "DIRECTIONS") directions() else { com.bucks.app.data.DiscoveryLog.acted(if (type.cta in setOf("BOOK", "HIRE")) "BOOK" else "MESSAGE", id); d.startListingChat(id, onOpenChat, PageTypes.ctaMessage(type, l.title)) }
                     }
                     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Button({ message() }, Modifier.weight(1f).height(44.dp), enabled = !d.chatStarting, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
                             Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text(stringResource(R.string.g3_lp_message), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
-                        SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
-                        phone?.let { num -> HeaderIcon(Icons.Rounded.Call, stringResource(R.string.g3_cd_call)) { com.bucks.app.ui.dial(ctx, num) } }
+                        SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { if (!synced) com.bucks.app.data.DiscoveryLog.acted("SYNC", id); d.syncListing(id, !synced) }
+                        phone?.let { num -> HeaderIcon(Icons.Rounded.Call, stringResource(R.string.g3_cd_call)) { com.bucks.app.data.DiscoveryLog.acted("CALL", id); com.bucks.app.ui.dial(ctx, num) } }
                         HeaderIcon(Icons.Rounded.IosShare, stringResource(R.string.g3_cd_share)) { share() }
                         if (!p.mine) com.bucks.app.ui.social.LocalReporter.current?.let { rep -> HeaderIcon(Icons.Rounded.OutlinedFlag, stringResource(R.string.g3_cd_report_page)) { rep(com.bucks.app.ui.social.ReportTarget("LISTING", id, l.ownerId, l.title)) } }
                         if (p.at != null) HeaderIcon(Icons.Rounded.Place, stringResource(R.string.g3_home_directions)) { directions() }

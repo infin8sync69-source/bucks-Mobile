@@ -700,6 +700,7 @@ private fun noteIcon(kind: String) = when (kind) {
     "DOCUMENT_VERIFIED", "DOCUMENT_REJECTED" -> Icons.Rounded.Description
     "REVIEW" -> Icons.Rounded.SwapVert
     "JOB_APPLICATION", "JOB_UPDATE" -> Icons.Rounded.WorkOutline
+    "WANTED_FOUND" -> Icons.Rounded.Search
     else -> Icons.Rounded.Notifications
 }
 
