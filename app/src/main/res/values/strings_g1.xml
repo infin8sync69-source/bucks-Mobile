@@ -131,7 +131,9 @@
     <string name="g1_app_data_saver">Data saver</string>
     <string name="g1_app_data_saver_detail">Lighter maps and smaller images.</string>
     <string name="g1_app_usage">Help improve Bucks</string>
-    <string name="g1_app_usage_detail">Share anonymous usage stats (which features are used, where people get stuck). Never your posts, messages or contacts. Always off for people under 18.</string>
+    <!-- Translations removed on 2026-11-19: they promised "anonymous" stats, but this switch now also shares the account-linked search
+         history (DiscoveryLog). Re-translate from this text. -->
+    <string name="g1_app_usage_detail">Share usage stats (which features are used, where people get stuck) and your searches on Bucks with what you open from them, to improve search. Never your posts, messages or contacts. Always off for people under 18. Turning it off deletes your search history.</string>
     <string name="g1_app_language">App language</string>
     <string name="g1_app_language_detail">Menus, buttons and messages.</string>
     <string name="g1_blocked_empty">Nobody is blocked. Block someone from a chat or their profile.</string>

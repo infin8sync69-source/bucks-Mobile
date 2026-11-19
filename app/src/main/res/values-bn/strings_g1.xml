@@ -125,7 +125,6 @@
     <string name="g1_app_data_saver">ডেটা সেভার</string>
     <string name="g1_app_data_saver_detail">হালকা ম্যাপ আর ছোট ছবি।</string>
     <string name="g1_app_usage">Bucks-কে আরও ভালো করতে সাহায্য করুন</string>
-    <string name="g1_app_usage_detail">নাম ছাড়া ব্যবহারের তথ্য শেয়ার করুন (কোন ফিচার ব্যবহার হয়, মানুষ কোথায় আটকে যায়)। আপনার পোস্ট, মেসেজ বা কন্ট্যাক্ট কখনও নয়। 18 বছরের কম বয়সীদের জন্য সবসময় বন্ধ।</string>
     <string name="g1_app_language">অ্যাপের ভাষা</string>
     <string name="g1_app_language_detail">মেনু, বাটন আর মেসেজ।</string>
     <string name="g1_blocked_empty">কাউকে ব্লক করা নেই। চ্যাট বা প্রোফাইল থেকে কাউকে ব্লক করতে পারেন।</string>

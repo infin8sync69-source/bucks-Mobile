@@ -124,7 +124,6 @@
     <string name="g1_app_data_saver">省流量</string>
     <string name="g1_app_data_saver_detail">更轻量的地图和更小的图片。</string>
     <string name="g1_app_usage">帮助改进 Bucks</string>
-    <string name="g1_app_usage_detail">分享匿名使用统计（用了哪些功能、大家在哪里卡住）。绝不包括你的帖子、消息或联系人。未满 18 岁的用户始终关闭。</string>
     <string name="g1_app_language">应用语言</string>
     <string name="g1_app_language_detail">菜单、按钮和消息。</string>
     <string name="g1_blocked_empty">没有屏蔽任何人。可以在聊天或对方主页中屏蔽。</string>
