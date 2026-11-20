@@ -45,9 +45,9 @@ select case when has_column_privilege('authenticated', 'public.profiles', 'home'
             else 'ok: authenticated cannot read profiles.home' end;
 select case when has_column_privilege('authenticated', 'public.tasks', 'pin', 'select') then 'FAIL: authenticated can read tasks.pin (the rider''s PIN reaches the driver)'
             else 'ok: authenticated cannot read tasks.pin' end;
-select case when count(*) = 0 then 'ok: authenticated cannot read the private tables (push_config, storage_cleanup, recommend_tokens, staff)'
+select case when count(*) = 0 then 'ok: authenticated cannot read the private tables (push_config, storage_cleanup, recommend_tokens, staff, content_screen_terms, content_screened)'
             else 'FAIL: authenticated can read: ' || string_agg(t, ', ') end
-from unnest(array['push_config', 'storage_cleanup', 'recommend_tokens', 'staff']) t
+from unnest(array['push_config', 'storage_cleanup', 'recommend_tokens', 'staff', 'content_screen_terms', 'content_screened']) t
 where to_regclass('public.' || t) is not null and has_table_privilege('authenticated', to_regclass('public.' || t), 'select');
 select case when count(*) = 0 then 'ok: authenticated cannot insert or update notifications (only Bucks'' triggers write them)'
             else 'FAIL: authenticated can write notifications' end
@@ -84,7 +84,9 @@ where proname in ('synced', 'settings_of', 'expire_orders', 'expire_moments', 'l
                   'note_recommendation', 'note_listing_status', 'note_document', 'note_review', 'note_comment', 'note_vote', 'note_reaction', 'contact_link_guard',
                   'guard_profile_insert', 'guard_insert_stamps', 'guard_profile_private', 'snap_location', 'guard_listing_reverify', 'prune_recommendations',
                   'vehicle_normalise', 'device_token_cap',
-                  'presence_clamp', 'vehicle_offline', 'tasks_hygiene', 'orders_hygiene', 'dispatch_cfg', 'new_pin', 'driver_near_check', 'expire_tasks')
+                  'presence_clamp', 'vehicle_offline', 'tasks_hygiene', 'orders_hygiene', 'dispatch_cfg', 'new_pin', 'driver_near_check', 'expire_tasks',
+                  'screen_norm', 'screen_hit', 'screen_json', 'screen_listing_text', 'screen_item_text', 'rescreen_one', 'rescreen_all', 'screen_row',
+                  'screen_terms_changed', 'is_screened', 'screen_order')
   and has_function_privilege('authenticated', oid, 'execute');
 
 -- ---------- what the hardening migration guarantees ----------
