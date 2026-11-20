@@ -1,7 +1,5 @@
--- Content screen: some goods and content are kept off Bucks without saying so. Pork, alcohol, intoxicants, adult products, gambling,
--- black magic and clearly illegal goods never appear in search, explore, the feeds, recommendations, the map, store pages, the job
--- board or anything the assistant finds through search. Nothing tells a user that a thing was screened. A screened listing, item, post,
--- job or moment stays in the database, and its owner still sees it as before.
+-- Content screen: listings, items, jobs, posts and moments whose text matches content_screen_terms are left out of search, explore,
+-- the feeds, recommendations, the map, store pages, the job board and orders. Matching rows stay in the database.
 --
 -- How it works
 --   content_screen_terms  the term list (English, Hindi, Kannada, Malayalam, Tamil, Telugu and common romanised spellings). No API access:
@@ -22,7 +20,7 @@
 --
 -- Matching (screen_hit): the text is lower-cased, zero-width joiners are dropped and everything except a-z, 0-9, Arabic script
 -- (Urdu, U+0600-U+06FF) and the Indic blocks (Devanagari to Malayalam, U+0900-U+0DFF) becomes a space. A phrase after "no", "non", "not", "without", "zero" or "nil" is dropped
--- first, so "100% halal, no pork" is not screened. Each term then matches as:
+-- first ("no pork" is not a match). Each term then matches as:
 --   WORD    whole words, plus a trailing "s" (pig, pigs; sex toy, sex toys). "ham" never matches "hamburger", "meth" never "methi".
 --   EXACT   whole words only (short Indic words whose stems are also ordinary words).
 --   PREFIX  a word that starts with the term (Indic stems that take suffixes: ಗಾಂಜಾ, ಗಾಂಜಾವನ್ನು).
