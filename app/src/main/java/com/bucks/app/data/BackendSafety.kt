@@ -20,6 +20,21 @@ object BackendSafety {
     suspend fun setBirthDate(isoDate: String): String = db.rpc("set_birth_date", buildJsonObject { put("p_date", isoDate) }).decodeAs()
     /** "I agree to the Terms" from the phone screen: records which version was accepted. */
     suspend fun recordTerms(version: String) { db.rpc("record_terms", buildJsonObject { put("p_version", version) }) }
+    // ---- Trip safety (trip_safety.sql): trusted contacts, SOS, live trip links, "Are you OK?" ----
+    suspend fun trustedContacts(): List<TrustedContact> = db.from("trusted_contacts").select { order("created_at", io.github.jan.supabase.postgrest.query.Order.ASCENDING) }.decodeList()
+    suspend fun addTrustedContact(name: String, phone: String) { db.rpc("add_trusted_contact", buildJsonObject { put("p_name", name); put("p_phone", phone) }) }
+    suspend fun removeTrustedContact(id: String) { db.rpc("remove_trusted_contact", buildJsonObject { put("p_id", id) }) }
+    /** The token of my trip's live link (TripSafety.tripUrl makes the page address). */
+    suspend fun tripShareLink(taskId: String): String = db.rpc("trip_share_link", buildJsonObject { put("p_task", taskId) }).decodeAs()
+    /** Never refused for a signed-in person. [taskId] null: an SOS outside a trip. */
+    suspend fun raiseSos(taskId: String?, lat: Double?, lng: Double?): SosResult =
+        db.rpc("raise_sos", buildJsonObject { put("p_task", taskId); put("p_lat", lat); put("p_lng", lng) }).decodeAs()
+    suspend fun cancelSos(id: String) { db.rpc("cancel_sos", buildJsonObject { put("p_sos", id) }) }
+    suspend fun myRideAlerts(taskId: String): List<RideAlert> = db.rpc("my_ride_alerts", buildJsonObject { put("p_task", taskId) }).decodeList()
+    suspend fun answerRideAlert(taskId: String, ok: Boolean) { db.rpc("answer_ride_alert", buildJsonObject { put("p_task", taskId); put("p_ok", ok) }) }
+    suspend fun sosQueue(): List<SosQueueRow> = db.rpc("sos_queue").decodeList()
+    suspend fun closeSos(id: String, note: String) { db.rpc("close_sos", buildJsonObject { put("p_sos", id); put("p_note", note) }) }
+
     /** The Terms version everyone must have accepted (server setting), the one I accepted, and whether the app must ask again. */
     suspend fun termsStatus(): TermsStatus? = runCatching { db.rpc("terms_status").decodeAs<TermsStatus>() }.getOrNull()
     /** Country (ISO code) and app language for my profile: currency, payments and the language of notifications. */
@@ -42,6 +57,14 @@ object BackendSafety {
         db.rpc("posts_by", buildJsonObject { put("p_author", author); beforeIso?.let { put("before", it) } }).decodeList()
 }
 
+@Serializable data class TrustedContact(val id: String, val name: String, val phone: String)
+@Serializable data class SosContact(val name: String, val phone: String)
+@Serializable data class SosResult(@SerialName("sos_id") val sosId: String, @SerialName("share_token") val shareToken: String? = null, val message: String = "", val contacts: List<SosContact> = emptyList())
+@Serializable data class RideAlert(val id: String, val kind: String)
+@Serializable data class SosQueueRow(val id: String, @SerialName("created_at") val createdAt: String, val role: String, val name: String = "", val phone: String? = null,
+                                     val lat: Double? = null, val lng: Double? = null, @SerialName("task_id") val taskId: String? = null, @SerialName("task_status") val taskStatus: String? = null,
+                                     @SerialName("other_name") val otherName: String? = null, @SerialName("other_phone") val otherPhone: String? = null,
+                                     val vehicle: String? = null, @SerialName("trip_link") val tripLink: String? = null)
 @Serializable data class TermsStatus(val current: String? = null, val accepted: String? = null, val needed: Boolean = false)
 @Serializable data class SafetyRow(@SerialName("age_band") val ageBand: String = "UNKNOWN", @SerialName("birth_date_set") val birthDateSet: Boolean = false,
                                    @SerialName("guardian_consent") val guardianConsent: Boolean? = null)

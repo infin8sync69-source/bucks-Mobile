@@ -251,6 +251,8 @@ struct MainStack: View {
         case .contacts: ContactsScreen()
         case .bucksId: BucksIdScreen()
         case .settingsPrivacy: PrivacyScreen()
+        case .settingsSafety: SafetyScreen()
+        case .staffSos: StaffSosScreen()
         case .settingsNotifications: NotificationSettingsScreen()
         case .settingsAppearance: AppearanceScreen()
         case .settingsBlocked: BlockedScreen()

@@ -124,6 +124,7 @@ fun SafetyCenterScreen(vm: BucksViewModel, onBack: () -> Unit, onOpen: (String) 
             Item(Icons.Rounded.Place, stringResource(R.string.g2_set_map), stringResource(R.string.g2_set_map_d)) { onOpen(Routes.SETTINGS_MAP) }
             Item(Icons.Rounded.ChildCare, stringResource(R.string.g2_set_child_safety), null) { Legal.open(ctx, Legal.CHILD_SAFETY) }
             Item(Icons.Rounded.Gavel, stringResource(R.string.g2_set_guidelines), null) { Legal.open(ctx, Legal.GUIDELINES) }
+            if (vm.social.me != null) com.bucks.app.ui.safety.TrustedContactsSection()
             Text(stringResource(R.string.g2_safety_help_now), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp).semantics { heading() })
             Muted(stringResource(R.string.g2_safety_helplines), Modifier.padding(top = 6.dp))
         }
@@ -185,8 +186,10 @@ fun StaffReportsScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenPerson: (St
     var confirm by remember { mutableStateOf<Pair<String, String>?>(null) }
     LaunchedEffect(Unit) { safety.refreshQueue() }
     ContentColumn(Modifier.fillMaxHeight()) { BucksTopBar(stringResource(R.string.g2_set_review_reports), onBack = onBack, actions = { IconButton({ safety.refreshQueue() }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.g2_cd_refresh)) } })
-        if (safety.queue.isEmpty()) Muted(stringResource(R.string.g2_reports_empty), Modifier.padding(Gutter))
         LazyColumn(contentPadding = PaddingValues(Gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // SOS comes before every report (trip_safety.sql); it refreshes itself every 20 seconds.
+            item(key = "sos") { com.bucks.app.ui.safety.StaffSosSection() }
+            if (safety.queue.isEmpty()) item(key = "empty") { Muted(stringResource(R.string.g2_reports_empty)) }
             items(safety.queue, key = { it.id }) { r ->
                 val reason = runCatching { ReportReason.valueOf(r.reason) }.getOrNull()
                 BucksCard {

@@ -107,6 +107,7 @@ private struct AccountSettingsHub: View {
             AccountSettingRow(icon: "arrow.triangle.2.circlepath", label: "Synced people and requests") { router.push(.sync) }
             SectionTitle("Privacy and safety").padding(.top, 22).padding(.bottom, 6)
             AccountSettingRow(icon: "lock.fill", label: "Privacy", detail: "Who can message you, sync with you and see your Moments") { router.push(.settingsPrivacy) }
+            AccountSettingRow(icon: "shield.lefthalf.filled", label: "Safety", detail: "Trusted contacts for SOS and trip sharing") { router.push(.settingsSafety) }
             AccountSettingRow(icon: "nosign", label: "Blocked people") { router.push(.settingsBlocked) }
             AccountSettingRow(icon: "heart.fill", label: "Close friends", detail: "Who sees Moments you share with close friends") { router.push(.settingsCloseFriends) }
             SectionTitle("App").padding(.top, 22).padding(.bottom, 6)
@@ -136,6 +137,7 @@ private struct AccountSettingsHub: View {
             AccountSettingRow(icon: "doc.text.fill", label: "Terms of use") { openURL(Legal.url(.terms)) }
             if model.isStaff {
                 SectionTitle("Bucks team").padding(.top, 22).padding(.bottom, 6)
+                AccountSettingRow(icon: "sos", label: "SOS alerts", detail: "Open SOS alerts, newest first") { router.push(.staffSos) }
                 AccountSettingRow(icon: "checklist", label: "Review documents", detail: "Shop and pro documents waiting for a check") { router.push(.staffReview) }
             }
             SectionTitle("Account actions").padding(.top, 22).padding(.bottom, 6)
