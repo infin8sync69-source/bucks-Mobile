@@ -1,5 +1,7 @@
 package com.bucks.app.ui
 
+import com.bucks.app.data.Str
+import com.bucks.app.R
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -28,14 +30,14 @@ fun rememberVoiceInput(lang: String, onResult: (String) -> Unit, onError: (Strin
     val recognizer = remember { if (SpeechRecognizer.isRecognitionAvailable(ctx)) SpeechRecognizer.createSpeechRecognizer(ctx) else null }
     DisposableEffect(recognizer) { onDispose { recognizer?.destroy() } }
     fun start() {
-        val r = recognizer ?: return onError("Speech recognition isn't available on this device")
+        val r = recognizer ?: return onError(Str.get(R.string.g5_voice_unavailable))
         r.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) { state.listening = true; state.partial = "" }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(v: Float) {}
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() { state.listening = false }
-            override fun onError(e: Int) { state.listening = false; onError(when (e) { SpeechRecognizer.ERROR_NO_MATCH -> "Didn't catch that, try again"; SpeechRecognizer.ERROR_NETWORK -> "No network for speech"; SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission needed"; else -> "Couldn't hear you" }) }
+            override fun onError(e: Int) { state.listening = false; onError(when (e) { SpeechRecognizer.ERROR_NO_MATCH -> Str.get(R.string.g5_voice_no_match); SpeechRecognizer.ERROR_NETWORK -> Str.get(R.string.g5_voice_no_network); SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> Str.get(R.string.g5_voice_mic_needed); else -> Str.get(R.string.g5_voice_cant_hear) }) }
             override fun onResults(b: Bundle?) { state.listening = false; b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(onResult) }
             override fun onPartialResults(b: Bundle?) { b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let { state.partial = it } }
             override fun onEvent(t: Int, p: Bundle?) {}
@@ -44,7 +46,7 @@ fun rememberVoiceInput(lang: String, onResult: (String) -> Unit, onError: (Strin
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM); putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true); putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false) })
     }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) start() else onError("Microphone permission needed for voice") }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) start() else onError(Str.get(R.string.g5_voice_mic_denied)) }
     val trigger: () -> Unit = { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) start() else permission.launch(Manifest.permission.RECORD_AUDIO) }
     return state to trigger
 }

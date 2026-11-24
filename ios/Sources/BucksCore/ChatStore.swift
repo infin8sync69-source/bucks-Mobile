@@ -16,7 +16,8 @@ public final class ChatStore {
 
     public var notesUnread: Int { notes.filter { $0.readAt == nil }.count }
     /// The badge on the messages icon: unread chats plus unread notifications. Reading it starts the background refresh (see `supervise`).
-    public var unread: Int { superviseOnce(); return inbox.reduce(0) { $0 + $1.unread } + notesUnread }
+    /// The badge on the Messages icon: unread chats. Notifications have their own bell (`notesUnread`).
+    public var unread: Int { superviseOnce(); return inbox.reduce(0) { $0 + $1.unread } }
 
     private var me: ProfileRow? { session.me }
     @ObservationIgnored private var supervisor: Task<Void, Never>?

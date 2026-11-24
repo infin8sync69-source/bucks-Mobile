@@ -230,7 +230,8 @@ select pg_temp.ok('P4 a comment does not notify a previous commenter who blocked
 set role authenticated; select pg_temp.as_user('cy', '+919000000003');
 insert into public.blocks (blocker_id, blocked_id) values (public.me(), pg_temp.pid('bob'));
 select pg_temp.as_user('bob', '+919000000002');
-insert into public.post_votes (post_id, profile_id, vote) values (current_setting('t.p4_post')::uuid, public.me(), 1);
+-- Since trust_phase0.sql (can_vote_post) a person the author blocked can't vote on the post at all, so nothing can notify.
+select pg_temp.blocked('P4 someone the author blocked cannot vote on their post', format($$insert into public.post_votes (post_id, profile_id, vote) values (%L, public.me(), 1)$$, current_setting('t.p4_post')), 'row-level security');
 reset role;
 select pg_temp.ok('P4 a like from someone the author blocked does not notify the author', (select count(*) = 0 from public.notifications where profile_id = pg_temp.pid('cy') and kind = 'POST_LIKE'));
 -- reactions: the trigger itself refuses to notify across a block (row written under the viewer's identity)

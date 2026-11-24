@@ -499,10 +499,150 @@ public extension EnvironmentValues {
     var bucksCartAction: CartAction? { get { self[CartActionKey.self] } set { self[CartActionKey.self] = newValue } }
 }
 
+/// The bell in every top bar that has Messages: how many notifications are unread and what a tap does (Android's LocalNotifAction).
+/// Notifications have their own bell, so a waiting sync request is never hidden inside the chat count. Nil hides it.
+public struct NotifAction {
+    public var count: Int
+    public var open: () -> Void
+    public init(count: Int, open: @escaping () -> Void) { self.count = count; self.open = open }
+}
+private struct NotifActionKey: EnvironmentKey { static let defaultValue: NotifAction? = nil }
+public extension EnvironmentValues {
+    var bucksNotifAction: NotifAction? { get { self[NotifActionKey.self] } set { self[NotifActionKey.self] = newValue } }
+}
+
+/// Opens a person's profile from wherever their name or picture shows (Android's LocalOpenPerson): my own id goes to the Profile tab,
+/// anyone else to their profile. Provided once by the signed-in shell.
+private struct OpenPersonKey: EnvironmentKey { static let defaultValue: ((String) -> Void)? = nil }
+public extension EnvironmentValues {
+    var openPerson: ((String) -> Void)? { get { self[OpenPersonKey.self] } set { self[OpenPersonKey.self] = newValue } }
+}
+public extension View {
+    /// Makes a name or picture open that person's profile. Nil or empty `id` leaves it as it is.
+    /// `inSheet`: the name sits in a sheet, which closes first so the profile shows.
+    func opensProfile(_ id: String?, name: String = "", inSheet: Bool = false) -> some View { modifier(OpensProfile(id: id, name: name, inSheet: inSheet)) }
+}
+private struct OpensProfile: ViewModifier {
+    let id: String?; let name: String; let inSheet: Bool
+    @Environment(\.openPerson) private var openPerson
+    @Environment(\.dismiss) private var dismiss
+    func body(content: Content) -> some View {
+        if let id, !id.isEmpty, let openPerson {
+            Button {
+                if inSheet { dismiss(); Task { @MainActor in try? await Task.sleep(nanoseconds: 350_000_000); openPerson(id) } } else { openPerson(id) }
+            } label: { content.contentShape(Rectangle()) }
+                .buttonStyle(.plain).accessibilityHint(name.isEmpty ? "Opens their profile" : "Opens \(name)'s profile")
+        } else { content }
+    }
+}
+
+/// The one count badge (Android's CountBadge): a small red pill, "99+" at most, nothing for zero. `ringed` gives it a ring in the
+/// surface colour so it stays clear of the icon it rides on; without the ring it sits inline, next to a tab label or at a row's end.
+public struct CountBadge: View {
+    let count: Int; var ringed: Bool
+    public init(_ count: Int, ringed: Bool = false) { self.count = count; self.ringed = ringed }
+    public var body: some View {
+        // The wrapper stays put while the count changes, so 0 → 1 pops too.
+        ZStack {
+            if count > 0 {
+                Text(count > 99 ? "99+" : "\(count)").font(.system(size: 10, weight: .bold)).foregroundStyle(.white).lineLimit(1).fixedSize()
+                    .contentTransition(.numericText(value: Double(count)))
+                    .padding(.horizontal, 4.5).frame(minWidth: 17, minHeight: 17)
+                    .background(Capsule().fill(BucksColor.error))
+                    .padding(ringed ? 1.5 : 0).background(Capsule().fill(ringed ? BucksColor.surface : .clear))
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
+            }
+        }
+        .animation(bucksReduceMotion ? nil : Motion.emphasized(Motion.short), value: count)
+        .bumpOnIncrease(count)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A top-bar icon with its count riding on the top corner. The count belongs in the button's label, so the badge itself is silent.
+/// `ring` swings the icon like a bell when the count goes up (the notifications bell).
+public struct BadgedIcon: View {
+    let systemImage: String; let count: Int; var size: CGFloat; var color: Color; var ring: Bool
+    public init(_ systemImage: String, count: Int, size: CGFloat = 20, color: Color = BucksColor.onSurface, ring: Bool = false) {
+        self.systemImage = systemImage; self.count = count; self.size = size; self.color = color; self.ring = ring
+    }
+    public var body: some View {
+        Image(systemName: systemImage).font(.system(size: size)).foregroundStyle(color)
+            .modifier(RingIf(on: ring, count: count))
+            .frame(width: 44, height: 44)
+            .overlay(alignment: .topTrailing) { CountBadge(count, ringed: true).offset(x: -1, y: 4) }
+    }
+}
+private struct RingIf: ViewModifier {
+    let on: Bool; let count: Int
+    func body(content: Content) -> some View { if on { content.ringOnIncrease(count) } else { content } }
+}
+
+/// The counts a post's ↑ and ↓ carry; nil hides that number (Android's postCountsShown). Before I vote, only the larger side shows (ties
+/// show the ups, nothing while nobody voted). Once I've voted, both numbers show.
+public func postCountsShown(up: Int, down: Int, my: Int) -> (up: Int?, down: Int?) {
+    if my != 0 { return (up, down) }
+    return up >= down ? (up > 0 ? up : nil, nil) : (nil, down)
+}
+
+/// ↑ | ↓ in one rounded pill (Android's VotePill). One tap votes; tapping the arrow I already chose takes my vote back. The arrow hops
+/// when it lights up and the number rolls to its new value.
+public struct VotePill: View {
+    let my: Int, up: Int, down: Int; let onVote: (Int) -> Void
+    public init(my: Int, up: Int, down: Int, onVote: @escaping (Int) -> Void) { self.my = my; self.up = up; self.down = down; self.onVote = onVote }
+    public var body: some View {
+        let shown = postCountsShown(up: up, down: down, my: my)
+        HStack(spacing: 0) {
+            half("arrow.up", 1, shown.up, BucksColor.good, label: "Recommend, \(up)", hint: my == 1 ? "Remove recommendation" : "Recommend")
+            Rectangle().fill(BucksColor.outlineVariant).frame(width: 1, height: 20)
+            half("arrow.down", -1, shown.down, BucksColor.bad, label: "Not for me, \(down)", hint: my == -1 ? "Take back my vote" : "Not for me")
+        }
+        .background(Capsule().fill(BucksColor.surfaceContainer))
+        .animation(bucksReduceMotion ? nil : Motion.emphasized(), value: up)
+        .animation(bucksReduceMotion ? nil : Motion.emphasized(), value: down)
+    }
+    private func half(_ icon: String, _ v: Int, _ n: Int?, _ on: Color, label: String, hint: String) -> some View {
+        let color = my == v ? on : BucksColor.onSurfaceVariant
+        return Button { onVote(v) } label: {
+            HStack(spacing: 0) {
+                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).nudgeWhen(my == v, dir: CGFloat(v))
+                if let n { Text(" \(n)").bucks(.labelLarge).contentTransition(.numericText(value: Double(n))) }
+            }
+            .foregroundStyle(color).padding(.horizontal, 12).frame(minHeight: 44).contentShape(Capsule())
+        }
+        .buttonStyle(.plain).accessibilityLabel(label).accessibilityHint(hint)
+    }
+}
+
+/// The small comment box under a post, wherever a post shows (Android's InlineCommentBox): one quiet line until someone types, then a
+/// send arrow. Voting is one tap on an arrow; saying why is this box, never a sheet in the way.
+public struct InlineCommentBox: View {
+    let onSend: (String) -> Void
+    @State private var text = ""
+    @FocusState private var focused: Bool
+    public init(onSend: @escaping (String) -> Void) { self.onSend = onSend }
+    public var body: some View {
+        HStack(spacing: 0) {
+            TextField("", text: Binding(get: { text }, set: { text = String($0.prefix(1000)) }), prompt: Text("Add a comment").foregroundStyle(BucksColor.onSurfaceVariant))
+                .font(.bucks(.bodySmall)).foregroundStyle(BucksColor.onSurface).focused($focused).submitLabel(.send).onSubmit(send)
+                .padding(.vertical, 9)
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(action: send) { Image(systemName: "paperplane.fill").font(.system(size: 16)).foregroundStyle(BucksColor.primary).frame(width: 36, height: 36).contentShape(Circle()) }
+                    .buttonStyle(.plain).accessibilityLabel("Send comment")
+            }
+        }
+        .padding(.leading, 14).padding(.trailing, 4).frame(minHeight: 36)
+        .background(Capsule().fill(BucksColor.surfaceContainer))
+    }
+    private func send() { let t = text.trimmingCharacters(in: .whitespacesAndNewlines); guard !t.isEmpty else { return }; onSend(t); text = ""; focused = false }
+}
+
+
 public struct BucksTopBar<Actions: View>: View {
     var title: String?; var onBack: (() -> Void)?; var onMenu: (() -> Void)?; var unread: Int; var onChat: (() -> Void)?
     let actions: Actions
     @Environment(\.bucksCartAction) private var cart
+    @Environment(\.bucksNotifAction) private var notif
     public init(title: String? = nil, onBack: (() -> Void)? = nil, onMenu: (() -> Void)? = nil, unread: Int = 0, onChat: (() -> Void)? = nil, @ViewBuilder actions: () -> Actions) {
         self.title = title; self.onBack = onBack; self.onMenu = onMenu; self.unread = unread; self.onChat = onChat; self.actions = actions()
     }
@@ -517,20 +657,16 @@ public struct BucksTopBar<Actions: View>: View {
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4)
             actions
             if onChat != nil, let cart {
-                Button(action: cart.open) {
-                    Image(systemName: "cart.fill").font(.system(size: 20)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)
-                        .overlay(alignment: .topTrailing) {
-                            if cart.count > 0 { Text(cart.count > 99 ? "99+" : "\(cart.count)").font(.bucks(.labelSmall)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.purple)).offset(x: -2, y: 4) }
-                        }
-                }.buttonStyle(.plain).accessibilityLabel(cart.count > 0 ? "Cart, \(cart.count) item\(cart.count == 1 ? "" : "s")" : "Cart")
+                Button(action: cart.open) { BadgedIcon("cart.fill", count: cart.count) }
+                    .buttonStyle(.plain).accessibilityLabel(cart.count > 0 ? "Cart, \(cart.count) item\(cart.count == 1 ? "" : "s")" : "Cart")
+            }
+            if onChat != nil, let notif {
+                Button(action: notif.open) { BadgedIcon("bell", count: notif.count, size: 21, ring: true) }
+                    .buttonStyle(.plain).accessibilityLabel(notif.count > 0 ? "Notifications, \(notif.count) new" : "Notifications")
             }
             if let onChat {
-                Button(action: onChat) {
-                    Image(systemName: "message.fill").font(.system(size: 21)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)
-                        .overlay(alignment: .topTrailing) {
-                            if unread > 0 { Text("\(unread)").font(.bucks(.labelSmall)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.purple)).offset(x: -2, y: 4) }
-                        }
-                }.buttonStyle(.plain).accessibilityLabel("Messages")
+                Button(action: onChat) { BadgedIcon("ellipsis.message.fill", count: unread, size: 21) }
+                    .buttonStyle(.plain).accessibilityLabel(unread > 0 ? "Messages, \(unread) unread" : "Messages")
             }
         }
         .padding(.horizontal, 8).padding(.vertical, 6).frame(maxWidth: .infinity)

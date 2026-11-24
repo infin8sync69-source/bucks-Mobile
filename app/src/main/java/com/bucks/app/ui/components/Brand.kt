@@ -1,6 +1,8 @@
 package com.bucks.app.ui.components
 
 import android.app.Activity
+import androidx.compose.ui.res.stringResource
+import com.bucks.app.R
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -111,7 +113,7 @@ fun BucksWordmark(
  * page or a section is waiting for data; small spinners inside buttons and rows stay as they are (the mark is too wide there).
  */
 @Composable
-fun BucksLoader(modifier: Modifier = Modifier, height: Dp = 22.dp, color: Color = MaterialTheme.colorScheme.primary, label: String = "Loading") {
+fun BucksLoader(modifier: Modifier = Modifier, height: Dp = 22.dp, color: Color = MaterialTheme.colorScheme.primary, label: String = stringResource(R.string.g1_cd_loading)) {
     if (rememberReducedMotion()) { BucksWordmark(modifier, height, color.copy(alpha = 0.6f), contentDescription = label); return }
     val phase = rememberInfiniteTransition(label = "loader").animateFloat(0f, 1f, infiniteRepeatable(tween(1150, easing = LinearEasing), RepeatMode.Restart), label = "wave")
     BucksWordmark(modifier, height, color, contentDescription = label, pose = { i ->

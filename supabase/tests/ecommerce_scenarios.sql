@@ -117,6 +117,8 @@ insert into listing_syncs (profile_id, listing_id) values (pg_temp.pid('uma'), :
 select pg_temp.eq(pg_temp.q($$select count(*)::text from posts where body = 'New silks in'$$), '1', 'after syncing with the store, its post shows in the Feed');
 
 -- ---------- rate_listing: a direct recommendation ----------
+-- New accounts recommend after a few days (vote_age_ok, trust_phase0.sql); the accounts in this test were made just now.
+reset role; update profiles set created_at = now() - interval '30 days'; set role authenticated;
 select pg_temp.check(pg_temp.q(format($$select rate_listing(%L, 1, 'Lovely silks')$$, :'ship_shop')) !~ '^ERR', 'anyone can recommend a live store with a comment');
 select pg_temp.eq(pg_temp.sq(format($$select trust_up::text from listings where id = %L$$, :'ship_shop')), '1', 'the recommendation counts in the trust numbers');
 

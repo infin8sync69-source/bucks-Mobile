@@ -71,7 +71,7 @@ select set_config('t.busy', (request_ride('AUTO', 12.9250, 77.5938, 'Jayanagar',
 select pg_temp.as_user('suresh');
 select 'second ring shows no PIN: ''' || pin || '''' from open_tasks_near(12.9260, 77.5940) where id = current_setting('t.busy')::uuid;
 select 'busy driver claims another -> ' || pg_temp.expect_fail(format($$select claim_task(%L)$$, current_setting('t.busy')), 'current trip');
-select pg_temp.as_user('meera'); select 'customer cancels it: ' || (advance_task(current_setting('t.busy')::uuid, 'CANCELLED')).status;
+select pg_temp.as_user('meera'); select 'customer cancels it: ' || (cancel_task(current_setting('t.busy')::uuid, 'PLANS_CHANGED')).status;
 select pg_temp.as_user('suresh');
 select update_location(12.9255, 77.5939);
 select pg_temp.as_user('kavya');
@@ -89,7 +89,7 @@ select 'wrong PIN -> ' || pg_temp.pin_refused(current_setting('t.task')::uuid);
 select pg_temp.as_user('kavya'); select set_config('t.pin', pin, false) is not null from tasks_geo where id = current_setting('t.task')::uuid;
 select pg_temp.as_user('suresh');
 select 'started with the customer''s PIN: ' || (advance_task(current_setting('t.task')::uuid, 'IN_PROGRESS', current_setting('t.pin'))).status;
-select 'driver hands back mid-trip -> ' || pg_temp.expect_fail(format($$select advance_task(%L, 'SEARCHING')$$, current_setting('t.task')), 'cannot go');
+select 'driver hands back mid-trip -> ' || pg_temp.expect_fail(format($$select release_task(%L, 'OTHER')$$, current_setting('t.task')), 'before the trip starts');
 select 'completed: ' || (advance_task(current_setting('t.task')::uuid, 'COMPLETED')).status;
 select 'driver my_open_task after completing (no stale trip on every launch): ' || count(*) from my_open_task();
 select 'driver marks paid -> ' || pg_temp.expect_fail(format($$select advance_task(%L, 'PAID', null, 'Cash')$$, current_setting('t.task')), 'cannot go');
@@ -115,7 +115,7 @@ select pg_temp.as_user('suresh');
 select set_config('t.own', (request_ride('AUTO', 12.9260, 77.5940, 'Jayanagar', 12.9757, 77.6063, 'MG Road', 7.2, 106)).id::text, false) is not null;
 select 'rung for his own request: ' || count(*) from open_tasks_near(12.9260, 77.5940) where id = current_setting('t.own')::uuid;
 select 'claims his own request: ' || claim_task(current_setting('t.own')::uuid);
-select 'cancel: ' || (advance_task(current_setting('t.own')::uuid, 'CANCELLED')).status;
+select 'cancel: ' || (cancel_task(current_setting('t.own')::uuid, 'PLANS_CHANGED')).status;
 -- A trip where he was both customer and driver (possible before claim_task refused it) still can't feed his own trust.
 reset role;
 insert into tasks (type, requester_id, driver_id, vehicle_kind, pickup, drop_at, km, fare, status)
@@ -128,15 +128,15 @@ select pg_temp.as_user('kavya');
 select set_config('t.back', (request_ride('AUTO', 12.9250, 77.5938, 'Jayanagar', 12.9757, 77.6063, 'MG Road', 7.2, 106)).id::text, false) is not null;
 select pg_temp.as_user('suresh'); select 'claim: ' || claim_task(current_setting('t.back')::uuid);
 reset role; update tasks set created_at = now() - interval '5 minutes', status_at = now() - interval '4 minutes' where id = current_setting('t.back')::uuid; set role authenticated;
-select 'hand back: ' || (advance_task(current_setting('t.back')::uuid, 'SEARCHING')).status;
+select 'hand back: ' || (release_task(current_setting('t.back')::uuid, 'RIDER_NO_SHOW')).status;
 select 'rings again after the hand-back: ' || count(*) from open_tasks_near(12.9260, 77.5940) where id = current_setting('t.back')::uuid;
 select pg_temp.as_user('kavya');
 select 'customer''s my_open_task after the hand-back: ' || status from my_open_task();
-select 'cancel: ' || (advance_task(current_setting('t.back')::uuid, 'CANCELLED')).status;
+select 'cancel: ' || (cancel_task(current_setting('t.back')::uuid, 'PLANS_CHANGED')).status;
 
 \echo '== 5. Cancel while searching; a stale SEARCHING task is not "open" any more'
 select set_config('t.task2', (request_ride('CAB', 12.9250, 77.5938, 'Jayanagar', 12.9352, 77.6245, 'Koramangala', 5.1, 112)).id::text, false) is not null;
-select 'cancel: ' || (advance_task(current_setting('t.task2')::uuid, 'CANCELLED')).status;
+select 'cancel: ' || (cancel_task(current_setting('t.task2')::uuid, 'PLANS_CHANGED')).status;
 select 'open after cancel: ' || count(*) from my_open_task();
 select set_config('t.task3', (request_ride('CAB', 12.9250, 77.5938, 'Jayanagar', 12.9352, 77.6245, 'Koramangala', 5.1, 112)).id::text, false) is not null;
 select 'fresh SEARCHING is open: ' || count(*) from my_open_task();

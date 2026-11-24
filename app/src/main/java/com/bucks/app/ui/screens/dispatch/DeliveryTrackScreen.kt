@@ -24,6 +24,9 @@ import com.bucks.app.ui.screens.RoutePoints
 import com.bucks.app.ui.sms
 import com.bucks.app.ui.theme.status
 import kotlinx.coroutines.delay
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import kotlinx.coroutines.launch
 
 /**
@@ -51,19 +54,20 @@ fun DeliveryTrackScreen(vm: BucksViewModel, taskId: String, onBack: () -> Unit) 
     }
     val t = task
     Column(Modifier.fillMaxSize()) {
-        BucksTopBar("Track delivery", onBack = onBack)
+        BucksTopBar(stringResource(R.string.g3_dt_title), onBack = onBack)
         when {
-            t == null && failed -> ContentColumn(Modifier.weight(1f)) { Column(Modifier.padding(Gutter)) { Text("Couldn't load this delivery", style = MaterialTheme.typography.titleMedium); Muted("Check your connection and pull down, or go back to the order.", Modifier.padding(top = 6.dp))
-                PrimaryButton("Try again", Modifier.padding(top = 16.dp)) { scope.launch { refresh() } } } }
+            t == null && failed -> ContentColumn(Modifier.weight(1f)) { Column(Modifier.padding(Gutter)) { Text(stringResource(R.string.g3_dt_load_failed), style = MaterialTheme.typography.titleMedium); Muted(stringResource(R.string.g3_dt_load_failed_body), Modifier.padding(top = 6.dp))
+                PrimaryButton(stringResource(R.string.g3_try_again), Modifier.padding(top = 16.dp)) { scope.launch { refresh() } } } }
             t == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { BucksLoader() }
-            else -> DeliveryBody(vm, t, rider, phone, Modifier.weight(1f), onCall = { phone?.let { dial(ctx, it) } ?: vm.toast("The rider's number will show once they've picked up the job.") },
-                onMessage = { phone?.let { sms(ctx, it) } ?: vm.toast("The rider's number will show once they've picked up the job.") }, onDone = onBack)
+            else -> DeliveryBody(vm, t, rider, phone, Modifier.weight(1f), onCall = { phone?.let { dial(ctx, it) } ?: vm.toast(Str.get(R.string.g3_dt_no_number)) },
+                onMessage = { phone?.let { sms(ctx, it) } ?: vm.toast(Str.get(R.string.g3_dt_no_number)) }, onDone = onBack)
         }
     }
 }
 
 @Composable
 private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow?, phone: String?, modifier: Modifier, onCall: () -> Unit, onMessage: () -> Unit, onDone: () -> Unit) {
+    val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     val shop = t.pickup; val door = t.drop; val at = t.driverAt
     val moving = t.status in setOf("MATCHED", "ARRIVED", "IN_PROGRESS")
     // open_tasks_near stops ringing a task once the ring window has passed since it started searching (created, or handed back by a rider);
@@ -73,17 +77,18 @@ private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow
     // Road route between the two ends (straight line until it arrives or when offline).
     val road = rememberRoadRoute(ends.getOrNull(0), ends.getOrNull(1))
     val route = if (ends.size >= 2) road?.points ?: ends else ends
-    val pins = listOfNotNull(pinAt(door, "You", MaterialTheme.colorScheme.primary, true), pinAt(shop, t.pickupLabel.ifBlank { "Shop" }, MaterialTheme.status.bad),
-        at?.takeIf { moving }?.let { pinAt(it, rider?.name?.substringBefore(' ') ?: "Rider", MaterialTheme.status.good) })
+    val pins = listOfNotNull(pinAt(door, stringResource(R.string.g3_map_you), MaterialTheme.colorScheme.primary, true), pinAt(shop, t.pickupLabel.ifBlank { stringResource(R.string.g3_dt_shop) }, MaterialTheme.status.bad),
+        at?.takeIf { moving }?.let { pinAt(it, rider?.name?.substringBefore(' ') ?: stringResource(R.string.g3_dt_rider), MaterialTheme.status.good) })
+    val shopName = t.pickupLabel.ifBlank { stringResource(R.string.g3_dt_the_shop) }
     val (headline, detail) = when (t.status) {
-        "SEARCHING" -> if (stale) "No rider yet" to "Nobody nearby took it in time. Message the shop: they can send their own rider or refund you."
-                       else "Finding a rider" to "Bikes near ${t.pickupLabel.ifBlank { "the shop" }} are being rung. The first to accept collects your order."
-        "MATCHED" -> "Rider on the way to the shop" to (at?.let { "${"%.1f".format(Geo.distanceKm(it, shop))} km from ${t.pickupLabel.ifBlank { "the shop" }}" } ?: "Heading to ${t.pickupLabel.ifBlank { "the shop" }}")
-        "ARRIVED" -> "Rider is at the shop" to "They'll call you for the pickup PIN below, then bring your order."
-        "IN_PROGRESS" -> "On the way to you" to (at?.let { "${"%.1f".format(Geo.distanceKm(it, door))} km away" } ?: "Your order has left the shop")
-        "COMPLETED", "PAID" -> "Delivered" to "Your order was handed over. Enjoy."
-        "NO_DRIVER" -> "No rider was free" to "Nobody nearby could take it. The shop can send its own rider or you can reorder."
-        "CANCELLED" -> "Delivery cancelled" to "This delivery was cancelled."
+        "SEARCHING" -> if (stale) stringResource(R.string.g3_dt_no_rider_yet) to stringResource(R.string.g3_dt_no_rider_yet_body)
+                       else stringResource(R.string.g3_dt_finding) to stringResource(R.string.g3_dt_finding_body, shopName)
+        "MATCHED" -> stringResource(R.string.g3_dt_matched) to (at?.let { stringResource(R.string.g3_dt_km_from, "%.1f".format(Geo.distanceKm(it, shop)), shopName) } ?: stringResource(R.string.g3_dt_heading_to, shopName))
+        "ARRIVED" -> stringResource(R.string.g3_dt_arrived) to stringResource(R.string.g3_dt_arrived_body)
+        "IN_PROGRESS" -> stringResource(R.string.g3_dt_in_progress) to (at?.let { stringResource(R.string.g3_dt_km_away, "%.1f".format(Geo.distanceKm(it, door))) } ?: stringResource(R.string.g3_dt_left_shop))
+        "COMPLETED", "PAID" -> stringResource(R.string.g3_order_delivered) to stringResource(R.string.g3_dt_delivered_body)
+        "NO_DRIVER" -> stringResource(R.string.g3_dt_no_driver) to stringResource(R.string.g3_dt_no_driver_body)
+        "CANCELLED" -> stringResource(R.string.g3_dt_cancelled) to stringResource(R.string.g3_dt_cancelled_body)
         else -> t.status to ""
     }
     Column(modifier.fillMaxWidth()) {
@@ -96,20 +101,22 @@ private fun DeliveryBody(vm: BucksViewModel, t: TaskGeoRow, rider: TaskDriverRow
             }
             HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
             if (rider != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(rider.name.ifBlank { "R" }), size = 44)
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(rider.name.ifBlank { "Your rider" }, style = MaterialTheme.typography.titleSmall); Muted(listOf(rider.model, rider.plate).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "Bike" }) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Avatar(initials(rider.name.ifBlank { stringResource(R.string.g3_dt_rider) }), size = 44)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(rider.name.ifBlank { stringResource(R.string.g3_dt_your_rider) }, style = MaterialTheme.typography.titleSmall); Muted(listOf(rider.model, rider.plate).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { stringResource(R.string.g3_vehicle_bike) }) }
                     TrustBadge(Trust(rider.up, rider.down), compact = true) }
-                if (moving) Box(Modifier.padding(top = 12.dp)) { MessageBar("Message your rider", onCall = onCall, onMessage = onMessage) }
-            } else if (t.status == "SEARCHING" && !stale) Muted("Your rider's name and bike will show here once someone accepts.")
+                if (moving) Box(Modifier.padding(top = 12.dp)) { MessageBar(stringResource(R.string.g3_dt_message_rider), onCall = onCall, onMessage = onMessage) }
+            } else if (t.status == "SEARCHING" && !stale) Muted(stringResource(R.string.g3_dt_rider_pending))
             if (t.status in setOf("SEARCHING", "MATCHED", "ARRIVED") && !stale) BucksCard(Modifier.padding(top = 14.dp), tint = true) {
-                Text("Pickup PIN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(stringResource(R.string.g3_dt_pickup_pin), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) { t.pin.forEach { c -> Box(Modifier.defaultMinSize(34.dp, 34.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.primary).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) { Text("$c", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium) } } }
-                Text("Your rider will call you for this PIN when collecting your order at the shop. Only share it with them.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.g3_dt_pin_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(top = 8.dp))
             }
-            RoutePoints(t.pickupLabel.ifBlank { "Shop" }, t.dropLabel.ifBlank { "Your location" }, Modifier.padding(top = 14.dp))
-            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { Muted("${t.km} km"); Muted("Delivery fee ₹${t.fare}"); t.orderItems?.let { Muted("$it item${if (it == 1) "" else "s"}") } }
-            if (t.status in setOf("COMPLETED", "PAID", "CANCELLED", "NO_DRIVER") || stale) PrimaryButton("Back to order", Modifier.padding(top = 16.dp), onClick = onDone)
-            else Muted("Keep this screen open or come back any time; it follows the rider live.", Modifier.padding(top = 12.dp), TextAlign.Center)
+            RoutePoints(t.pickupLabel.ifBlank { stringResource(R.string.g3_dt_shop) }, t.dropLabel.ifBlank { stringResource(R.string.g3_dt_your_location) }, Modifier.padding(top = 14.dp))
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { Muted(stringResource(R.string.g3_dt_km, t.km.toString())); Muted(stringResource(R.string.g3_dt_fee, Money.format(t.fare))); t.orderItems?.let { Muted(pluralStringResource(R.plurals.g3_dt_items, it, it)) } }
+            // Nobody took it: the customer can bring in an agent they know (someone with a bike) so the next order finds one.
+            if (t.status == "NO_DRIVER" || stale) SmallButton(stringResource(R.string.g7_rd_invite_agents), Modifier.padding(top = 16.dp), tonal = true) { com.bucks.app.ui.Invite.share(ctx, scope, Str.get(R.string.g7_rd_share_agent, shopName)) }
+            if (t.status in setOf("COMPLETED", "PAID", "CANCELLED", "NO_DRIVER") || stale) PrimaryButton(stringResource(R.string.g3_dt_back_to_order), Modifier.padding(top = 16.dp), onClick = onDone)
+            else Muted(stringResource(R.string.g3_dt_keep_open), Modifier.padding(top = 12.dp), TextAlign.Center)
         } }
     }
 }

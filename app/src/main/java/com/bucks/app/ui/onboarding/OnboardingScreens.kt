@@ -1,0 +1,320 @@
+package com.bucks.app.ui.onboarding
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.bucks.app.R
+import com.bucks.app.data.AppLanguages
+import com.bucks.app.data.Countries
+import com.bucks.app.data.Country
+import com.bucks.app.data.Prefs
+import com.bucks.app.ui.BucksViewModel
+import com.bucks.app.ui.components.*
+import com.bucks.app.ui.findActivity
+import com.bucks.app.ui.social.Legal
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/*
+ * Onboarding v2 (research: docs/ONBOARDING.md). Short screens and no progress bar: Language → Phone → Code → Name → About you → Home.
+ * Location is asked on Home (with the Play disclosure), notifications on a later visit; About you (photo, gender, a line about me) is
+ * optional and skippable; interests wait for Profile.
+ */
+
+/** The frame every onboarding screen shares: optional back, a title, one line under it, the content, and one primary action at the bottom. */
+@Composable
+private fun OnboardingFrame(title: String, hint: String?, onBack: (() -> Unit)?, topEnd: @Composable () -> Unit = {}, bottom: @Composable ColumnScope.() -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp).heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (onBack != null) IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.cd_back)) } else Spacer(Modifier.width(16.dp))
+            BucksWordmark(height = 22.dp, contentDescription = null)
+            Spacer(Modifier.weight(1f)); topEnd()
+        }
+        Column(Modifier.weight(1f).padding(horizontal = Gutter)) {
+            Text(title, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(top = 12.dp))
+            if (hint != null) Text(hint, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 20.dp))
+            else Spacer(Modifier.height(20.dp))
+            content()
+        }
+        Column(Modifier.padding(horizontal = Gutter, vertical = 16.dp)) { bottom() }
+    }
+}
+
+/** 1. Language: every language in its own script, the phone's preselected. Tapping one redraws the app in it at once. */
+@Composable
+fun LanguageScreen(onContinue: () -> Unit) {
+    val current = remember { AppLanguages.current() }
+    OnboardingFrame(stringResource(R.string.onb_language_title), stringResource(R.string.onb_language_hint), onBack = null,
+        bottom = { PrimaryButton(stringResource(R.string.onb_continue)) { Prefs.chooseLanguage(current.tag); onContinue() } }) {
+        LazyVerticalGrid(GridCells.Adaptive(150.dp), Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
+            items(AppLanguages.all, key = { it.tag }) { l ->
+                val on = l.tag == current.tag
+                Surface(onClick = { if (!on) Prefs.chooseLanguage(l.tag) }, shape = MaterialTheme.shapes.medium,
+                    color = if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                    border = if (on) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                    modifier = Modifier.heightIn(min = 72.dp).semantics { contentDescription = "${l.native}, ${l.english}" }) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(l.native, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                            if (l.native != l.english) Text(l.english, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
+                        if (on) Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 2. Phone: country (from the SIM) + number, and "I agree to the Terms". One button. */
+@Composable
+fun PhoneScreen(vm: BucksViewModel, onSent: () -> Unit, onLanguage: () -> Unit, onUseEmail: (() -> Unit)?) {
+    val ctx = LocalContext.current
+    var iso by rememberSaveable { mutableStateOf(Prefs.countryIso ?: Countries.detect(ctx).iso) }
+    val country = remember(iso) { Countries.of(iso) }
+    var number by rememberSaveable { mutableStateOf("") }; var adult by rememberSaveable { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }; var tried by remember { mutableStateOf(false) }
+    val e164 = remember(iso, number) { Countries.e164(country, number) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    if (Prefs.ageBlocked) { BlockedScreen(); return }
+    val send = { tried = true; if (e164 != null && adult) { Prefs.countryIso = iso; Prefs.acceptedTerms = Legal.TERMS_VERSION; vm.setPhone(e164); onSent() } }
+    OnboardingFrame(stringResource(R.string.onb_phone_title), stringResource(R.string.onb_phone_hint), onBack = null,
+        topEnd = { TextButton(onLanguage) { Icon(Icons.Rounded.Language, null, Modifier.size(18.dp)); Text(" " + AppLanguages.current().native) } },
+        bottom = {
+            Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).toggleable(adult, role = Role.Checkbox) { adult = it }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                Checkbox(adult, null, Modifier.padding(end = 10.dp))
+                Text(stringResource(R.string.onb_agree_terms), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+            }
+            Row(Modifier.padding(start = 34.dp)) {
+                TextButton({ Legal.open(ctx, Legal.TERMS) }) { Text(stringResource(R.string.onb_terms)) }
+                TextButton({ Legal.open(ctx, Legal.PRIVACY) }) { Text(stringResource(R.string.onb_privacy)) }
+                TextButton({ Legal.open(ctx, Legal.GUIDELINES) }) { Text(stringResource(R.string.onb_guidelines)) }
+            }
+            PrimaryButton(stringResource(R.string.onb_get_code), Modifier.padding(top = 8.dp), enabled = e164 != null && adult) { send() }
+            if (onUseEmail != null) TextButton(onUseEmail, Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.onb_use_email)) }
+        }) {
+        Row(verticalAlignment = Alignment.Top) {
+            val change = stringResource(R.string.onb_country_change, country.name())
+            Surface(onClick = { picking = true }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.height(56.dp).semantics { contentDescription = change }) {
+                Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(country.flag, style = MaterialTheme.typography.titleLarge); Text(" +${country.dialCode}", style = MaterialTheme.typography.titleMedium)
+                    Icon(Icons.Rounded.ArrowDropDown, null)
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            OutlinedTextField(number, { number = it.filter { c -> c.isDigit() || c == ' ' }.take(17) }, Modifier.weight(1f).focusRequester(focus),
+                label = { Text(stringResource(R.string.onb_phone_number)) }, placeholder = { Text(Countries.example(country)) }, singleLine = true,
+                isError = tried && e164 == null, supportingText = if (tried && e164 == null) ({ Text(stringResource(R.string.onb_phone_invalid)) }) else null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), shape = MaterialTheme.shapes.medium,
+                textStyle = MaterialTheme.typography.titleMedium)
+        }
+    }
+    if (picking) CountrySheet(onPick = { iso = it.iso; picking = false }, onDismiss = { picking = false })
+}
+
+/** Searchable list of every country, in the app's language, with flag and dial code. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CountrySheet(onPick: (Country) -> Unit, onDismiss: () -> Unit) {
+    val all = remember { Countries.all() }
+    var q by remember { mutableStateOf("") }
+    val shown = remember(q) { if (q.isBlank()) all else all.filter { it.name().contains(q, true) || "+${it.dialCode}".contains(q.trim()) || it.iso.equals(q.trim(), true) } }
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Text(stringResource(R.string.onb_country_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Gutter))
+        OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), placeholder = { Text(stringResource(R.string.onb_country_search)) },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) }, singleLine = true, shape = MaterialTheme.shapes.medium)
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+            items(shown, key = { it.iso }) { c ->
+                Row(Modifier.fillMaxWidth().clickable { onPick(c) }.padding(horizontal = Gutter, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.flag, style = MaterialTheme.typography.titleLarge); Text(c.name(), Modifier.weight(1f).padding(horizontal = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                    Text("+${c.dialCode}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/** 3. Code: one box per digit, verifies on its own when full, resend after 30 s, edit the number. Many phones fill it in themselves. */
+@Composable
+fun CodeScreen(vm: BucksViewModel, phone: String, onEdit: () -> Unit, onVerified: () -> Unit) {
+    val length = if (vm.cloud) 6 else 4
+    val activity = LocalContext.current.findActivity()
+    var code by rememberSaveable { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; var wrong by remember { mutableIntStateOf(0) }
+    var sent by rememberSaveable { mutableStateOf(false) }; var wait by rememberSaveable { mutableIntStateOf(30) }
+    LaunchedEffect(Unit) { if (!sent && activity != null) { sent = true; vm.sendOtp(activity, onSignedIn = onVerified) } }
+    LaunchedEffect(wait > 0) { while (wait > 0) { delay(1_000); wait-- } }
+    val verify = { if (!busy && code.length == length) { busy = true; vm.verifyOtp(code) { ok -> busy = false; if (ok) onVerified() else { wrong++; code = "" } } } }
+    LaunchedEffect(code) { if (code.length == length) verify() }
+    val status by vm.otpStatus.collectAsState()
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    OnboardingFrame(stringResource(R.string.onb_code_title), null, onBack = onEdit,
+        bottom = { PrimaryButton(if (busy) stringResource(R.string.onb_code_checking) else stringResource(R.string.onb_code_verify), enabled = !busy && code.length == length) { verify() } }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.onb_code_sent_to, Countries.pretty(phone)), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onEdit) { Text(stringResource(R.string.onb_code_edit)) }
+        }
+        val label = stringResource(R.string.onb_code_field)
+        BasicTextField(code, { code = it.filter(Char::isDigit).take(length) }, Modifier.padding(top = 16.dp).focusRequester(focus).shakeOn(wrong).semantics { contentDescription = label },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            decorationBox = { _ ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(length) { i ->
+                        val ch = code.getOrNull(i)?.toString() ?: ""; val active = i == code.length
+                        Box(Modifier.size(width = 46.dp, height = 56.dp).border(if (active) 2.dp else 1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
+                            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium), contentAlignment = Alignment.Center) {
+                            Text(ch, style = MaterialTheme.typography.headlineSmall)
+                        }
+                    }
+                }
+            })
+        if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+        if (!vm.cloud) Muted(stringResource(R.string.onb_code_demo), Modifier.padding(top = 12.dp))
+        Box(Modifier.padding(top = 8.dp)) {
+            if (wait > 0) Text(stringResource(R.string.onb_code_resend_in, wait), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+            else TextButton({ wait = 30; if (vm.cloud) activity?.let { vm.sendOtp(it, resend = true, onSignedIn = onVerified) } }) { Text(stringResource(R.string.onb_code_resend)) }
+        }
+    }
+}
+
+/**
+ * 4. Name and date of birth, then Home (or, under 18, the guardian step). Bucks is for 13 and over; the date is checked on the server
+ * (set_birth_date), and the screen doesn't say where the line is (a neutral age gate). People who signed up before dates of birth only
+ * see the birthday part.
+ */
+@Composable
+fun NameScreen(vm: BucksViewModel, onDone: (band: String, created: Boolean) -> Unit, onBlocked: () -> Unit) {
+    val s by vm.state.collectAsState()
+    val existing = s.user != null
+    var name by rememberSaveable { mutableStateOf(s.user?.name.orEmpty()) }
+    var dd by rememberSaveable { mutableStateOf("") }; var mm by rememberSaveable { mutableStateOf("") }; var yyyy by rememberSaveable { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }; var tried by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
+    val date = remember(dd, mm, yyyy) { runCatching { java.time.LocalDate.of(yyyy.toInt(), mm.toInt(), dd.toInt()) }.getOrNull()?.takeIf { yyyy.length == 4 && it.isBefore(java.time.LocalDate.now()) && it.year >= 1900 } }
+    val ready = (existing || name.isNotBlank()) && date != null && !busy
+    val scope = rememberCoroutineScope()
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    val done: () -> Unit = done@{
+        tried = true; val d = date ?: return@done
+        if (!existing && name.isBlank()) return@done
+        busy = true; error = null
+        scope.launch {
+            // set_birth_date needs my profile row. Sign-in creates it in the background and may still be retrying, so make sure of it here
+            // (ensure_profile only inserts when there is none; the name is saved by createProfile below).
+            val r = if (com.bucks.app.data.Backend.enabled) runCatching { if (vm.social.me == null) com.bucks.app.data.Backend.ensureProfile(name.trim(), null); com.bucks.app.data.BackendSafety.setBirthDate(d.toString()) } else Result.success("ADULT")
+            busy = false
+            r.onSuccess { band -> vm.safety.refresh(); if (!existing) vm.createProfile(name.trim(), "", "", home = s.me); onDone(band, !existing) }
+                .onFailure { e ->
+                    // The sentence check is only for a database that doesn't send codes yet (before this version of set_birth_date is applied).
+                    if (com.bucks.app.data.errorCode(e) == "BK_NOT_ELIGIBLE" || e.message?.contains("not eligible") == true) { Prefs.ageBlocked = true; onBlocked() } else error = com.bucks.app.data.friendlyError(e)
+                }
+        }
+    }
+    OnboardingFrame(stringResource(if (existing) R.string.onb_dob_title else R.string.onb_name_title), stringResource(if (existing) R.string.onb_dob_hint else R.string.onb_name_hint), onBack = null,
+        bottom = { PrimaryButton(stringResource(R.string.onb_name_cta), enabled = ready) { done() } }) {
+        if (!existing) OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(stringResource(R.string.onb_name_label)) },
+            singleLine = true, shape = MaterialTheme.shapes.medium, textStyle = MaterialTheme.typography.titleMedium,
+            keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words))
+        Text(stringResource(R.string.onb_dob_label), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = if (existing) 0.dp else 20.dp, bottom = 8.dp))
+        // Free entry, no default and no picker limited to "allowed" years: the neutral way to ask.
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val num = KeyboardOptions(keyboardType = KeyboardType.Number)
+            OutlinedTextField(dd, { dd = it.filter(Char::isDigit).take(2) }, Modifier.width(76.dp).then(if (existing) Modifier.focusRequester(focus) else Modifier), placeholder = { Text(stringResource(R.string.onb_dob_day)) }, singleLine = true, keyboardOptions = num, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(mm, { mm = it.filter(Char::isDigit).take(2) }, Modifier.width(76.dp), placeholder = { Text(stringResource(R.string.onb_dob_month)) }, singleLine = true, keyboardOptions = num, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(yyyy, { yyyy = it.filter(Char::isDigit).take(4) }, Modifier.width(104.dp), placeholder = { Text(stringResource(R.string.onb_dob_year)) }, singleLine = true, keyboardOptions = num, shape = MaterialTheme.shapes.medium)
+        }
+        if (tried && date == null) Text(stringResource(R.string.onb_dob_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp)) }
+    }
+}
+
+/**
+ * 5. About you: a profile picture, gender and one line about me. Every part is optional and "Skip for now" is always there, so the
+ * step never stands between someone and the app; all of it can be changed later in Edit profile. Where I'm based is still set from
+ * location on Home, and the picture uploads as soon as it is picked.
+ */
+@Composable
+fun AboutYouScreen(vm: BucksViewModel, onDone: () -> Unit) {
+    val s by vm.state.collectAsState(); val social = vm.social; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
+    var bio by rememberSaveable { mutableStateOf(s.user?.bio.orEmpty()) }; var gender by rememberSaveable { mutableStateOf(s.user?.gender.orEmpty()) }
+    val name = s.user?.name.orEmpty()
+    val badPhoto = stringResource(R.string.g6_media_bad_photo)
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            val picked = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.bucks.app.data.Upload.read(ctx, uri) }
+            if (picked == null) vm.toast(badPhoto) else social.setMyPicture(com.bucks.app.data.ProfileMedia.Slot.PHOTO, picked)
+        } }
+    val pick = { picker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    val genders = listOf("Woman", "Man", "Non-binary", "Prefer not to say")
+    val genderLabels = listOf(stringResource(R.string.g8_gender_woman), stringResource(R.string.g8_gender_man), stringResource(R.string.g8_gender_nonbinary), stringResource(R.string.g8_gender_no_say))
+    val finish = { vm.saveAbout(bio.trim(), gender); com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ABOUT_DONE, "photo" to (social.me?.photoUrl != null), "gender" to gender.isNotBlank(), "bio" to bio.isNotBlank()); onDone() }
+    OnboardingFrame(stringResource(R.string.r1_about_title, name.substringBefore(' ')), stringResource(R.string.r1_about_hint), onBack = null,
+        topEnd = { TextButton({ com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.ABOUT_SKIPPED); onDone() }) { Text(stringResource(R.string.r1_about_skip)) } },
+        bottom = { PrimaryButton(stringResource(R.string.r1_about_cta)) { finish() } }) {
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+            val busy = social.mediaBusy != null; val cd = stringResource(if (social.me?.photoUrl == null) R.string.r1_about_add_photo else R.string.r1_about_change_photo)
+            Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(enabled = !busy && social.me != null, onClickLabel = cd, onClick = pick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    Avatar(if (name.isBlank()) "?" else initials(name), size = 84, photoUrl = social.me?.photoUrl)
+                    Box(Modifier.align(Alignment.BottomEnd).size(30.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.primary).border(2.dp, MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                        if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        else Icon(Icons.Rounded.PhotoCamera, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary) }
+                }
+                Column(Modifier.padding(start = 16.dp)) {
+                    Text(cd, style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.r1_about_photo_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Text(stringResource(R.string.g8_gender_optional), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+            FlowChips(genderLabels, setOfNotNull(genders.indexOf(gender).takeIf { it >= 0 }?.let { genderLabels[it] })) { l -> val g = genders[genderLabels.indexOf(l)]; gender = if (gender == g) "" else g }
+            Text(stringResource(R.string.r1_about_gender_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            OutlinedTextField(bio, { bio = it.take(120) }, Modifier.fillMaxWidth().padding(top = 22.dp), label = { Text(stringResource(R.string.g8_bio_label)) }, placeholder = { Text(stringResource(R.string.g8_bio_hint)) },
+                singleLine = true, shape = MaterialTheme.shapes.medium, supportingText = { Text("${bio.length}/120") },
+                keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences, imeAction = androidx.compose.ui.text.input.ImeAction.Done))
+        }
+    }
+}
+
+/** Shown after a date of birth under 18, and on every later visit from this phone: neutral, no way round it. */
+@Composable
+fun BlockedScreen() {
+    OnboardingFrame(stringResource(R.string.onb_blocked_title), stringResource(R.string.onb_blocked_hint), onBack = null, bottom = {}) {}
+}

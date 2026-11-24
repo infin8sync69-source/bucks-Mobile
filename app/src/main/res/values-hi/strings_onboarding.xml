@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">अपनी भाषा चुनें</string>
+    <string name="onb_language_hint">आप इसे बाद में सेटिंग्स में बदल सकते हैं।</string>
+    <string name="onb_continue">आगे बढ़ें</string>
+
+    <string name="onb_phone_title">आपका नंबर क्या है?</string>
+    <string name="onb_phone_hint">हम आपको एक कोड SMS करेंगे।</string>
+    <string name="onb_phone_number">फ़ोन नंबर</string>
+    <string name="onb_phone_invalid">नंबर जाँचें</string>
+    <string name="onb_agree_terms">मैं शर्तों और प्राइवेसी पॉलिसी से सहमत हूँ।</string>
+    <string name="onb_terms">शर्तें</string>
+    <string name="onb_privacy">प्राइवेसी</string>
+    <string name="onb_guidelines">गाइडलाइंस</string>
+    <string name="onb_get_code">कोड पाएँ</string>
+    <string name="onb_use_email">इसके बजाय ईमेल इस्तेमाल करें</string>
+
+    <string name="onb_country_title">देश</string>
+    <string name="onb_country_search">खोजें</string>
+    <string name="onb_country_change">देश बदलें, अभी %1$s</string>
+
+    <string name="onb_code_title">कोड डालें</string>
+    <string name="onb_code_sent_to">%1$s पर भेजा गया</string>
+    <string name="onb_code_edit">बदलें</string>
+    <string name="onb_code_demo">डेमो कोड: 1234</string>
+    <string name="onb_code_verify">वेरिफ़ाई करें</string>
+    <string name="onb_code_checking">जाँच रहे हैं…</string>
+    <string name="onb_code_resend">कोड फिर से भेजें</string>
+    <string name="onb_code_resend_in">%1$d सेकंड में फिर से भेजें</string>
+    <string name="onb_code_field">वेरिफ़िकेशन कोड</string>
+
+    <string name="onb_name_title">आपका नाम क्या है?</string>
+    <string name="onb_name_hint">आपका नाम आपकी प्रोफ़ाइल पर दिखता है। आपका जन्मदिन नहीं।</string>
+    <string name="onb_dob_label">जन्म तिथि</string>
+    <string name="onb_dob_day">DD</string>
+    <string name="onb_dob_month">MM</string>
+    <string name="onb_dob_year">YYYY</string>
+    <string name="onb_dob_invalid">तारीख जाँचें</string>
+    <string name="onb_dob_title">आपका जन्मदिन कब है?</string>
+    <string name="onb_dob_hint">अकाउंट सेटअप पूरा करने के लिए एक बार चाहिए। यह आपकी प्रोफ़ाइल पर नहीं दिखता।</string>
+    <string name="onb_blocked_title">अभी आप अकाउंट नहीं बना सकते</string>
+    <string name="onb_blocked_hint">Bucks अभी आपके लिए उपलब्ध नहीं है।</string>
+    <string name="onb_name_label">आपका नाम</string>
+    <string name="onb_name_cta">चलिए शुरू करें</string>
+</resources>

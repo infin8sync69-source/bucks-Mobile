@@ -12,6 +12,10 @@ struct HomeScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showOnline = false
     @Environment(\.openBucksMenu) private var openMenu
+    // The map: centred on me once, then mine to move. My location re-centres it; the Recommended layer adds places (RecommendedMap.swift).
+    @State private var cmds = MapCommands()
+    @State private var rec = RecommendedLayer()
+    @State private var locating = false
 
     private var d: Dispatch { session.dispatch }
 
@@ -29,12 +33,21 @@ struct HomeScreen: View {
 
     private var home: some View {
         ZStack {
-            BucksMap(pins: pins)
+            BucksMap(pins: pins + (recommended ? rec.pins : []), commands: cmds, onUserMove: { rec.mapMoved() }, recentre: !session.hereKnown,
+                     onPinTap: { id in if let p = rec.place(forPin: id) { rec.selected = p; cmds.moveTo(p.at) } })
             VStack(spacing: 0) {
                 BucksTopBar(onMenu: openMenu, unread: session.chat.unread, onChat: { router.push(.messages) })
                     .background(LinearGradient(colors: [BucksColor.background.opacity(0.9), BucksColor.background.opacity(0)], startPoint: .top, endPoint: .bottom))
+                if recommended { RecommendedControls(layer: rec) }
                 Spacer(minLength: 0)
             }
+            // My location and zoom, so moving the map never needs a pinch.
+            VStack(spacing: 8) {
+                MapRoundButton(systemImage: "location.fill", label: "My location", busy: locating) { locate() }
+                MapRoundButton(systemImage: "plus", label: "Zoom in") { cmds.zoomIn() }
+                MapRoundButton(systemImage: "minus", label: "Zoom out") { cmds.zoomOut() }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing).padding(.trailing, 10)
             VStack(spacing: 0) {
                 Spacer(minLength: 64)
                 MapLegend(riders: riderCount).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, Gutter).padding(.vertical, 8)
@@ -51,6 +64,24 @@ struct HomeScreen: View {
         }
         .onDisappear { d.mapHidden() }
         .sheet(isPresented: $showOnline) { OnlineSheet(onEarnings: { router.push(.vehicleStats) }) }
+        .sheet(item: $rec.postsFor) { p in PlacePostsSheet(place: p) }
+        .task(id: recommended ? rec.loadKey : "off") { if recommended { await rec.load(cmds) } }
+    }
+
+    /// The Recommended layer needs the server and a signed-in person.
+    private var recommended: Bool { session.cloud && session.me != nil }
+
+    /// The location button: asks for permission if it's missing, takes a fresh fix and centres the map on it.
+    private func locate() {
+        let loc = session.location
+        if loc.notDetermined { loc.requestPermission(); return }
+        guard loc.hasPermission else { cmds.moveTo(session.mePos, zoom: 15); session.toast("Location is off for Bucks. Turn it on in Settings."); return }
+        locating = true
+        Task {
+            let ok = await session.refreshLocation()
+            locating = false
+            cmds.moveTo(ok ? session.here : session.mePos, zoom: 15)
+        }
     }
 
     /// Drivers with a checked vehicle get the button while offline too (it opens the sheet with their vehicle switch).
@@ -76,6 +107,11 @@ struct HomeScreen: View {
                 }.padding(.bottom, 12)
             }
             if !session.locationGranted && session.location.denied { HomeLocationNotice().padding(.bottom, 12) }
+            if recommended {
+                RecommendedSheetContent(layer: rec, me: session.hereKnown ? session.here : nil, onListing: { router.push(.listing($0)) },
+                                        onDirections: { p in MapsPick.place = MapServices.PlaceHit(name: p.name, detail: "", at: p.at); router.push(.maps) },
+                                        onPost: { router.push(.createPost) })
+            }
             if session.cloud {
                 HomeSearch(hint: "Where to, or what do you need?", onSearchAll: { openQuery(session, router, $0) },
                            onPlace: { MapsPick.place = $0; router.push(.maps) })

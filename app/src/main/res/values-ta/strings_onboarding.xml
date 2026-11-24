@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding v2: Language → Phone → Code → Name. Keep copy short; one idea per line. -->
+<resources>
+    <string name="onb_language_title">உங்கள் மொழியைத் தேர்ந்தெடுங்கள்</string>
+    <string name="onb_language_hint">பிறகு செட்டிங்ஸில் மாற்றலாம்.</string>
+    <string name="onb_continue">தொடர்க</string>
+
+    <string name="onb_phone_title">உங்கள் நம்பர் என்ன?</string>
+    <string name="onb_phone_hint">உங்களுக்கு ஒரு கோடு SMS அனுப்புவோம்.</string>
+    <string name="onb_phone_number">போன் நம்பர்</string>
+    <string name="onb_phone_invalid">நம்பரைச் சரிபார்க்கவும்</string>
+    <string name="onb_agree_terms">விதிமுறைகள் மற்றும் தனியுரிமைக் கொள்கையை ஏற்கிறேன்.</string>
+    <string name="onb_terms">விதிமுறைகள்</string>
+    <string name="onb_privacy">தனியுரிமை</string>
+    <string name="onb_guidelines">வழிகாட்டுதல்கள்</string>
+    <string name="onb_get_code">கோடு பெறு</string>
+    <string name="onb_use_email">பதிலாக இமெயில் பயன்படுத்து</string>
+
+    <string name="onb_country_title">நாடு</string>
+    <string name="onb_country_search">தேடு</string>
+    <string name="onb_country_change">நாட்டை மாற்று, இப்போது %1$s</string>
+
+    <string name="onb_code_title">கோடை உள்ளிடவும்</string>
+    <string name="onb_code_sent_to">%1$s-க்கு அனுப்பப்பட்டது</string>
+    <string name="onb_code_edit">திருத்து</string>
+    <string name="onb_code_demo">டெமோ கோடு: 1234</string>
+    <string name="onb_code_verify">சரிபார்</string>
+    <string name="onb_code_checking">சரிபார்க்கிறது…</string>
+    <string name="onb_code_resend">கோடை மீண்டும் அனுப்பு</string>
+    <string name="onb_code_resend_in">%1$d வி-இல் மீண்டும் அனுப்பலாம்</string>
+    <string name="onb_code_field">சரிபார்ப்புக் கோடு</string>
+
+    <string name="onb_name_title">உங்கள் பெயர் என்ன?</string>
+    <string name="onb_name_hint">உங்கள் பெயர் ப்ரொஃபைலில் தெரியும். பிறந்தநாள் தெரியாது.</string>
+    <string name="onb_dob_label">பிறந்த தேதி</string>
+    <string name="onb_dob_day">நாள்</string>
+    <string name="onb_dob_month">மாதம்</string>
+    <string name="onb_dob_year">வருடம்</string>
+    <string name="onb_dob_invalid">தேதியைச் சரிபார்க்கவும்</string>
+    <string name="onb_dob_title">உங்கள் பிறந்தநாள் எப்போது?</string>
+    <string name="onb_dob_hint">கணக்கை அமைத்து முடிக்க ஒருமுறை தேவை. இது உங்கள் ப்ரொஃபைலில் தெரியாது.</string>
+    <string name="onb_blocked_title">இப்போது உங்களால் கணக்கு உருவாக்க முடியாது</string>
+    <string name="onb_blocked_hint">Bucks இன்னும் உங்களுக்குக் கிடைக்கவில்லை.</string>
+    <string name="onb_name_label">உங்கள் பெயர்</string>
+    <string name="onb_name_cta">தொடங்கலாம்</string>
+</resources>

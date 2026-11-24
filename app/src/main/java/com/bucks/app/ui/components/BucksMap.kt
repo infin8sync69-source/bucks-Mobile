@@ -5,8 +5,17 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.GradientDrawable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -19,7 +28,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.bucks.app.data.Geo
 import com.bucks.app.data.LatLng
-import com.bucks.app.ui.theme.Brand
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
@@ -42,19 +50,60 @@ private fun mutedTiles(dark: Boolean): ColorMatrixColorFilter {
     m.postConcat(ColorMatrix(tone)); return ColorMatrixColorFilter(m)
 }
 
-/** Lets a screen move and zoom the map it shows (my-location button, zoom buttons, following a moving position). */
+/** What a map shows: its south, west, north and east edges. */
+data class MapBounds(val s: Double, val w: Double, val n: Double, val e: Double)
+
+/** Lets a screen move and zoom the map it shows (my-location button, zoom buttons, following a moving position) and read what it shows. */
 class MapCommands {
     internal var view: MapView? = null
     fun zoomIn() { view?.controller?.zoomIn() }
     fun zoomOut() { view?.controller?.zoomOut() }
     fun moveTo(at: LatLng, zoom: Double? = null) { view?.let { v -> zoom?.let { v.controller.setZoom(it) }; v.controller.animateTo(GeoPoint(at.lat, at.lng)) } }
+    /** The area on screen now; null before the map has been laid out. */
+    fun bounds(): MapBounds? = view?.takeIf { it.width > 0 && it.height > 0 }?.boundingBox?.let { MapBounds(it.latSouth, it.lonWest, it.latNorth, it.lonEast) }
 }
 
-/** Real street map. Pins keep the app's 0–100 percent coordinates and are projected through [Geo.fromPercent]. */
+/** A pin's marker image, at least 48 dp square so a small dot is still easy to tap. A [badge] is a rounded label, otherwise a dot with a white ring. */
+private fun pinIcon(ctx: android.content.Context, p: MapPin, density: Float, surface: Int, tappable: Boolean): android.graphics.drawable.Drawable {
+    val fill = p.color.toArgb()
+    if (p.badge == null && !tappable) {
+        val px = ((if (p.big) 18 else 12) * density).toInt()
+        return GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(fill); setStroke((2.5f * density).toInt(), android.graphics.Color.WHITE); setSize(px, px) }
+    }
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    val touch = 48 * density
+    if (p.badge == null) {
+        val r = (if (p.big) 9f else 6f) * density; val ring = 2.5f * density
+        val bmp = android.graphics.Bitmap.createBitmap(touch.toInt(), touch.toInt(), android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp); val mid = touch / 2
+        paint.color = android.graphics.Color.WHITE; c.drawCircle(mid, mid, r + ring, paint)
+        paint.color = fill; c.drawCircle(mid, mid, r, paint)
+        return android.graphics.drawable.BitmapDrawable(ctx.resources, bmp)
+    }
+    paint.textSize = 13 * density; paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+    val h = 26 * density; val w = maxOf(paint.measureText(p.badge) + 18 * density, h)
+    val bw = maxOf(w + 4 * density, touch); val bh = touch
+    val bmp = android.graphics.Bitmap.createBitmap(bw.toInt(), bh.toInt(), android.graphics.Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val rect = android.graphics.RectF((bw - w) / 2, (bh - h) / 2, (bw + w) / 2, (bh + h) / 2)
+    paint.style = android.graphics.Paint.Style.FILL; paint.color = if (p.selected) fill else surface; c.drawRoundRect(rect, h / 2, h / 2, paint)
+    paint.style = android.graphics.Paint.Style.STROKE; paint.strokeWidth = 2 * density; paint.color = fill; c.drawRoundRect(rect, h / 2, h / 2, paint)
+    paint.style = android.graphics.Paint.Style.FILL; paint.color = if (p.selected) android.graphics.Color.WHITE else fill; paint.textAlign = android.graphics.Paint.Align.CENTER
+    c.drawText(p.badge, rect.centerX(), rect.centerY() - (paint.descent() + paint.ascent()) / 2, paint)
+    return android.graphics.drawable.BitmapDrawable(ctx.resources, bmp)
+}
+
+/**
+ * Real street map. Pins keep the app's 0–100 percent coordinates and are projected through [Geo.fromPercent].
+ * [recentre]: follow my pin (the big one) whenever it moves; false centres on it once, then the person owns the camera. Home passes
+ *   "my position isn't known yet", so it follows the placeholder until the first real fix, centres there, and stops.
+ * [onPinTap]: called for pins that have an id. [onMyLocation]: adds a "my location" button above the zoom buttons ([locating] shows it busy).
+ */
 @Composable
 fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 13.0, route: List<LatLng> = emptyList(), circle: Pair<LatLng, Double>? = null, onCenter: ((LatLng) -> Unit)? = null,
-    commands: MapCommands? = null, satellite: Boolean = false, onLongPress: ((LatLng) -> Unit)? = null, onUserMove: (() -> Unit)? = null) {
-    val brand = Brand.toArgb()
+    commands: MapCommands? = null, satellite: Boolean = false, onLongPress: ((LatLng) -> Unit)? = null, onUserMove: (() -> Unit)? = null, zoomButtons: Boolean = true,
+    recentre: Boolean = true, onPinTap: ((MapPin) -> Unit)? = null, onMyLocation: (() -> Unit)? = null, locating: Boolean = false) {
+    val brand = MaterialTheme.colorScheme.primary.toArgb(); val surface = MaterialTheme.colorScheme.surface.toArgb()
     val ctx = LocalContext.current; val density = LocalDensity.current.density
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val map = remember {
@@ -63,7 +112,7 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
     }
     SideEffect { commands?.view = map }
     LaunchedEffect(satellite) { map.setTileSource(mapTiles(satellite)) }
-    val moved = rememberUpdatedState(onUserMove)
+    val moved = rememberUpdatedState(onUserMove); val tap = rememberUpdatedState(onPinTap); val press = rememberUpdatedState(onLongPress)
     DisposableEffect(map) { map.setOnTouchListener { _, e -> if (e.action == android.view.MotionEvent.ACTION_MOVE) moved.value?.invoke(); false }; onDispose { map.setOnTouchListener(null) } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
@@ -71,33 +120,59 @@ fun BucksMap(modifier: Modifier = Modifier, pins: List<MapPin>, zoom: Double = 1
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer); map.onDetach() }
     }
     val me = pins.firstOrNull { it.big }?.let { it.at ?: Geo.fromPercent(it.x, it.y) }
-    // With a route, frame the whole trip; otherwise centre on the user.
+    // With a route, frame the whole trip; otherwise centre on the user (every time they move, or only the first time without [recentre]).
     val target = route.lastOrNull()
-    LaunchedEffect(me.takeIf { route.size < 2 }, target) {
+    var centred by remember { mutableStateOf(false) }
+    LaunchedEffect(me.takeIf { route.size < 2 && (recentre || !centred) }, target) {
         if (route.size >= 2) map.post { runCatching { map.zoomToBoundingBox(BoundingBox.fromGeoPoints(route.map { GeoPoint(it.lat, it.lng) }).increaseByScale(1.6f), false); if (map.zoomLevelDouble > 16.0) map.controller.setZoom(16.0) } }
-        else (me ?: Geo.CENTER).let { map.controller.setCenter(GeoPoint(it.lat, it.lng)) } }
+        else if (recentre || !centred) { (me ?: Geo.CENTER).let { map.controller.setCenter(GeoPoint(it.lat, it.lng)) }; if (!recentre) centred = true } }
     DisposableEffect(onCenter) {
         val l = onCenter?.let { cb -> object : MapListener { override fun onScroll(e: ScrollEvent?) = true.also { map.mapCenter.let { c -> cb(LatLng(c.latitude, c.longitude)) } }; override fun onZoom(e: ZoomEvent?) = false } }
         l?.let { map.addMapListener(it); map.mapCenter.let { c -> onCenter(LatLng(c.latitude, c.longitude)) } }
         onDispose { l?.let { map.removeMapListener(it) } } }
-    AndroidView(factory = { map }, modifier = modifier.clipToBounds(), update = { mv ->
+    // The overlays are rebuilt only when what they draw changes, not on every recomposition (riders refresh every 15 s).
+    val drawn = remember { arrayOfNulls<Any>(1) }
+    val drawKey = listOf(pins, route, circle, satellite, dark, onLongPress != null, onPinTap != null, brand, surface)
+    // + and − buttons (48 dp) so zooming never needs a pinch: one hand, or a first-time smartphone user.
+    androidx.compose.foundation.layout.Box(modifier) {
+    AndroidView(factory = { map }, modifier = Modifier.matchParentSize().clipToBounds(), update = { mv ->
+        if (drawn[0] == drawKey) return@AndroidView
+        drawn[0] = drawKey
         mv.overlayManager.tilesOverlay.setColorFilter(if (satellite) null else mutedTiles(dark))
         mv.overlays.clear()
-        onLongPress?.let { cb -> mv.overlays.add(org.osmdroid.views.overlay.MapEventsOverlay(object : org.osmdroid.events.MapEventsReceiver {
+        if (onLongPress != null) mv.overlays.add(org.osmdroid.views.overlay.MapEventsOverlay(object : org.osmdroid.events.MapEventsReceiver {
             override fun singleTapConfirmedHelper(p: GeoPoint?) = false
-            override fun longPressHelper(p: GeoPoint?): Boolean { p?.let { cb(LatLng(it.latitude, it.longitude)) }; return true }
-        })) }
+            override fun longPressHelper(p: GeoPoint?): Boolean { p?.let { press.value?.invoke(LatLng(it.latitude, it.longitude)) }; return true }
+        }))
         circle?.let { (c, m) -> mv.overlays.add(Polygon(mv).apply { points = Polygon.pointsAsCircle(GeoPoint(c.lat, c.lng), m); fillPaint.color = (brand and 0x00FFFFFF) or 0x33000000; outlinePaint.color = (brand and 0x00FFFFFF) or 0x66000000; outlinePaint.strokeWidth = 2 * density; setOnClickListener { _, _, _ -> false } }) }
         if (route.size >= 2) mv.overlays.add(Polyline(mv).apply { setPoints(route.map { GeoPoint(it.lat, it.lng) }); outlinePaint.color = brand; outlinePaint.strokeWidth = 5 * density; outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND; setOnClickListener { _, _, _ -> false } })
-        pins.sortedBy { it.big }.forEach { p ->
-            val at = p.at ?: Geo.fromPercent(p.x, p.y); val px = ((if (p.big) 18 else 12) * density).toInt()
+        // Drawn last means on top: me, then the selected place.
+        pins.sortedWith(compareBy<MapPin>({ it.big }, { it.selected })).forEach { p ->
+            val at = p.at ?: Geo.fromPercent(p.x, p.y); val tappable = p.id != null && onPinTap != null
             mv.overlays.add(Marker(mv).apply {
                 position = GeoPoint(at.lat, at.lng); title = p.label; setInfoWindow(null); setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                icon = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(p.color.toArgb()); setStroke((2.5f * density).toInt(), android.graphics.Color.WHITE); setSize(px, px) }
+                icon = pinIcon(ctx, p, density, surface, tappable)
+                setOnMarkerClickListener { _, _ -> if (tappable) { tap.value?.invoke(p); true } else false }
             })
         }
         mv.invalidate()
     })
+    if (zoomButtons || onMyLocation != null) androidx.compose.foundation.layout.Column(Modifier.align(androidx.compose.ui.Alignment.CenterEnd).padding(end = 10.dp)) {
+        @Composable fun round(label: String, busy: Boolean = false, onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector) =
+            androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.padding(vertical = 4.dp).size(48.dp).clickable(enabled = !busy, onClickLabel = label, onClick = onClick)) {
+                androidx.compose.foundation.layout.Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    if (busy) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else androidx.compose.material3.Icon(icon, label, tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        onMyLocation?.let { round(stringResource(R.string.g8_cd_my_location), locating, it, androidx.compose.material.icons.Icons.Rounded.MyLocation) }
+        if (zoomButtons) {
+            round(stringResource(R.string.g3_cd_zoom_in), onClick = { map.controller.zoomIn() }, icon = androidx.compose.material.icons.Icons.Rounded.Add)
+            round(stringResource(R.string.g3_cd_zoom_out), onClick = { map.controller.zoomOut() }, icon = androidx.compose.material.icons.Icons.Rounded.Remove)
+        }
+    }
+    }
 }
 
 /** Tile attribution required by OpenStreetMap. */

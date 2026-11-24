@@ -1,0 +1,171 @@
+import Foundation
+
+/// My age band and whether a date of birth is on file (social_safety.sql my_safety).
+/// Trip safety (trip_safety.sql): trusted contacts, SOS, live trip links, "Are you OK?".
+public struct TrustedContact: Codable, Hashable, Sendable, Identifiable { public var id: String; public var name: String; public var phone: String }
+public struct SosContact: Codable, Hashable, Sendable { public var name: String; public var phone: String }
+public struct SosResult: Codable, Hashable, Sendable { public var sosId: String; public var shareToken: String?; public var message: String; public var contacts: [SosContact] }
+public struct RideAlert: Codable, Hashable, Sendable, Identifiable { public var id: String; public var kind: String }
+public struct SosQueueRow: Codable, Hashable, Sendable, Identifiable {
+    public var id: String; public var createdAt: String; public var role: String; public var name: String?; public var phone: String?
+    public var lat: Double?; public var lng: Double?; public var taskId: String?; public var taskStatus: String?
+    public var otherName: String?; public var otherPhone: String?; public var vehicle: String?; public var tripLink: String?
+}
+
+public enum TripSafety {
+    public static func tripURL(_ token: String) -> String { "https://infin8sync69-source.github.io/bucks-Mobile/trip/#\(token)" }
+    public static func mapURL(_ p: LatLng) -> String { String(format: "https://maps.google.com/?q=%.6f,%.6f", p.lat, p.lng) }
+}
+
+/// terms_status(): the Terms version everyone must have accepted, the one I accepted, and whether the app must ask (legal_hold.sql).
+public struct TermsStatus: Codable, Hashable, Sendable {
+    public var current: String?
+    public var accepted: String?
+    public var needed: Bool
+}
+
+public struct SafetyRow: Codable, Hashable, Sendable {
+    public var ageBand: String
+    public var birthDateSet: Bool
+    public var guardianConsent: Bool?
+    public init(ageBand: String = "UNKNOWN", birthDateSet: Bool = false, guardianConsent: Bool? = nil) { self.ageBand = ageBand; self.birthDateSet = birthDateSet; self.guardianConsent = guardianConsent }
+}
+
+/// A person in search results (search_people): by name, or exactly by Bucks ID.
+public struct PersonHit: Codable, Hashable, Sendable, Identifiable {
+    public var id: String
+    public var name: String
+    public var shortCode: String
+    public var area: String
+    /// People we are both synced with.
+    public var mutual: Int
+    public var synced: Bool
+    enum CodingKeys: String, CodingKey { case id, name, shortCode, area, mutual, synced }
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        shortCode = (try? c.decodeIfPresent(String.self, forKey: .shortCode)) ?? ""; area = (try? c.decodeIfPresent(String.self, forKey: .area)) ?? ""
+        mutual = (try? c.decodeIfPresent(Int.self, forKey: .mutual)) ?? 0; synced = (try? c.decodeIfPresent(Bool.self, forKey: .synced)) ?? false
+    }
+    public init(id: String, name: String, shortCode: String, area: String = "", mutual: Int = 0, synced: Bool = false) {
+        self.id = id; self.name = name; self.shortCode = shortCode; self.area = area; self.mutual = mutual; self.synced = synced
+    }
+}
+
+/// What is being reported. `kind`: POST, COMMENT, MOMENT, MESSAGE, PROFILE, LISTING, REVIEW or JOB. `ownerId` lets the sheet offer "also block".
+public struct ReportTarget: Identifiable, Hashable, Sendable {
+    public var kind: String
+    public var targetId: String
+    public var ownerId: String?
+    public var ownerName: String
+    public var id: String { kind + ":" + targetId }
+    public init(kind: String, targetId: String, ownerId: String?, ownerName: String = "") { self.kind = kind; self.targetId = targetId; self.ownerId = ownerId; self.ownerName = ownerName }
+
+    /// Sheet title ("Report this post"); a profile is reported by name.
+    public var title: String {
+        switch kind {
+        case "POST": "Report this post"
+        case "COMMENT": "Report this comment"
+        case "MOMENT": "Report this moment"
+        case "MESSAGE": "Report this message"
+        case "LISTING": "Report this page"
+        case "REVIEW": "Report this recommendation"
+        case "JOB": "Report this job"
+        case "FEEDBACK": "Report this feedback post"
+        default: ownerName.isEmpty ? "Report this account" : "Report \(ownerName)"
+        }
+    }
+
+    /// A recommendation or review in a page's Reviews tab (ReviewsTab in ListingProfileScreen.kt): someone else's, with words in it, on a
+    /// live page; report_content refuses the rest (report_more_kinds.sql). Nil when there is nothing to report.
+    public static func review(_ r: ReviewRow, pageLive: Bool, me: String?, authorName: String) -> ReportTarget? {
+        guard pageLive, r.authorId != me, !r.comment.allSatisfy(\.isWhitespace) else { return nil }
+        return ReportTarget(kind: "REVIEW", targetId: r.id, ownerId: r.authorId, ownerName: authorName)
+    }
+
+    /// A job (JobScreen.kt): open, at a business I don't run; report_content refuses closed jobs. A business is not a person to block, so
+    /// there is no owner, and the sheet names the business ("Sharma Stores won't know who reported it").
+    public static func job(_ j: JobPageRow, manager: Bool) -> ReportTarget? {
+        guard j.open, !manager else { return nil }
+        return ReportTarget(kind: "JOB", targetId: j.id, ownerId: nil, ownerName: j.listingTitle)
+    }
+}
+
+/// The reasons the server accepts (social_safety.sql reports.reason), with the words shown for each.
+public enum ReportReason: String, CaseIterable, Identifiable, Sendable {
+    case spam = "SPAM", harassment = "HARASSMENT", hate = "HATE", nudity = "NUDITY", violence = "VIOLENCE", selfHarm = "SELF_HARM"
+    case childSafety = "CHILD_SAFETY", scam = "SCAM", impersonation = "IMPERSONATION", other = "OTHER"
+    public var id: String { rawValue }
+    public var label: String {
+        switch self {
+        case .spam: "Spam"
+        case .harassment: "Bullying or harassment"
+        case .hate: "Hate speech"
+        case .nudity: "Nudity or sexual content"
+        case .violence: "Violence"
+        case .selfHarm: "Self-harm or suicide"
+        case .childSafety: "A child may be at risk"
+        case .scam: "Fraud or scam"
+        case .impersonation: "Pretending to be someone"
+        case .other: "Something else"
+        }
+    }
+    public var hint: String {
+        switch self {
+        case .spam: "Ads, scam links, repeated posts"
+        case .harassment: "Threats, picking on someone, unwanted contact"
+        case .hate: "Attacks on people for who they are"
+        case .nudity: "Sexual photos, videos or messages"
+        case .violence: "Threats, graphic violence, dangerous acts"
+        case .selfHarm: "Someone may be at risk"
+        case .childSafety: "Grooming, exploitation, a child in danger"
+        case .scam: "Asking for money, fake offers"
+        case .impersonation: "A fake account of a real person"
+        case .other: ""
+        }
+    }
+    /// Someone may be in danger: the sheet shows emergency numbers before anything is sent.
+    public var urgent: Bool { self == .selfHarm || self == .childSafety || self == .violence }
+}
+
+/// Age and reporting (BackendSafety.kt).
+extension Backend {
+    /// Nil when signed out.
+    public func mySafety() async throws -> SafetyRow? { (try await rpcList("my_safety") as [SafetyRow]).first }
+    public func termsStatus() async throws -> TermsStatus { try await rpc("terms_status") }
+
+    // MARK: trip safety
+    public func trustedContacts() async throws -> [TrustedContact] { try await select("trusted_contacts", columns: "id,name,phone", order: "created_at") }
+    public func addTrustedContact(name: String, phone: String) async throws { try await rpcVoid("add_trusted_contact", ["p_name": name, "p_phone": phone]) }
+    public func removeTrustedContact(_ id: String) async throws { try await rpcVoid("remove_trusted_contact", ["p_id": id]) }
+    /// The token of my trip's live link (TripSafety.tripURL makes the page address).
+    public func tripShareLink(_ taskId: String) async throws -> String { try await rpc("trip_share_link", ["p_task": taskId]) }
+    /// Never refused for a signed-in person. `taskId` nil: an SOS outside a trip.
+    public func raiseSos(taskId: String?, at: LatLng?) async throws -> SosResult {
+        try await rpc("raise_sos", ["p_task": taskId, "p_lat": at?.lat, "p_lng": at?.lng])
+    }
+    public func cancelSos(_ id: String) async throws { try await rpcVoid("cancel_sos", ["p_sos": id]) }
+    public func myRideAlerts(_ taskId: String) async throws -> [RideAlert] { try await rpcList("my_ride_alerts", ["p_task": taskId]) }
+    public func answerRideAlert(_ taskId: String, ok: Bool) async throws { try await rpcVoid("answer_ride_alert", ["p_task": taskId, "p_ok": ok]) }
+    public func sosQueue() async throws -> [SosQueueRow] { try await rpcList("sos_queue") }
+    public func closeSos(_ id: String, note: String) async throws { try await rpcVoid("close_sos", ["p_sos": id, "p_note": note]) }
+    /// Records that I accepted this version of the Terms and Privacy Policy.
+    public func recordTerms(_ version: String) async throws { try await rpcVoid("record_terms", ["p_version": version]) }
+    /// Saves my date of birth (yyyy-MM-dd) once; answers the age band. Refused with BK_NOT_ELIGIBLE below the sign-up age.
+    public func setBirthDate(_ isoDate: String) async throws -> String { try await rpc("set_birth_date", ["p_date": isoDate]) }
+    /// A parent or guardian's consent for an under-18 account (relation PARENT or GUARDIAN; phone with +91). Until it is recorded the
+    /// server refuses the account's posts, messages and orders.
+    public func recordGuardianConsent(name: String, phone: String, relation: String) async throws {
+        try await rpcVoid("record_guardian_consent", ["p_name": name, "p_phone": phone, "p_relation": relation])
+    }
+    /// My gender, private to me (profile_private): WOMAN, MAN, NON_BINARY, UNSAID or nil.
+    public func setGender(id: String, code: String?) async throws { try await update("profile_private", ["gender": code], filters: [.eq("profile_id", id)]) }
+    /// People by name, or exactly by Bucks ID (send the bare code, see `peopleQuery`).
+    public func searchPeople(_ q: String) async throws -> [PersonHit] { try await rpcList("search_people", ["q": q]) }
+    /// One person's posts that I'm allowed to see, newest first.
+    public func postsBy(_ author: String) async throws -> [FeedRow] { try await rpcList("posts_by", ["p_author": author]) }
+    /// Files a report for staff review; answers its id. Reporting the same thing twice keeps the first report.
+    public func reportContent(kind: String, target: String, reason: String, detail: String) async throws -> String {
+        try await rpc("report_content", ["p_kind": kind, "p_target": target, "p_reason": reason, "p_detail": detail])
+    }
+}

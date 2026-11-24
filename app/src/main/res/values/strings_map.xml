@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Recommended layer on the Home map (ui/screens/RecommendedMap.kt). Places, never people. -->
+<resources>
+    <string name="m1_recommended">Recommended</string>
+    <string name="m1_cat_all">All</string>
+    <string name="m1_cat_food">Food and chai</string>
+    <string name="m1_cat_shops">Shops</string>
+    <string name="m1_cat_services">Services</string>
+    <string name="m1_cat_area">Area</string>
+    <string name="m1_this_week">This week</string>
+    <string name="m1_all_time">All time</string>
+    <string name="m1_search_area">Search this area</string>
+    <string name="m1_loading">Looking for recommended places…</string>
+    <string name="m1_failed">Couldn\'t load recommended places. Check your connection.</string>
+    <string name="m1_try_again">Try again</string>
+    <plurals name="m1_places_here">
+        <item quantity="one">%d place recommended in this area</item>
+        <item quantity="other">%d places recommended in this area</item>
+    </plurals>
+    <string name="m1_empty_title">Be the first to recommend a place here</string>
+    <string name="m1_empty_body">Post about a shop, café or service you like and tag it. It shows here once people vote.</string>
+    <string name="m1_empty_week">Nothing recommended here this week.</string>
+    <string name="m1_show_all_time">Show all time</string>
+    <string name="m1_write_post">Write a post</string>
+    <plurals name="m1_recommended_by">
+        <item quantity="one">Recommended by %d</item>
+        <item quantity="other">Recommended by %d</item>
+    </plurals>
+    <plurals name="m1_not_recommended">
+        <item quantity="one">%d doesn\'t</item>
+        <item quantity="other">%d don\'t</item>
+    </plurals>
+    <plurals name="m1_posts">
+        <item quantity="one">%d post</item>
+        <item quantity="other">%d posts</item>
+    </plurals>
+    <string name="m1_see_posts">See posts</string>
+    <string name="m1_directions">Directions</string>
+    <string name="m1_open_page">Open page</string>
+    <string name="m1_share">Share</string>
+    <string name="m1_cd_close">Close</string>
+    <string name="m1_share_text">%1$s: recommended by %2$d people near you on Bucks</string>
+    <string name="m1_posts_title">Posts about %1$s</string>
+    <string name="m1_posts_empty">No posts to show here right now.</string>
+    <string name="m1_cd_place">%1$s, number %2$d, recommended by %3$d</string>
+</resources>

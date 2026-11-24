@@ -20,7 +20,7 @@ public enum MapServices {
     /// Mapbox public token (pk.*, made to ship inside apps), set at launch from Info.plist (MapboxToken). Empty: OpenStreetMap servers only.
     nonisolated(unsafe) public static var token = ""
 
-    private static let userAgent = "Bucks-iOS/1.0 (com.bucks.app)"
+    private static let userAgent = "Bucks-iOS/1.0 (com.bucksios.app)"
     private static let session: URLSession = {
         let c = URLSessionConfiguration.ephemeral; c.timeoutIntervalForRequest = 10; c.timeoutIntervalForResource = 15
         return URLSession(configuration: c)

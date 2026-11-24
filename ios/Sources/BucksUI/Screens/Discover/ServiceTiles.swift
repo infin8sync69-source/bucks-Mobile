@@ -26,7 +26,7 @@ struct ServiceTile: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
                     Image(systemName: def.icon).font(.system(size: 22)).foregroundStyle(fg)
-                    Text(def.label).bucks(.labelSmall).foregroundStyle(fg).lineLimit(1).minimumScaleFactor(0.9)
+                    Text(def.label).font(.system(size: 10, weight: .semibold)).foregroundStyle(fg).lineLimit(1).minimumScaleFactor(0.85)   // 10 sp, as on Android
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 2)
                 .background(RoundedRectangle(cornerRadius: BucksRadius.small, style: .continuous).fill(BucksColor.surfaceContainer))

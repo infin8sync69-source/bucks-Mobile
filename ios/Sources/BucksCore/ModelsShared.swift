@@ -99,6 +99,8 @@ public struct NotificationRow: Codable, Hashable, Sendable, Identifiable {
 }
 
 public struct MemberRow: Codable, Hashable, Sendable { public var listingId: String; public var profileId: String; public var role: String }
+/// One of a shop's store riders (`store_riders`): online = on a checked bike in the last 5 minutes; hasBike = owns or drives a checked bike.
+public struct StoreRiderRow: Codable, Hashable, Sendable { public var profileId: String; public var name: String; public var photoUrl: String?; public var online: Bool; public var hasBike: Bool }
 
 public struct ItemRow: Codable, Hashable, Sendable, Identifiable {
     public var id: String?
@@ -323,13 +325,17 @@ public struct FeedRow: Codable, Hashable, Sendable, Identifiable {
     public var myVote: Int?
     public var createdAt: String
     public var synced: Bool
+    /// Explore only (explore.sql): how many of the people I'm synced with voted this up, and the name of one of them.
+    public var recommenders: Int = 0
+    public var recommenderName: String?
     public init(from d: Decoder) throws {
         let c = try d.container(keyedBy: K.self)
         id = try c.decode(String.self, forKey: .id); authorId = try c.decode(String.self, forKey: .authorId); authorName = c.str(.authorName); authorCode = c.str(.authorCode); listingId = c.opt(.listingId)
         listingTitle = c.opt(.listingTitle); body = c.str(.body); media = (try? c.decodeIfPresent([JSONValue].self, forKey: .media)) ?? []; visibility = c.str(.visibility, "LOCAL"); area = c.str(.area)
         up = c.int(.up); down = c.int(.down); comments = c.int(.comments); myVote = (try? c.decodeIfPresent(Int.self, forKey: .myVote)) ?? nil; createdAt = c.str(.createdAt); synced = c.bool(.synced)
+        recommenders = c.int(.recommenders); recommenderName = c.opt(.recommenderName)
     }
-    private enum K: String, CodingKey { case id, authorId, authorName, authorCode, listingId, listingTitle, body, media, visibility, area, up, down, comments, myVote, createdAt, synced }
+    private enum K: String, CodingKey { case id, authorId, authorName, authorCode, listingId, listingTitle, body, media, visibility, area, up, down, comments, myVote, createdAt, synced, recommenders, recommenderName }
 }
 
 public struct CommentRow: Codable, Hashable, Sendable, Identifiable { public var id: String; public var postId: String; public var authorId: String; public var body: String; public var createdAt: String }

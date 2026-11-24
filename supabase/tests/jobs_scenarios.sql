@@ -141,3 +141,20 @@ update jobs set open = false where id = pg_temp.job('Weekend billing help'); upd
 select 'reopened: ' || open from jobs where id = pg_temp.job('Weekend billing help');
 select set_config('request.jwt.claims', '', false) is not null;
 select 'signed-out job page: ' || count(*) from job_page(pg_temp.job('Weekend billing help'));
+
+\echo '== 9. Notifications (job_notifications.sql): the team hears about an application, the applicant about the decision'
+reset role;
+create or replace function pg_temp.said(ok boolean, what text) returns text language sql as $$ select case when ok then 'ok: ' else 'FAIL: ' end || what $$;
+set role authenticated;
+select pg_temp.as_user('asha');
+select pg_temp.said(exists (select 1 from notifications where kind = 'JOB_APPLICATION' and title = 'Ravi (driver) applied for Delivery rider' and route = 'job/' || pg_temp.job('Delivery rider')), 'the owner is told Ravi applied, and the note opens the job');
+select pg_temp.as_user('bala');
+select pg_temp.said(exists (select 1 from notifications where kind = 'JOB_APPLICATION' and title = 'Meera applied for Delivery rider'), 'the admin is told Meera applied');
+select pg_temp.said(not exists (select 1 from notifications where kind = 'JOB_UPDATE'), 'the admin who decided gets no note about his own decision');
+select pg_temp.as_user('ravi');
+select pg_temp.said((select count(*) from notifications where kind = 'JOB_UPDATE' and title in ('You''re shortlisted for Delivery rider', 'You got the job: Delivery rider')) = 2, 'Ravi is told he was shortlisted, then hired');
+select pg_temp.said(not exists (select 1 from notifications where kind = 'JOB_APPLICATION'), 'an applicant gets no note about his own application');
+select pg_temp.as_user('meera');
+select pg_temp.said(exists (select 1 from notifications where kind = 'JOB_UPDATE' and title = 'Your application for Delivery rider was declined' and body = 'Asha Stores chose someone else this time.'), 'Meera is told she was declined, by the shop''s name');
+select pg_temp.said((select count(*) from notifications where kind = 'JOB_UPDATE') = 1, 'Sam''s refused attempt to hire her sent nothing');
+select set_config('request.jwt.claims', '', false) is not null;

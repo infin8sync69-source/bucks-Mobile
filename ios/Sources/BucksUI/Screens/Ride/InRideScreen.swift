@@ -30,11 +30,12 @@ struct InRideScreen: View {
                         Capsule().fill(BucksColor.primary).frame(width: g.size.width * min(1, max(0, r.progress)))
                     }
                 }.frame(height: 6).padding(.vertical, 14)
+                RideCheckCard(taskId: r.id) { car }
                 HStack {
                     Spacer()
-                    IconAction("exclamationmark.triangle.fill", "SOS") { dial("112") }
+                    SosAction(taskId: r.id) { car }
                     Spacer()
-                    ShareAction(label: "Share trip", text: tripShareText(r, d))
+                    LiveShareAction(taskId: r.id, cloud: session.cloud, fallback: tripShareText(r, d)) { url in "I'm on a Bucks trip with \(d.name), \(d.model) \(d.plate). Follow it live: \(url)" }
                     Spacer()
                 }
             }

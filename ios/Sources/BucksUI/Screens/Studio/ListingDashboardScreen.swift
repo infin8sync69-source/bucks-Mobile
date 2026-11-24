@@ -151,6 +151,8 @@ private struct OverviewTab: View {
     let manage: Bool, owner: Bool
     let goTo: (String) -> Void
     @Environment(AppSession.self) private var session
+    /// The shop's store riders for the reminder; nil while loading, when it can't be read, or when this isn't the owner's shop.
+    @State private var storeRiders: [StoreRiderRow]?
 
     var body: some View {
         let recs = m.recommendations[l.id] ?? 0, c = m.counts[l.id]
@@ -175,6 +177,7 @@ private struct OverviewTab: View {
                         SmallButton("Add payment QR") { goTo("PAYMENT") }
                     }
                 }
+                if manage && l.kind == "BUSINESS" && owner, let r = storeRiders, !r.contains(where: \.hasBike) { StoreRidersReminder(l: l, riders: r) { goTo("MEMBERS") } }
                 HStack(spacing: 10) {
                     StatTile(value: "\(recs)", label: "Recommended")
                     StatTile(value: c.map { "\($0.syncs)" } ?? "–", label: "Synced")
@@ -186,6 +189,11 @@ private struct OverviewTab: View {
             }.padding(Gutter)
         }
         .task { let d: Dispatch = session.dispatch; if session.cloud && !d.paymentLinkLoaded { d.refreshPaymentLink() } }
+        .task(id: l.id) {
+            guard manage && l.kind == "BUSINESS" && owner else { return }
+            await session.commerce.loadDeliveryRadius()
+            storeRiders = try? await Backend.shared.storeRiders(l.id)
+        }
     }
 
     private func goLiveCard(_ steps: [GoLiveStep]) -> some View {
@@ -289,5 +297,30 @@ private struct AboutCard: View {
         default: break
         }
         return out
+    }
+}
+
+/// Until the shop has a store rider who can actually be rung (accepted the invite and has a checked bike), its deliveries depend on Bucks
+/// delivery agents being online nearby, and there may be none (ListingDashboardScreen.kt's StoreRidersReminder). Shown by OverviewTab
+/// only once the riders are read and none of them has a checked bike.
+private struct StoreRidersReminder: View {
+    let l: ListingRow
+    let riders: [StoreRiderRow]
+    let onTeam: () -> Void
+    @Environment(AppSession.self) private var session
+
+    var body: some View {
+        let none = riders.isEmpty, radius = session.commerce.deliveryRadiusLabel
+        BucksCard {
+            Text("Add your own delivery riders").bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
+            Muted(none
+                  ? "You have no store riders yet. When no Bucks delivery agent is online within \(radius) of the shop, a delivery order finds nobody, and all you can do is ring again or cancel it. With your own riders you can send one yourself, and offer cash on delivery."
+                  : "None of your store riders has a checked bike yet, so they can't be rung for deliveries. Each one adds a bike under My listings > Vehicles and waits for Bucks to check it.").padding(.top, 4)
+            if none { Muted(storeRiderNeeds(radius)).padding(.top, 6) }
+            HStack(spacing: 8) {
+                if none { SmallButton("Invite a store rider", action: onTeam).fixedSize() }
+                ShareSmallButton(title: "Send them the Bucks app", text: Invite.shareText(Invite.storeRider(shop: l.title)), tonal: true).fixedSize()
+            }.padding(.top, 10)
+        }
     }
 }

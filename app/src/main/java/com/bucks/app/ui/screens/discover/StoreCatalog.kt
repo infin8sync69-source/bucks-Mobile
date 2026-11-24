@@ -1,5 +1,9 @@
 package com.bucks.app.ui.screens.discover
 
+import com.bucks.app.R
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,10 +65,10 @@ import com.bucks.app.ui.theme.status
 
 private const val PAGE = 24
 
-private enum class Sort(val label: String) { FEATURED("Featured"), REC("Most recommended"), LOW("Price: low to high"), HIGH("Price: high to low"), NAME("Name: A to Z") }
-private val BANDS = listOf("Any price" to (0..Int.MAX_VALUE), "Under ₹1,000" to (0..999), "₹1,000 to ₹3,000" to (1000..3000), "₹3,000 to ₹10,000" to (3001..10_000), "Above ₹10,000" to (10_001..Int.MAX_VALUE))
+private enum class Sort(@StringRes val labelRes: Int) { FEATURED(R.string.g5_sort_featured), REC(R.string.g5_sort_rec), LOW(R.string.g5_sort_low), HIGH(R.string.g5_sort_high), NAME(R.string.g5_sort_name); val label: String get() = Str.get(labelRes) }
+private fun bands() = listOf(Str.get(R.string.g5_band_any) to (0..Int.MAX_VALUE), Str.get(R.string.g5_band_under, rs(1000)) to (0..999), Str.get(R.string.g5_band_range, rs(1000), rs(3000)) to (1000..3000), Str.get(R.string.g5_band_range, rs(3000), rs(10_000)) to (3001..10_000), Str.get(R.string.g5_band_above, rs(10_000)) to (10_001..Int.MAX_VALUE))
 
-private fun rs(n: Int) = "₹" + "%,d".format(n)
+private fun rs(n: Int) = Money.format(n)
 
 /** Shopify-sized photos: a small file for a card, a big one for the sheet. Other hosts are used as they are. */
 private fun sized(url: String?, width: Int): String? {
@@ -89,7 +93,7 @@ private class Product(val key: String, val title: String, val group: String, val
 private fun optionLabel(i: ItemRow) = i.details.str("variant") ?: i.unit.ifBlank { i.name }
 
 private fun productsOf(items: List<ItemRow>): List<Product> =
-    items.groupBy { it.details.str("product_id") ?: it.id ?: it.name }.map { (k, os) -> Product(k, os.first().details.str("product") ?: os.first().name, os.first().group.ifBlank { "Products" }, os) }
+    items.groupBy { it.details.str("product_id") ?: it.id ?: it.name }.map { (k, os) -> Product(k, os.first().details.str("product") ?: os.first().name, os.first().group.ifBlank { Str.get(R.string.g5_kind_products) }, os) }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -97,8 +101,8 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
     val listing = p.listing
     if (p.products.isEmpty()) {
         Column(Modifier.padding(Gutter)) {
-            Muted(if (p.mine) "No products yet. Add them from Menu > Bucks Pro." else "${listing.title} hasn't listed products yet. Message them to ask what's in stock.")
-            if (!p.mine) SmallButton("Message", Modifier.padding(top = 12.dp), tonal = true, onClick = onMessage)
+            Muted(if (p.mine) stringResource(R.string.g5_store_empty_mine) else stringResource(R.string.g5_store_empty, listing.title))
+            if (!p.mine) SmallButton(stringResource(R.string.g5_message), Modifier.padding(top = 12.dp), tonal = true, onClick = onMessage)
         }
         return
     }
@@ -120,50 +124,52 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
     val filtersOn = (if (inStockOnly) 1 else 0) + (if (onSaleOnly) 1 else 0) + (if (band != 0) 1 else 0)
 
     val result = remember(all, cat, query, sort, inStockOnly, onSaleOnly, band, ratings) {
-        val range = BANDS[band].second
+        val range = bands()[band].second
         all.filter { pr -> (query.isNotBlank() || cat == null || pr.group == cat) && (query.isBlank() || pr.matches(query)) &&
             (!inStockOnly || pr.anyInStock) && (!onSaleOnly || pr.off != null) && (band == 0 || pr.options.any { it.price in range }) }
             .let { l -> when (Sort.entries[sort]) { Sort.FEATURED -> l; Sort.REC -> l.sortedWith(compareByDescending<Product> { ratings[it.key]?.percent ?: -1 }.thenByDescending { ratings[it.key]?.votes ?: 0 }); Sort.LOW -> l.sortedBy { it.from }; Sort.HIGH -> l.sortedByDescending { it.from }; Sort.NAME -> l.sortedBy { it.title.lowercase() } } }
     }
     val inCart = vm.commerce.count
+    val searchLabel = stringResource(R.string.g5_search_in, listing.title)
+    val shownLabel = pluralStringResource(R.plurals.g5_products_shown, result.size, result.size)
 
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        if (!listing.online && !p.mine) Notice("${listing.title} is closed now. You can order once they open again.", Modifier.padding(horizontal = Gutter, vertical = 4.dp))
+        if (!listing.online && !p.mine) Notice(stringResource(R.string.g5_store_closed, listing.title), Modifier.padding(horizontal = Gutter, vertical = 4.dp))
         // Search
         Row(Modifier.padding(horizontal = Gutter).fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 14.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Search, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(10.dp))
-            BasicTextField(query, { query = it.take(60) }, Modifier.weight(1f).semantics { contentDescription = "Search ${listing.title}" }, singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+            BasicTextField(query, { query = it.take(60) }, Modifier.weight(1f).semantics { contentDescription = searchLabel }, singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { }),
-                decorationBox = { inner -> Box { if (query.isEmpty()) Text("Search ${listing.title}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis); inner() } })
-            if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                decorationBox = { inner -> Box { if (query.isEmpty()) Text(searchLabel, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis); inner() } })
+            if (query.isNotEmpty()) IconButton({ query = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.g5_cd_clear_search), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         // Sort, Filter and the count
         Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box {
-                ToolPill(Icons.Rounded.SwapVert, "Sort: ${Sort.entries[sort].label}", "Sort") { sortMenu = true }
+                ToolPill(Icons.Rounded.SwapVert, stringResource(R.string.g5_cd_sort_by, stringResource(Sort.entries[sort].labelRes)), stringResource(R.string.g5_sort)) { sortMenu = true }
                 DropdownMenu(sortMenu, { sortMenu = false }) {
-                    Sort.entries.forEach { s -> DropdownMenuItem({ Text(s.label, fontWeight = if (sort == s.ordinal) FontWeight.SemiBold else FontWeight.Normal) }, { sort = s.ordinal; sortMenu = false },
-                        leadingIcon = { if (sort == s.ordinal) Icon(Icons.Rounded.Check, "Selected") }) }
+                    Sort.entries.forEach { s -> DropdownMenuItem({ Text(stringResource(s.labelRes), fontWeight = if (sort == s.ordinal) FontWeight.SemiBold else FontWeight.Normal) }, { sort = s.ordinal; sortMenu = false },
+                        leadingIcon = { if (sort == s.ordinal) Icon(Icons.Rounded.Check, stringResource(R.string.g5_cd_selected)) }) }
                 }
             }
-            ToolPill(Icons.Rounded.Tune, if (filtersOn > 0) "Filter, $filtersOn on" else "Filter", if (filtersOn > 0) "Filter ($filtersOn)" else "Filter") { filterSheet = true }
+            ToolPill(Icons.Rounded.Tune, if (filtersOn > 0) pluralStringResource(R.plurals.g5_cd_filters_on, filtersOn, filtersOn) else stringResource(R.string.g5_filter), if (filtersOn > 0) stringResource(R.string.g5_filter_count, filtersOn) else stringResource(R.string.g5_filter)) { filterSheet = true }
             Spacer(Modifier.weight(1f))
-            Text(if (result.size == 1) "1 product" else "${result.size} products", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { contentDescription = "${result.size} products shown" })
+            Text(pluralStringResource(R.plurals.g5_products, result.size, result.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { contentDescription = shownLabel })
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             // Categories: selectable tabs down the left
             if (cats.size > 1) Column(Modifier.width(80.dp).padding(bottom = 8.dp)) {
-                CategoryTab("All", all.size, cats.firstNotNullOfOrNull { it.third }, selected = query.isBlank() && cat == null) { cat = null; query = "" }
+                CategoryTab(stringResource(R.string.g5_all), all.size, cats.firstNotNullOfOrNull { it.third }, selected = query.isBlank() && cat == null) { cat = null; query = "" }
                 cats.forEach { (g, n, photo) -> CategoryTab(g, n, photo, selected = query.isBlank() && cat == g) { cat = g; query = "" } }
             }
             Column(Modifier.weight(1f).padding(end = Gutter, start = if (cats.size > 1) 6.dp else Gutter)) {
-                Text(when { query.isNotBlank() -> "Results for “${query.trim()}”"; cat != null -> cat!!; else -> "All products" }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp).semantics { heading() })
+                Text(when { query.isNotBlank() -> stringResource(R.string.g5_results_for, query.trim()); cat != null -> cat!!; else -> stringResource(R.string.g5_all_products) }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp).semantics { heading() })
                 if (result.isEmpty()) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Rounded.SearchOff, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Nothing matches", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 10.dp))
-                        Muted(if (filtersOn > 0) "Try removing a filter." else "Try another word, or pick a category.", Modifier.padding(top = 4.dp), TextAlign.Center)
-                        if (filtersOn > 0 || query.isNotBlank()) SmallButton("Clear filters and search", Modifier.padding(top = 12.dp), tonal = true) { query = ""; inStockOnly = false; onSaleOnly = false; band = 0 }
+                        Text(stringResource(R.string.g5_nothing_matches), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 10.dp))
+                        Muted(stringResource(if (filtersOn > 0) R.string.g5_try_remove_filter else R.string.g5_try_another_word), Modifier.padding(top = 4.dp), TextAlign.Center)
+                        if (filtersOn > 0 || query.isNotBlank()) SmallButton(stringResource(R.string.g5_clear_filters), Modifier.padding(top = 12.dp), tonal = true) { query = ""; inStockOnly = false; onSaleOnly = false; band = 0 }
                     }
                 } else {
                     result.take(shown).chunked(2).forEach { row ->
@@ -172,7 +178,7 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
-                    if (result.size > shown) OutlinedButton({ shown += PAGE }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Show more · ${result.size - shown} left") }
+                    if (result.size > shown) OutlinedButton({ shown += PAGE }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.g5_show_more_left, result.size - shown)) }
                 }
             }
         }
@@ -182,14 +188,14 @@ fun StoreProducts(vm: BucksViewModel, p: ListingProfile, onMessage: () -> Unit, 
     open?.let { pr -> ProductSheet(vm, listing, pr, ratings[pr.key], canAdd, p.mine, onRated = { loadRatings() }, onDismiss = { open = null }, onCart = { open = null; onCart() }) }
     if (filterSheet) ModalBottomSheet({ filterSheet = false }) {
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 28.dp)) {
-            Text("Filter", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-            SwitchRow("In stock only", inStockOnly) { inStockOnly = it }
-            SwitchRow("On sale", onSaleOnly) { onSaleOnly = it }
-            Label("Price")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { BANDS.forEachIndexed { i, (label, _) -> Chip(label, selected = band == i) { band = i } } }
+            Text(stringResource(R.string.g5_filter), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            SwitchRow(stringResource(R.string.g5_in_stock_only), inStockOnly) { inStockOnly = it }
+            SwitchRow(stringResource(R.string.g5_on_sale), onSaleOnly) { onSaleOnly = it }
+            Label(stringResource(R.string.g5_price))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { bands().forEachIndexed { i, (label, _) -> Chip(label, selected = band == i) { band = i } } }
             Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton({ inStockOnly = false; onSaleOnly = false; band = 0 }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Reset") }
-                Button({ filterSheet = false }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Show ${result.size} products") }
+                OutlinedButton({ inStockOnly = false; onSaleOnly = false; band = 0 }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(R.string.g5_reset)) }
+                Button({ filterSheet = false }, Modifier.weight(1f).heightIn(min = 48.dp)) { Text(pluralStringResource(R.plurals.g5_show_products, result.size, result.size)) }
             }
         }
     }
@@ -212,7 +218,8 @@ private fun ToolPill(icon: androidx.compose.ui.graphics.vector.ImageVector, desc
 @Composable
 private fun CategoryTab(name: String, count: Int, photo: String?, selected: Boolean, onClick: () -> Unit) {
     val c = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(Modifier.fillMaxWidth().heightIn(min = 88.dp).selectable(selected, role = Role.Tab, onClick = onClick).semantics { contentDescription = "$name, $count products" }) {
+    val tabLabel = pluralStringResource(R.plurals.g5_cd_category, count, name, count)
+    Row(Modifier.fillMaxWidth().heightIn(min = 88.dp).selectable(selected, role = Role.Tab, onClick = onClick).semantics { contentDescription = tabLabel }) {
         Column(Modifier.weight(1f).padding(vertical = 8.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer).border(if (selected) 2.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
                 sized(photo, 150)?.let { ShimmerImage(it, null, Modifier.fillMaxSize()) } ?: Icon(Icons.Rounded.Storefront, null, tint = c)
@@ -228,14 +235,16 @@ private fun CategoryTab(name: String, count: Int, photo: String?, selected: Bool
 private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, rating: RatingSummary?, canAdd: Boolean, modifier: Modifier, onOpen: () -> Unit) {
     val one = pr.options.first(); val qty = pr.options.sumOf { vm.commerce.qty(it.id ?: "") }
     val dim = if (pr.anyInStock) 1f else 0.5f
-    val price = if (pr.multi && pr.from != pr.to) "From ${rs(pr.from)}" else rs(pr.from)
-    val say = listOfNotNull(pr.title, price, if (pr.multi) "${pr.options.size} options" else null, pr.off?.let { "$it percent off" }, if (!pr.anyInStock) "sold out" else null, rating?.percent?.let { "$it percent recommend, ${rating.votes} ${if (rating.votes == 1) "vote" else "votes"}" }, if (qty > 0) "$qty in your cart" else null).joinToString(", ")
-    Column(modifier.clip(RoundedCornerShape(12.dp)).border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), RoundedCornerShape(12.dp)).clickable(onClickLabel = "Open ${pr.title}", onClick = onOpen).semantics(mergeDescendants = true) { contentDescription = say }) {
+    val price = if (pr.multi && pr.from != pr.to) stringResource(R.string.g5_from_price_cap, rs(pr.from)) else rs(pr.from)
+    val optionsText = pluralStringResource(R.plurals.g5_options, pr.options.size, pr.options.size)
+    val say = listOfNotNull(pr.title, price, if (pr.multi) optionsText else null, pr.off?.let { stringResource(R.string.g5_cd_percent_off, it) }, if (!pr.anyInStock) stringResource(R.string.g5_cd_sold_out) else null, rating?.percent?.let { pluralStringResource(R.plurals.g5_cd_percent_recommend, rating.votes, it, rating.votes) }, if (qty > 0) stringResource(R.string.g5_cd_in_cart, qty) else null).joinToString(", ")
+    val openLabel = stringResource(R.string.g5_cd_open_name, pr.title)
+    Column(modifier.clip(RoundedCornerShape(12.dp)).border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), RoundedCornerShape(12.dp)).clickable(onClickLabel = openLabel, onClick = onOpen).semantics(mergeDescendants = true) { contentDescription = say }) {
         Box {
             val url = sized(pr.photos.firstOrNull(), 400)
             if (url != null) ShimmerImage(url, null, Modifier.fillMaxWidth().aspectRatio(1f).alpha(dim))
             else Box(Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            pr.off?.let { Surface(Modifier.padding(6.dp).align(Alignment.TopStart), shape = RoundedCornerShape(6.dp), color = MaterialTheme.status.good) { Text("$it% off", Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = Color.White) } }
+            pr.off?.let { Surface(Modifier.padding(6.dp).align(Alignment.TopStart), shape = RoundedCornerShape(6.dp), color = MaterialTheme.status.good) { Text(stringResource(R.string.g5_percent_off, it), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = Color.White) } }
             if (qty > 0) Surface(Modifier.padding(6.dp).align(Alignment.TopEnd), shape = CircleShape, color = MaterialTheme.colorScheme.primary) { Text("$qty", Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary) }
         }
         Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
@@ -244,19 +253,13 @@ private fun ProductCard(vm: BucksViewModel, p: ListingProfile, pr: Product, rati
                 Text(price, style = MaterialTheme.typography.titleSmall, modifier = Modifier.alpha(dim))
                 if (!pr.multi) one.mrp?.takeIf { it > one.price }?.let { Text(rs(it), style = MaterialTheme.typography.labelSmall.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            rating?.percent?.let { pct ->
-                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val tone = if (pct >= 50) MaterialTheme.status.good else MaterialTheme.status.bad
-                    Icon(if (pct >= 50) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(14.dp), tint = tone)
-                    Text(" $pct%", style = MaterialTheme.typography.labelMedium, color = tone); Muted(" (${rating.votes})", maxLines = 1)
-                }
-            }
-            if (pr.multi) Muted("${pr.options.size} options", Modifier.padding(top = 2.dp), maxLines = 1)
+            rating?.let { r -> shownVote(r.up, r.down)?.let { side -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down, size = 14, side = side) } } }
+            if (pr.multi) Muted(optionsText, Modifier.padding(top = 2.dp), maxLines = 1)
             Box(Modifier.padding(top = 8.dp).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                 when {
-                    !pr.anyInStock -> PillGrey("Sold out")
+                    !pr.anyInStock -> PillGrey(stringResource(R.string.g5_sold_out))
                     !canAdd -> {}
-                    pr.multi -> OutlinedButton(onOpen, Modifier.fillMaxWidth().heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (qty > 0) "In cart · Change" else "Choose", style = MaterialTheme.typography.labelLarge, maxLines = 1) }
+                    pr.multi -> OutlinedButton(onOpen, Modifier.fillMaxWidth().heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(if (qty > 0) R.string.g5_in_cart_change else R.string.g5_choose), style = MaterialTheme.typography.labelLarge, maxLines = 1) }
                     else -> AddStepper(qty) { d -> vm.commerce.add(p.listing, one, d) }
                 }
             }
@@ -276,36 +279,36 @@ private fun ProductSheet(vm: BucksViewModel, listing: ListingRow, pr: Product, r
     val loaded = full
     val photos = ((loaded?.let { photosOf(it) } ?: photosOf(item)) + pr.photos).distinct().take(8)
     val about = (loaded?.description ?: "").trim().removePrefix(pr.title).trim().replace(Regex("\n{3,}"), "\n\n")
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { SheetCloseHandle(onDismiss) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 28.dp)) {
             if (photos.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                photos.forEachIndexed { i, u -> ShimmerImage(sized(u, 900), "${pr.title}, photo ${i + 1} of ${photos.size}", Modifier.size(if (photos.size == 1) 300.dp else 240.dp).clip(MaterialTheme.shapes.medium)) }
+                photos.forEachIndexed { i, u -> ShimmerImage(sized(u, 900), stringResource(R.string.g5_cd_photo_n, pr.title, i + 1, photos.size), Modifier.size(if (photos.size == 1) 300.dp else 240.dp).clip(MaterialTheme.shapes.medium)) }
                 if (loaded == null && !fullFailed) repeat(2) { SkeletonBox(Modifier.size(240.dp), MaterialTheme.shapes.medium) }
             }
             Text(pr.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-            Muted(listOfNotNull(pr.group.takeIf { it != "Products" }, item.details.str("vendor")).joinToString(" · "))
+            Muted(listOfNotNull(pr.group.takeIf { it != stringResource(R.string.g5_kind_products) }, item.details.str("vendor")).joinToString(" · "))
             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(rs(item.price), style = MaterialTheme.typography.headlineSmall)
-                item.mrp?.takeIf { it > item.price }?.let { Text(rs(it), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${((it - item.price) * 100.0 / it).toInt()}% off", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.status.good) }
+                item.mrp?.takeIf { it > item.price }?.let { Text(rs(it), style = MaterialTheme.typography.bodyMedium.copy(textDecoration = TextDecoration.LineThrough), color = MaterialTheme.colorScheme.onSurfaceVariant); Text(stringResource(R.string.g5_percent_off, ((it - item.price) * 100.0 / it).toInt()), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.status.good) }
             }
-            rating?.percent?.let { pct -> Muted("$pct% recommend · ${rating.votes} ${if (rating.votes == 1) "vote" else "votes"}", Modifier.padding(top = 2.dp)) }
+            rating?.let { r -> shownVote(r.up, r.down)?.let { side -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(r.up, r.down, side = side) } } }
             if (pr.multi) {
-                Label("Choose an option")
+                Label(stringResource(R.string.g5_choose_option))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pr.options.forEach { o -> Chip(optionLabel(o) + " · " + rs(o.price) + if (!o.inStock) " · sold out" else "", selected = o.id == pick) { pick = o.id } }
+                    pr.options.forEach { o -> Chip(if (o.inStock) stringResource(R.string.g5_option_price, optionLabel(o), rs(o.price)) else stringResource(R.string.g5_option_price_sold_out, optionLabel(o), rs(o.price)), selected = o.id == pick) { pick = o.id } }
                 }
             }
-            when { !item.inStock -> Box(Modifier.padding(top = 8.dp)) { PillGrey("Sold out") }; item.stock != null && item.stock!! <= 5 -> Text("Only ${item.stock} left", color = MaterialTheme.status.warn, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp)) }
+            when { !item.inStock -> Box(Modifier.padding(top = 8.dp)) { PillGrey(stringResource(R.string.g5_sold_out)) }; item.stock != null && item.stock!! <= 5 -> Text(stringResource(R.string.g5_only_left, item.stock!!), color = MaterialTheme.status.warn, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp)) }
             when {
                 about.isNotBlank() -> Text(about, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
                 loaded == null && !fullFailed -> SkeletonLines(4, Modifier.padding(top = 14.dp))
             }
             if (canAdd && item.inStock) Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 val qty = vm.commerce.qty(item.id ?: "")
-                Text(if (qty > 0) "In your cart" else "Add to cart", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(stringResource(if (qty > 0) R.string.g5_in_your_cart else R.string.g5_cta_add_to_cart), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                 AddStepper(qty) { d -> vm.commerce.add(listing, item, d) }
             }
-            if (vm.commerce.count > 0) DarkButton("View cart · ${vm.commerce.count} item${if (vm.commerce.count == 1) "" else "s"}", Modifier.padding(top = 14.dp), onClick = onCart)
+            if (vm.commerce.count > 0) DarkButton(pluralStringResource(R.plurals.g5_view_cart, vm.commerce.count, vm.commerce.count), Modifier.padding(top = 14.dp), onClick = onCart)
             ProductFeedback(vm, listing, pr, rating, isOwner, onRated)
         }
     }
@@ -321,49 +324,57 @@ private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product
         val page = runCatching { Backend.productComments(listing.id, pr.key, before) }.getOrDefault(emptyList())
         comments = if (before == null) page else comments.orEmpty() + page; more = page.size >= 20 } }
     LaunchedEffect(pr.key) { load() }
-    fun friendly(e: Throwable) = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(e.message ?: "")?.groupValues?.get(1) ?: "Couldn't send that. Check your connection and try again."
+    fun friendly(e: Throwable) = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(e.message ?: "")?.groupValues?.get(1) ?: Str.get(R.string.g5_send_failed)
     val mine = rating?.mine
+    val postedMsg = stringResource(R.string.g5_feedback_posted); val removedMsg = stringResource(R.string.g5_rating_removed)
     HorizontalDivider(Modifier.padding(top = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
-    Text("What people say", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
-    Muted(rating?.percent?.let { "$it% recommend this · ${rating.up} recommend, ${rating.down} don't" } ?: "No ratings yet. Be the first.", Modifier.padding(top = 2.dp))
+    Text(stringResource(R.string.g5_what_people_say), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
+    val side = rating?.let { shownVote(it.up, it.down) }
+    when {
+        rating != null && side != null -> Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) { VoteMark(rating.up, rating.down, size = 16, side = side) }
+        (rating?.votes ?: 0) > 0 -> Muted(stringResource(R.string.g5_rating_new), Modifier.padding(top = 2.dp))
+        else -> Muted(stringResource(R.string.g5_rating_none), Modifier.padding(top = 2.dp))
+    }
     rating?.percent?.let { pct -> Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.status.bad.copy(alpha = 0.35f))) { Box(Modifier.fillMaxWidth(pct / 100f).fillMaxHeight().background(MaterialTheme.status.good)) } }
-    if (isOwner) Muted("This is your product. Customers' feedback and comments show here, and you get a notification for each comment.", Modifier.padding(top = 10.dp))
+    if (isOwner) Muted(stringResource(R.string.g5_rating_owner), Modifier.padding(top = 10.dp))
     else {
         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(1 to ("Recommend" to Icons.Rounded.ArrowUpward), -1 to ("Not recommend" to Icons.Rounded.ArrowDownward)).forEach { (v, lab) ->
+            listOf(1 to (stringResource(R.string.g5_recommend) to Icons.Rounded.ArrowUpward), -1 to (stringResource(R.string.g5_not_recommend) to Icons.Rounded.ArrowDownward)).forEach { (v, lab) ->
                 val on = (draft == v) || (draft == 0 && mine == v)
                 val tone = if (v == 1) MaterialTheme.status.good else MaterialTheme.status.bad
                 OutlinedButton({ draft = if (draft == v) 0 else v }, Modifier.weight(1f).heightIn(min = 48.dp).semantics { selected = on }, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (on) tone.copy(alpha = 0.15f) else Color.Transparent, contentColor = if (on) tone else MaterialTheme.colorScheme.onSurface),
                     border = BorderStroke(if (on) 2.dp else 1.dp, if (on) tone else MaterialTheme.colorScheme.outline), contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Icon(lab.second, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(lab.first, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    Icon(lab.second, lab.first, Modifier.size(22.dp))
                 }
             }
         }
         if (draft != 0 || mine != null) {
-            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 10.dp).fillMaxWidth(), placeholder = { Text("Add a comment (optional)") }, minLines = 2, maxLines = 5, supportingText = { Text("${text.length}/500") })
+            OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 10.dp).fillMaxWidth(), placeholder = { Text(stringResource(R.string.g5_comment_optional)) }, minLines = 2, maxLines = 5, supportingText = { Text("${text.length}/500") })
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({
                     val vote = if (draft != 0) draft else (mine ?: 1)
                     scope.launch { busy = true
-                        runCatching { Backend.rateProduct(listing.id, pr.key, vote, text.trim()) }.onSuccess { vm.toast("Thanks, your feedback is posted."); draft = 0; text = ""; onRated(); load() }.onFailure { vm.toast(friendly(it)) }
+                        runCatching { Backend.rateProduct(listing.id, pr.key, vote, text.trim()) }.onSuccess { vm.toast(postedMsg); draft = 0; text = ""; onRated(); load() }.onFailure { vm.toast(friendly(it)) }
                         busy = false }
-                }, Modifier.heightIn(min = 48.dp), enabled = !busy && (draft != 0 || text.isNotBlank())) { Text(if (busy) "Sending…" else if (mine != null) "Update my feedback" else "Post feedback") }
-                if (mine != null) TextButton({ scope.launch { busy = true; runCatching { Backend.clearProductRating(listing.id, pr.key) }.onSuccess { vm.toast("Your rating was removed."); draft = 0; text = ""; onRated(); load() }; busy = false } }, Modifier.heightIn(min = 48.dp)) { Text("Remove mine") }
+                }, Modifier.heightIn(min = 48.dp), enabled = !busy && (draft != 0 || text.isNotBlank())) { Text(stringResource(if (busy) R.string.g5_sending else if (mine != null) R.string.g5_update_feedback else R.string.g5_post_feedback)) }
+                if (mine != null) TextButton({ scope.launch { busy = true; runCatching { Backend.clearProductRating(listing.id, pr.key) }.onSuccess { vm.toast(removedMsg); draft = 0; text = ""; onRated(); load() }; busy = false } }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g5_remove_mine)) }
             }
         }
     }
     val list = comments
     when {
         list == null -> Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { repeat(2) { Row { SkeletonBox(Modifier.size(36.dp), CircleShape); SkeletonLines(2, Modifier.padding(start = 10.dp).weight(1f)) } } }
-        list.isEmpty() -> Muted("No comments yet.", Modifier.padding(top = 12.dp))
+        list.isEmpty() -> Muted(stringResource(R.string.g5_no_comments), Modifier.padding(top = 12.dp))
         else -> {
             Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 list.forEach { c ->
-                    Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "${c.name.ifBlank { "Someone" }}, ${if (c.vote == 1) "recommends" else "does not recommend"}, ${ago(c.updatedAt)}. ${c.comment}" }) {
+                    val who = c.name.ifBlank { stringResource(R.string.g5_someone) }
+                    val commentLabel = stringResource(if (c.vote == 1) R.string.g5_cd_comment_rec else R.string.g5_cd_comment_not_rec, who, ago(c.updatedAt), c.comment)
+                    Row(Modifier.semantics(mergeDescendants = true) { contentDescription = commentLabel }) {
                         Avatar(c.name.split(' ').mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("").ifBlank { "?" }, size = 36)
                         Column(Modifier.padding(start = 10.dp).weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(c.name.ifBlank { "Someone" }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                Text(who, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                                 Icon(if (c.vote == 1) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.padding(start = 6.dp).size(14.dp), tint = if (c.vote == 1) MaterialTheme.status.good else MaterialTheme.status.bad)
                                 Muted(" · " + ago(c.updatedAt), maxLines = 1)
                             }
@@ -372,7 +383,7 @@ private fun ProductFeedback(vm: BucksViewModel, listing: ListingRow, pr: Product
                     }
                 }
             }
-            if (more) OutlinedButton({ load(list.last().updatedAt) }, Modifier.padding(top = 12.dp).fillMaxWidth().heightIn(min = 48.dp)) { Text("Show more comments") }
+            if (more) OutlinedButton({ load(list.last().updatedAt) }, Modifier.padding(top = 12.dp).fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.g5_show_more_comments)) }
         }
     }
 }

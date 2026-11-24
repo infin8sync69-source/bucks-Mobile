@@ -24,7 +24,7 @@ struct LoginScreen: View {
                             BucksField($phone, placeholder: "98765 43210", keyboard: .phone).padding(.bottom, -14)
                         }
                         PrimaryButton("Send code") { send() }.padding(.top, 20)
-                        Muted("By continuing you agree to the community rules: review honestly, one account per person.", align: .center)
+                        Muted("Next you'll be asked to agree to the Terms and Privacy Policy.", align: .center)
                             .padding(.top, 8)
                     }.padding(20)
                 }.scrollDismissesKeyboard(.interactively)

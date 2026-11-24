@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import com.bucks.app.R
 import com.bucks.app.data.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -71,7 +72,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     private fun go(block: suspend () -> Unit) = scope.launch { try { block() } catch (e: Exception) { toast(friendly(e)) } }
     /** Our own database errors come back wrapped; show just the sentence we wrote. */
     private fun friendly(e: Exception): String {
-        val m = e.message ?: return "Something went wrong. Try again."
+        val m = e.message ?: return Str.get(R.string.g4_ml_generic_error)
         // The JSON body escapes quotes (Postgres puts table names in quotes), so the match must step over \" and unescape it.
         val quoted = Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(m)?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\\\", "\\")
         return quoted?.takeIf { it.isNotBlank() } ?: m.substringAfter("message: ", m).substringBefore("\n").take(140)
@@ -112,7 +113,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
         // my_invites() adds names the invitee could not read otherwise; without it (migration not applied yet) fall back to bare rows.
         invites = runCatching { Backend.invitesForMe() }.getOrElse {
             val mine = raw.filter { it.inviteeId == p.id }; social.namesFor(mine.map { it.inviterId })
-            mine.map { i -> InviteForMe(i.id, i.listingId, i.vehicleId, i.inviterId, social.nameOf(i.inviterId), i.role, if (i.listingId != null) "A listing" else "A vehicle", if (i.listingId != null) "LISTING" else "VEHICLE") }
+            mine.map { i -> InviteForMe(i.id, i.listingId, i.vehicleId, i.inviterId, social.nameOf(i.inviterId), i.role, if (i.listingId != null) Str.get(R.string.g4_ml_a_listing) else Str.get(R.string.g4_ml_a_vehicle), if (i.listingId != null) "LISTING" else "VEHICLE") }
         }
     }
     fun refreshInvites() = go { loadInvites() }
@@ -126,11 +127,13 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     private suspend fun uploadListingPhoto(listingId: String, photo: Picked): String {
         val path = "$listingId/${photo.objectName()}"; Backend.upload("listing-media", path, photo.bytes); return Backend.publicUrl("listing-media", path)
     }
-    private fun savedMessage(kind: String, title: String) = when (kind) {
-        "BUSINESS" -> "$title is saved. It goes live once $NEEDED people nearby recommend it."
-        "SKILL" -> "$title is saved. It goes live once $NEEDED people nearby recommend you."
-        "ASSET" -> "$title is saved. It goes live once $NEEDED people nearby vouch for it and Bucks checks any documents it needs."
-        else -> "Your driver profile is saved. It goes live once $NEEDED people nearby recommend you."
+    /** [typeKey]: a business page beyond shops (ui/PageTypes.kt) is told to fill its catalogue and share the page. */
+    private fun savedMessage(kind: String, title: String, typeKey: String? = null) = when (kind) {
+        "BUSINESS" -> PageTypes.byKey(typeKey)?.takeIf { !it.isShop }?.let { t -> Str.get(when (t.newItemKind) { "PRODUCT" -> R.string.g4_ml_setup_products; "PROGRAM" -> R.string.g4_ml_setup_programs; "EVENT" -> R.string.g4_ml_setup_events; else -> R.string.g4_ml_setup_services }, title) }
+            ?: Str.plural(R.plurals.g4_ml_saved_business, NEEDED, title, NEEDED)
+        "SKILL" -> Str.plural(R.plurals.g4_ml_saved_skill, NEEDED, title, NEEDED)
+        "ASSET" -> Str.plural(R.plurals.g4_ml_saved_asset, NEEDED, title, NEEDED)
+        else -> Str.plural(R.plurals.g4_ml_saved_driver, NEEDED, NEEDED)
     }
     /**
      * Creates a listing at [at], a real location fix (the form only offers Save once it has one; the map's default centre
@@ -138,32 +141,33 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
      * listing-media/<listing id>/ afterwards; the listing exists by then, so a failed upload is reported, not retried
      * through the form, or Save again would create a second listing.
      */
-    fun createListing(kind: String, title: String, category: String, description: String, area: String, at: LatLng, details: JsonObject, photo: Picked?, service: String? = null, onDone: (ListingRow) -> Unit) = go {
+    fun createListing(kind: String, title: String, category: String, description: String, area: String, at: LatLng, details: JsonObject, photo: Picked?, service: String? = null, typeKey: String? = null, onDone: (ListingRow) -> Unit) = go {
         val p = me ?: return@go; busy = true
         try {
-            var row = Backend.createListing(p.id, kind, title, category, description, area, at, details, service)
+            var row = Backend.createListing(p.id, kind, title, category, description, area, at, details, service, typeKey)
+            com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.LISTING_CREATED, "kind" to kind)
             var photoFailed = false
             if (photo != null) try { val url = uploadListingPhoto(row.id, photo); Backend.setListingPhoto(row.id, url); row = row.copy(photoUrl = url) } catch (e: Exception) { photoFailed = true }
-            toast(if (photoFailed) "${if (kind == "DRIVER") "Your driver profile" else title} is saved, but the photo didn't upload. Add it from Edit." else savedMessage(kind, title))
+            toast(if (photoFailed) (if (kind == "DRIVER") Str.get(R.string.g4_ml_driver_photo_failed) else Str.get(R.string.g4_ml_photo_failed, title)) else savedMessage(kind, title, row.typeKey ?: typeKey))
             refresh(); onDone(row)
         } finally { busy = false } }
-    /** [at] null keeps the saved location. */
-    fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, photo: Picked?, service: String? = null, onDone: () -> Unit) = go { busy = true
+    /** [at] null keeps the saved location. [service] and [typeKey] are sent only when they change (the server refuses a change once the listing is live). */
+    fun updateListing(id: String, title: String, category: String, description: String, area: String, at: LatLng?, details: JsonObject, photo: Picked?, service: String? = null, typeKey: String? = null, onDone: () -> Unit) = go { busy = true
         try {
-            Backend.updateListing(id, title, category, description, area, at, details, service)
+            Backend.updateListing(id, title, category, description, area, at, details, service, typeKey)
             if (photo != null) Backend.setListingPhoto(id, uploadListingPhoto(id, photo))
-            toast("Saved."); refresh(); onDone()
+            toast(Str.get(R.string.g4_ml_saved)); refresh(); onDone()
         } finally { busy = false } }
     /** delete_listing() keeps a hidden row behind past orders and refuses while an order is open; either way the listing leaves my hub. */
-    fun deleteListing(id: String, onDone: () -> Unit) = go { val l = listing(id); Backend.removeListing(id); listings = listings.filterNot { it.id == id }; toast("${l?.title ?: "Listing"} deleted."); onDone() }
+    fun deleteListing(id: String, onDone: () -> Unit) = go { val l = listing(id); Backend.removeListing(id); listings = listings.filterNot { it.id == id }; toast(l?.title?.let { Str.get(R.string.g4_ml_deleted_named, it) } ?: Str.get(R.string.g4_ml_listing_deleted)); onDone() }
     fun setOnline(id: String, on: Boolean) = go { val l = listing(id) ?: return@go
         listings = listings.map { if (it.id == id) it.copy(online = on) else it }
         try { Backend.setOnline(id, on) } catch (e: Exception) { listings = listings.map { if (it.id == id) it.copy(online = !on) else it }; throw e }
         toast(when (l.kind) {
-            "BUSINESS" -> if (on) "${l.title} is open. Orders will reach you." else "${l.title} is closed. No orders until you open again."
-            "SKILL" -> if (on) "${l.title} is online. Requests will reach you." else "${l.title} is offline."
-            "ASSET" -> if (on) "${l.title} is shown as available." else "${l.title} is marked not available. It stays on your profile."
-            else -> if (on) "You're shown as available." else "You're shown as unavailable." }) }
+            "BUSINESS" -> if (on) Str.get(R.string.g4_ml_business_open, l.title) else Str.get(R.string.g4_ml_business_closed, l.title)
+            "SKILL" -> if (on) Str.get(R.string.g4_ml_skill_online, l.title) else Str.get(R.string.g4_ml_skill_offline, l.title)
+            "ASSET" -> if (on) Str.get(R.string.g4_ml_asset_available, l.title) else Str.get(R.string.g4_ml_asset_unavailable, l.title)
+            else -> if (on) Str.get(R.string.g4_ml_driver_available) else Str.get(R.string.g4_ml_driver_unavailable) }) }
 
     // ---------- products and services ----------
     /**
@@ -181,18 +185,18 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
             // Existing items go column by column (updateItem): a whole-row update drops default values, so "back in stock" or a cleared MRP would never reach the server.
             val saved = if (row.id == null) Backend.saveItem(row) else Backend.updateItem(row)
             items[item.listingId] = (items[item.listingId].orEmpty().filterNot { it.id == saved.id } + saved).sortedWith(compareBy({ it.sort }, { it.name.lowercase() }))
-            toast(if (item.id == null) "${saved.name} added." else "Saved."); onDone()
+            toast(if (item.id == null) Str.get(R.string.g4_ml_item_added, saved.name) else Str.get(R.string.g4_ml_saved)); onDone()
             if (dropped.isNotEmpty()) runCatching { Backend.deleteListingMedia(dropped) }
         } finally { busy = false } }
     /** A copy of [item] named "<name> (copy)", out of stock until the owner checks it, with the same photos. */
     fun duplicateItem(item: ItemRow) = go {
-        val copy = item.copy(id = null, name = "${item.name} (copy)".take(80), inStock = false, sort = items[item.listingId].orEmpty().size)
+        val copy = item.copy(id = null, name = Str.get(R.string.g4_ml_copy_name, item.name).take(80), inStock = false, sort = items[item.listingId].orEmpty().size)
         val saved = Backend.saveItem(copy)
-        items[item.listingId] = items[item.listingId].orEmpty() + saved; toast("Copied. Edit it and switch it on when it's ready.") }
+        items[item.listingId] = items[item.listingId].orEmpty() + saved; toast(Str.get(R.string.g4_ml_copied)) }
     fun setInStock(item: ItemRow, on: Boolean) = go { val id = item.id ?: return@go
         items[item.listingId] = items[item.listingId].orEmpty().map { if (it.id == id) it.copy(inStock = on) else it }
         try { Backend.updateItem(item.copy(inStock = on)) } catch (e: Exception) { items[item.listingId] = items[item.listingId].orEmpty().map { if (it.id == id) it.copy(inStock = !on) else it }; throw e } }
-    fun deleteItem(item: ItemRow, onDone: () -> Unit) = go { val id = item.id ?: return@go; Backend.deleteItem(id); items[item.listingId] = items[item.listingId].orEmpty().filterNot { it.id == id }; toast("${item.name} removed."); onDone()
+    fun deleteItem(item: ItemRow, onDone: () -> Unit) = go { val id = item.id ?: return@go; Backend.deleteItem(id); items[item.listingId] = items[item.listingId].orEmpty().filterNot { it.id == id }; toast(Str.get(R.string.g4_ml_item_removed, item.name)); onDone()
         // Photos shared with a copy of this item stay; only files no other item uses are deleted.
         val stillUsed = items[item.listingId].orEmpty().flatMap { it.photos.map { p -> p.url } }.toSet()
         item.photos.map { it.url }.filter { it !in stillUsed }.takeIf { it.isNotEmpty() }?.let { runCatching { Backend.deleteListingMedia(it) } } }
@@ -206,25 +210,25 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
     fun addGalleryPhotos(listingId: String, photos: List<Picked>) = go { busy = true
         try {
             val room = 20 - galleryOf(listingId).size
-            if (room <= 0) { toast("The gallery holds 20 photos. Remove one to add another."); return@go }
+            if (room <= 0) { toast(Str.get(R.string.g4_ml_gallery_full, 20)); return@go }
             val added = photos.take(room).map { MediaPhoto(Backend.uploadListingMedia(listingId, it)) }
             saveGallery(listingId, galleryOf(listingId) + added)
             if (listing(listingId)?.photoUrl.isNullOrBlank()) added.firstOrNull()?.let { setCoverNow(listingId, it.url) }
-            toast(if (photos.size > room) "Added $room. The gallery holds 20 photos." else if (added.size == 1) "Photo added." else "${added.size} photos added.")
+            toast(if (photos.size > room) Str.get(R.string.g4_ml_gallery_added_some, room, 20) else Str.plural(R.plurals.g4_ml_photos_added, added.size))
         } finally { busy = false } }
     fun removeGalleryPhoto(listingId: String, url: String) = go {
         saveGallery(listingId, galleryOf(listingId).filterNot { it.url == url })
         if (listing(listingId)?.photoUrl != url) runCatching { Backend.deleteListingMedia(listOf(url)) }
-        toast("Photo removed.") }
+        toast(Str.get(R.string.g4_ml_photo_removed)) }
     fun setCaption(listingId: String, url: String, caption: String) = go {
-        saveGallery(listingId, galleryOf(listingId).map { if (it.url == url) it.copy(caption = caption.trim().take(200)) else it }); toast("Caption saved.") }
+        saveGallery(listingId, galleryOf(listingId).map { if (it.url == url) it.copy(caption = caption.trim().take(200)) else it }); toast(Str.get(R.string.g4_ml_caption_saved)) }
     /** Moves a photo one place towards the start (-1) or the end (+1). */
     fun moveGalleryPhoto(listingId: String, url: String, by: Int) = go {
         val g = galleryOf(listingId).toMutableList(); val i = g.indexOfFirst { it.url == url }; val j = i + by
         if (i < 0 || j !in g.indices) return@go
         g.add(j, g.removeAt(i)); saveGallery(listingId, g) }
     private suspend fun setCoverNow(listingId: String, url: String) { Backend.setListingPhoto(listingId, url); listings = listings.map { if (it.id == listingId) it.copy(photoUrl = url) else it } }
-    fun setCover(listingId: String, url: String) = go { setCoverNow(listingId, url); toast("Cover photo changed.") }
+    fun setCover(listingId: String, url: String) = go { setCoverNow(listingId, url); toast(Str.get(R.string.g4_ml_cover_changed)) }
 
     // ---------- the listing's feed, reviews and numbers ----------
     fun loadPosts(listingId: String) = go { val rows = Backend.listingPosts(listingId); social.namesFor(rows.map { it.authorId }); posts[listingId] = rows }
@@ -234,9 +238,9 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
             val media = photo?.let { f -> listOf("${p.id}/${f.objectName()}".also { Backend.upload("posts", it, f.bytes) } to f.mime) }.orEmpty()
             val at = runCatching { Backend.listingPoint(listingId) }.getOrNull() ?: social.here
             Backend.post(p.id, body.trim(), media, "LOCAL", at, l.area, listingId)
-            toast("Posted as ${l.title}."); onDone(); posts[listingId] = Backend.listingPosts(listingId)
+            toast(Str.get(R.string.g4_ml_posted_as, l.title)); onDone(); posts[listingId] = Backend.listingPosts(listingId)
         } finally { busy = false } }
-    fun deletePost(post: PostRow) = go { Backend.deletePost(post.id); post.listingId?.let { lid -> posts[lid] = posts[lid].orEmpty().filterNot { it.id == post.id } }; toast("Post deleted.") }
+    fun deletePost(post: PostRow) = go { Backend.deletePost(post.id); post.listingId?.let { lid -> posts[lid] = posts[lid].orEmpty().filterNot { it.id == post.id } }; toast(Str.get(R.string.g4_ml_post_deleted)) }
     fun loadReviews(listingId: String) = go { val rows = Backend.reviews(listingId); social.namesFor(rows.map { it.authorId }); reviews[listingId] = rows }
     fun loadCounts(listingId: String) = go { Backend.listingCounts(listingId)?.let { counts[listingId] = it; recommendations[listingId] = it.recommendations } }
 
@@ -255,7 +259,7 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
             for ((docKind, f) in docs) try { uploaded += uploadDocs(p.id, listOf(docKind to f)) } catch (e: Exception) { failed++ }
             if (uploaded.isNotEmpty()) try { Backend.setVehicleDocs(v.id, uploaded); vehicleDocs = vehicleDocs + (v.id to uploaded.toList()) } catch (e: Exception) { failed += uploaded.size }
             val name = "${v.model.ifBlank { v.kind }} (${v.plate})"
-            toast(if (failed > 0) "$name added, but $failed document${if (failed > 1) "s" else ""} didn't upload. Add them from Edit." else "$name added. Bucks checks the documents before it can go online.")
+            toast(if (failed > 0) Str.plural(R.plurals.g4_ml_vehicle_docs_failed, failed, name, failed) else Str.get(R.string.g4_ml_vehicle_added, name))
             refresh(); onDone()
         } finally { busy = false } }
     /**
@@ -269,26 +273,26 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
             Backend.updateVehicleDetails(id, kind, model, plate, all)
             val gone = before.map { it.path }.filter { path -> all.none { it.path == path } }
             if (gone.isNotEmpty()) runCatching { Backend.deleteFiles("docs", gone) }
-            toast("Saved."); refresh(); onDone()
+            toast(Str.get(R.string.g4_ml_saved)); refresh(); onDone()
         } finally { busy = false } }
     fun deleteVehicle(id: String, onDone: () -> Unit) = go {
         val paths = vehicleDocs[id].orEmpty().map { it.path }
         Backend.deleteVehicle(id); runCatching { Backend.deleteFiles("docs", paths) }
-        vehicles = vehicles.filterNot { it.id == id }; toast("Vehicle removed."); onDone() }
+        vehicles = vehicles.filterNot { it.id == id }; toast(Str.get(R.string.g4_ml_vehicle_removed)); onDone() }
 
     // ---------- admins, store riders and drivers ----------
     fun invite(listingId: String?, vehicleId: String?, bucksId: String, role: String) = go {
-        Backend.invite(listingId, vehicleId, bucksId, role); toast("Invite sent to ${bucksId.trim().uppercase()}. They'll see it under Invites."); loadInvites() }
-    fun revokeInvite(id: String) = go { Backend.revokeInvite(id); sentInvites = sentInvites.filterNot { it.id == id }; toast("Invite cancelled.") }
+        Backend.invite(listingId, vehicleId, bucksId, role); toast(Str.get(R.string.g4_ml_invite_sent, bucksId.trim().uppercase())); loadInvites() }
+    fun revokeInvite(id: String) = go { Backend.revokeInvite(id); sentInvites = sentInvites.filterNot { it.id == id }; toast(Str.get(R.string.g4_ml_invite_cancelled)) }
     fun respondInvite(inv: InviteForMe, accept: Boolean) = go {
         Backend.respondInvite(inv.id, accept); invites = invites.filterNot { it.id == inv.id }
-        toast(if (accept) "Done. ${inv.title} is now under My listings." else "Declined."); if (accept) refresh() }
+        toast(if (accept) Str.get(R.string.g4_ml_invite_accepted, inv.title) else Str.get(R.string.g4_ml_invite_declined)); if (accept) refresh() }
     fun removeMember(listingId: String, profileId: String) = go {
         Backend.removeMember(listingId, profileId); members[listingId] = members[listingId].orEmpty().filterNot { it.profileId == profileId }
-        if (profileId == me?.id) { toast("You left."); refresh() } else toast("Removed.") }
+        if (profileId == me?.id) { toast(Str.get(R.string.g4_ml_you_left)); refresh() } else toast(Str.get(R.string.g4_ml_removed)) }
     fun removeVehicleMember(vehicleId: String, profileId: String) = go {
         Backend.removeVehicleMember(vehicleId, profileId); vehicleMembers[vehicleId] = vehicleMembers[vehicleId].orEmpty().filterNot { it.profileId == profileId }
-        if (profileId == me?.id) { toast("You left."); refresh() } else toast("Removed.") }
+        if (profileId == me?.id) { toast(Str.get(R.string.g4_ml_you_left)); refresh() } else toast(Str.get(R.string.g4_ml_removed)) }
 
     // ---------- community cap: recommendations ----------
     /** A fresh token (valid 2 minutes) and the current count; the QR screen calls this every 90 seconds. */
@@ -302,5 +306,6 @@ class MyListings(private val scope: CoroutineScope, private val social: Social, 
      */
     fun recommend(token: String, at: LatLng, onDone: (Int) -> Unit) = go {
         val n = Backend.recommend(token, at)
-        toast(if (n >= NEEDED) "Thanks, that's $n of $NEEDED. They're live on Bucks now." else "Thanks, that's $n of $NEEDED."); onDone(n) }
+        com.bucks.app.data.Analytics.log(com.bucks.app.data.Analytics.RECOMMEND_GIVEN, "count" to n)
+        toast(if (n >= NEEDED) Str.get(R.string.g4_ml_recommend_live, n, NEEDED) else Str.get(R.string.g4_ml_recommend_count, n, NEEDED)); onDone(n) }
 }

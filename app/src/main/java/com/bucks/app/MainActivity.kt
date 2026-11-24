@@ -2,7 +2,7 @@ package com.bucks.app
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -14,7 +14,8 @@ import com.bucks.app.data.Push
 import com.bucks.app.ui.BucksAppUi
 import com.bucks.app.ui.BucksViewModel
 
-class MainActivity : FragmentActivity() {
+// AppCompatActivity (a FragmentActivity, so BiometricPrompt still works) applies the per-app language on every Android version.
+class MainActivity : AppCompatActivity() {
     override fun onResume() { super.onResume(); com.bucks.app.data.Push.appVisible = true }
     override fun onPause() { com.bucks.app.data.Push.appVisible = false; super.onPause() }
 
@@ -28,6 +29,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         // Only a fresh launch takes the route from the intent; after a rotation the screen is already where it should be.
         if (savedInstanceState == null) startRoute = Push.routeFrom(intent)
+        // One app shell, the super-app layout: Home (map, search) · Feed · Services · For you · Profile, with the Bucks Pro menu.
         setContent { BucksAppUi(vm, startRoute = startRoute, onStartRouteHandled = { startRoute = null }) }
     }
 

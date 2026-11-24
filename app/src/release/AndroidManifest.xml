@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Play (release) builds are the full super-app: rides, driver mode, deliveries, shops and voice search, so precise location, the
+  driver location foreground service (type=location) and the microphone stay. Play Console needs the location and foreground
+  service declarations for them (see store/PLAY_CONSOLE.md).
+
+  Only the battery-optimisation exemption is removed: Play allows REQUEST_IGNORE_BATTERY_OPTIMIZATIONS for a narrow list of app
+  types. Without it, "Stay reachable while online" opens the phone's battery settings list instead of the one-tap dialog.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+</manifest>

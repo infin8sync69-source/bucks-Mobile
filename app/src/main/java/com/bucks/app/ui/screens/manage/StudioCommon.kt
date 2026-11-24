@@ -18,11 +18,16 @@ import coil.compose.AsyncImage
 import com.bucks.app.data.ComplianceRow
 import com.bucks.app.data.ItemRow
 import com.bucks.app.data.ListingRow
+import com.bucks.app.ui.PageType
 import com.bucks.app.ui.components.*
 import com.bucks.app.ui.theme.status
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
+import com.bucks.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.bucks.app.data.Str
 
 /* Shared pieces of the Studio: asset vocabulary, money, covers and the go-live checklist. */
 
@@ -31,8 +36,8 @@ internal val ASSET_TYPES = listOf("House", "Flat", "Villa", "Plot / Land", "Shop
 internal val PROPERTY_TYPES = setOf("House", "Flat", "Villa", "Plot / Land", "Shop", "Office", "Warehouse", "PG / Room", "Commercial space")
 internal val RESIDENTIAL_TYPES = setOf("House", "Flat", "Villa", "PG / Room")
 /** Listing mode: what the owner wants to do with the asset. */
-internal val ASSET_MODES = listOf("SELL" to "Sell", "RENT" to "Rent", "LEASE" to "Lease", "PG" to "PG / Hostel")
-internal val PRICE_UNITS = listOf("TOTAL" to "Total", "MONTH" to "per month", "YEAR" to "per year", "DAY" to "per day")
+internal val ASSET_MODES: List<Pair<String, String>> get() = listOf("SELL" to Str.get(R.string.g6_asset_mode_sell), "RENT" to Str.get(R.string.g6_asset_mode_rent), "LEASE" to Str.get(R.string.g6_asset_mode_lease), "PG" to Str.get(R.string.g6_asset_mode_pg))
+internal val PRICE_UNITS: List<Pair<String, String>> get() = listOf("TOTAL" to Str.get(R.string.g6_price_unit_total), "MONTH" to Str.get(R.string.g6_price_unit_month), "YEAR" to Str.get(R.string.g6_price_unit_year), "DAY" to Str.get(R.string.g6_price_unit_day))
 internal val FURNISHING = listOf("Unfurnished", "Semi-furnished", "Furnished")
 
 internal fun assetModeLabel(m: String) = ASSET_MODES.firstOrNull { it.first == m }?.second ?: m.lowercase().replaceFirstChar { it.uppercase() }
@@ -48,20 +53,17 @@ internal fun assetIcon(type: String): ImageVector = when (type) {
     else -> Icons.Rounded.Apartment
 }
 
-/** 150000 -> "1,50,000" (Indian grouping). */
-internal fun rupees(n: Long): String {
-    val s = kotlin.math.abs(n).toString()
-    val grouped = if (s.length <= 3) s else s.dropLast(3).reversed().chunked(2).joinToString(",").reversed() + "," + s.takeLast(3)
-    return (if (n < 0) "-₹" else "₹") + grouped
-}
+/** An amount in the person's country currency (see Money). */
+internal fun rupees(n: Long): String = com.bucks.app.data.Money.format(n)
 internal fun rupees(n: Int) = rupees(n.toLong())
 
 internal fun JsonObject.num(k: String): Double? = (this[k] as? JsonPrimitive)?.doubleOrNull
 /** "Rent · ₹28,000 per month" for an asset's details; "Price on request" when it has none. */
 internal fun assetPriceLine(d: JsonObject): String {
     val mode = d.str("mode"); val price = d.num("price")?.toLong()
-    val unit = PRICE_UNITS.firstOrNull { it.first == d.str("price_unit").ifBlank { "TOTAL" } }?.second.orEmpty()
-    val money = if (price == null || price == 0L) "Price on request" else rupees(price) + if (unit.isNotBlank() && unit != "Total") " $unit" else ""
+    val unitKey = d.str("price_unit").ifBlank { "TOTAL" }
+    val unit = PRICE_UNITS.firstOrNull { it.first == unitKey }?.second.orEmpty()
+    val money = if (price == null || price == 0L) Str.get(R.string.g6_price_on_request) else if (unit.isNotBlank() && unitKey != "TOTAL") Str.get(R.string.g6_price_with_unit, rupees(price), unit) else rupees(price)
     return listOfNotNull(assetModeLabel(mode).takeIf { mode.isNotBlank() }, money).joinToString(" · ")
 }
 
@@ -79,9 +81,9 @@ internal fun studioIcon(l: ListingRow): ImageVector = if (l.kind == "ASSET") ass
 /** Status pill used on cards and the dashboard. */
 @Composable
 internal fun ListingStatusPill(l: ListingRow, recs: Int) = when (l.status) {
-    "LIVE" -> if (l.online) PillGood(if (l.kind == "ASSET") "Live · available" else "Live · ${onlineLabel(l.kind, true).lowercase()}") else PillGrey("Live · ${onlineLabel(l.kind, false).lowercase()}")
-    "SUSPENDED" -> PillBad(if (l.complianceHold) "Paused: documents" else "Suspended")
-    else -> PillWarn("Not live · $recs of $NEEDED recommendations")
+    "LIVE" -> if (l.online) PillGood(if (l.kind == "ASSET") stringResource(R.string.g6_pill_live_available) else stringResource(R.string.g6_pill_live_state, onlineLabel(l, true))) else PillGrey(stringResource(R.string.g6_pill_live_state, onlineLabel(l, false)))
+    "SUSPENDED" -> PillBad(if (l.complianceHold) stringResource(R.string.g6_pill_paused_docs) else stringResource(R.string.g6_pill_suspended))
+    else -> PillWarn(pluralStringResource(R.plurals.g6_pill_not_live, NEEDED, recs, NEEDED))
 }
 
 /** One step towards going live. [required] steps are what the server checks; the others make the listing worth finding. */
@@ -89,30 +91,37 @@ internal data class GoLiveStep(val title: String, val detail: String, val done: 
 
 /**
  * The go-live checklist for [l]. Targets: EDIT, PHOTOS, ITEMS, VEHICLES, DOCS, RECOMMEND.
- * [items] and [compliance] are null while loading (the step shows as not done yet).
+ * [items] and [compliance] are null while loading (the step shows as not done yet). [type] is the page type of a business,
+ * which words the catalogue step (products, services, programs or events).
  */
-internal fun goLiveSteps(l: ListingRow, items: List<ItemRow>?, compliance: List<ComplianceRow>?, recs: Int, hasVehicle: Boolean): List<GoLiveStep> {
+internal fun goLiveSteps(l: ListingRow, items: List<ItemRow>?, compliance: List<ComplianceRow>?, recs: Int, hasVehicle: Boolean, type: PageType? = null): List<GoLiveStep> {
     val steps = ArrayList<GoLiveStep>()
     val detailsDone = l.description.trim().length >= 20 && (l.kind != "ASSET" || (l.details.num("price") ?: 0.0) > 0)
-    steps += GoLiveStep("Describe it", if (l.kind == "ASSET") "A few lines and the price, so people know what they're looking at." else "A few lines about what you do, so people pick you.", detailsDone, false, action = "Edit", target = "EDIT")
+    steps += GoLiveStep(Str.get(R.string.g6_gl_describe), if (l.kind == "ASSET") Str.get(R.string.g6_gl_describe_asset) else Str.get(R.string.g6_gl_describe_other), detailsDone, false, action = Str.get(R.string.g6_edit), target = "EDIT")
     val photos = !l.photoUrl.isNullOrBlank() || l.gallery.isNotEmpty()
-    steps += GoLiveStep(if (l.kind == "SKILL") "Show your work" else "Add photos", when (l.kind) { "SKILL" -> "Photos of jobs you've done build trust fast."; "ASSET" -> "Listings with 4+ photos get far more enquiries."; else -> "A cover photo and a few of the place or products." }, photos, false, action = "Add", target = "PHOTOS")
+    steps += GoLiveStep(if (l.kind == "SKILL") Str.get(R.string.g6_gl_show_work) else Str.get(R.string.g6_gl_add_photos), when (l.kind) { "SKILL" -> Str.get(R.string.g6_gl_photos_skill); "ASSET" -> Str.get(R.string.g6_gl_photos_asset); else -> Str.get(R.string.g6_gl_photos_other) }, photos, false, action = Str.get(R.string.g6_add), target = "PHOTOS")
     when (l.kind) {
-        "BUSINESS" -> steps += GoLiveStep("Add products", "Put in what you sell with prices, so customers can order.", !items.isNullOrEmpty(), false, action = "Add", target = "ITEMS")
-        "SKILL" -> steps += GoLiveStep("Add services and prices", "\"Tap repair · ₹300 per visit\". People request from this list.", !items.isNullOrEmpty(), false, action = "Add", target = "ITEMS")
-        "DRIVER" -> steps += GoLiveStep("Add your vehicle", "With its RC, insurance and your licence. Bucks checks them before you can go online.", hasVehicle, true, action = "Open", target = "VEHICLES")
+        "BUSINESS" -> { val itemKind = type?.newItemKind ?: "PRODUCT"
+            steps += GoLiveStep(when (itemKind) { "SERVICE" -> Str.get(R.string.g6_gl_add_services); "PROGRAM" -> Str.get(R.string.g6_gl_add_programs); "EVENT" -> Str.get(R.string.g6_gl_add_events); else -> Str.get(R.string.g6_gl_add_products) }, when (itemKind) {
+                "SERVICE" -> Str.get(R.string.g6_gl_services_detail, rupees(200))
+                "PROGRAM" -> Str.get(R.string.g6_gl_programs_detail)
+                "EVENT" -> Str.get(R.string.g6_gl_events_detail)
+                else -> Str.get(R.string.g6_gl_products_detail)
+            }, !items.isNullOrEmpty(), false, action = Str.get(R.string.g6_add), target = "ITEMS") }
+        "SKILL" -> steps += GoLiveStep(Str.get(R.string.g6_gl_add_skill_services), Str.get(R.string.g6_gl_skill_services_detail, rupees(300)), !items.isNullOrEmpty(), false, action = Str.get(R.string.g6_add), target = "ITEMS")
+        "DRIVER" -> steps += GoLiveStep(Str.get(R.string.g6_gl_add_vehicle), Str.get(R.string.g6_gl_add_vehicle_detail), hasVehicle, true, action = Str.get(R.string.g6_open), target = "VEHICLES")
     }
     val needs = compliance.orEmpty().filter { it.required }
     if (l.kind != "DRIVER" && (compliance == null || needs.isNotEmpty())) {
         val verified = needs.count { it.status == "VERIFIED" }; val pending = needs.count { it.status == "PENDING" }
-        steps += GoLiveStep("Documents", when {
-            compliance == null -> "Checking what's needed…"
-            verified == needs.size -> "All ${needs.size} required document${if (needs.size == 1) "" else "s"} checked by Bucks."
-            pending > 0 && verified + pending == needs.size -> "Uploaded. Bucks is checking them."
-            else -> "${needs.size - verified - pending} required document${if (needs.size - verified - pending == 1) "" else "s"} to upload. Only Bucks sees the files."
-        }, compliance != null && verified == needs.size, true, waiting = pending > 0 && verified + pending == needs.size, action = "Upload", target = "DOCS")
+        steps += GoLiveStep(Str.get(R.string.g6_gl_documents), when {
+            compliance == null -> Str.get(R.string.g6_gl_docs_checking)
+            verified == needs.size -> Str.plural(R.plurals.g6_gl_docs_all_checked, needs.size)
+            pending > 0 && verified + pending == needs.size -> Str.get(R.string.g6_gl_docs_uploaded)
+            else -> Str.plural(R.plurals.g6_gl_docs_to_upload, needs.size - verified - pending)
+        }, compliance != null && verified == needs.size, true, waiting = pending > 0 && verified + pending == needs.size, action = Str.get(R.string.g6_upload), target = "DOCS")
     }
-    steps += GoLiveStep("Get recommended", "$recs of $NEEDED people nearby have recommended you in person.", recs >= NEEDED, true, action = "Show code", target = "RECOMMEND")
+    steps += GoLiveStep(Str.get(R.string.g6_gl_get_recommended), Str.plural(R.plurals.g6_gl_recommended_detail, NEEDED, recs, NEEDED), recs >= NEEDED, true, action = Str.get(R.string.g6_gl_show_code), target = "RECOMMEND")
     return steps
 }
 
@@ -127,7 +136,7 @@ internal fun GoLiveRow(s: GoLiveStep, onAction: () -> Unit) {
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(s.title, style = MaterialTheme.typography.titleSmall); if (s.required && !s.done) PillPurple("Needed to go live")
+                Text(s.title, style = MaterialTheme.typography.titleSmall); if (s.required && !s.done) PillPurple(stringResource(R.string.g6_gl_needed))
             }
             Muted(s.detail)
         }
@@ -138,9 +147,9 @@ internal fun GoLiveRow(s: GoLiveStep, onAction: () -> Unit) {
 /** A vehicle document: what it is, whether Bucks needs it before the vehicle can go online, and how to photograph it. */
 internal data class DocKind(val key: String, val label: String, val required: Boolean, val hint: String)
 internal fun vehicleDocKinds(vehicleKind: String) = listOf(
-    DocKind("RC", "Registration certificate (RC)", true, "Both sides, with the number plate readable."),
-    DocKind("INSURANCE", "Insurance", true, "The current policy page showing the vehicle number and dates."),
-    DocKind("DL", "Driving licence", true, "Your licence, both sides. Drivers you invite add theirs from their own phone."),
-    DocKind("PERMIT", "Permit", vehicleKind != "BIKE", if (vehicleKind == "BIKE") "Only if you carry goods commercially." else "Contract carriage or auto permit for passengers."),
-    DocKind("PUC", "Pollution certificate (PUC)", false, "Valid PUC. Not needed for electric vehicles."),
+    DocKind("RC", Str.get(R.string.g6_doc_rc), true, Str.get(R.string.g6_doc_rc_hint)),
+    DocKind("INSURANCE", Str.get(R.string.g6_doc_insurance), true, Str.get(R.string.g6_doc_insurance_hint)),
+    DocKind("DL", Str.get(R.string.g6_doc_dl), true, Str.get(R.string.g6_doc_dl_hint)),
+    DocKind("PERMIT", Str.get(R.string.g6_doc_permit), vehicleKind != "BIKE", if (vehicleKind == "BIKE") Str.get(R.string.g6_doc_permit_hint_bike) else Str.get(R.string.g6_doc_permit_hint)),
+    DocKind("PUC", Str.get(R.string.g6_doc_puc), false, Str.get(R.string.g6_doc_puc_hint)),
 )
