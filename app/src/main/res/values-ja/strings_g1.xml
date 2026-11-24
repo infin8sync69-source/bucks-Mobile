@@ -124,7 +124,6 @@
     <string name="g1_app_data_saver">データセーバー</string>
     <string name="g1_app_data_saver_detail">軽い地図と小さな画像を使います。</string>
     <string name="g1_app_usage">Bucks の改善に協力</string>
-    <string name="g1_app_usage_detail">匿名の利用状況（どの機能が使われているか、どこでつまずいているか）を共有します。投稿、メッセージ、連絡先は送信されません。18 歳未満の方は常にオフです。</string>
     <string name="g1_app_language">アプリの言語</string>
     <string name="g1_app_language_detail">メニュー、ボタン、メッセージ。</string>
     <string name="g1_blocked_empty">ブロック中の人はいません。チャットやプロフィールからブロックできます。</string>

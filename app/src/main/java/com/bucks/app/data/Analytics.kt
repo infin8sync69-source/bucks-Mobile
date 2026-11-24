@@ -35,6 +35,9 @@ object Analytics {
         if (!allowed) fa?.resetAnalyticsData()
     }
 
+    /** True for an adult who hasn't switched usage statistics off; DiscoveryLog follows the same rule. */
+    val isAllowed: Boolean get() = allowed
+
     fun log(event: String, vararg params: Pair<String, Any?>) {
         val a = fa ?: return; if (!allowed) return
         a.logEvent(event, Bundle().apply { params.forEach { (k, v) -> when (v) { is String -> putString(k, v.take(100)); is Int -> putLong(k, v.toLong()); is Long -> putLong(k, v); is Boolean -> putLong(k, if (v) 1 else 0); else -> {} } } })

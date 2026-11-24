@@ -98,18 +98,27 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
     val meId = vm.social.me?.id
     val myDirect = p.reviews.firstOrNull { it.authorId == meId && !it.verified }
     var rateVote by remember { mutableStateOf<Int?>(null) }
-    rateVote?.let { v -> RecommendSheet(vm, l, myDirect, v, onDone = { rateVote = null; tab = "reviews"; d.open(id) }, onDismiss = { rateVote = null }) }
+    // "Did they help?" (HelpAsk): a vote chosen on Home opens the sheet ready; a page already rated is never asked about.
+    var askQuery by remember(id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(id) { com.bucks.app.data.HelpAsk.takeVote(id)?.let { a -> askQuery = a.queryId; rateVote = a.vote } }
+    LaunchedEffect(id, myDirect != null) { if (myDirect != null) com.bucks.app.data.HelpAsk.rated(id) }
+    // Contact counts for the search it came from (DiscoveryLog), and from 12 hours later Home asks whether the page helped (HelpAsk).
+    fun contacted(kind: String) { com.bucks.app.data.DiscoveryLog.acted(kind, id); if (!p.mine && myDirect == null) com.bucks.app.data.HelpAsk.contacted(id, l.title, com.bucks.app.data.DiscoveryLog.queryFor(id)) }
+    rateVote?.let { v -> RecommendSheet(vm, l, myDirect, v, onDone = { voted ->
+        val q = askQuery ?: com.bucks.app.data.HelpAsk.queryFor(id) ?: com.bucks.app.data.DiscoveryLog.queryFor(id)
+        com.bucks.app.data.HelpAsk.rated(id); com.bucks.app.data.DiscoveryLog.voted(id, voted, q); rateVote = null; tab = "reviews"; d.open(id) }, onDismiss = { rateVote = null }) }
     val vk = if (l.kind == "DRIVER") driverKind(l.details, l.category) else null
     val cartCount = vm.commerce.count
     val cartHere = cartCount > 0
     val distance = p.at?.let { formatDistance(Geo.distanceKm(social.here, it) * 1000) }
     val synced = d.isSynced(id)
-    fun share() = shareText(ctx, listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) Str.get(R.string.g3_lp_share, l.title) else Str.get(R.string.g3_lp_share_details, l.title, it) })
-    fun message() = d.startListingChat(id, onOpenChat)
+    fun share() { com.bucks.app.data.DiscoveryLog.acted("SHARE", id); shareText(ctx, listOfNotNull(l.category.ifBlank { null }, l.area.ifBlank { null }).joinToString(", ").let { if (it.isBlank()) Str.get(R.string.g3_lp_share, l.title) else Str.get(R.string.g3_lp_share_details, l.title, it) }) }
+    // What is done here after opening the page from search counts for that search (DiscoveryLog, adults with usage statistics on).
+    fun message() { contacted("MESSAGE"); d.startListingChat(id, onOpenChat) }
     // Shown only when the owner turned calls on; the number is fetched, never part of the page.
     var phone by remember(id) { mutableStateOf<String?>(null) }
     LaunchedEffect(id, l.details) { phone = if (!p.mine && l.details["show_phone"]?.toString()?.trim('"') == "true") Backend.listingPhone(id) else null }
-    fun directions() { p.at?.let { at -> com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
+    fun directions() { contacted("DIRECTIONS"); p.at?.let { at -> com.bucks.app.ui.screens.MapsPick.place = com.bucks.app.data.MapServices.PlaceHit(l.title, l.area, at); onMap() } }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -153,13 +162,13 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                 else {
                     // The page's own action: Book, Get a quote, Volunteer, Join, Directions... A shop has none here; its cart lives in Products.
                     if (type != null && !type.isShop && type.cta != "CART" && (type.cta != "DIRECTIONS" || p.at != null)) PrimaryButton(type.ctaLabel, Modifier.padding(top = 12.dp), enabled = type.cta == "DIRECTIONS" || !d.chatStarting) {
-                        if (type.cta == "DIRECTIONS") directions() else d.startListingChat(id, onOpenChat, PageTypes.ctaMessage(type, l.title))
+                        if (type.cta == "DIRECTIONS") directions() else { contacted(if (type.cta in setOf("BOOK", "HIRE")) "BOOK" else "MESSAGE"); d.startListingChat(id, onOpenChat, PageTypes.ctaMessage(type, l.title)) }
                     }
                     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Button({ message() }, Modifier.weight(1f).height(44.dp), enabled = !d.chatStarting, shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp)) {
                             Icon(Icons.Rounded.Sms, null, Modifier.size(18.dp)); Text(stringResource(R.string.g3_lp_message), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp)) }
-                        SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { d.syncListing(id, !synced) }
-                        phone?.let { num -> HeaderIcon(Icons.Rounded.Call, stringResource(R.string.g3_cd_call)) { com.bucks.app.ui.dial(ctx, num) } }
+                        SyncButton(synced, busy = id in d.syncing, Modifier.weight(1f)) { if (!synced) com.bucks.app.data.DiscoveryLog.acted("SYNC", id); d.syncListing(id, !synced) }
+                        phone?.let { num -> HeaderIcon(Icons.Rounded.Call, stringResource(R.string.g3_cd_call)) { contacted("CALL"); com.bucks.app.ui.dial(ctx, num) } }
                         HeaderIcon(Icons.Rounded.IosShare, stringResource(R.string.g3_cd_share)) { share() }
                         if (!p.mine) com.bucks.app.ui.social.LocalReporter.current?.let { rep -> HeaderIcon(Icons.Rounded.OutlinedFlag, stringResource(R.string.g3_cd_report_page)) { rep(com.bucks.app.ui.social.ReportTarget("LISTING", id, l.ownerId, l.title)) } }
                         if (p.at != null) HeaderIcon(Icons.Rounded.Place, stringResource(R.string.g3_home_directions)) { directions() }
@@ -167,7 +176,7 @@ fun ListingProfileScreen(vm: BucksViewModel, id: String, onBack: () -> Unit, onO
                     }
                 }
                 if (l.kind == "ASSET" && !p.mine) PrimaryButton(if (l.details.str("mode") == "SELL") stringResource(R.string.g3_lp_enquire_buy) else stringResource(R.string.g3_lp_enquire_rent), Modifier.padding(top = 12.dp), enabled = !d.chatStarting) {
-                    d.startListingChat(id, onOpenChat, Str.get(R.string.g3_lp_msg_interested, l.title)) }
+                    contacted("MESSAGE"); d.startListingChat(id, onOpenChat, Str.get(R.string.g3_lp_msg_interested, l.title)) }
                 if (l.kind == "DRIVER" && !p.mine) {
                     if (vk != null && vk.carriesPassengers) {
                         PrimaryButton(stringResource(R.string.g3_lp_book, vk.label.lowercase()), Modifier.padding(top = 12.dp)) { onBook(vk) }
@@ -264,7 +273,7 @@ private fun RateButton(up: Boolean, mine: Boolean, modifier: Modifier, onClick: 
 /** Comment box that opens on a recommend / not recommend tap; the vote and comment land in the Reviews tab. Works for shops, pros, assets and drivers. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, initial: Int, onDone: () -> Unit, onDismiss: () -> Unit) {
+private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, initial: Int, onDone: (Int) -> Unit, onDismiss: () -> Unit) {
     var vote by remember { mutableStateOf(initial) }
     var text by remember { mutableStateOf(mine?.comment.orEmpty()) }; var reason by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -281,10 +290,10 @@ private fun RecommendSheet(vm: BucksViewModel, l: ListingRow, mine: ReviewRow?, 
             OutlinedTextField(text, { text = it.take(500) }, Modifier.padding(top = 12.dp).fillMaxWidth(), placeholder = { Text(if (vote > 0) stringResource(R.string.g3_lp_rec_liked) else stringResource(R.string.g3_lp_rec_more)) }, minLines = 3, maxLines = 6, supportingText = { Text("${text.length}/500") })
             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ scope.launch { busy = true
-                    runCatching { Backend.rateListing(l.id, vote, text.trim(), if (vote < 0) reason else null) }.onSuccess { vm.toast(Str.get(R.string.g3_lp_rec_posted)); onDone() }.onFailure { vm.toast(friendly(it)) }
+                    runCatching { Backend.rateListing(l.id, vote, text.trim(), if (vote < 0) reason else null) }.onSuccess { vm.toast(Str.get(R.string.g3_lp_rec_posted)); onDone(vote) }.onFailure { vm.toast(friendly(it)) }
                     busy = false } }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(if (busy) stringResource(R.string.g3_sending) else if (mine != null) stringResource(R.string.g3_lp_update) else stringResource(R.string.g3_lp_submit)) }
                 if (mine != null) TextButton({ scope.launch { busy = true
-                    runCatching { Backend.clearListingRating(l.id) }.onSuccess { vm.toast(Str.get(R.string.g3_lp_rec_removed)); onDone() }.onFailure { vm.toast(friendly(it)) }
+                    runCatching { Backend.clearListingRating(l.id) }.onSuccess { vm.toast(Str.get(R.string.g3_lp_rec_removed)); onDone(0) }.onFailure { vm.toast(friendly(it)) }
                     busy = false } }, Modifier.heightIn(min = 48.dp), enabled = !busy) { Text(stringResource(R.string.g3_lp_remove_mine), color = st.bad) }
             }
         }

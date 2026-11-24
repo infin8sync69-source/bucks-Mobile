@@ -58,6 +58,8 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
         d.refreshSyncs()
     }
     LaunchedEffect(d.query) { if (d.query.isNotBlank()) delay(300); d.search() }
+    // Search events wait in a batch; send them when the screen closes (DiscoveryLog).
+    DisposableEffect(Unit) { onDispose { com.bucks.app.data.DiscoveryLog.flush() } }
     // Places (streets, landmarks, towns) from the map search sit under the same bar; tapping one opens it on the map with directions.
     var places by remember { mutableStateOf<List<com.bucks.app.data.MapServices.PlaceHit>>(emptyList()) }
     LaunchedEffect(d.query) {
@@ -108,7 +110,7 @@ fun CloudSearchScreen(vm: BucksViewModel, onBack: () -> Unit, onOpenListing: (St
                     if (d.results.isNotEmpty()) Muted(d.area?.let { pluralStringResource(R.plurals.g1_search_count_area, d.results.size, d.results.size, d.radiusKm, it.first) } ?: pluralStringResource(R.plurals.g1_search_count, d.results.size, d.results.size, d.radiusKm))
                 }
             }
-            items(d.results, key = { it.id }) { h -> Box(Modifier.padding(start = Gutter, end = Gutter, bottom = 12.dp)) { ListingCard(h) { onOpenListing(h.id) } } }
+            items(d.results, key = { it.id }) { h -> Box(Modifier.padding(start = Gutter, end = Gutter, bottom = 12.dp)) { ListingCard(h) { d.opened(h.id); onOpenListing(h.id) } } }
             if (d.searched && !d.searching && d.results.isEmpty()) item { EmptyResults(vm) }
         }
     }
@@ -139,6 +141,14 @@ private fun EmptyResults(vm: BucksViewModel) {
         }, Modifier.padding(top = 6.dp), align = TextAlign.Center)
         if (wider != null) SmallButton(stringResource(R.string.g1_search_wider, wider), Modifier.padding(top = 14.dp)) { d.setRadius(wider) }
         if (d.kind != KindFilter.ALL) TextButton({ d.selectKind(KindFilter.ALL) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g1_search_show_all)) }
+        // Nothing here yet: hear when one joins, or bring one in (the demand loop, docs/DISCOVERY_ALGORITHMS.md §4.6).
+        if (q.isNotBlank() && com.bucks.app.data.Backend.enabled) {
+            val asked = q.lowercase() in d.notifyAsked
+            SmallButton(stringResource(if (asked) R.string.g1_search_notify_done else R.string.g1_search_notify_me), Modifier.padding(top = 14.dp), tonal = wider != null, enabled = !asked) { d.wantNotify() }
+            val ctx = androidx.compose.ui.platform.LocalContext.current; val scope = rememberCoroutineScope()
+            val invite = stringResource(R.string.g1_search_invite_message, q)
+            TextButton({ com.bucks.app.ui.Invite.share(ctx, scope, invite) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.g1_search_invite)) }
+        }
     }
 }
 

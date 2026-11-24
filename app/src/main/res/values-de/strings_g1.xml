@@ -125,7 +125,6 @@
     <string name="g1_app_data_saver">Datensparmodus</string>
     <string name="g1_app_data_saver_detail">Leichtere Karten und kleinere Bilder.</string>
     <string name="g1_app_usage">Bucks verbessern helfen</string>
-    <string name="g1_app_usage_detail">Anonyme Nutzungsstatistiken teilen (welche Funktionen genutzt werden, wo Leute hängen bleiben). Nie deine Beiträge, Nachrichten oder Kontakte. Für Personen unter 18 immer aus.</string>
     <string name="g1_app_language">App-Sprache</string>
     <string name="g1_app_language_detail">Menüs, Buttons und Meldungen.</string>
     <string name="g1_blocked_empty">Niemand ist blockiert. Blockiere jemanden im Chat oder in seinem Profil.</string>
