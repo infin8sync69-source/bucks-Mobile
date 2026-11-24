@@ -43,6 +43,8 @@ public final class Prefs {
     public private(set) var mediaDownload: MediaDownload
     public private(set) var reduceMotion: Bool
     public private(set) var dataSaver: Bool
+    /// Usage statistics (Help improve Bucks): on unless switched off. Only adults are ever measured; see `AppSession.setShareUsage` and DiscoveryLog.
+    public private(set) var shareUsage: Bool
     public private(set) var language: String
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -57,6 +59,7 @@ public final class Prefs {
         mediaDownload = MediaDownload(rawValue: defaults.string(forKey: "media") ?? "") ?? .wifi
         reduceMotion = defaults.bool(forKey: "reduceMotion")
         dataSaver = defaults.bool(forKey: "dataSaver")
+        shareUsage = defaults.object(forKey: "shareUsage") as? Bool ?? true
         language = defaults.string(forKey: "language") ?? "en"
     }
 
@@ -66,6 +69,7 @@ public final class Prefs {
     public func chooseMediaDownload(_ m: MediaDownload) { mediaDownload = m; defaults.set(m.rawValue, forKey: "media") }
     public func enableReduceMotion(_ v: Bool) { reduceMotion = v; defaults.set(v, forKey: "reduceMotion") }
     public func enableDataSaver(_ v: Bool) { dataSaver = v; defaults.set(v, forKey: "dataSaver") }
+    public func enableShareUsage(_ v: Bool) { shareUsage = v; defaults.set(v, forKey: "shareUsage") }
     public func chooseLanguage(_ tag: String) { language = tag; defaults.set(tag, forKey: "language") }
 
     /// The text size multiplier (Small 0.9 … Huge 1.3).

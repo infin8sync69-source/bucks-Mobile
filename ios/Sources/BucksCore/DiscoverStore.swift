@@ -78,6 +78,9 @@ public final class DiscoverStore {
     public private(set) var top: [SearchHit] = []
     public private(set) var topLoaded = false
 
+    /// The id of the search whose results are on screen, for DiscoveryLog (nil when logging is off).
+    @ObservationIgnored public private(set) var lastQueryId: String?
+
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var searchSeq = 0
     @ObservationIgnored private var syncsLoaded = false
@@ -95,14 +98,32 @@ public final class DiscoverStore {
         searchTask?.cancel()
         searchSeq += 1
         let n = searchSeq
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines), at = session.here, radius = radiusKm * 1000, kinds = kind.kinds, services = service.map { [$0] }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines), at = session.here, radius = radiusKm * 1000, chip = kind, svc = service
         searchTask = Task { @MainActor in
             searching = true
-            do { let hits = try await Backend.shared.search(q, at: at, radiusM: radius, kinds: kinds, services: services); guard n == searchSeq else { return }; results = hits; searched = true }
+            let started = Date()
+            do {
+                let hits = try await Backend.shared.search(q, at: at, radiusM: radius, kinds: chip.kinds, services: svc.map { [$0] }); guard n == searchSeq else { return }; results = hits; searched = true
+                logSearch(q: q, at: at, radiusM: radius, chip: chip, service: svc, hits: hits, ms: Int(Date().timeIntervalSince(started) * 1000))
+            }
             catch is CancellationError {}
             catch { if n == searchSeq { session.toast(friendlyError(error)) } }
             if n == searchSeq { searching = false }
         }
+    }
+    /// What was searched and shown, for measuring search (adults with usage statistics on only; see DiscoveryLog).
+    private func logSearch(q: String, at: LatLng, radiusM: Int, chip: KindFilter, service: String?, hits: [SearchHit], ms: Int) {
+        let log = DiscoveryLog.shared
+        guard log.on else { lastQueryId = nil; return }
+        let qid = log.newId(); lastQueryId = qid
+        log.search(qid, surface: service != nil && q.isEmpty ? "SERVICES" : "SEARCH", q: q.isEmpty ? nil : q, at: at, radiusM: radiusM,
+                   filters: ["kind": chip.rawValue.uppercased(), "service": service], n: hits.count, ms: ms)
+        log.shown(qid, listingIds: hits.prefix(10).map(\.id))
+    }
+    /// A result of the search on screen was opened (DiscoveryLog: which one, at which position).
+    public func opened(_ id: String) {
+        guard let qid = lastQueryId else { return }
+        DiscoveryLog.shared.opened(qid, listingId: id, position: results.firstIndex { $0.id == id } ?? 0)
     }
     public func selectKind(_ k: KindFilter) { if kind != k { kind = k; search() } }
     public func setRadius(_ km: Int) { if radiusKm != km { radiusKm = km; search() } }
@@ -177,7 +198,7 @@ public final class DiscoverStore {
     /// Sign-out and account deletion: results, profiles (which carry "mine" and "synced") and my listing syncs belong to this person only.
     public func signedOut() {
         searchTask?.cancel(); searchTask = nil; searchSeq += 1
-        query = ""; service = nil; results = []; searching = false; searched = false; pendingQuery = ""
+        query = ""; service = nil; results = []; searching = false; searched = false; pendingQuery = ""; lastQueryId = nil
         profiles = [:]; loading = []; missing = []; failed = []
         mySyncs = []; syncing = []; syncsLoaded = false
         top = []; topLoaded = false

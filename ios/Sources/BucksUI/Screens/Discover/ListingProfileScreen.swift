@@ -74,7 +74,10 @@ struct ListingProfileScreen: View {
             .scrollBounceBehavior(.basedOnSize)
             .ignoresSafeArea(edges: .top)
             .sheet(isPresented: Binding(get: { rateVote != nil }, set: { if !$0 { rateVote = nil } })) {
-                RecommendSheet(listing: l, mine: myDirect, initial: rateVote ?? 1) { rateVote = nil; tab = "reviews"; d.open(id) }
+                // The ↑ or ↓ saved is the outcome of the search the page came from (DiscoveryLog.voted; 0 = the review was removed).
+                RecommendSheet(listing: l, mine: myDirect, initial: rateVote ?? 1) { voted in
+                    DiscoveryLog.shared.voted(id, vote: voted, queryId: DiscoveryLog.shared.queryFor(id)); rateVote = nil; tab = "reviews"; d.open(id)
+                }
             }
             if l.kind == "BUSINESS" && l.online && cartCount > 0 && current == "products" {
                 DarkButton("View cart · \(plural(cartCount, "item"))") { router.push(.cart) }.padding(Gutter)
@@ -82,7 +85,9 @@ struct ListingProfileScreen: View {
         } }
     }
 
-    private func message() { d.startListingChat(id) { router.push(.chat($0)) } }
+    // What is done here after opening the page from search counts for that search (DiscoveryLog, adults with usage statistics on):
+    // Message (here and in Products), Enquire, Sync, Share, Directions and the recommend sheet's vote, as on Android.
+    private func message() { DiscoveryLog.shared.acted("MESSAGE", listingId: id); d.startListingChat(id) { router.push(.chat($0)) } }
 
     private func shareText(_ l: ListingRow) -> String {
         let extra = [l.category, l.area].filter { !$0.isEmpty }.joined(separator: ", ")
@@ -145,7 +150,8 @@ private struct ProfileCover: View {
                 if listing.ownerId != session.me?.id {
                     coverButton("flag", "Report this page") { session.reportTarget = ReportTarget(kind: "LISTING", targetId: listing.id, ownerId: listing.ownerId, ownerName: listing.title) }
                 }
-                ShareLink(item: shareText) { coverIcon("square.and.arrow.up") }.buttonStyle(.plain).accessibilityLabel("Share")
+                ShareLink(item: shareText) { coverIcon("square.and.arrow.up") }.buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { _ in DiscoveryLog.shared.acted("SHARE", listingId: listing.id) }).accessibilityLabel("Share")
             }.padding(8).padding(.top, top).frame(maxHeight: .infinity, alignment: .top)
             ZStack {
                 Circle().fill(BucksColor.primaryContainer)
@@ -231,9 +237,11 @@ private struct ProfileHeader: View {
                         .foregroundStyle(BucksColor.onPrimary).padding(.horizontal, 12).frame(minWidth: 0, maxWidth: .infinity).frame(height: 44)
                         .background(RoundedRectangle(cornerRadius: BucksRadius.small, style: .continuous).fill(BucksColor.primary)).opacity(d.chatStarting ? 0.4 : 1)
                     }.buttonStyle(.plain).disabled(d.chatStarting)
-                    SyncButton(synced: synced, busy: d.syncing.contains(l.id)) { d.syncListing(l.id, on: !synced) }
-                    ShareLink(item: shareText) { HeaderIconFace(systemImage: "square.and.arrow.up") }.buttonStyle(.plain).accessibilityLabel("Share")
-                    if let at = p.at { HeaderIcon(systemImage: "mappin.and.ellipse", label: "Directions") { openMapsTo(router, name: l.title, detail: l.area, at: at) } }
+                    SyncButton(synced: synced, busy: d.syncing.contains(l.id)) { if !synced { DiscoveryLog.shared.acted("SYNC", listingId: l.id) }; d.syncListing(l.id, on: !synced) }
+                    // ShareLink has no action of its own; the tap is counted alongside it, never instead of it.
+                    ShareLink(item: shareText) { HeaderIconFace(systemImage: "square.and.arrow.up") }.buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded { _ in DiscoveryLog.shared.acted("SHARE", listingId: l.id) }).accessibilityLabel("Share")
+                    if let at = p.at { HeaderIcon(systemImage: "mappin.and.ellipse", label: "Directions") { DiscoveryLog.shared.acted("DIRECTIONS", listingId: l.id); openMapsTo(router, name: l.title, detail: l.area, at: at) } }
                     if l.kind == "BUSINESS" && cartHere && l.online {
                         HeaderIcon(systemImage: "cart.fill", label: "Order", on: true, action: onCart)
                             .overlay(alignment: .topTrailing) { Text("\(session.commerce.count)").bucks(.labelSmall).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(BucksColor.error)).offset(x: 6, y: -6) }
@@ -242,6 +250,7 @@ private struct ProfileHeader: View {
             }
             if l.kind == "ASSET" && !p.mine {
                 PrimaryButton(l.details.str("mode") == "SELL" ? "Enquire about buying" : "Enquire about renting", enabled: !d.chatStarting) {
+                    DiscoveryLog.shared.acted("MESSAGE", listingId: l.id)
                     d.startListingChat(l.id, firstLine: "Hi, I'm interested in \(l.title). Is it still available?") { router.push(.chat($0)) }
                 }.padding(.top, 12)
             }
@@ -364,7 +373,8 @@ private struct RecommendSheet: View {
     let listing: ListingRow
     let mine: ReviewRow?
     let initial: Int
-    var onDone: () -> Void
+    /// The vote that was saved: 1 or -1, or 0 when the review was removed.
+    var onDone: (Int) -> Void
     @Environment(AppSession.self) private var session
     @State private var vote = 1
     @State private var text = ""
@@ -398,14 +408,14 @@ private struct RecommendSheet: View {
     private func submit() {
         Task {
             busy = true; defer { busy = false }
-            do { try await Backend.shared.rateListing(listing.id, vote: vote, comment: text.trimmingCharacters(in: .whitespacesAndNewlines)); session.toast("Thanks, your review is posted."); onDone() }
+            do { try await Backend.shared.rateListing(listing.id, vote: vote, comment: text.trimmingCharacters(in: .whitespacesAndNewlines)); session.toast("Thanks, your review is posted."); onDone(vote) }
             catch { session.toast(friendlyError(error)) }
         }
     }
     private func remove() {
         Task {
             busy = true; defer { busy = false }
-            do { try await Backend.shared.clearListingRating(listing.id); session.toast("Your review was removed."); onDone() }
+            do { try await Backend.shared.clearListingRating(listing.id); session.toast("Your review was removed."); onDone(0) }
             catch { session.toast(friendlyError(error)) }
         }
     }

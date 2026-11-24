@@ -91,4 +91,12 @@ extension Backend {
     func discoverSend(conversation: String, me: String, body: String) async throws {
         try await insertVoid("messages", ["conversation_id": conversation, "sender_id": me, "body": body])
     }
+
+    // MARK: search measurement (supabase/migrations/discovery_log.sql, DiscoveryLog.swift)
+
+    /// Sends a batch of search events (at most 200); returns how many the server kept.
+    @discardableResult
+    public func logDiscovery(_ events: [[String: Any]]) async throws -> Int { try await rpc("log_discovery", ["p_events": events]) }
+    /// Deletes this person's search events on the server; called when usage statistics are switched off.
+    public func discoveryForgetMe() async throws { try await rpcVoid("discovery_forget_me") }
 }

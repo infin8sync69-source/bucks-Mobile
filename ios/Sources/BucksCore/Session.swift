@@ -58,6 +58,9 @@ public final class AppSession: DispatchHost {
     public private(set) var needsBirthDate = false
     /// Under 18 with no guardian consent yet: the guardian step comes before anything else (Safety.pendingStep on Android).
     public private(set) var needsGuardian = false
+    /// My age band from the server (my_safety, set_birth_date): ADULT, TEEN or CHILD; UNKNOWN until it is known and after sign-out.
+    /// Search measurement (DiscoveryLog) is only ever on for ADULT.
+    public private(set) var ageBand = "UNKNOWN"
     /// The Terms version I still have to accept (new on iOS, or changed since I accepted): TermsScreen comes before anything else.
     public private(set) var termsNeeded: String?
     /// Set on this phone once a date of birth below the sign-up age was entered; the app stays closed to it (as on Android).
@@ -174,7 +177,7 @@ public final class AppSession: DispatchHost {
                 phase = (p.name.isEmpty && (user?.name.isEmpty ?? true)) ? .needsProfile : .ready
                 dispatch.startDriversFeed(); dispatch.resume(); social.signedIn(); registerPushIfSignedIn()
                 // A failed read asks again at the next launch rather than locking someone out on a bad connection.
-                if let s = try? await Backend.shared.mySafety() { needsBirthDate = !s.birthDateSet; needsGuardian = s.guardianConsent == false }
+                if let s = try? await Backend.shared.mySafety() { needsBirthDate = !s.birthDateSet; needsGuardian = s.guardianConsent == false; setAgeBand(s.ageBand) }
                 if let t = try? await Backend.shared.termsStatus(), t.needed { termsNeeded = t.current }
                 return
             } catch is CancellationError { return } catch {
@@ -219,7 +222,7 @@ public final class AppSession: DispatchHost {
     }
 
     public func setBirthDate(_ isoDate: String) async -> String? {
-        do { let band = try await Backend.shared.setBirthDate(isoDate); needsBirthDate = false; needsGuardian = band == "TEEN" || band == "CHILD"; return nil }
+        do { let band = try await Backend.shared.setBirthDate(isoDate); needsBirthDate = false; needsGuardian = band == "TEEN" || band == "CHILD"; setAgeBand(band); return nil }
         catch {
             if errorCode(error) == "BK_NOT_ELIGIBLE" || friendlyError(error).lowercased().contains("not eligible") {
                 defaults.set(true, forKey: "ageBlocked"); ageBlocked = true
@@ -270,7 +273,21 @@ public final class AppSession: DispatchHost {
         // Cart, orders, search results, listings, jobs, chats and the feed belong to the person who signed out, not the next account on this phone.
         commerce.signedOut(); discover.signedOut(); listings.signedOut(); services.signedOut(); jobs.signedOut(); social.signedOut(); chat.signedOut(); feed.clear()
         me = nil; user = nil; names = [:]; reviewAnchor = nil; needsBirthDate = false; needsGuardian = false; termsNeeded = nil; reportTarget = nil; tempPhone = ""; otpStatus = ""; rideDest = nil; ridePickup = nil; pending = nil; earningsToday = 0
+        // Search events still waiting belong to the person who signed out: dropped, never sent under the next account.
+        setAgeBand("UNKNOWN")
         defaults.removeObject(forKey: "storedUser")
+    }
+
+    // MARK: usage statistics
+
+    /// Search measurement follows my age band and my choice in Settings (Safety.applyAnalytics on Android).
+    func applyUsage() { DiscoveryLog.shared.configure(band: ageBand, optedIn: Prefs.shared.shareUsage) }
+    private func setAgeBand(_ band: String) { ageBand = band; applyUsage() }
+    /// Settings › Appearance and data › Help improve Bucks. Switching it off also deletes what search measurement kept on the server
+    /// (discovery_forget_me).
+    public func setShareUsage(_ on: Bool) {
+        Prefs.shared.enableShareUsage(on); applyUsage()
+        if !on { DiscoveryLog.shared.forgetMe() }
     }
 
     // MARK: location
