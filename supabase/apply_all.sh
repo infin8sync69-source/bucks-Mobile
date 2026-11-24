@@ -73,6 +73,7 @@ files=(
   migrations/review_accounts.sql
   migrations/trip_safety.sql
   migrations/swarm_core.sql
+  migrations/intent_tier1.sql
 )
 
 case "${1:-}" in

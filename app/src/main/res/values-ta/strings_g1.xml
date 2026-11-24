@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">டெஸ்ட் அனுப்பு</string>
     <string name="g1_voice_title">குரல் மற்றும் AI</string>
     <string name="g1_voice_language">குரல் மொழி</string>
-    <string name="g1_voice_cloud">கிளவுட் புரிதல்</string>
-    <string name="g1_voice_cloud_on">Gemini உங்கள் இயல்பான பேச்சுக் கட்டளைகளைப் புரிந்துகொள்ளும். கட்டளையின் வார்த்தைகள் மட்டுமே அனுப்பப்படும்; PIN, பேமென்ட், ஆவணங்கள் ஒருபோதும் அனுப்பப்படாது.</string>
-    <string name="g1_voice_cloud_off">ஆஃப். உள்ளமைந்த விதிகள் ஆஃப்லைனில் வேலை செய்யும்.</string>
     <string name="g1_set_build_checking">பில்டு %1$s · சரிபார்க்கிறது…</string>
     <string name="g1_set_build_switch">பில்டு %1$s · புதிய பில்டுக்கு மாறவும்</string>
     <string name="g1_set_build_play">பில்டு %1$s · Play Store மூலம் அப்டேட் ஆகும்</string>

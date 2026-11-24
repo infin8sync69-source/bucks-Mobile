@@ -142,9 +142,6 @@
     <string name="g1_notif_send_test">发送测试</string>
     <string name="g1_voice_title">语音和 AI</string>
     <string name="g1_voice_language">语音语言</string>
-    <string name="g1_voice_cloud">云端理解</string>
-    <string name="g1_voice_cloud_on">Gemini 能理解自由表达的指令。只发送指令文字，绝不发送 PIN、付款或证件信息。</string>
-    <string name="g1_voice_cloud_off">已关闭。内置规则可离线使用。</string>
     <string name="g1_set_build_checking">版本 %1$s · 正在检查…</string>
     <string name="g1_set_build_switch">版本 %1$s · 切换到最新版本</string>
     <string name="g1_set_build_play">版本 %1$s · 通过 Play 商店更新</string>

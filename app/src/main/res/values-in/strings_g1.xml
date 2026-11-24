@@ -142,9 +142,6 @@
     <string name="g1_notif_send_test">Kirim tes</string>
     <string name="g1_voice_title">Suara dan AI</string>
     <string name="g1_voice_language">Bahasa suara</string>
-    <string name="g1_voice_cloud">Pemahaman cloud</string>
-    <string name="g1_voice_cloud_on">Gemini memahami perintah bebas. Hanya teks perintah yang dikirim, tidak pernah PIN, pembayaran atau dokumen.</string>
-    <string name="g1_voice_cloud_off">Mati. Aturan bawaan bekerja offline.</string>
     <string name="g1_set_build_checking">Build %1$s · Mengecek…</string>
     <string name="g1_set_build_switch">Build %1$s · Pindah ke build terbaru</string>
     <string name="g1_set_build_play">Build %1$s · Diperbarui lewat Play Store</string>

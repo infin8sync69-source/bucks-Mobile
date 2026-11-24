@@ -25,6 +25,8 @@ i="$(grep -rhoE 'rpc(List|Void)?\("[a-z_0-9]+"' $SW | sed -E 's/rpc(List|Void)?\
 missing=""
 for r in $(comm -23 <(echo "$a") <(echo "$i")); do grep -q "\`$r\`" docs/PARITY.md || missing="$missing $r"; done
 if [ -n "$missing" ]; then echo "✗ Backend calls Android makes that iOS doesn't, and docs/PARITY.md doesn't list:$missing"; fail=1; else echo "✓ Every Android-only backend call is listed in docs/PARITY.md"; fi
+# The on-device intent model must be given exactly the tools it was trained on.
+if cmp -s ml/intent/tools.json app/src/main/assets/intent_tools.json; then echo "✓ The app's intent tools match ml/intent/tools.json"; else echo "✗ app/src/main/assets/intent_tools.json differs from ml/intent/tools.json (the model's training tools)"; fail=1; fi
 big="$(git ls-files -z | xargs -0 du -k 2>/dev/null | awk '$1 > 1024' | grep -v 'supabase/seed/' || true)"
 if [ -n "$big" ]; then echo "✗ Files over 1 MB outside supabase/seed"; echo "$big"; fail=1; else echo "✓ No files over 1 MB outside the seed data"; fi
 exit $fail

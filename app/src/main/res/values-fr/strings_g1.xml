@@ -144,9 +144,6 @@
     <string name="g1_notif_send_test">Envoyer un test</string>
     <string name="g1_voice_title">Voix et IA</string>
     <string name="g1_voice_language">Langue de la voix</string>
-    <string name="g1_voice_cloud">Compréhension dans le cloud</string>
-    <string name="g1_voice_cloud_on">Gemini comprend les commandes libres. Seul le texte de la commande est envoyé, jamais les PIN, paiements ou documents.</string>
-    <string name="g1_voice_cloud_off">Désactivé. Les règles intégrées fonctionnent hors ligne.</string>
     <string name="g1_set_build_checking">Version %1$s · Vérification…</string>
     <string name="g1_set_build_switch">Version %1$s · Passer à la dernière version</string>
     <string name="g1_set_build_play">Version %1$s · Mises à jour via le Play Store</string>

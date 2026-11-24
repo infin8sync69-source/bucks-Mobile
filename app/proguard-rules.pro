@@ -21,3 +21,8 @@
 -dontwarn org.slf4j.**
 -dontwarn java.lang.management.**
 -dontwarn io.ktor.util.debug.**
+
+# LiteRT-LM (on-device intent model): the native library calls back into these classes and reads config fields over JNI, and the
+# AAR ships no consumer rules. Gson (its JSON) is reached reflectively too.
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**

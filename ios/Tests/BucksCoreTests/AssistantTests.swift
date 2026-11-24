@@ -63,42 +63,11 @@ import Testing
         for s in ["Bike to Koramangala", "auto to MG Road", "yes", "Show my orders", "compare sugar", "post a request for x", "go online", "take me home", "book a table", "sort price", "cancel"] { #expect(isAgentQuery(s), "\(s)") }
         for s in ["sugar", "biriyani", "plumber", "doctor", "Find a doctor"] { #expect(!isAgentQuery(s), "\(s)") }
     }
-    @Test func routerFallsBackToHelpAndNeverCallsCloudWithoutAKey() async {
-        let r = IntentRouter(cloud: GeminiIntentEngine(apiKey: ""))
-        #expect(!r.cloudEnabled)
+    @Test func routerFallsBackToHelp() async {
+        let r = IntentRouter()
         #expect(await r.parse("Auto to MG Road", context: "").tool == Tools.ride)
         #expect(await r.parse("order sugar", context: "").tool == Tools.search)
         #expect(await r.parse("hi", context: "").tool == Tools.help)
-    }
-}
-
-@Suite struct GeminiIntentTests {
-    private func reply(_ text: String) -> Data {
-        let body: [String: Any] = ["candidates": [["content": ["parts": [["text": text]]]]]]
-        return (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
-    }
-    @Test func parsesPlainAndFencedJson() {
-        let a = GeminiIntentEngine.parseReply(reply(#"{"tool":"request_ride","args":{"vehicle":"CAB","destination":"MG Road"},"confidence":0.95}"#))
-        #expect(a?.tool == Tools.ride); #expect(a?.args["vehicle"] == "CAB"); #expect(a?.source == "gemini"); #expect(a?.confidence == 0.95)
-        let b = GeminiIntentEngine.parseReply(reply("```json\n{\"tool\":\"search_marketplace\",\"args\":{\"query\":\"sugar\"}}\n```"))
-        #expect(b?.tool == Tools.search); #expect(b?.confidence == 0.8)
-    }
-    @Test func rejectsUnknownToolsAndGarbage() {
-        #expect(GeminiIntentEngine.parseReply(reply(#"{"tool":"transfer_money","args":{"to":"x"}}"#)) == nil)
-        #expect(GeminiIntentEngine.parseReply(reply("sorry I can't")) == nil)
-        #expect(GeminiIntentEngine.parseReply(Data("{}".utf8)) == nil)
-    }
-    @Test func clampsConfidenceAndStringifiesArgs() {
-        let c = GeminiIntentEngine.parseReply(reply(#"{"tool":"help","args":{"n":5,"z":null},"confidence":7}"#))
-        #expect(c?.confidence == 1); #expect(c?.args["n"] == "5"); #expect(c?.args["z"] == "")
-    }
-    @Test func disabledWithoutAKeyAndPromptCarriesTheCatalogue() async {
-        let e = GeminiIntentEngine(apiKey: "")
-        #expect(!e.enabled); #expect(await e.parse("auto", context: "") == nil)
-        let p = GeminiIntentEngine(apiKey: "k").prompt("auto to mg road", context: "user area=X")
-        #expect(p.contains("request_ride")); #expect(p.contains("Context: user area=X")); #expect(p.contains("Known places: Koramangala, Bengaluru, Nexus Mall, Koramangala"))
-        #expect(p.hasSuffix("Command: \"auto to mg road\""))
-        #expect(GeminiIntentEngine(apiKey: "k").model == "gemini-2.5-flash-lite")
     }
 }
 

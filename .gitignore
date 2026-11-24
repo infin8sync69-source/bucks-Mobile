@@ -12,3 +12,9 @@ build/
 .idea/
 *.jks
 /app/google-services.json
+
+# On-device intent model (ml/intent/README.md): converted models, checkpoints and generated data stay out of git.
+ml/intent/out/
+ml/intent/dataset.jsonl
+ml/intent/review.csv
+ml/intent/__pycache__/

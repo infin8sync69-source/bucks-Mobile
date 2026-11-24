@@ -1,0 +1,1156 @@
+{"lang": "en", "text": "videos on festival", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "festival"}}}
+{"lang": "ml-Latn", "text": "paneer kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "paneer"}}}
+{"lang": "ml-Latn", "text": "electrician nu request idu", "call": {"name": "post_request", "arguments": {"what": "electrician"}}}
+{"lang": "hi-Latn", "text": "chalega", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "ml-Latn", "text": "Banashankariyilekku pokanam taxi book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Banashankari"}}}
+{"lang": "ml-Latn", "text": "sangeetham video undo", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "sangeetham"}}}
+{"lang": "en", "text": "I have to reach Banashankari, get a auto rickshaw", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "ml-Latn", "text": "enna kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "hi", "text": "मेरे दोस्त रवि को खोजो", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "रवि"}}}
+{"lang": "ml-Latn", "text": "doctor kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "doctor"}}}
+{"lang": "ml-Latn", "text": "ettavum aduthullathu", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "ml-Latn", "text": "vegam Banashankariyilekku bike venam", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Banashankari"}}}
+{"lang": "hi", "text": "मत करो", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "ml-Latn", "text": "atta nu request idu", "call": {"name": "post_request", "arguments": {"what": "wheat flour"}}}
+{"lang": "kn", "text": "ಮದುವೆ ಬಗ್ಗೆ ಜನ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಮದುವೆ"}}}
+{"lang": "hi", "text": "जल्दी से एयरपोर्ट के लिए रिक्शा भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "kn", "text": "ವೈಟ್‌ಫೀಲ್ಡ್‌ಗೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "en", "text": "I want a cab now", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "ta", "text": "ஒரு பைக் அனுப்புங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "en", "text": "show my requests", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "kn-Latn", "text": "hathradalli sakkare ideya", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "hi", "text": "कोरमंगला पहुँचना है, बाइक कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "te", "text": "నా ప్రయాణాలు", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "hi", "text": "नए वीडियो", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "ta", "text": "பக்கத்தில் சர்க்கரை இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "ml", "text": "അടുത്ത് ആശാരി ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "hi", "text": "हेब्बाल पहुँचना है, रिक्शा कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "kn", "text": "ಹಬ್ಬ ಬಗ್ಗೆ ವೀಡಿಯೋ ಇದೆಯಾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ಹಬ್ಬ"}}}
+{"lang": "kn-Latn", "text": "taxi kareyiri", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "hi-Latn", "text": "Whitefield chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "ta", "text": "நடனம் பற்றி மக்கள் என்ன பதிவிட்டார்கள்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "நடனம்"}}}
+{"lang": "te", "text": "తొందరగా మారతహళ్ళికి ఒక టాక్సీ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "खाना पर कोई वीडियो है क्या", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "खाना"}}}
+{"lang": "hi", "text": "लोग डांस के बारे में क्या पोस्ट कर रहे हैं", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "डांस"}}}
+{"lang": "ta", "text": "சீக்கிரம் வைட்ஃபீல்டுக்கு ஒரு டாக்ஸி வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Whitefield"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் கோதுமை மாவு கேளு", "call": {"name": "post_request", "arguments": {"what": "wheat flour"}}}
+{"lang": "en", "text": "pictures from the dance", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "dance"}}}
+{"lang": "en", "text": "going to Kempegowda airport", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "ml", "text": "ഗോതമ്പ് പൊടി കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "en", "text": "taxi please, going to Kempegowda airport", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Kempegowda airport"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಟೈಲರ್ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "tailor"}}}
+{"lang": "hi", "text": "सबसे बढ़िया सब्ज़ी बताओ", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "ml-Latn", "text": "Hebbalilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "kn-Latn", "text": "nanna friend Ravi na hudki", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Ravi"}}}
+{"lang": "kn-Latn", "text": "AC repair thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "AC repair"}}}
+{"lang": "kn-Latn", "text": "biryani thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "en", "text": "which doctor should I choose", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "hi-Latn", "text": "Suresh ne kya post kiya", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Suresh"}}}
+{"lang": "kn-Latn", "text": "yav plumber chennagide", "call": {"name": "compare", "arguments": {"query": "plumber"}}}
+{"lang": "te", "text": "మెకానిక్ ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "mechanic"}}}
+{"lang": "hi", "text": "आसपास घर की सफ़ाई वाली मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "house cleaning"}}}
+{"lang": "hi-Latn", "text": "Asha ne kya post kiya", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Asha"}}}
+{"lang": "ml", "text": "മാറത്തഹള്ളിയിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "सबसे बढ़िया इलेक्ट्रीशियन बताओ", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "hi-Latn", "text": "kaunsa tel accha hai", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല പാചകക്കാരൻ ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "ta", "text": "இசை பற்றி மக்கள் என்ன பதிவிட்டார்கள்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "இசை"}}}
+{"lang": "te", "text": "క్రికెట్ చిత్రాలు వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "క్రికెట్"}}}
+{"lang": "kn", "text": "ಕೊಡಗು ಕಾಫಿ ಬಗ್ಗೆ ಜನ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಕೊಡಗು ಕಾಫಿ"}}}
+{"lang": "en", "text": "anything posted about comedy", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "comedy"}}}
+{"lang": "ta", "text": "எண்ணெய் விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "hi", "text": "आसपास पेंटर मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "ml-Latn", "text": "paachakam photo thirayu", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "paachakam"}}}
+{"lang": "en", "text": "I want a scooter now", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "te", "text": "తొందరగా వైట్‌ఫీల్డ్‌కి ఒక బైక్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Whitefield"}}}
+{"lang": "hi", "text": "जल्दी से इलेक्ट्रॉनिक सिटी के लिए रिक्शा भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "kn-Latn", "text": "hathradalli mechanic ideya", "call": {"name": "search_marketplace", "arguments": {"query": "mechanic"}}}
+{"lang": "te", "text": "సంగీతం చిత్రాలు వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "సంగీతం"}}}
+{"lang": "ml-Latn", "text": "Coorg coffee video undo", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "Coorg coffee"}}}
+{"lang": "ml", "text": "കല്യാണം വീഡിയോ ഉണ്ടോ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "കല്യാണം"}}}
+{"lang": "hi-Latn", "text": "aata ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "en", "text": "latest festival posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "festival"}}}
+{"lang": "hi", "text": "एक रिक्शा भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi", "text": "जल्दी से एयरपोर्ट के लिए कैब भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Kempegowda airport"}}}
+{"lang": "ml-Latn", "text": "aduthu paal undo", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "en", "text": "where do I find carpenter", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "hi-Latn", "text": "pyaaz kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "hi-Latn", "text": "tel dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "kn-Latn", "text": "Majesticge talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Majestic"}}}
+{"lang": "en", "text": "most recommended cook", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "en", "text": "put up a request for bread", "call": {"name": "post_request", "arguments": {"what": "bread"}}}
+{"lang": "hi", "text": "अर्जुन ने क्या पोस्ट किया", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "अर्जुन"}}}
+{"lang": "en", "text": "where do I find cleaning help", "call": {"name": "search_marketplace", "arguments": {"query": "house cleaning"}}}
+{"lang": "en", "text": "any pics of gardening", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "gardening"}}}
+{"lang": "hi-Latn", "text": "cook ki request daal do", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "hi-Latn", "text": "dance ka pdf", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "dance"}}}
+{"lang": "te", "text": "పండుగ గురించి వీడియో ఉందా", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "పండుగ"}}}
+{"lang": "en", "text": "thank you so much", "call": {"name": "help", "arguments": {}}}
+{"lang": "en", "text": "arrange a scooter to Indiranagar", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Indiranagar"}}}
+{"lang": "hi-Latn", "text": "Hebbal pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "ta", "text": "திருவிழா படங்கள் தேடு", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "திருவிழா"}}}
+{"lang": "kn-Latn", "text": "sangeetha bagge jana enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "sangeetha"}}}
+{"lang": "ml", "text": "പാൽ വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "ml-Latn", "text": "oru auto ayakku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi-Latn", "text": "auto mangwao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi-Latn", "text": "jaldi bike chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "en", "text": "not now", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "hi-Latn", "text": "chhodo", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "hi-Latn", "text": "duty on karo", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "en", "text": "can you ask around for a mechanic", "call": {"name": "post_request", "arguments": {"what": "mechanic"}}}
+{"lang": "ta", "text": "மேப் திற", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "kn-Latn", "text": "maduve bagge jana enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "maduve"}}}
+{"lang": "kn", "text": "ಕ್ರಿಕೆಟ್ ಬಗ್ಗೆ ಜನ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಕ್ರಿಕೆಟ್"}}}
+{"lang": "hi-Latn", "text": "khana banane wali kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "kn", "text": "ಕಾವ್ಯ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಕಾವ್ಯ"}}}
+{"lang": "kn", "text": "ಹಾಲು ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "en", "text": "going to HSR Layout", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "te", "text": "కూరగాయలు చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "vegetables"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் சிக்கன் கேளு", "call": {"name": "post_request", "arguments": {"what": "chicken"}}}
+{"lang": "kn-Latn", "text": "Coorg coffee bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "Coorg coffee"}}}
+{"lang": "en", "text": "lowest price veggies", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "ta", "text": "சீக்கிரம் ஹெப்பாலுக்கு ஒரு ஆட்டோ வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "en", "text": "where do I find cook", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "hi", "text": "बनशंकरी पहुँचना है, बाइक कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Banashankari"}}}
+{"lang": "en", "text": "where do I find a tailor", "call": {"name": "search_marketplace", "arguments": {"query": "tailor"}}}
+{"lang": "kn", "text": "ಚಿಕನ್ ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "chicken"}}}
+{"lang": "kn-Latn", "text": "kammi bele electrician", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "te", "text": "ప్లంబర్ చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "te", "text": "కోరమంగళకి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "hi-Latn", "text": "jaldi Whitefield ke liye auto bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "en", "text": "lowest price a painter", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "hi", "text": "मैकेनिक दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "mechanic"}}}
+{"lang": "en", "text": "most recommended tomatoes", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "en", "text": "bike please, going to Koramangala", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "en", "text": "good morning", "call": {"name": "help", "arguments": {}}}
+{"lang": "ta", "text": "அர்ஜுன் என்ன பதிவிட்டார்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "அர்ஜுன்"}}}
+{"lang": "en", "text": "need some oil", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "kn", "text": "ಸುರೇಶ್ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಸುರೇಶ್"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಅಡುಗೆಯವರು ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "hi", "text": "मेरे दोस्त मीरा को खोजो", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "मीरा"}}}
+{"lang": "en", "text": "connect with Arjun", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Arjun"}}}
+{"lang": "en", "text": "sure, do it", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "kn", "text": "ಒಂದು ಆಟೋ ಕಳಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "kn", "text": "ಹೆಬ್ಬಾಳಕ್ಕೆ ಹೋಗಬೇಕು, ಆಟೋ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "ta", "text": "சீக்கிரம் நெக்ஸஸ் மாலுக்கு ஒரு பைக் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Nexus Mall"}}}
+{"lang": "hi-Latn", "text": "cab se Koramangala chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "te", "text": "నా స్నేహితుడు రవి ని వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "రవి"}}}
+{"lang": "te", "text": "ఉత్తమ కూరగాయలు ఏది", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "hi-Latn", "text": "padosiyon se badhai pucho", "call": {"name": "post_request", "arguments": {"what": "carpenter"}}}
+{"lang": "en", "text": "need some sugar", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "kn", "text": "ಬೇಗ ಕೋರಮಂಗಲಕ್ಕೆ ಒಂದು ಟ್ಯಾಕ್ಸಿ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "te", "text": "ఉత్తమ మెడికల్ షాప్ ఏది", "call": {"name": "compare", "arguments": {"query": "pharmacy"}}}
+{"lang": "kn-Latn", "text": "hathradalli painter ideya", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "ml", "text": "നൃത്തം വീഡിയോ ഉണ്ടോ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "നൃത്തം"}}}
+{"lang": "te", "text": "ఆశా ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ఆశా"}}}
+{"lang": "ml-Latn", "text": "paneer nu request idu", "call": {"name": "post_request", "arguments": {"what": "paneer"}}}
+{"lang": "te", "text": "బియ్యం చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "rice"}}}
+{"lang": "ml", "text": "പെയിന്റർ കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "hi", "text": "क्रिकेट पर कोई वीडियो है क्या", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "क्रिकेट"}}}
+{"lang": "ml-Latn", "text": "paachakam documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "paachakam"}}}
+{"lang": "te", "text": "తొందరగా జయనగర్‌కి ఒక బైక్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "kn-Latn", "text": "mosaru bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "curd"}}}
+{"lang": "hi", "text": "जल्दी से एमजी रोड के लिए बाइक भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "ml", "text": "ബ്രെഡ് കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "bread"}}}
+{"lang": "ml", "text": "അടുത്ത് മുട്ട ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "ml-Latn", "text": "ente friend Suresh ne thirayu", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Suresh"}}}
+{"lang": "te", "text": "పాలు ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "ml-Latn", "text": "veettujolikkari kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "house cleaning"}}}
+{"lang": "hi", "text": "मराठहल्ली पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "ta", "text": "ஜெயநகருக்கு போகணும், கேப் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Jayanagar"}}}
+{"lang": "ta", "text": "நம்பகமானவை முதலில்", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya dahi", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "hi", "text": "संगीत पर कोई वीडियो है क्या", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "संगीत"}}}
+{"lang": "kn-Latn", "text": "tomato bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "tomatoes"}}}
+{"lang": "ml-Latn", "text": "aduthu thakkali undo", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "ml", "text": "തക്കാളി വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "te", "text": "నా స్నేహితుడు ఆశా ని వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ఆశా"}}}
+{"lang": "kn-Latn", "text": "habba documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "habba"}}}
+{"lang": "en", "text": "what has Ravi posted", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Ravi"}}}
+{"lang": "hi", "text": "चिकन दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "chicken"}}}
+{"lang": "hi", "text": "एक ऑटो भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi-Latn", "text": "dukaan kholni hai", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "te", "text": "తొందరగా ఎలక్ట్రానిక్ సిటీకి ఒక బైక్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Electronic City"}}}
+{"lang": "kn", "text": "ನಂಬಿಕೆಯವು ಮೊದಲು", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "kn-Latn", "text": "nanna friend Meera na hudki", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Meera"}}}
+{"lang": "ml", "text": "പെയിന്റർ വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "ml", "text": "അടുത്ത് പ്ലംബർ ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "en", "text": "can you ask around for atta", "call": {"name": "post_request", "arguments": {"what": "wheat flour"}}}
+{"lang": "kn-Latn", "text": "hosa videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "en", "text": "bike please, going to HSR", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "HSR Layout"}}}
+{"lang": "en", "text": "play some festival videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "festival"}}}
+{"lang": "hi", "text": "पड़ोस में खाना बनाने वाली के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "kn-Latn", "text": "Coorg coffee photo hudki", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "Coorg coffee"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya sabzi", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "kn-Latn", "text": "bega Koramangalakke auto beku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "hi", "text": "पड़ोस में दही के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "curd"}}}
+{"lang": "en", "text": "car please, going to Marathahalli", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "ml-Latn", "text": "oru cab ayakku", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "te", "text": "వదిలేయండి", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "kn-Latn", "text": "kammi bele AC repair", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "kn-Latn", "text": "bega Koramangalakke taxi beku", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "ml", "text": "കല്യാണം ചിത്രങ്ങൾ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "കല്യാണം"}}}
+{"lang": "kn-Latn", "text": "habba bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "habba"}}}
+{"lang": "en", "text": "need some paneer", "call": {"name": "search_marketplace", "arguments": {"query": "paneer"}}}
+{"lang": "ml", "text": "വേഗം ഇലക്ട്രോണിക് സിറ്റിയിലേക്ക് ഒരു ബൈക്ക് വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Electronic City"}}}
+{"lang": "hi-Latn", "text": "log cricket ke baare mein kya post kar rahe hain", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "cricket"}}}
+{"lang": "en", "text": "I have to reach Banashankari", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "kn-Latn", "text": "yav tarakari chennagide", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "hi-Latn", "text": "Meera ne kya post kiya", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Meera"}}}
+{"lang": "kn", "text": "ಮೀರಾ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಮೀರಾ"}}}
+{"lang": "te", "text": "నమ్మకమైనవి ముందు", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಮೊಸರು ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "en", "text": "yep, book that", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "te", "text": "బనశంకరికి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "hi-Latn", "text": "sasta pehle", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "ta", "text": "ஒரு டாக்ஸி அனுப்புங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "en", "text": "I want a auto rickshaw now", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi-Latn", "text": "jaldi Marathahalli ke liye gaadi bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "en", "text": "open Suresh's profile", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Suresh"}}}
+{"lang": "ta", "text": "ரவி என்ன பதிவிட்டார்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ரவி"}}}
+{"lang": "en", "text": "I have to reach Marathahalli, get a rickshaw", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "hi-Latn", "text": "cooking ki photo dhundo", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "cooking"}}}
+{"lang": "ml-Latn", "text": "MG roadilekku pokanam bike book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "kn", "text": "ಅಗ್ಗದವು ಮೊದಲು", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "en", "text": "where do I find bread", "call": {"name": "search_marketplace", "arguments": {"query": "bread"}}}
+{"lang": "kn", "text": "ಬನಶಂಕರಿಗೆ ಹೋಗಬೇಕು, ಬೈಕ್ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Banashankari"}}}
+{"lang": "te", "text": "ఉత్తమ వడ్రంగి ఏది", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "ta", "text": "கிரிக்கெட் பற்றி மக்கள் என்ன பதிவிட்டார்கள்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "கிரிக்கெட்"}}}
+{"lang": "ta", "text": "இந்திராநகருக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "kn", "text": "ಬೇಗ ಜಯನಗರಕ್ಕೆ ಒಂದು ಆಟೋ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "ml", "text": "വൈറ്റ്ഫീൽഡിലേക്ക് പോകണം, ബൈക്ക് ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Whitefield"}}}
+{"lang": "ml-Latn", "text": "ethu gothambu podi aanu nallathu", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "ml-Latn", "text": "venda vittekku", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "en", "text": "videos on cooking", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "cooking"}}}
+{"lang": "te", "text": "వడ్రంగి ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "kn-Latn", "text": "nanna friend Kavya na hudki", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Kavya"}}}
+{"lang": "ml-Latn", "text": "ente rides", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "kn-Latn", "text": "kammi bele bread", "call": {"name": "compare", "arguments": {"query": "bread"}}}
+{"lang": "ml", "text": "മീര എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "മീര"}}}
+{"lang": "hi-Latn", "text": "sabse paas wala", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "te", "text": "తొందరగా నెక్సస్ మాల్‌కి ఒక క్యాబ్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Nexus Mall"}}}
+{"lang": "kn", "text": "ಟೈಲರ್ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "tailor"}}}
+{"lang": "te", "text": "బిర్యానీ చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "en", "text": "my past trips", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "ml", "text": "പാചകക്കാരൻ കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "te", "text": "పెళ్లి పత్రాలు", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "పెళ్లి"}}}
+{"lang": "te", "text": "వంట చిత్రాలు వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "వంట"}}}
+{"lang": "ta", "text": "நல்ல வெங்காயம் எது", "call": {"name": "compare", "arguments": {"query": "onions"}}}
+{"lang": "en", "text": "put up a request for milk", "call": {"name": "post_request", "arguments": {"what": "milk"}}}
+{"lang": "hi-Latn", "text": "bike se Indiranagar chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Indiranagar"}}}
+{"lang": "te", "text": "పెళ్లి గురించి ఎవరు ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "పెళ్లి"}}}
+{"lang": "en", "text": "what has Suresh posted", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Suresh"}}}
+{"lang": "kn-Latn", "text": "Koramangalakke talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "hi-Latn", "text": "chawal ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "rice"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని వంటమనిషి గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "kn-Latn", "text": "kammi bele enne", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "te", "text": "విమానాశ్రయానికి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "ml-Latn", "text": "ethu thakkali aanu nallathu", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "hi-Latn", "text": "Marathahalli pahunchna hai gaadi chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "kn", "text": "ಹಬ್ಬ ದಾಖಲೆಗಳು", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "ಹಬ್ಬ"}}}
+{"lang": "ta", "text": "நல்ல தச்சர் எது", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "kn", "text": "ಸಂಗೀತ ದಾಖಲೆಗಳು", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "ಸಂಗೀತ"}}}
+{"lang": "en", "text": "what are people posting", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": ""}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് ഉള്ളി ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "onions"}}}
+{"lang": "ta", "text": "மெக்கானிக் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "mechanic"}}}
+{"lang": "hi-Latn", "text": "auto se Jayanagar chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "te", "text": "దగ్గరలో టమాటాలు ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "ta", "text": "ஒரு கேப் அனுப்புங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "kn-Latn", "text": "cricket bagge jana enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "cricket"}}}
+{"lang": "en", "text": "can you ask around for biryani", "call": {"name": "post_request", "arguments": {"what": "biryani"}}}
+{"lang": "hi-Latn", "text": "log dance ke baare mein kya post kar rahe hain", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "dance"}}}
+{"lang": "hi", "text": "एक कैब भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "en", "text": "I have to reach Marathahalli", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "en", "text": "arrange a auto rickshaw to Koramangala", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ta", "text": "என் நண்பர் ரவி ஐ தேடு", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ரவி"}}}
+{"lang": "en", "text": "what's closest to me", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "kn", "text": "ಎಚ್‌ಎಸ್‌ಆರ್ ಲೇಔಟ್‌ಗೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "hi", "text": "क्रिकेट की फोटो ढूंढो", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "क्रिकेट"}}}
+{"lang": "te", "text": "మారతహళ్ళికి వెళ్ళాలి, టాక్సీ బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "en", "text": "arrange a bike to Marathahalli", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "लोग त्योहार के बारे में क्या पोस्ट कर रहे हैं", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "त्योहार"}}}
+{"lang": "en", "text": "latest travel posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "travel"}}}
+{"lang": "ml-Latn", "text": "Indiranagarilekku pokanam auto book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "te", "text": "పెళ్లి చిత్రాలు వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "పెళ్లి"}}}
+{"lang": "hi", "text": "त्योहार के दस्तावेज़", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "त्योहार"}}}
+{"lang": "en", "text": "I'm looking for tomatoes", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "kn-Latn", "text": "sangeetha photo hudki", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "sangeetha"}}}
+{"lang": "en", "text": "going to Electronic City", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "kn", "text": "ಬೇಗ ಮೆಜೆಸ್ಟಿಕ್‌ಗೆ ಒಂದು ಕ್ಯಾಬ್ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Majestic"}}}
+{"lang": "ml-Latn", "text": "enna nu request idu", "call": {"name": "post_request", "arguments": {"what": "cooking oil"}}}
+{"lang": "en", "text": "I have to reach Whitefield, get a cab", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Whitefield"}}}
+{"lang": "hi-Latn", "text": "Marathahalli pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "व्हाइटफील्ड पहुँचना है, रिक्शा कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "kn-Latn", "text": "aduge bagge jana enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "aduge"}}}
+{"lang": "te", "text": "గుడ్లు చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "hi-Latn", "text": "doctor ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "hi-Latn", "text": "tum kaun ho", "call": {"name": "help", "arguments": {}}}
+{"lang": "hi-Latn", "text": "jaldi cab chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല ഇലക്ട്രീഷ്യൻ ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "hi-Latn", "text": "log tyohar ke baare mein kya post kar rahe hain", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "tyohar"}}}
+{"lang": "kn-Latn", "text": "Asha enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Asha"}}}
+{"lang": "ml", "text": "നെക്സസ് മാളിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "hi-Latn", "text": "koi kanda hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "en", "text": "any pics of cricket", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "cricket"}}}
+{"lang": "kn", "text": "ಹಬ್ಬ ಬಗ್ಗೆ ಜನ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಹಬ್ಬ"}}}
+{"lang": "te", "text": "పెయింటర్ చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "hi-Latn", "text": "kya naya post hua", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": ""}}}
+{"lang": "ml-Latn", "text": "Indiranagarilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil thakkali", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "ml-Latn", "text": "onam video undo", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "onam"}}}
+{"lang": "kn-Latn", "text": "bega Jayanagarakke bike beku", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "ta", "text": "ஜெயநகருக்கு போகணும், பைக் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല പെയിന്റർ ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "kn-Latn", "text": "chicken bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "chicken"}}}
+{"lang": "kn-Latn", "text": "aduge documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "aduge"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ತರಕಾರಿ ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "hi", "text": "खाना के दस्तावेज़", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "खाना"}}}
+{"lang": "en", "text": "I'm looking for carpenter", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "ml-Latn", "text": "ethu bread aanu nallathu", "call": {"name": "compare", "arguments": {"query": "bread"}}}
+{"lang": "kn", "text": "ಬನಶಂಕರಿಗೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "te", "text": "దగ్గరలో పనీర్ ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "paneer"}}}
+{"lang": "ta", "text": "முட்டை விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "eggs"}}}
+{"lang": "te", "text": "నెక్సస్ మాల్‌కి వెళ్ళాలి, టాక్సీ బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Nexus Mall"}}}
+{"lang": "en", "text": "anything posted about festival", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "festival"}}}
+{"lang": "ta", "text": "பிரியாணி காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "kn", "text": "ಕ್ರಿಕೆಟ್ ಚಿತ್ರಗಳನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "ಕ್ರಿಕೆಟ್"}}}
+{"lang": "kn-Latn", "text": "yav mosaru chennagide", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "en", "text": "where do I find a cook", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "en", "text": "what has Arjun posted", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Arjun"}}}
+{"lang": "ml", "text": "ഗോതമ്പ് പൊടി വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "te", "text": "చేయండి", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "hi-Latn", "text": "tamatar ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "kn", "text": "ಗೋಧಿ ಹಿಟ್ಟು ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "kn-Latn", "text": "auto kareyiri", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi", "text": "आसपास सब्ज़ी मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "vegetables"}}}
+{"lang": "ml", "text": "വേഗം എച്ച്എസ്ആർ ലേഔട്ടിലേക്ക് ഒരു ബൈക്ക് വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "HSR Layout"}}}
+{"lang": "kn-Latn", "text": "Hebbalakke talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "kn-Latn", "text": "dance bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "dance"}}}
+{"lang": "ml-Latn", "text": "sangeetham patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "sangeetham"}}}
+{"lang": "hi-Latn", "text": "bike se airport chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Kempegowda airport"}}}
+{"lang": "ml-Latn", "text": "nee aaraa", "call": {"name": "help", "arguments": {}}}
+{"lang": "ml", "text": "കോരമംഗലയിലേക്ക് പോകണം, ബൈക്ക് ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "en", "text": "pictures from the comedy", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "comedy"}}}
+{"lang": "kn", "text": "ನೃತ್ಯ ಬಗ್ಗೆ ಜನ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ನೃತ್ಯ"}}}
+{"lang": "ml-Latn", "text": "ente friend Meera ne thirayu", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Meera"}}}
+{"lang": "ml", "text": "കൊടഗ് കാപ്പി പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "കൊടഗ് കാപ്പി"}}}
+{"lang": "ta", "text": "நெக்ஸஸ் மாலுக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "kn-Latn", "text": "dance photo hudki", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "dance"}}}
+{"lang": "hi-Latn", "text": "carpenter dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "hi-Latn", "text": "Electronic city pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "en", "text": "arrange a auto to M G Road", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "en", "text": "send a cab here", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "te", "text": "క్రికెట్ గురించి వీడియో ఉందా", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "క్రికెట్"}}}
+{"lang": "ml", "text": "വേഗം നെക്സസ് മാളിലേക്ക് ഒരു ബൈക്ക് വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Nexus Mall"}}}
+{"lang": "kn", "text": "ನೃತ್ಯ ಚಿತ್ರಗಳನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "ನೃತ್ಯ"}}}
+{"lang": "hi", "text": "पड़ोस में आटा के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "wheat flour"}}}
+{"lang": "en", "text": "arrange a auto rickshaw to Marathahalli", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "en", "text": "lowest price doctor", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "hi-Latn", "text": "auto se Indiranagar chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "hi", "text": "मैं तैयार हूँ, ऑनलाइन करो", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "hi-Latn", "text": "Whitefield pahunchna hai cab chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Whitefield"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് പാചകക്കാരൻ ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "hi-Latn", "text": "padosiyon se chicken pucho", "call": {"name": "post_request", "arguments": {"what": "chicken"}}}
+{"lang": "te", "text": "సంగీతం గురించి వీడియో ఉందా", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "సంగీతం"}}}
+{"lang": "te", "text": "చౌకవి ముందు", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "te", "text": "డ్యాన్స్ గురించి ఎవరు ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "డ్యాన్స్"}}}
+{"lang": "kn-Latn", "text": "medical shop thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "pharmacy"}}}
+{"lang": "kn-Latn", "text": "online hogbeku", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "kn-Latn", "text": "eerulli thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "ta", "text": "சீக்கிரம் வைட்ஃபீல்டுக்கு ஒரு கேப் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Whitefield"}}}
+{"lang": "ml-Latn", "text": "ente friend Ravi ne thirayu", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Ravi"}}}
+{"lang": "kn", "text": "ಮಾರತ್ತಹಳ್ಳಿಗೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "मैप खोलो", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "hi", "text": "लोग खाना के बारे में क्या पोस्ट कर रहे हैं", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "खाना"}}}
+{"lang": "kn-Latn", "text": "kammi bele biryani", "call": {"name": "compare", "arguments": {"query": "biryani"}}}
+{"lang": "en", "text": "going to Indiranagar", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "kn-Latn", "text": "nanna friend Suresh na hudki", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Suresh"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் ஏசி ரிப்பேர் கேளு", "call": {"name": "post_request", "arguments": {"what": "AC repair"}}}
+{"lang": "te", "text": "నూనె ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "te", "text": "ఎలక్ట్రానిక్ సిటీకి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಎಣ್ಣೆ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "cooking oil"}}}
+{"lang": "en", "text": "what has Kavya posted", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Kavya"}}}
+{"lang": "kn", "text": "ಹೊಸ ವೀಡಿಯೋಗಳು", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "ml", "text": "ക്രിക്കറ്റ് വീഡിയോ ഉണ്ടോ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ക്രിക്കറ്റ്"}}}
+{"lang": "hi", "text": "त्योहार पर कोई वीडियो है क्या", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "त्योहार"}}}
+{"lang": "ml-Latn", "text": "mechanic nu request idu", "call": {"name": "post_request", "arguments": {"what": "mechanic"}}}
+{"lang": "kn-Latn", "text": "Marathahallige hogbeku cab book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "ml", "text": "ഏറ്റവും അടുത്തുള്ളവ", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ವೈದ್ಯರು ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "doctor"}}}
+{"lang": "kn-Latn", "text": "MG roadge hogbeku auto book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "ta", "text": "சமையல் படங்கள் தேடு", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "சமையல்"}}}
+{"lang": "ta", "text": "புதிய வீடியோக்கள்", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "ta", "text": "மெக்கானிக் விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "mechanic"}}}
+{"lang": "en", "text": "can you ask around for onions", "call": {"name": "post_request", "arguments": {"what": "onions"}}}
+{"lang": "ta", "text": "திருமணம் படங்கள் தேடு", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "திருமணம்"}}}
+{"lang": "ta", "text": "மெஜஸ்டிக்குக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Majestic"}}}
+{"lang": "hi-Latn", "text": "Banashankari pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "ml-Latn", "text": "HSR layoutilekku pokanam auto book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "en", "text": "play some dance videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "dance"}}}
+{"lang": "ml-Latn", "text": "doctor nu request idu", "call": {"name": "post_request", "arguments": {"what": "doctor"}}}
+{"lang": "en", "text": "bike please, going to Electronic City", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Electronic City"}}}
+{"lang": "hi-Latn", "text": "tailor ki request daal do", "call": {"name": "post_request", "arguments": {"what": "tailor"}}}
+{"lang": "en", "text": "auto rickshaw please, going to Banashankari", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "hi", "text": "एमजी रोड पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "en", "text": "switch me online", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "ta", "text": "மலிவானது முதலில்", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "hi-Latn", "text": "MG road pahunchna hai bike chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല തൈര് ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "te", "text": "దగ్గరలో గుడ్లు ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "kn-Latn", "text": "yav badagi chennagide", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "te", "text": "సంగీతం పత్రాలు", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "సంగీతం"}}}
+{"lang": "en", "text": "any pics of Coorg coffee", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "Coorg coffee"}}}
+{"lang": "kn-Latn", "text": "hathradalli carpenter ideya", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "en", "text": "send a scooter here", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "hi-Latn", "text": "naye videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "te", "text": "నేను అమ్మాలి", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "hi", "text": "पड़ोस में डॉक्टर के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "doctor"}}}
+{"lang": "hi-Latn", "text": "tel kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "ta", "text": "கோரமங்களாவுக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ta", "text": "தையல்காரர் விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "tailor"}}}
+{"lang": "hi", "text": "सबसे बढ़िया आटा बताओ", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "ml", "text": "ബനശങ്കരിയിലേക്ക് പോകണം, ബൈക്ക് ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Banashankari"}}}
+{"lang": "kn", "text": "ಜಯನಗರಕ್ಕೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "en", "text": "need some electrician", "call": {"name": "search_marketplace", "arguments": {"query": "electrician"}}}
+{"lang": "hi", "text": "पड़ोस में अंडे के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "eggs"}}}
+{"lang": "hi-Latn", "text": "cricket wale videos chahiye", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "cricket"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് ഇലക്ട്രീഷ്യൻ ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "electrician"}}}
+{"lang": "hi", "text": "इलेक्ट्रॉनिक सिटी पहुँचना है, रिक्शा कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "kn-Latn", "text": "beda bidi", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "te", "text": "హెచ్‌ఎస్‌ఆర్ లేఅవుట్‌కి వెళ్ళాలి, బైక్ బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "HSR Layout"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil medical shop", "call": {"name": "compare", "arguments": {"query": "pharmacy"}}}
+{"lang": "ta", "text": "நல்ல ஏசி ரிப்பேர் எது", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "en", "text": "any new videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "hi", "text": "संगीत के दस्तावेज़", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "संगीत"}}}
+{"lang": "kn-Latn", "text": "nanna friend Arjun na hudki", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Arjun"}}}
+{"lang": "ta", "text": "பனசங்கரிக்கு போகணும், டாக்ஸி புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Banashankari"}}}
+{"lang": "en", "text": "scooter please, going to Electronic City", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Electronic City"}}}
+{"lang": "hi-Latn", "text": "jaldi airport ke liye taxi bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Kempegowda airport"}}}
+{"lang": "hi-Latn", "text": "tamatar dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "ml", "text": "അടുത്ത് ഇലക്ട്രീഷ്യൻ ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "electrician"}}}
+{"lang": "ml", "text": "പാചകം ചിത്രങ്ങൾ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "പാചകം"}}}
+{"lang": "en", "text": "lowest price house cleaning", "call": {"name": "compare", "arguments": {"query": "house cleaning"}}}
+{"lang": "ml-Latn", "text": "onam photo thirayu", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "onam"}}}
+{"lang": "hi-Latn", "text": "mere dost Arjun ko search karo", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Arjun"}}}
+{"lang": "te", "text": "ఉత్తమ ఏసీ రిపేర్ ఏది", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "kn", "text": "ಬೇಗ ಕೋರಮಂಗಲಕ್ಕೆ ಒಂದು ಆಟೋ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ml", "text": "വേഗം എയർപോർട്ടിലേക്ക് ഒരു ബൈക്ക് വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Kempegowda airport"}}}
+{"lang": "hi", "text": "मेरा ऑर्डर कहाँ है", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "te", "text": "కొత్త వీడియోలు", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "te", "text": "డ్యాన్స్ చిత్రాలు వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "డ్యాన్స్"}}}
+{"lang": "en", "text": "lowest price cooking oil", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "ml", "text": "കാവ്യ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "കാവ്യ"}}}
+{"lang": "ta", "text": "சமையல் பற்றி வீடியோ இருக்கா", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "சமையல்"}}}
+{"lang": "hi", "text": "दवाई की दुकान दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "pharmacy"}}}
+{"lang": "kn-Latn", "text": "yav biryani chennagide", "call": {"name": "compare", "arguments": {"query": "biryani"}}}
+{"lang": "en", "text": "I'm looking for an AC mechanic", "call": {"name": "search_marketplace", "arguments": {"query": "AC repair"}}}
+{"lang": "kn-Latn", "text": "Electronic cityge talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "hi", "text": "मेरे दोस्त कविता को खोजो", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "कविता"}}}
+{"lang": "en", "text": "which tomatoes should I choose", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "ta", "text": "பிரியாணி விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "biryani"}}}
+{"lang": "kn-Latn", "text": "kammi bele tarakari", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "hi-Latn", "text": "naksha dikhao", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "ta", "text": "என் பயணங்கள்", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "te", "text": "హెబ్బాల్‌కి వెళ్ళాలి, బైక్ బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Hebbal"}}}
+{"lang": "hi-Latn", "text": "dahi ki request daal do", "call": {"name": "post_request", "arguments": {"what": "curd"}}}
+{"lang": "hi-Latn", "text": "padosiyon se cook pucho", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "kn-Latn", "text": "cab kareyiri", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "kn-Latn", "text": "Suresh enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Suresh"}}}
+{"lang": "en", "text": "which cleaning help should I choose", "call": {"name": "compare", "arguments": {"query": "house cleaning"}}}
+{"lang": "ml", "text": "വേണ്ട വിട്ടേക്കൂ", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "hi-Latn", "text": "koi dawai ki dukaan hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "pharmacy"}}}
+{"lang": "ta", "text": "வைட்ஃபீல்டுக்கு போகணும், கேப் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Whitefield"}}}
+{"lang": "en", "text": "any pics of cooking", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "cooking"}}}
+{"lang": "hi", "text": "एयरपोर्ट पहुँचना है, रिक्शा कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "en", "text": "need some milk", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "hi-Latn", "text": "Kavita ne kya post kiya", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Kavita"}}}
+{"lang": "ta", "text": "எம்ஜி ரோடுக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "kn", "text": "ಆಶಾ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಆಶಾ"}}}
+{"lang": "ml-Latn", "text": "cheyyu", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "hi", "text": "सबसे बढ़िया टमाटर बताओ", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya doctor", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "ml-Latn", "text": "cricket video undo", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "cricket"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ಮೊಟ್ಟೆ ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "en", "text": "who are you", "call": {"name": "help", "arguments": {}}}
+{"lang": "en", "text": "open Priya's profile", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Priya"}}}
+{"lang": "en", "text": "open Meera's profile", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Meera"}}}
+{"lang": "en", "text": "forget it", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "kn", "text": "ವಿಮಾನ ನಿಲ್ದಾಣಕ್ಕೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "en", "text": "I have to reach Jayanagar, get a bike", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "ml", "text": "എന്റെ സുഹൃത്ത് മീര എന്നയാളെ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "മീര"}}}
+{"lang": "hi", "text": "आसपास मैकेनिक मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "mechanic"}}}
+{"lang": "ml", "text": "വേഗം എയർപോർട്ടിലേക്ക് ഒരു കാർ വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Kempegowda airport"}}}
+{"lang": "ml", "text": "അടുത്ത് ഗോതമ്പ് പൊടി ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "en", "text": "send a car here", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "kn", "text": "ಬೇಡ ಬಿಡಿ", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "kn", "text": "ಕೋರಮಂಗಲಕ್ಕೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ta", "text": "விமான நிலையத்துக்கு போகணும், டாக்ஸி புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Kempegowda airport"}}}
+{"lang": "kn-Latn", "text": "Koramangalakke hogbeku bike book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "kn-Latn", "text": "chicken thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "chicken"}}}
+{"lang": "ta", "text": "சிக்கன் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "chicken"}}}
+{"lang": "ml", "text": "ഡോക്ടർ വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "kn-Latn", "text": "biryani bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "biryani"}}}
+{"lang": "kn-Latn", "text": "hathradalli cook ideya", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "en", "text": "can you ask around for rice", "call": {"name": "post_request", "arguments": {"what": "rice"}}}
+{"lang": "hi", "text": "लोग क्रिकेट के बारे में क्या पोस्ट कर रहे हैं", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "क्रिकेट"}}}
+{"lang": "hi", "text": "जयनगर पहुँचना है, कैब कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Jayanagar"}}}
+{"lang": "kn-Latn", "text": "dance bagge jana enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "dance"}}}
+{"lang": "ta", "text": "வெங்காயம் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "kn", "text": "ಮಾರತ್ತಹಳ್ಳಿಗೆ ಹೋಗಬೇಕು, ಟ್ಯಾಕ್ಸಿ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Marathahalli"}}}
+{"lang": "hi-Latn", "text": "plumber dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "kn-Latn", "text": "mechanic thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "mechanic"}}}
+{"lang": "ml", "text": "സുരേഷ് എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "സുരേഷ്"}}}
+{"lang": "ml", "text": "കല്യാണം രേഖകൾ", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "കല്യാണം"}}}
+{"lang": "kn", "text": "ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಸಿಟಿಗೆ ಹೋಗಬೇಕು, ಕ್ಯಾಬ್ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Electronic City"}}}
+{"lang": "en", "text": "pictures from the Coorg coffee", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "Coorg coffee"}}}
+{"lang": "hi", "text": "आसपास बिरयानी मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಎಸಿ ರಿಪೇರಿ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "AC repair"}}}
+{"lang": "te", "text": "దగ్గరలో వడ్రంగి ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല പാൽ ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "en", "text": "put up a request for doctor", "call": {"name": "post_request", "arguments": {"what": "doctor"}}}
+{"lang": "te", "text": "పెరుగు ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "kn-Latn", "text": "kammi bele tomato", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "ml-Latn", "text": "oru bike ayakku", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "en", "text": "latest comedy posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "comedy"}}}
+{"lang": "hi-Latn", "text": "tyohar ka pdf", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "tyohar"}}}
+{"lang": "ml-Latn", "text": "ethu cook aanu nallathu", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "ml", "text": "സംഗീതം ചിത്രങ്ങൾ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "സംഗീതം"}}}
+{"lang": "ml-Latn", "text": "medical shop kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "pharmacy"}}}
+{"lang": "kn-Latn", "text": "sangeetha bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "sangeetha"}}}
+{"lang": "kn", "text": "ಬೇಗ ಏರ್‌ಪೋರ್ಟ್‌ಗೆ ಒಂದು ಆಟೋ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "hi", "text": "सबसे बढ़िया दूध बताओ", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "en", "text": "latest cooking posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "cooking"}}}
+{"lang": "hi", "text": "क्या नया पोस्ट हुआ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": ""}}}
+{"lang": "kn-Latn", "text": "Arjun enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Arjun"}}}
+{"lang": "en", "text": "I have to reach Koramangala, get a car", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "en", "text": "most recommended rice", "call": {"name": "compare", "arguments": {"query": "rice"}}}
+{"lang": "ta", "text": "பக்கத்தில் டாக்டர் இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "doctor"}}}
+{"lang": "ml-Latn", "text": "aduthu electrician undo", "call": {"name": "search_marketplace", "arguments": {"query": "electrician"}}}
+{"lang": "hi-Latn", "text": "airport chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "kn-Latn", "text": "maadi", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "te", "text": "విమానాశ్రయానికి వెళ్ళాలి, బైక్ బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Kempegowda airport"}}}
+{"lang": "ml-Latn", "text": "ethu electrician aanu nallathu", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "ml-Latn", "text": "aduthu atta undo", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "en", "text": "auto rickshaw please, going to Hebbal", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "en", "text": "I have to reach Koramangala", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ml-Latn", "text": "tailor nu request idu", "call": {"name": "post_request", "arguments": {"what": "tailor"}}}
+{"lang": "ml", "text": "ഒരു കാർ അയക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "hi", "text": "सबसे बढ़िया दही बताओ", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "hi", "text": "प्याज़ दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil paneer", "call": {"name": "compare", "arguments": {"query": "paneer"}}}
+{"lang": "ml-Latn", "text": "HSR layoutilekku pokanam taxi book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "HSR Layout"}}}
+{"lang": "ta", "text": "காவ்யா என்ன பதிவிட்டார்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "காவ்யா"}}}
+{"lang": "ta", "text": "நல்ல கோதுமை மாவு எது", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "hi", "text": "जल्दी से हेब्बाल के लिए बाइक भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Hebbal"}}}
+{"lang": "ta", "text": "திருமணம் பற்றி வீடியோ இருக்கா", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "திருமணம்"}}}
+{"lang": "ml-Latn", "text": "Nexus mallilekku pokanam taxi book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Nexus Mall"}}}
+{"lang": "en", "text": "arrange a scooter to Koramangala", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "en", "text": "most recommended cooking oil", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "ml", "text": "വൈറ്റ്ഫീൽഡിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "hi", "text": "हेब्बाल पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "ml-Latn", "text": "Jayanagarilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "ta", "text": "பக்கத்தில் பிளம்பர் இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "en", "text": "open Asha's profile", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Asha"}}}
+{"lang": "hi-Latn", "text": "jaldi gaadi chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "en", "text": "I want a taxi now", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "te", "text": "తొందరగా హెబ్బాల్‌కి ఒక బైక్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Hebbal"}}}
+{"lang": "ml", "text": "ഒരു ഓട്ടോ അയക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "kn-Latn", "text": "HSR layoutge hogbeku auto book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "ta", "text": "சர்க்கரை விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "sugar"}}}
+{"lang": "hi-Latn", "text": "anda dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "kn-Latn", "text": "bike kareyiri", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "kn", "text": "ಅರ್ಜುನ್ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಅರ್ಜುನ್"}}}
+{"lang": "hi-Latn", "text": "cooking wale videos chahiye", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "cooking"}}}
+{"lang": "hi", "text": "मीरा ने क्या पोस्ट किया", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "मीरा"}}}
+{"lang": "kn-Latn", "text": "AC repair bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "AC repair"}}}
+{"lang": "kn", "text": "ಮೆಜೆಸ್ಟಿಕ್‌ಗೆ ಹೋಗಬೇಕು, ಆಟೋ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Majestic"}}}
+{"lang": "te", "text": "అర్జున్ ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "అర్జున్"}}}
+{"lang": "hi", "text": "डांस के दस्तावेज़", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "डांस"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಎಲೆಕ್ಟ್ರಿಷಿಯನ್ ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "en", "text": "put up a request for curd", "call": {"name": "post_request", "arguments": {"what": "curd"}}}
+{"lang": "hi", "text": "पड़ोस में पेंटर के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "painter"}}}
+{"lang": "te", "text": "ఆన్‌లైన్ కావాలి", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "ml", "text": "എന്റെ സുഹൃത്ത് സുരേഷ് എന്നയാളെ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "സുരേഷ്"}}}
+{"lang": "ml", "text": "ഒരു ടാക്സി അയക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "en", "text": "anything posted about cricket", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "cricket"}}}
+{"lang": "te", "text": "పండుగ గురించి ఎవరు ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "పండుగ"}}}
+{"lang": "en", "text": "connect with Ravi", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Ravi"}}}
+{"lang": "ml", "text": "പുതിയ വീഡിയോകൾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "ml", "text": "അടുത്ത് അരി ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "rice"}}}
+{"lang": "ml", "text": "എച്ച്എസ്ആർ ലേഔട്ടിലേക്ക് പോകണം, കാർ ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "HSR Layout"}}}
+{"lang": "hi", "text": "जल्दी से मैजेस्टिक के लिए बाइक भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Majestic"}}}
+{"lang": "hi", "text": "इंदिरानगर पहुँचना है, टैक्सी कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Indiranagar"}}}
+{"lang": "te", "text": "దగ్గరలో బిర్యానీ ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "ml", "text": "ക്രിക്കറ്റ് പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ക്രിക്കറ്റ്"}}}
+{"lang": "ta", "text": "திருவிழா பற்றி வீடியோ இருக்கா", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "திருவிழா"}}}
+{"lang": "ml-Latn", "text": "Jayanagarilekku pokanam cab book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Jayanagar"}}}
+{"lang": "hi-Latn", "text": "Banashankari pahunchna hai rickshaw chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya pyaaz", "call": {"name": "compare", "arguments": {"query": "onions"}}}
+{"lang": "en", "text": "I want a bike taxi now", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "ta", "text": "நெக்ஸஸ் மாலுக்கு போகணும், பைக் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Nexus Mall"}}}
+{"lang": "ta", "text": "முட்டை காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "hi-Latn", "text": "jaldi em jee road ke liye auto bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "ml-Latn", "text": "HSR layoutilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "kn", "text": "ಎಣ್ಣೆ ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "cooking oil"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ಅಡುಗೆಯವರು ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "ml-Latn", "text": "dance patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "dance"}}}
+{"lang": "kn", "text": "ವಿಮಾನ ನಿಲ್ದಾಣಕ್ಕೆ ಹೋಗಬೇಕು, ಆಟೋ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "kn", "text": "ಹಬ್ಬ ಚಿತ್ರಗಳನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "ಹಬ್ಬ"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని డాక్టర్ గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "doctor"}}}
+{"lang": "ta", "text": "சீக்கிரம் எச்எஸ்ஆர் லேஅவுட்டுக்கு ஒரு கேப் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "HSR Layout"}}}
+{"lang": "ta", "text": "நீங்கள் யார்", "call": {"name": "help", "arguments": {}}}
+{"lang": "en", "text": "I have to reach Nexus Mall, get a cab", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Nexus Mall"}}}
+{"lang": "kn-Latn", "text": "Ravi enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Ravi"}}}
+{"lang": "te", "text": "మెజెస్టిక్‌కి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Majestic"}}}
+{"lang": "kn", "text": "ಮೆಕ್ಯಾನಿಕ್ ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "mechanic"}}}
+{"lang": "ml", "text": "എനിക്ക് വിൽക്കണം", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "en", "text": "latest music posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "music"}}}
+{"lang": "en", "text": "need some wheat flour", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಮೆಡಿಕಲ್ ಶಾಪ್ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "pharmacy"}}}
+{"lang": "en", "text": "which an AC mechanic should I choose", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் காய்கறி கேளு", "call": {"name": "post_request", "arguments": {"what": "vegetables"}}}
+{"lang": "hi-Latn", "text": "jaldi Jayanagar ke liye bike bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "ml-Latn", "text": "vegam Whitefieldilekku taxi venam", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Whitefield"}}}
+{"lang": "ml", "text": "മെക്കാനിക്ക് വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "mechanic"}}}
+{"lang": "en", "text": "I have to reach Koramangala, get a bike", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "ml-Latn", "text": "Marathahalliyilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "kn", "text": "ಕ್ರಿಕೆಟ್ ಬಗ್ಗೆ ವೀಡಿಯೋ ಇದೆಯಾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ಕ್ರಿಕೆಟ್"}}}
+{"lang": "en", "text": "lowest price eggs", "call": {"name": "compare", "arguments": {"query": "eggs"}}}
+{"lang": "hi-Latn", "text": "mechanic ki request daal do", "call": {"name": "post_request", "arguments": {"what": "mechanic"}}}
+{"lang": "ta", "text": "திருமணம் பற்றி மக்கள் என்ன பதிவிட்டார்கள்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "திருமணம்"}}}
+{"lang": "hi-Latn", "text": "tamatar ki request daal do", "call": {"name": "post_request", "arguments": {"what": "tomatoes"}}}
+{"lang": "kn-Latn", "text": "yav medical shop chennagide", "call": {"name": "compare", "arguments": {"query": "pharmacy"}}}
+{"lang": "hi-Latn", "text": "padosiyon se chawal pucho", "call": {"name": "post_request", "arguments": {"what": "rice"}}}
+{"lang": "en", "text": "I have to reach Nexus Mall", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "en", "text": "play some comedy videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "comedy"}}}
+{"lang": "ml", "text": "നൃത്തം പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "നൃത്തം"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് പഞ്ചസാര ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "sugar"}}}
+{"lang": "ml", "text": "ഇലക്ട്രോണിക് സിറ്റിയിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "hi", "text": "तुम कौन हो", "call": {"name": "help", "arguments": {}}}
+{"lang": "hi", "text": "कोरमंगला पहुँचना है, रिक्शा कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "te", "text": "తొందరగా ఎంజీ రోడ్‌కి ఒక బైక్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "hi-Latn", "text": "Whitefield pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಅಡುಗೆಯವರು ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "ml", "text": "ആശ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ആശ"}}}
+{"lang": "ml-Latn", "text": "AC repair kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "AC repair"}}}
+{"lang": "en", "text": "where do I find a painter", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "en", "text": "videos on dance", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "dance"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಹಾಲು ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "hi-Latn", "text": "bread kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "bread"}}}
+{"lang": "hi-Latn", "text": "koi murga hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "chicken"}}}
+{"lang": "ta", "text": "ஆஷா என்ன பதிவிட்டார்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ஆஷா"}}}
+{"lang": "te", "text": "దగ్గరలో వంటమనిషి ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "cook"}}}
+{"lang": "hi-Latn", "text": "shaadi wale videos chahiye", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "shaadi"}}}
+{"lang": "ml", "text": "സംഗീതം പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "സംഗീതം"}}}
+{"lang": "te", "text": "చక్కెర ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "sugar"}}}
+{"lang": "ml", "text": "സംഗീതം വീഡിയോ ഉണ്ടോ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "സംഗീതം"}}}
+{"lang": "te", "text": "క్రికెట్ గురించి ఎవరు ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "క్రికెట్"}}}
+{"lang": "kn-Latn", "text": "bega airportge auto beku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "te", "text": "రవి ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "రవి"}}}
+{"lang": "hi-Latn", "text": "padosiyon se AC wala pucho", "call": {"name": "post_request", "arguments": {"what": "AC repair"}}}
+{"lang": "en", "text": "can you ask around for house cleaning", "call": {"name": "post_request", "arguments": {"what": "house cleaning"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ತರಕಾರಿ ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "vegetables"}}}
+{"lang": "kn", "text": "ಸಂಗೀತ ಚಿತ್ರಗಳನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "ಸಂಗೀತ"}}}
+{"lang": "te", "text": "విమానాశ్రయానికి వెళ్ళాలి, ఆటో బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "ml-Latn", "text": "vegam MG roadilekku auto venam", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "kn-Latn", "text": "Banashankarige talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "hi", "text": "एक टैक्सी भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "ml-Latn", "text": "vegam Koramangalayilekku bike venam", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Koramangala"}}}
+{"lang": "ml-Latn", "text": "onam patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "onam"}}}
+{"lang": "en", "text": "I'm looking for sugar", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "hi-Latn", "text": "jaldi Koramangala ke liye rickshaw bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಅಕ್ಕಿ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "rice"}}}
+{"lang": "ta", "text": "நடனம் படங்கள் தேடு", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "நடனம்"}}}
+{"lang": "ml-Latn", "text": "panchasara nu request idu", "call": {"name": "post_request", "arguments": {"what": "sugar"}}}
+{"lang": "te", "text": "పెళ్లి గురించి వీడియో ఉందా", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "పెళ్లి"}}}
+{"lang": "ta", "text": "சீக்கிரம் ஜெயநகருக்கு ஒரு பைக் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "ml-Latn", "text": "kalyanam video undo", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "kalyanam"}}}
+{"lang": "ml-Latn", "text": "ente friend Arjun ne thirayu", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Arjun"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் பனீர் கேளு", "call": {"name": "post_request", "arguments": {"what": "paneer"}}}
+{"lang": "hi-Latn", "text": "bike mangwao", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "hi-Latn", "text": "Arjun ne kya post kiya", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Arjun"}}}
+{"lang": "en", "text": "I want a rickshaw now", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "ta", "text": "சீக்கிரம் கோரமங்களாவுக்கு ஒரு கேப் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "hi-Latn", "text": "jaldi auto chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "en", "text": "going to Koramangala", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ta", "text": "திருவிழா ஆவணங்கள்", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "திருவிழா"}}}
+{"lang": "en", "text": "send a auto here", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi", "text": "नेक्सस मॉल पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "hi", "text": "जल्दी से इलेक्ट्रॉनिक सिटी के लिए ऑटो भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "hi-Latn", "text": "koi painter hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "en", "text": "pictures from the travel", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "travel"}}}
+{"lang": "hi-Latn", "text": "sabji kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "vegetables"}}}
+{"lang": "ml", "text": "സംഗീതം രേഖകൾ", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "സംഗീതം"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని టమాటాలు గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "tomatoes"}}}
+{"lang": "kn", "text": "ಮದುವೆ ದಾಖಲೆಗಳು", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "ಮದುವೆ"}}}
+{"lang": "ml", "text": "ക്രിക്കറ്റ് രേഖകൾ", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "ക്രിക്കറ്റ്"}}}
+{"lang": "te", "text": "ఉత్తమ గోధుమ పిండి ఏది", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "en", "text": "any Coorg coffee documents shared", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "Coorg coffee"}}}
+{"lang": "ml", "text": "എച്ച്എസ്ആർ ലേഔട്ടിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಪೇಂಟರ್ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "painter"}}}
+{"lang": "kn", "text": "ನನ್ನ ಗೆಳೆಯ ಆಶಾ ಅವರನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ಆಶಾ"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் பிளம்பர் கேளு", "call": {"name": "post_request", "arguments": {"what": "plumber"}}}
+{"lang": "hi-Latn", "text": "tamatar kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "hi", "text": "मुझे बेचना है", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "ml", "text": "എം.ജി. റോഡിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "hi-Latn", "text": "Jayanagar chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "hi-Latn", "text": "jaldi Electronic city ke liye cab bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Electronic City"}}}
+{"lang": "kn", "text": "ನೃತ್ಯ ಬಗ್ಗೆ ವೀಡಿಯೋ ಇದೆಯಾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ನೃತ್ಯ"}}}
+{"lang": "hi-Latn", "text": "Nexus mall chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "hi-Latn", "text": "pyaaz dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "ml", "text": "നിങ്ങൾ ആരാണ്", "call": {"name": "help", "arguments": {}}}
+{"lang": "ml", "text": "ഓണം ചിത്രങ്ങൾ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "ഓണം"}}}
+{"lang": "en", "text": "any music documents shared", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "music"}}}
+{"lang": "kn", "text": "ಮದುವೆ ಬಗ್ಗೆ ವೀಡಿಯೋ ಇದೆಯಾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ಮದುವೆ"}}}
+{"lang": "en", "text": "most recommended medicines", "call": {"name": "compare", "arguments": {"query": "pharmacy"}}}
+{"lang": "hi-Latn", "text": "cooking ka pdf", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "cooking"}}}
+{"lang": "te", "text": "వంటమనిషి ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya tamatar", "call": {"name": "compare", "arguments": {"query": "tomatoes"}}}
+{"lang": "hi-Latn", "text": "dance ki photo dhundo", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "dance"}}}
+{"lang": "hi", "text": "बढ़ई दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "en", "text": "I'm looking for a mechanic", "call": {"name": "search_marketplace", "arguments": {"query": "mechanic"}}}
+{"lang": "en", "text": "where do I find chicken", "call": {"name": "search_marketplace", "arguments": {"query": "chicken"}}}
+{"lang": "ml", "text": "വേഗം നെക്സസ് മാളിലേക്ക് ഒരു ഓട്ടോ വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "ml-Latn", "text": "puthiya videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": ""}}}
+{"lang": "en", "text": "any travel documents shared", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "travel"}}}
+{"lang": "ta", "text": "மிக அருகில்", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "en", "text": "scooter please, going to MG Road", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "en", "text": "I'm looking for onions", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "ml", "text": "വേഗം മജസ്റ്റിക്കിലേക്ക് ഒരു ബൈക്ക് വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Majestic"}}}
+{"lang": "ml", "text": "എസി റിപ്പയർ കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "AC repair"}}}
+{"lang": "hi-Latn", "text": "kaunsa paneer accha hai", "call": {"name": "compare", "arguments": {"query": "paneer"}}}
+{"lang": "te", "text": "చక్కెర చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "hi", "text": "शादी की फोटो ढूंढो", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "शादी"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಮನೆ ಕೆಲಸದವರು ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "house cleaning"}}}
+{"lang": "ml-Latn", "text": "online aakanam", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "hi-Latn", "text": "tyohar wale videos chahiye", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "tyohar"}}}
+{"lang": "ta", "text": "பக்கத்தில் பால் இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "hi-Latn", "text": "mistri ki request daal do", "call": {"name": "post_request", "arguments": {"what": "mechanic"}}}
+{"lang": "te", "text": "డ్యాన్స్ గురించి వీడియో ఉందా", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "డ్యాన్స్"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് പനീർ ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "paneer"}}}
+{"lang": "ml", "text": "പാചകക്കാരൻ വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "te", "text": "ఉత్తమ పెయింటర్ ఏది", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "en", "text": "I'm looking for cooking oil", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని ఇంటి పనిమనిషి గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "house cleaning"}}}
+{"lang": "en", "text": "most trusted on top", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "hi", "text": "सबसे पास वाले दिखाओ", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "ta", "text": "சுரேஷ் என்ன பதிவிட்டார்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "சுரேஷ்"}}}
+{"lang": "en", "text": "any cricket documents shared", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "cricket"}}}
+{"lang": "kn", "text": "ಮಾಡಿ", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "ta", "text": "இசை ஆவணங்கள்", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "இசை"}}}
+{"lang": "hi-Latn", "text": "tailor ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "tailor"}}}
+{"lang": "ml-Latn", "text": "cricket patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "cricket"}}}
+{"lang": "kn-Latn", "text": "Jayanagarakke hogbeku auto book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "te", "text": "ఒక బైక్ పంపండి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಬ್ರೆಡ್ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "bread"}}}
+{"lang": "hi", "text": "एयरपोर्ट पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "ta", "text": "சீக்கிரம் மாரத்தஹள்ளிக்கு ஒரு பைக் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Marathahalli"}}}
+{"lang": "hi-Latn", "text": "dudh dikhao", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "en", "text": "pictures from the cooking", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "cooking"}}}
+{"lang": "kn-Latn", "text": "yaaru neenu", "call": {"name": "help", "arguments": {}}}
+{"lang": "hi-Latn", "text": "padosiyon se anda pucho", "call": {"name": "post_request", "arguments": {"what": "eggs"}}}
+{"lang": "hi", "text": "एमजी रोड पहुँचना है, ऑटो कर दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "hi", "text": "शादी के दस्तावेज़", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "शादी"}}}
+{"lang": "kn-Latn", "text": "maduve documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "maduve"}}}
+{"lang": "hi-Latn", "text": "plumber kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "en", "text": "what has Priya posted", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Priya"}}}
+{"lang": "en", "text": "arrange a cab to Koramangala", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "hi-Latn", "text": "main ready hoon online karo", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "ta", "text": "வீட்டு வேலைக்காரர் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "house cleaning"}}}
+{"lang": "ml", "text": "നൃത്തം രേഖകൾ", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "നൃത്തം"}}}
+{"lang": "te", "text": "మీరా ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "మీరా"}}}
+{"lang": "hi-Latn", "text": "padosiyon se dawai ki dukaan pucho", "call": {"name": "post_request", "arguments": {"what": "pharmacy"}}}
+{"lang": "hi", "text": "आसपास तेल मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "en", "text": "connect with Asha", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Asha"}}}
+{"lang": "hi-Latn", "text": "log gaana ke baare mein kya post kar rahe hain", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "gaana"}}}
+{"lang": "ta", "text": "ஏர்போர்ட்டுக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല ഡോക്ടർ ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "hi-Latn", "text": "jaldi taxi chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "kn", "text": "ಸಕ್ಕರೆ ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "sugar"}}}
+{"lang": "hi", "text": "शादी पर कोई वीडियो है क्या", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "शादी"}}}
+{"lang": "te", "text": "పండుగ పత్రాలు", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "పండుగ"}}}
+{"lang": "hi-Latn", "text": "cab se Indiranagar chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Indiranagar"}}}
+{"lang": "ml-Latn", "text": "vegam Hebbalilekku auto venam", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "ta", "text": "என் நண்பர் மீரா ஐ தேடு", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "மீரா"}}}
+{"lang": "hi-Latn", "text": "rickshaw mangwao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi-Latn", "text": "kaunsa sabzi accha hai", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "ta", "text": "கோதுமை மாவு விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "ta", "text": "சர்க்கரை காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "ml", "text": "എന്റെ സുഹൃത്ത് കാവ്യ എന്നയാളെ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "കാവ്യ"}}}
+{"lang": "ml", "text": "പാൽ കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "kn", "text": "ಅಡುಗೆ ಬಗ್ಗೆ ಜನ ಏನು ಪೋಸ್ಟ್ ಮಾಡಿದ್ದಾರೆ", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ಅಡುಗೆ"}}}
+{"lang": "en", "text": "need some rice", "call": {"name": "search_marketplace", "arguments": {"query": "rice"}}}
+{"lang": "en", "text": "cab please, going to Hebbal", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Hebbal"}}}
+{"lang": "kn-Latn", "text": "yav bread chennagide", "call": {"name": "compare", "arguments": {"query": "bread"}}}
+{"lang": "hi-Latn", "text": "kaunsa sabji accha hai", "call": {"name": "compare", "arguments": {"query": "vegetables"}}}
+{"lang": "ml-Latn", "text": "cheap aadyam", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "kn", "text": "ಬೇಗ ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಸಿಟಿಗೆ ಒಂದು ಆಟೋ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "te", "text": "కావ్య ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "కావ్య"}}}
+{"lang": "en", "text": "I have to reach MG Road", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "hi-Latn", "text": "HSR chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "kn", "text": "ಮ್ಯಾಪ್ ತೆರೆಯಿರಿ", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "ml-Latn", "text": "kalyanam photo thirayu", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "kalyanam"}}}
+{"lang": "en", "text": "arrange a auto to Hebbal", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "hi-Latn", "text": "mujhe apna kaam list karna hai", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "ml", "text": "രവി എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "രവി"}}}
+{"lang": "kn", "text": "ಅಡುಗೆ ಬಗ್ಗೆ ವೀಡಿಯೋ ಇದೆಯಾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ಅಡುಗೆ"}}}
+{"lang": "hi", "text": "कविता ने क्या पोस्ट किया", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "कविता"}}}
+{"lang": "en", "text": "lowest price a plumber", "call": {"name": "compare", "arguments": {"query": "plumber"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല ബിരിയാണി ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "biryani"}}}
+{"lang": "ml", "text": "അടുത്ത് ബിരിയാണി ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "en", "text": "arrange a rickshaw to Marathahalli", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "ta", "text": "இசை படங்கள் தேடு", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "இசை"}}}
+{"lang": "en", "text": "anything posted about travel", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "travel"}}}
+{"lang": "te", "text": "సురేష్ ఏమి పోస్ట్ చేశారు", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "సురేష్"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil panchasara", "call": {"name": "compare", "arguments": {"query": "sugar"}}}
+{"lang": "kn", "text": "ನನ್ನ ಗೆಳೆಯ ಅರ್ಜುನ್ ಅವರನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ಅರ್ಜುನ್"}}}
+{"lang": "kn", "text": "ಒಂದು ಟ್ಯಾಕ್ಸಿ ಕಳಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "te", "text": "నెక్సస్ మాల్‌కి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "te", "text": "తొందరగా ఎంజీ రోడ్‌కి ఒక ఆటో కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "en", "text": "order by price", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "ta", "text": "பனசங்கரிக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "hi", "text": "जल्दी से एचएसआर लेआउट के लिए रिक्शा भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "kn", "text": "ಕೊಡಗು ಕಾಫಿ ಚಿತ್ರಗಳನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "ಕೊಡಗು ಕಾಫಿ"}}}
+{"lang": "ml", "text": "ഇന്ദിരാനഗറിലേക്ക് പോകണം, ബൈക്ക് ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Indiranagar"}}}
+{"lang": "en", "text": "open Ravi's profile", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Ravi"}}}
+{"lang": "ta", "text": "டாக்டர் விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "hi", "text": "आसपास टमाटर मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "hi-Latn", "text": "khana banane wali ki request daal do", "call": {"name": "post_request", "arguments": {"what": "cook"}}}
+{"lang": "hi", "text": "दही दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "curd"}}}
+{"lang": "kn-Latn", "text": "bega Banashankarige auto beku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Banashankari"}}}
+{"lang": "kn-Latn", "text": "mechanic bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "mechanic"}}}
+{"lang": "ta", "text": "கிரிக்கெட் பற்றி வீடியோ இருக்கா", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "கிரிக்கெட்"}}}
+{"lang": "ml-Latn", "text": "aduthu plumber undo", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "kn-Latn", "text": "sangeetha documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "sangeetha"}}}
+{"lang": "kn-Latn", "text": "kammi bele mosaru", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "te", "text": "ఒక ఆటో పంపండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് ഗോതമ്പ് പൊടി ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "wheat flour"}}}
+{"lang": "ml-Latn", "text": "paachakam patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "paachakam"}}}
+{"lang": "hi", "text": "सबसे बढ़िया बिजली वाला बताओ", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "ml", "text": "ഓണം പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "ഓണം"}}}
+{"lang": "kn", "text": "ಡಾಕ್ಟರ್ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "doctor"}}}
+{"lang": "ta", "text": "ஆன்லைன் போகணும்", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "te", "text": "నూనె చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "te", "text": "క్రికెట్ పత్రాలు", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "క్రికెట్"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് മെഡിക്കൽ ഷോപ്പ് ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "pharmacy"}}}
+{"lang": "kn-Latn", "text": "tailor bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "tailor"}}}
+{"lang": "kn", "text": "ನನ್ನ ಗೆಳೆಯ ಮೀರಾ ಅವರನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ಮೀರಾ"}}}
+{"lang": "en", "text": "I'm looking for eggs", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "ml", "text": "ഓൺലൈൻ ആകണം", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "ml-Latn", "text": "MG roadilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "kn-Latn", "text": "Jayanagarakke hogbeku bike book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "ml-Latn", "text": "ente friend Asha ne thirayu", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Asha"}}}
+{"lang": "kn-Latn", "text": "Marathahallige hogbeku bike book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Marathahalli"}}}
+{"lang": "kn-Latn", "text": "Nexus mallge talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "en", "text": "start my shift", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "ml-Latn", "text": "Ravi entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Ravi"}}}
+{"lang": "en", "text": "I want to offer my services", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "hi-Latn", "text": "cricket ka pdf", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "cricket"}}}
+{"lang": "hi-Latn", "text": "Koramangala chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "hi-Latn", "text": "mere dost Suresh ko search karo", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Suresh"}}}
+{"lang": "ml", "text": "കൊടഗ് കാപ്പി രേഖകൾ", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "കൊടഗ് കാപ്പി"}}}
+{"lang": "en", "text": "going to Nexus Mall", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "ml", "text": "ആശാരി വില താരതമ്യം ചെയ്യൂ", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "hi-Latn", "text": "mere dost Asha ko search karo", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Asha"}}}
+{"lang": "kn", "text": "ವೈಟ್‌ಫೀಲ್ಡ್‌ಗೆ ಹೋಗಬೇಕು, ಆಟೋ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "te", "text": "ఒక క్యాబ్ పంపండి", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "ml-Latn", "text": "sangeetham documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "sangeetham"}}}
+{"lang": "hi-Latn", "text": "chini ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "sugar"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല മെഡിക്കൽ ഷോപ്പ് ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "pharmacy"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ಬಡಗಿ ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "en", "text": "most recommended an AC mechanic", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "ta", "text": "மாரத்தஹள்ளிக்கு போகணும், பைக் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "डांस पर कोई वीडियो है क्या", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "डांस"}}}
+{"lang": "ml", "text": "വേഗം ഹെബ്ബാളിലേക്ക് ഒരു ഓട്ടോ വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "kn", "text": "ಮೆಜೆಸ್ಟಿಕ್‌ಗೆ ಹೋಗಬೇಕು, ಕ್ಯಾಬ್ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Majestic"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് പച്ചക്കറി ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "vegetables"}}}
+{"lang": "ml-Latn", "text": "Coorg coffee photo thirayu", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "Coorg coffee"}}}
+{"lang": "kn-Latn", "text": "mosaru thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "curd"}}}
+{"lang": "ml", "text": "ഏറ്റവും നല്ല ബ്രെഡ് ഏതാണ്", "call": {"name": "compare", "arguments": {"query": "bread"}}}
+{"lang": "ml", "text": "ചെയ്യൂ", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "ml", "text": "വേഗം എം.ജി. റോഡിലേക്ക് ഒരു കാർ വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "MG Road"}}}
+{"lang": "hi-Latn", "text": "gaana ka pdf", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "gaana"}}}
+{"lang": "en", "text": "send a bike here", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "kn", "text": "ಕೊಡಗು ಕಾಫಿ ಬಗ್ಗೆ ವೀಡಿಯೋ ಇದೆಯಾ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "ಕೊಡಗು ಕಾಫಿ"}}}
+{"lang": "kn-Latn", "text": "nanu sell maadbeku", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "en", "text": "any pics of music", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "music"}}}
+{"lang": "hi-Latn", "text": "gaana ki photo dhundo", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "gaana"}}}
+{"lang": "kn", "text": "ಪೇಂಟರ್ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ಎಣ್ಣೆ ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "en", "text": "where do I find vegetables", "call": {"name": "search_marketplace", "arguments": {"query": "vegetables"}}}
+{"lang": "en", "text": "where do I find rice", "call": {"name": "search_marketplace", "arguments": {"query": "rice"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya medical store", "call": {"name": "compare", "arguments": {"query": "pharmacy"}}}
+{"lang": "ta", "text": "சமையல் ஆவணங்கள்", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "சமையல்"}}}
+{"lang": "hi", "text": "क्रिकेट के दस्तावेज़", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "क्रिकेट"}}}
+{"lang": "hi", "text": "भरोसेमंद वाले ऊपर", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "hi-Latn", "text": "carpenter kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "hi-Latn", "text": "koi kaam wali bai hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "house cleaning"}}}
+{"lang": "en", "text": "pictures from the gardening", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "gardening"}}}
+{"lang": "hi", "text": "संगीत की फोटो ढूंढो", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "संगीत"}}}
+{"lang": "hi", "text": "जल्दी से मैजेस्टिक के लिए ऑटो भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Majestic"}}}
+{"lang": "en", "text": "latest wedding posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "wedding"}}}
+{"lang": "hi-Latn", "text": "koi carpenter hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "ml-Latn", "text": "Meera entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Meera"}}}
+{"lang": "ml", "text": "പാചകം പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "പാചകം"}}}
+{"lang": "ta", "text": "என் நண்பர் ஆஷா ஐ தேடு", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ஆஷா"}}}
+{"lang": "kn", "text": "ಒಂದು ಬೈಕ್ ಕಳಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "hi", "text": "दाम के हिसाब से लगाओ", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "en", "text": "connect with Priya", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Priya"}}}
+{"lang": "kn-Latn", "text": "trusted modalu", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya paneer", "call": {"name": "compare", "arguments": {"query": "paneer"}}}
+{"lang": "te", "text": "తొందరగా మెజెస్టిక్‌కి ఒక బైక్ కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Majestic"}}}
+{"lang": "te", "text": "ఉల్లిపాయలు ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "onions"}}}
+{"lang": "kn-Latn", "text": "Indiranagarakke hogbeku auto book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "hi-Latn", "text": "em jee road pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "MG Road"}}}
+{"lang": "ml-Latn", "text": "vegam airportilekku auto venam", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Kempegowda airport"}}}
+{"lang": "en", "text": "any wedding documents shared", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "wedding"}}}
+{"lang": "kn-Latn", "text": "Whitefieldge talupisi", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "hi", "text": "एचएसआर लेआउट पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "hi-Latn", "text": "HSR pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "hi", "text": "मेरे दोस्त सुरेश को खोजो", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "सुरेश"}}}
+{"lang": "hi-Latn", "text": "AC repair ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "hi", "text": "खाना की फोटो ढूंढो", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "खाना"}}}
+{"lang": "kn", "text": "ಬೇಗ ಜಯನಗರಕ್ಕೆ ಒಂದು ಬೈಕ್ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Jayanagar"}}}
+{"lang": "hi", "text": "सुरेश ने क्या पोस्ट किया", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "सुरेश"}}}
+{"lang": "ta", "text": "தையல்காரர் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "tailor"}}}
+{"lang": "ml", "text": "അടുത്ത് മെഡിക്കൽ ഷോപ്പ് ഉണ്ടോ", "call": {"name": "search_marketplace", "arguments": {"query": "pharmacy"}}}
+{"lang": "ta", "text": "பக்கத்தில் பெயிண்டர் இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "painter"}}}
+{"lang": "ta", "text": "நல்ல பால் எது", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "en", "text": "lowest price wheat flour", "call": {"name": "compare", "arguments": {"query": "wheat flour"}}}
+{"lang": "en", "text": "which paneer should I choose", "call": {"name": "compare", "arguments": {"query": "paneer"}}}
+{"lang": "en", "text": "most recommended carpenter", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "ml-Latn", "text": "aduthu gothambu podi undo", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "ta", "text": "கிரிக்கெட் படங்கள் தேடு", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "கிரிக்கெட்"}}}
+{"lang": "hi", "text": "त्योहार की फोटो ढूंढो", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "त्योहार"}}}
+{"lang": "ml-Latn", "text": "Coorg coffee patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Coorg coffee"}}}
+{"lang": "ml", "text": "വേഗം ഇന്ദിരാനഗറിലേക്ക് ഒരു ഓട്ടോ വേണം", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "ml", "text": "കൊടഗ് കാപ്പി ചിത്രങ്ങൾ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "കൊടഗ് കാപ്പി"}}}
+{"lang": "en", "text": "anything posted about Coorg coffee", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Coorg coffee"}}}
+{"lang": "ml", "text": "കോരമംഗലയിലേക്ക് പോകണം, ടാക്സി ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "ml-Latn", "text": "aduthu panchasara undo", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "ta", "text": "கிரிக்கெட் ஆவணங்கள்", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "கிரிக்கெட்"}}}
+{"lang": "hi", "text": "पड़ोस में घर की सफ़ाई वाली के लिए पूछो", "call": {"name": "post_request", "arguments": {"what": "house cleaning"}}}
+{"lang": "ta", "text": "பக்கத்தில் கோதுமை மாவு இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "hi-Latn", "text": "sabse bharosemand pehle", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "hi-Latn", "text": "gaadi mangwao", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని దర్జీ గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "tailor"}}}
+{"lang": "ml", "text": "കോഴി ഇറച്ചി കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "chicken"}}}
+{"lang": "kn-Latn", "text": "bega Electronic cityge auto beku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "en", "text": "play some cooking videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "cooking"}}}
+{"lang": "kn", "text": "ಅಕ್ಕಪಕ್ಕದವರಿಗೆ ಪನೀರ್ ಬಗ್ಗೆ ಕೇಳಿ", "call": {"name": "post_request", "arguments": {"what": "paneer"}}}
+{"lang": "hi", "text": "बिल्कुल", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "en", "text": "going to Hebbal", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "te", "text": "మారతహళ్ళికి చేర్చండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "en", "text": "send a bike taxi here", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "kn-Latn", "text": "hathradalli godhi hittu ideya", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "hi-Latn", "text": "AC wala ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "en", "text": "connect with Meera", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Meera"}}}
+{"lang": "hi-Latn", "text": "Banashankari pahunchna hai gaadi chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Banashankari"}}}
+{"lang": "kn-Latn", "text": "kammi bele eerulli", "call": {"name": "compare", "arguments": {"query": "onions"}}}
+{"lang": "kn-Latn", "text": "doctor bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "doctor"}}}
+{"lang": "kn", "text": "ನಾನು ಮಾರಾಟ ಮಾಡಬೇಕು", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "ml", "text": "എന്റെ സുഹൃത്ത് രവി എന്നയാളെ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "രവി"}}}
+{"lang": "ml", "text": "കൊടഗ് കാപ്പി വീഡിയോ ഉണ്ടോ", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "കൊടഗ് കാപ്പി"}}}
+{"lang": "ml", "text": "ഒരു ബൈക്ക് അയക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": ""}}}
+{"lang": "kn-Latn", "text": "tumba hathra", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "kn", "text": "ನನ್ನ ಗೆಳೆಯ ಕಾವ್ಯ ಅವರನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ಕಾವ್ಯ"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil tailor", "call": {"name": "compare", "arguments": {"query": "tailor"}}}
+{"lang": "en", "text": "I have to reach Electronic City", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "en", "text": "anything posted about gardening", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "gardening"}}}
+{"lang": "ml", "text": "വില കുറഞ്ഞത് ആദ്യം", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "en", "text": "can you ask around for eggs", "call": {"name": "post_request", "arguments": {"what": "eggs"}}}
+{"lang": "ta", "text": "என் நண்பர் காவ்யா ஐ தேடு", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "காவ்யா"}}}
+{"lang": "hi-Latn", "text": "kya haal hai", "call": {"name": "help", "arguments": {}}}
+{"lang": "ta", "text": "மெஜஸ்டிக்குக்கு போகணும், டாக்ஸி புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Majestic"}}}
+{"lang": "kn", "text": "ನೀವು ಯಾರು", "call": {"name": "help", "arguments": {}}}
+{"lang": "ml-Latn", "text": "map thurakku", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "hi-Latn", "text": "gaana wale videos chahiye", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "gaana"}}}
+{"lang": "kn", "text": "ತುಂಬಾ ಹತ್ತಿರದವು", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "hi-Latn", "text": "jaldi Jayanagar ke liye auto bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని నూనె గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "cooking oil"}}}
+{"lang": "hi-Latn", "text": "Majestic chalo", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Majestic"}}}
+{"lang": "ml-Latn", "text": "Whitefieldilekku ethikku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் எலக்ட்ரீஷியன் கேளு", "call": {"name": "post_request", "arguments": {"what": "electrician"}}}
+{"lang": "hi", "text": "घर की सफ़ाई वाली दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "house cleaning"}}}
+{"lang": "ml-Latn", "text": "trusted aadyam", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "en", "text": "videos on Coorg coffee", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "Coorg coffee"}}}
+{"lang": "ml", "text": "കല്യാണം പറ്റി ആളുകൾ എന്താണ് പോസ്റ്റ് ചെയ്തത്", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "കല്യാണം"}}}
+{"lang": "hi-Latn", "text": "meri bookings dikhao", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "hi", "text": "बिरयानी दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "kn-Latn", "text": "nanna rides", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "kn-Latn", "text": "hathradalli tomato ideya", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "en", "text": "need some biriyani", "call": {"name": "search_marketplace", "arguments": {"query": "biryani"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ಗೋಧಿ ಹಿಟ್ಟು ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "ta", "text": "மீரா என்ன பதிவிட்டார்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "மீரா"}}}
+{"lang": "en", "text": "add my business", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் வீட்டு வேலைக்காரர் கேளு", "call": {"name": "post_request", "arguments": {"what": "house cleaning"}}}
+{"lang": "kn-Latn", "text": "map open maadi", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "kn-Latn", "text": "hathradalli enne ideya", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "kn-Latn", "text": "habba bagge jana enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "habba"}}}
+{"lang": "kn-Latn", "text": "maduve bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "maduve"}}}
+{"lang": "hi-Latn", "text": "tyohar ki photo dhundo", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "tyohar"}}}
+{"lang": "te", "text": "మీరు ఎవరు", "call": {"name": "help", "arguments": {}}}
+{"lang": "ta", "text": "இசை பற்றி வீடியோ இருக்கா", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "இசை"}}}
+{"lang": "hi-Latn", "text": "Marathahalli pahunchna hai rickshaw chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "kn-Latn", "text": "nanna friend Asha na hudki", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Asha"}}}
+{"lang": "kn-Latn", "text": "habba photo hudki", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "habba"}}}
+{"lang": "hi", "text": "आसपास दूध मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "ml-Latn", "text": "ente friend Kavya ne thirayu", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Kavya"}}}
+{"lang": "en", "text": "I have to reach Electronic City, get a taxi", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Electronic City"}}}
+{"lang": "ta", "text": "திருவிழா பற்றி மக்கள் என்ன பதிவிட்டார்கள்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "திருவிழா"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil chicken", "call": {"name": "compare", "arguments": {"query": "chicken"}}}
+{"lang": "te", "text": "ఉత్తమ పనీర్ ఏది", "call": {"name": "compare", "arguments": {"query": "paneer"}}}
+{"lang": "kn-Latn", "text": "enne bagge request haaki", "call": {"name": "post_request", "arguments": {"what": "cooking oil"}}}
+{"lang": "te", "text": "కోరమంగళకి వెళ్ళాలి, ఆటో బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "en", "text": "put up a request for eggs", "call": {"name": "post_request", "arguments": {"what": "eggs"}}}
+{"lang": "kn-Latn", "text": "cricket bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "cricket"}}}
+{"lang": "ta", "text": "விடுங்க", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "ml-Latn", "text": "enikku vilkkanam", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "kn", "text": "ಈರುಳ್ಳಿ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "ta", "text": "அக்கம்பக்கத்தில் மெக்கானிக் கேளு", "call": {"name": "post_request", "arguments": {"what": "mechanic"}}}
+{"lang": "ta", "text": "நான் விற்க வேண்டும்", "call": {"name": "become_provider", "arguments": {}}}
+{"lang": "ta", "text": "தயிர் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "curd"}}}
+{"lang": "kn", "text": "ತರಕಾರಿ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "vegetables"}}}
+{"lang": "kn", "text": "ನನ್ನ ಗೆಳೆಯ ಸುರೇಶ್ ಅವರನ್ನು ಹುಡುಕಿ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ಸುರೇಶ್"}}}
+{"lang": "hi-Latn", "text": "koi tailor hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "tailor"}}}
+{"lang": "en", "text": "lowest price carpenter", "call": {"name": "compare", "arguments": {"query": "carpenter"}}}
+{"lang": "hi-Latn", "text": "haan bhai", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "ml-Latn", "text": "cricket photo thirayu", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "cricket"}}}
+{"lang": "ml", "text": "ഇന്ദിരാനഗറിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "ml-Latn", "text": "Nexus mallilekku pokanam auto book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "kn", "text": "ಬೇಗ ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಸಿಟಿಗೆ ಒಂದು ಬೈಕ್ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Electronic City"}}}
+{"lang": "hi", "text": "डांस की फोटो ढूंढो", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "डांस"}}}
+{"lang": "ml-Latn", "text": "kuranja vilayil doctor", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "en", "text": "I have to reach HSR", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "hi", "text": "आसपास पनीर मिलेगा क्या", "call": {"name": "search_marketplace", "arguments": {"query": "paneer"}}}
+{"lang": "ta", "text": "நடனம் ஆவணங்கள்", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "நடனம்"}}}
+{"lang": "ta", "text": "என் நண்பர் அர்ஜுன் ஐ தேடு", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "அர்ஜுன்"}}}
+{"lang": "hi", "text": "जल्दी से एचएसआर लेआउट के लिए ऑटो भेजो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "hi-Latn", "text": "Nexus mall pahunchna hai rickshaw chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "hi-Latn", "text": "anda ka rate compare karo", "call": {"name": "compare", "arguments": {"query": "eggs"}}}
+{"lang": "ml-Latn", "text": "ethu doctor aanu nallathu", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "hi", "text": "सबसे बढ़िया अंडे बताओ", "call": {"name": "compare", "arguments": {"query": "eggs"}}}
+{"lang": "kn-Latn", "text": "sakkare thorisi", "call": {"name": "search_marketplace", "arguments": {"query": "sugar"}}}
+{"lang": "hi-Latn", "text": "jaldi HSR ke liye rickshaw bulao", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "hi-Latn", "text": "auto se Electronic city chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "hi", "text": "मेरे दोस्त अर्जुन को खोजो", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "अर्जुन"}}}
+{"lang": "kn", "text": "ಟೊಮೆಟೊ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "tomatoes"}}}
+{"lang": "kn", "text": "ಹತ್ತಿರದಲ್ಲಿ ಪನೀರ್ ಇದೆಯಾ", "call": {"name": "search_marketplace", "arguments": {"query": "paneer"}}}
+{"lang": "ml-Latn", "text": "Kavya entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Kavya"}}}
+{"lang": "hi-Latn", "text": "Ravi ne kya post kiya", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Ravi"}}}
+{"lang": "en", "text": "need some eggs", "call": {"name": "search_marketplace", "arguments": {"query": "eggs"}}}
+{"lang": "ta", "text": "சமையல் பற்றி மக்கள் என்ன பதிவிட்டார்கள்", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "சமையல்"}}}
+{"lang": "kn-Latn", "text": "bega Nexus mallge bike beku", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Nexus Mall"}}}
+{"lang": "hi", "text": "लोग संगीत के बारे में क्या पोस्ट कर रहे हैं", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "संगीत"}}}
+{"lang": "kn", "text": "ಕೊಡಗು ಕಾಫಿ ದಾಖಲೆಗಳು", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "ಕೊಡಗು ಕಾಫಿ"}}}
+{"lang": "ml-Latn", "text": "ethu ari aanu nallathu", "call": {"name": "compare", "arguments": {"query": "rice"}}}
+{"lang": "kn", "text": "ಗೋಧಿ ಹಿಟ್ಟು ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "wheat flour"}}}
+{"lang": "hi-Latn", "text": "Marathahalli pahunchna hai bike chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Marathahalli"}}}
+{"lang": "kn-Latn", "text": "aduge bagge video ideya", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "aduge"}}}
+{"lang": "hi-Latn", "text": "kaunsa electrician accha hai", "call": {"name": "compare", "arguments": {"query": "electrician"}}}
+{"lang": "kn", "text": "ಎಸಿ ರಿಪೇರಿ ತೋರಿಸಿ", "call": {"name": "search_marketplace", "arguments": {"query": "AC repair"}}}
+{"lang": "hi-Latn", "text": "bike se em jee road chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "en", "text": "where am I on the map", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "kn", "text": "ಪನೀರ್ ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "paneer"}}}
+{"lang": "te", "text": "మ్యాప్ తెరవండి", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "ml-Latn", "text": "vegam Koramangalayilekku cab venam", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "kn", "text": "ಹೆಬ್ಬಾಳಕ್ಕೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Hebbal"}}}
+{"lang": "hi-Latn", "text": "koi AC repair hai paas mein", "call": {"name": "search_marketplace", "arguments": {"query": "AC repair"}}}
+{"lang": "en", "text": "put up a request for rice", "call": {"name": "post_request", "arguments": {"what": "rice"}}}
+{"lang": "hi-Latn", "text": "rickshaw se Indiranagar chhod do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Indiranagar"}}}
+{"lang": "ml-Latn", "text": "onam documents", "call": {"name": "find_content", "arguments": {"kind": "FILE", "query": "onam"}}}
+{"lang": "hi-Latn", "text": "jaldi rickshaw chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "ml-Latn", "text": "HSR layoutilekku pokanam bike book cheyyu", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "HSR Layout"}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಮೆಕ್ಯಾನಿಕ್ ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "mechanic"}}}
+{"lang": "hi-Latn", "text": "kaunsa chini accha hai", "call": {"name": "compare", "arguments": {"query": "sugar"}}}
+{"lang": "te", "text": "పాలు చూపించు", "call": {"name": "search_marketplace", "arguments": {"query": "milk"}}}
+{"lang": "kn-Latn", "text": "hathradalli medical shop ideya", "call": {"name": "search_marketplace", "arguments": {"query": "pharmacy"}}}
+{"lang": "kn", "text": "ಎಂ.ಜಿ. ರಸ್ತೆಗೆ ಹೋಗಬೇಕು, ಬೈಕ್ ಬುಕ್ ಮಾಡಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "MG Road"}}}
+{"lang": "hi", "text": "आशा ने क्या पोस्ट किया", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "आशा"}}}
+{"lang": "hi-Latn", "text": "Nexus mall pahuncha do", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "hi-Latn", "text": "pichle orders", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "ml", "text": "ജയനഗറിലേക്ക് എത്തിക്കൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Jayanagar"}}}
+{"lang": "ta", "text": "மாரத்தஹள்ளிக்கு கொண்டு விடுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Marathahalli"}}}
+{"lang": "hi", "text": "लोग शादी के बारे में क्या पोस्ट कर रहे हैं", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "शादी"}}}
+{"lang": "kn", "text": "ಆನ್‌ಲೈನ್ ಹೋಗಬೇಕು", "call": {"name": "go_online", "arguments": {}}}
+{"lang": "hi-Latn", "text": "kaunsa painter accha hai", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "te", "text": "ఉత్తమ వంటమనిషి ఏది", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "hi-Latn", "text": "mere dost Kavita ko search karo", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "Kavita"}}}
+{"lang": "en", "text": "play some wedding videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "wedding"}}}
+{"lang": "ta", "text": "ஹெப்பாலுக்கு போகணும், கேப் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Hebbal"}}}
+{"lang": "kn", "text": "ಅಡುಗೆಯವರು ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "cook"}}}
+{"lang": "ta", "text": "பண்ணுங்க", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "hi", "text": "कोरमंगला पहुँचा दो", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Koramangala"}}}
+{"lang": "ml", "text": "നെക്സസ് മാളിലേക്ക് പോകണം, ഓട്ടോ ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya painter", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "hi-Latn", "text": "kanda kaha milta hai", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "en", "text": "latest pictures", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": ""}}}
+{"lang": "kn", "text": "ಒಂದು ಕ್ಯಾಬ್ ಕಳಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": ""}}}
+{"lang": "ml", "text": "എന്റെ യാത്രകൾ", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "en", "text": "videos on travel", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "travel"}}}
+{"lang": "en", "text": "latest cricket posts", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "cricket"}}}
+{"lang": "ml-Latn", "text": "aduthu paneer undo", "call": {"name": "search_marketplace", "arguments": {"query": "paneer"}}}
+{"lang": "ta", "text": "எண்ணெய் காட்டு", "call": {"name": "search_marketplace", "arguments": {"query": "cooking oil"}}}
+{"lang": "ml-Latn", "text": "Suresh entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Suresh"}}}
+{"lang": "kn", "text": "ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಸಿಟಿಗೆ ತಲುಪಿಸಿ", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Electronic City"}}}
+{"lang": "ml", "text": "മാപ്പ് തുറക്കൂ", "call": {"name": "show_map", "arguments": {}}}
+{"lang": "kn", "text": "ಅತ್ಯುತ್ತಮ ಪ್ಲಂಬರ್ ಯಾವುದು", "call": {"name": "compare", "arguments": {"query": "plumber"}}}
+{"lang": "ml-Latn", "text": "aduthu ulli undo", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}
+{"lang": "ml", "text": "എന്റെ സുഹൃത്ത് ആശ എന്നയാളെ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "ആശ"}}}
+{"lang": "kn-Latn", "text": "yav doctor chennagide", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "ta", "text": "எம்ஜி ரோடுக்கு போகணும், கேப் புக் பண்ணுங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "MG Road"}}}
+{"lang": "ml-Latn", "text": "vegam Hebbalilekku cab venam", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Hebbal"}}}
+{"lang": "en", "text": "I have to reach Koramangala, get a cab", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "ml", "text": "വിശ്വസനീയമായവ ആദ്യം", "call": {"name": "sort_results", "arguments": {"by": "TRUST"}}}
+{"lang": "en", "text": "which a doctor should I choose", "call": {"name": "compare", "arguments": {"query": "doctor"}}}
+{"lang": "ml", "text": "എന്റെ സുഹൃത്ത് അർജുൻ എന്നയാളെ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "അർജുൻ"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని బియ్యం గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "rice"}}}
+{"lang": "ml-Latn", "text": "ethu AC repair aanu nallathu", "call": {"name": "compare", "arguments": {"query": "AC repair"}}}
+{"lang": "en", "text": "most recommended plumber", "call": {"name": "compare", "arguments": {"query": "plumber"}}}
+{"lang": "ml-Latn", "text": "dance video undo", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "dance"}}}
+{"lang": "hi-Latn", "text": "Electronic city pahunchna hai bike chahiye", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Electronic City"}}}
+{"lang": "ml-Latn", "text": "biriyani nu request idu", "call": {"name": "post_request", "arguments": {"what": "biryani"}}}
+{"lang": "te", "text": "చుట్టుపక్కల వాళ్ళని ఏసీ రిపేర్ గురించి అడగండి", "call": {"name": "post_request", "arguments": {"what": "AC repair"}}}
+{"lang": "te", "text": "బ్రెడ్ ధరలు పోల్చండి", "call": {"name": "compare", "arguments": {"query": "bread"}}}
+{"lang": "kn-Latn", "text": "bega Whitefieldge auto beku", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Whitefield"}}}
+{"lang": "hi-Latn", "text": "padosiyon se sabji pucho", "call": {"name": "post_request", "arguments": {"what": "vegetables"}}}
+{"lang": "te", "text": "నా స్నేహితుడు మీరా ని వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "మీరా"}}}
+{"lang": "ta", "text": "பிளம்பர் விலை ஒப்பிடு", "call": {"name": "compare", "arguments": {"query": "plumber"}}}
+{"lang": "ml-Latn", "text": "aashari kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "carpenter"}}}
+{"lang": "kn-Latn", "text": "yav akki chennagide", "call": {"name": "compare", "arguments": {"query": "rice"}}}
+{"lang": "te", "text": "నా స్నేహితుడు అర్జున్ ని వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "అర్జున్"}}}
+{"lang": "ta", "text": "நல்ல ரொட்டி எது", "call": {"name": "compare", "arguments": {"query": "bread"}}}
+{"lang": "ta", "text": "பக்கத்தில் எலக்ட்ரீஷியன் இருக்கா", "call": {"name": "search_marketplace", "arguments": {"query": "electrician"}}}
+{"lang": "ml-Latn", "text": "kalyanam patti aalukal entha post cheythathu", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "kalyanam"}}}
+{"lang": "kn-Latn", "text": "Kavya enu post madidare", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Kavya"}}}
+{"lang": "ml-Latn", "text": "vegam Nexus mallilekku auto venam", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "Nexus Mall"}}}
+{"lang": "en", "text": "play some gardening videos", "call": {"name": "find_content", "arguments": {"kind": "VIDEO", "query": "gardening"}}}
+{"lang": "kn-Latn", "text": "bega Banashankarige taxi beku", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Banashankari"}}}
+{"lang": "te", "text": "తొందరగా హెచ్‌ఎస్‌ఆర్ లేఅవుట్‌కి ఒక ఆటో కావాలి", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": "HSR Layout"}}}
+{"lang": "te", "text": "చాలా దగ్గరవి", "call": {"name": "sort_results", "arguments": {"by": "NEAR"}}}
+{"lang": "te", "text": "నెక్సస్ మాల్‌కి వెళ్ళాలి, బైక్ బుక్ చేయండి", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Nexus Mall"}}}
+{"lang": "ta", "text": "ஒரு ஆட்டோ அனுப்புங்க", "call": {"name": "request_ride", "arguments": {"vehicle": "AUTO", "destination": ""}}}
+{"lang": "hi-Latn", "text": "padosiyon se bread pucho", "call": {"name": "post_request", "arguments": {"what": "bread"}}}
+{"lang": "kn-Latn", "text": "Indiranagarakke hogbeku cab book maadi", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Indiranagar"}}}
+{"lang": "ml", "text": "അയൽക്കാരോട് എണ്ണ ചോദിക്കൂ", "call": {"name": "post_request", "arguments": {"what": "cooking oil"}}}
+{"lang": "hi-Latn", "text": "nahi chahiye", "call": {"name": "cancel_pending", "arguments": {}}}
+{"lang": "te", "text": "దగ్గరలో డాక్టర్ ఉందా", "call": {"name": "search_marketplace", "arguments": {"query": "doctor"}}}
+{"lang": "en", "text": "put up a request for cooking oil", "call": {"name": "post_request", "arguments": {"what": "cooking oil"}}}
+{"lang": "hi", "text": "प्लंबर दिखाओ", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "te", "text": "నా స్నేహితుడు కావ్య ని వెతకండి", "call": {"name": "find_content", "arguments": {"kind": "PEOPLE", "query": "కావ్య"}}}
+{"lang": "kn-Latn", "text": "cheap modalu", "call": {"name": "sort_results", "arguments": {"by": "PRICE"}}}
+{"lang": "ml", "text": "മജസ്റ്റിക്കിലേക്ക് പോകണം, ബൈക്ക് ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Majestic"}}}
+{"lang": "hi-Latn", "text": "sabse badhiya dudh", "call": {"name": "compare", "arguments": {"query": "milk"}}}
+{"lang": "ml-Latn", "text": "vegam Whitefieldilekku bike venam", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Whitefield"}}}
+{"lang": "kn", "text": "ಪೇಂಟರ್ ಬೆಲೆ ಹೋಲಿಸಿ", "call": {"name": "compare", "arguments": {"query": "painter"}}}
+{"lang": "ml", "text": "ഹെബ്ബാളിലേക്ക് പോകണം, ടാക്സി ബുക്ക് ചെയ്യൂ", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Hebbal"}}}
+{"lang": "ml", "text": "നൃത്തം ചിത്രങ്ങൾ തിരയൂ", "call": {"name": "find_content", "arguments": {"kind": "IMAGE", "query": "നൃത്തം"}}}
+{"lang": "en", "text": "what has Meera posted", "call": {"name": "find_content", "arguments": {"kind": "ALL", "query": "Meera"}}}
+{"lang": "kn", "text": "ನನ್ನ ಪ್ರಯಾಣಗಳು", "call": {"name": "show_activity", "arguments": {}}}
+{"lang": "en", "text": "sounds good", "call": {"name": "confirm_pending", "arguments": {}}}
+{"lang": "en", "text": "can you ask around for a doctor", "call": {"name": "post_request", "arguments": {"what": "doctor"}}}
+{"lang": "en", "text": "lowest price curd", "call": {"name": "compare", "arguments": {"query": "curd"}}}
+{"lang": "kn", "text": "ಬೇಗ ಕೋರಮಂಗಲಕ್ಕೆ ಒಂದು ಕ್ಯಾಬ್ ಬೇಕು", "call": {"name": "request_ride", "arguments": {"vehicle": "CAB", "destination": "Koramangala"}}}
+{"lang": "ml-Latn", "text": "plumber kaanikku", "call": {"name": "search_marketplace", "arguments": {"query": "plumber"}}}
+{"lang": "ta", "text": "சீக்கிரம் ஹெப்பாலுக்கு ஒரு பைக் வேணும்", "call": {"name": "request_ride", "arguments": {"vehicle": "BIKE", "destination": "Hebbal"}}}
+{"lang": "ml", "text": "ഉള്ളി കാണിക്കൂ", "call": {"name": "search_marketplace", "arguments": {"query": "onions"}}}

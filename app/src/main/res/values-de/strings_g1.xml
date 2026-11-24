@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">Test senden</string>
     <string name="g1_voice_title">Sprache und KI</string>
     <string name="g1_voice_language">Sprache für Sprachbefehle</string>
-    <string name="g1_voice_cloud">Cloud-Verständnis</string>
-    <string name="g1_voice_cloud_on">Gemini versteht frei formulierte Befehle. Nur der Befehlstext wird gesendet, nie PINs, Zahlungen oder Dokumente.</string>
-    <string name="g1_voice_cloud_off">Aus. Eingebaute Regeln funktionieren offline.</string>
     <string name="g1_set_build_checking">Build %1$s · Wird geprüft…</string>
     <string name="g1_set_build_switch">Build %1$s · Zum neuesten Build wechseln</string>
     <string name="g1_set_build_play">Build %1$s · Updates über den Play Store</string>

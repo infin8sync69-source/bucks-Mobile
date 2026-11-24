@@ -1,9 +1,9 @@
 import Foundation
 
-// Port of ai/Intent.kt: the three-tier intent engine. Rules run first (free, offline); when they are unsure and a Gemini key is
-// configured, `gemini-2.5-flash-lite` maps the command to one tool from a fixed catalogue. The model only proposes; the app validates.
+// Port of ai/Intent.kt's rule engine. Android also runs an on-device model (FunctionGemma via LiteRT-LM) as Tier 1; iOS stays on the
+// rules until LiteRT-LM's Swift API is stable (docs/PARITY.md). Engines only propose; the app validates.
 
-/// One tool call the assistant wants to make. `confidence` below 0.9 lets the cloud tier have a go.
+/// One tool call the assistant wants to make.
 public struct ParsedIntent: Equatable, Sendable {
     public var tool: String
     public var args: [String: String]
@@ -115,78 +115,12 @@ public struct RuleIntentEngine: IntentEngine {
     }
 }
 
-/// Tier 2: Gemini via REST with a strict JSON contract. Enabled only when a key is configured (Info.plist `GeminiAPIKey`).
-/// It never receives PINs, payment details or documents: only the command text and a short context line.
-public struct GeminiIntentEngine: IntentEngine {
-    public let apiKey: String
-    public let model: String
-    private let http: URLSession
-
-    public init(apiKey: String = GeminiIntentEngine.configuredKey, model: String = "gemini-2.5-flash-lite", http: URLSession? = nil) {
-        self.apiKey = apiKey; self.model = model
-        if let http { self.http = http } else {
-            let c = URLSessionConfiguration.ephemeral; c.timeoutIntervalForRequest = 12; c.timeoutIntervalForResource = 20
-            self.http = URLSession(configuration: c)
-        }
-    }
-
-    /// `GeminiAPIKey` from Info.plist; empty means rules only.
-    public static var configuredKey: String {
-        (Bundle.main.object(forInfoDictionaryKey: "GeminiAPIKey") as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
-    public var enabled: Bool { !apiKey.isEmpty }
-
-    func prompt(_ text: String, context: String) -> String {
-        "You convert a user command for a Bengaluru super app into exactly one tool call. Tools:\n\(Tools.schema)\nContext: \(context)\nKnown places: \(IntentPlaces.all.joined(separator: ", "))\nReply with JSON only: {\"tool\":..., \"args\":{...}, \"confidence\":0-1}. Command: \"\(text)\""
-    }
-
-    public func parse(_ text: String, context: String) async -> ParsedIntent? {
-        guard enabled, let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent") else { return nil }
-        let body: [String: Any] = [
-            "contents": [["parts": [["text": prompt(text, context: context)]]]],
-            "generationConfig": ["responseMimeType": "application/json", "temperature": 0],
-        ]
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-        guard let data = try? JSONSerialization.data(withJSONObject: body) else { return nil }
-        req.httpBody = data
-        guard let (res, resp) = try? await http.data(for: req), (resp as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true else { return nil }
-        return Self.parseReply(res)
-    }
-
-    /// Reads Gemini's `generateContent` reply into a validated intent (nil when it is malformed or names an unknown tool).
-    static func parseReply(_ data: Data) -> ParsedIntent? {
-        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let cand = (root["candidates"] as? [[String: Any]])?.first,
-              let parts = (cand["content"] as? [String: Any])?["parts"] as? [[String: Any]],
-              var txt = parts.first?["text"] as? String else { return nil }
-        txt = txt.trimmingCharacters(in: .whitespacesAndNewlines)
-        for p in ["```json", "```"] where txt.hasPrefix(p) { txt.removeFirst(p.count) }
-        if txt.hasSuffix("```") { txt.removeLast(3) }
-        guard let j = (try? JSONSerialization.jsonObject(with: Data(txt.utf8))) as? [String: Any],
-              let tool = j["tool"] as? String, Tools.all.contains(tool) else { return nil }
-        var args: [String: String] = [:]
-        for (k, v) in (j["args"] as? [String: Any]) ?? [:] {
-            if let s = v as? String { args[k] = s } else if let n = v as? NSNumber { args[k] = n.stringValue } else { args[k] = "" }
-        }
-        let conf = (j["confidence"] as? NSNumber)?.floatValue ?? 0.8
-        return ParsedIntent(tool: tool, args: args, confidence: min(max(conf, 0), 1), source: "gemini")
-    }
-}
-
-/// Rules first, cloud only when rules are unsure.
+/// The rules alone (Android puts its on-device model between the rules and help).
 public struct IntentRouter: Sendable {
     private let rules: any IntentEngine
-    private let cloud: GeminiIntentEngine
-    public init(rules: any IntentEngine = RuleIntentEngine(), cloud: GeminiIntentEngine = GeminiIntentEngine()) { self.rules = rules; self.cloud = cloud }
-    public var cloudEnabled: Bool { cloud.enabled }
+    public init(rules: any IntentEngine = RuleIntentEngine()) { self.rules = rules }
     public func parse(_ text: String, context: String) async -> ParsedIntent {
-        let r = await rules.parse(text, context: context)
-        if let r, r.confidence >= 0.9 { return r }
-        if cloud.enabled, let c = await cloud.parse(text, context: context), c.tool != Tools.help { return c }
-        return r ?? ParsedIntent(tool: Tools.help)
+        await rules.parse(text, context: context) ?? ParsedIntent(tool: Tools.help)
     }
 }
 

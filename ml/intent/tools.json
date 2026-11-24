@@ -1,0 +1,207 @@
+[
+  {
+    "function": {
+      "name": "request_ride",
+      "description": "Book a ride to a place.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "vehicle": {
+            "type": "STRING",
+            "description": "BIKE, AUTO or CAB. AUTO when the user names no vehicle.",
+            "enum": [
+              "BIKE",
+              "AUTO",
+              "CAB"
+            ]
+          },
+          "destination": {
+            "type": "STRING",
+            "description": "The place name in English, or empty when the user names no place."
+          }
+        },
+        "required": [
+          "vehicle",
+          "destination"
+        ]
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "search_marketplace",
+      "description": "Find shops, food, products or skilled people nearby.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "query": {
+            "type": "STRING",
+            "description": "What to find, in English, e.g. sugar, plumber, biryani."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "compare",
+      "description": "Compare providers for something, cheapest or best first.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "query": {
+            "type": "STRING",
+            "description": "What to compare, in English."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "sort_results",
+      "description": "Change how results are ordered.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "by": {
+            "type": "STRING",
+            "description": "TRUST, NEAR or PRICE.",
+            "enum": [
+              "TRUST",
+              "NEAR",
+              "PRICE"
+            ]
+          }
+        },
+        "required": [
+          "by"
+        ]
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "show_activity",
+      "description": "Show my rides, orders and requests.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "find_content",
+      "description": "Find posts, videos, photos or files people shared, or a person's profile, in Explore.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "kind": {
+            "type": "STRING",
+            "description": "VIDEO, IMAGE, FILE, PEOPLE for a person's profile, or ALL for any post.",
+            "enum": [
+              "ALL",
+              "VIDEO",
+              "IMAGE",
+              "FILE",
+              "PEOPLE"
+            ]
+          },
+          "query": {
+            "type": "STRING",
+            "description": "The topic or person's name exactly as the user said it; empty when none."
+          }
+        },
+        "required": [
+          "kind",
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "post_request",
+      "description": "Ask the neighbourhood for something that is not listed.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "what": {
+            "type": "STRING",
+            "description": "What the user is looking for, in English."
+          }
+        },
+        "required": [
+          "what"
+        ]
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "go_online",
+      "description": "A driver goes online to receive rides.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "become_provider",
+      "description": "Start listing a shop, skill or vehicle.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "confirm_pending",
+      "description": "The user says yes to the action waiting for confirmation.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "cancel_pending",
+      "description": "The user says no to the action waiting for confirmation.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "show_map",
+      "description": "Open the map.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "function": {
+      "name": "help",
+      "description": "Anything that is not one of the other actions.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {}
+      }
+    }
+  }
+]

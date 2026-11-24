@@ -31,8 +31,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
-	<key>GeminiAPIKey</key>
-	<string>$(GEMINI_API_KEY)</string>
 	<key>GrievanceOfficer</key>
 	<string>$(GRIEVANCE_OFFICER)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

@@ -149,9 +149,13 @@
     <string name="g1_notif_send_test">Send test</string>
     <string name="g1_voice_title">Voice and AI</string>
     <string name="g1_voice_language">Voice language</string>
-    <string name="g1_voice_cloud">Cloud understanding</string>
-    <string name="g1_voice_cloud_on">Gemini understands free-form commands. Only the command text is sent, never PINs, payments or documents.</string>
-    <string name="g1_voice_cloud_off">Off. Built-in rules work offline.</string>
+    <string name="g1_voice_ondevice">On-device understanding</string>
+    <string name="g1_voice_ondevice_on">On. Commands in any of the app\'s languages are understood on this phone; nothing is sent anywhere.</string>
+    <string name="g1_voice_ondevice_off">Off. Built-in rules work offline.</string>
+    <string name="g1_voice_ondevice_wifi">Waiting for Wi-Fi to download the language model (285 MB).</string>
+    <string name="g1_voice_ondevice_downloading">Downloading the language model: %1$d%%</string>
+    <string name="g1_voice_ondevice_failed">The download didn\'t finish. It will try again on Wi-Fi.</string>
+    <string name="g1_voice_ondevice_mobile_data">Download on mobile data</string>
     <string name="g1_set_build_checking">Build %1$s · Checking…</string>
     <string name="g1_set_build_switch">Build %1$s · Switch to the latest build</string>
     <string name="g1_set_build_play">Build %1$s · Updates through the Play Store</string>

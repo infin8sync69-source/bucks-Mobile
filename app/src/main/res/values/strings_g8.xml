@@ -71,7 +71,6 @@
     <string name="g8_offline">Offline</string>
     <string name="g8_mock_on">A fake-location app is on. Turn it off to book or take rides.</string>
     <string name="g8_pinned_location">Pinned location</string>
-    <string name="g8_agent_via_cloud">" (understood by cloud AI)"</string>
     <string name="g8_agent_nothing_pending">Nothing to confirm.</string>
     <string name="g8_agent_needs_biometric">This needs your fingerprint or PIN. Tap Confirm on the card.</string>
     <string name="g8_agent_confirmed">Confirmed. %1$s.</string>
@@ -108,7 +107,12 @@
     <string name="g8_order">Order</string>
     <string name="g8_request">Request</string>
     <string name="g8_agent_not_understood">I didn\'t get that. Try \'auto to MG Road\', \'order sugar\' or \'compare biriyani\'.</string>
-    <string name="g8_agent_not_understood_demo">I didn\'t get that. Try one of these (add a Gemini key for free-form commands):</string>
+    <string name="g8_agent_via_model">" (understood on this phone)"</string>
+    <string name="g8_agent_tap_confirm">Tap Confirm on %1$s to go ahead, or say cancel.</string>
+    <string name="g8_agent_finding_people">Opening Discover to find people.</string>
+    <string name="g8_agent_finding_person">Looking for %1$s in Discover.</string>
+    <string name="g8_agent_opening_explore">Opening Explore.</string>
+    <string name="g8_agent_searching_explore">Searching Explore for %1$s.</string>
     <string name="g8_book_vehicle">Book a %1$s</string>
     <string name="g8_current_location">Current location</string>
     <string name="g8_ride_summary">%1$s → %2$s · %3$s km · about %4$s, pay after the trip</string>

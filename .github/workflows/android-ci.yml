@@ -47,6 +47,12 @@ jobs:
           ./gradlew assembleDebug 2>&1 | tee build.log; status=${PIPESTATUS[0]}
           grep -E "^e: |What went wrong|Could not resolve" -A2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
           exit "$status"
+      # JVM unit tests (app/src/test): the assistant's intent parsing, router checks and place matching.
+      - name: Unit tests
+        run: |
+          ./gradlew testDebugUnitTest 2>&1 | tee test.log; status=${PIPESTATUS[0]}
+          grep -E "FAILED|^e: |What went wrong" -A3 test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+          exit "$status"
       - uses: actions/upload-artifact@v4
         with:
           name: bucks-android-pr-${{ github.event.pull_request.number || github.run_number }}

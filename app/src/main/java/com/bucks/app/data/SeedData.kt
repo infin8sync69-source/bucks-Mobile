@@ -3,7 +3,7 @@ package com.bucks.app.data
 object Seed {
     val SKILLS = listOf("Plumber","Electrician","Doctor","Gym trainer","Photographer","Software developer","Carpenter","Painter","Tutor","Yoga instructor","Lawyer","Accountant","Mechanic","AC technician","Beautician","Driver (hire)","Cook","Tailor","Interior designer","Nurse","Physiotherapist","Videographer","DJ","Event planner","Gardener","Pest control","Mover & packer","Architect","Data analyst","UX designer")
     val BIZ_CATS = listOf("Grocery","Restaurant","Vegetables","Bakery","Pharmacy","Electronics","Furniture","Clothing","IT firm","Design agency","MNC","Salon","Hardware","Stationery","Mobile repair","Pet store")
-    val PLACES = listOf("Koramangala, Bengaluru","Nexus Mall, Koramangala","Jayanagar 4th block","MG Road","Indiranagar 100 ft Rd","Whitefield, ITPL","Majestic bus stand","Kempegowda airport")
+    val PLACES = listOf("Koramangala, Bengaluru","Nexus Mall, Koramangala","Jayanagar 4th block","MG Road","Indiranagar 100 ft Rd","Whitefield, ITPL","Majestic bus stand","Kempegowda airport","HSR Layout","Electronic City","Marathahalli","Hebbal","Banashankari")
     val PEOPLE = listOf("Shafeeq","Anitha","Karthik","Priya","Mohan","Senthil","Rekha","Vinod","Divya","Sudha")
     const val ME_X = 50f; const val ME_Y = 52f
 

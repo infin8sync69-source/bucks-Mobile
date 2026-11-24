@@ -43,6 +43,7 @@ fun DiscoverScreen(vm: BucksViewModel, onOpenPerson: (String) -> Unit, onContact
     val social = vm.social; val safety = vm.safety; val focus = LocalFocusManager.current
     var q by rememberSaveable { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<PersonHit>?>(null) }; var searching by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { com.bucks.app.ui.screens.ExploreHandoff.take(people = true)?.let { (_, w) -> if (w.isNotBlank()) q = w.take(60) } }
     LaunchedEffect(social.me?.id) { if (social.me != null) { social.refreshSuggestions(); social.refreshSyncs() } }
     // Search as you type, after a short pause.
     LaunchedEffect(q) {

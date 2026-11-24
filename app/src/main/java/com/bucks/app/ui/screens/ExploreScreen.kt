@@ -86,6 +86,17 @@ private class Flat(val post: FeedRow, val index: Int, val item: PostMediaItem)
 private fun FeedRow.matches(kind: String) = when (kind) { "VIDEO" -> mediaItems().any { it.isVideo }; "IMAGE" -> mediaItems().any { it.isImage }; "FILE" -> mediaItems().any { it.isFile }; else -> true }
 private fun FeedRow.headline(fallback: String) = body.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(120) ?: fallback
 
+/**
+ * What the assistant asked Explore or Discover to show (find_content): a filter (ALL, VIDEO, IMAGE, FILE, or PEOPLE for Discover) and the
+ * words. Read once by the screen it opens, like [MapsPick].
+ */
+object ExploreHandoff {
+    private var kind: String? = null; private var query: String? = null
+    fun set(kind: String, query: String) { this.kind = kind; this.query = query }
+    /** The pending (kind, words) if it is for [people] (Discover) or not (Explore), cleared on read. */
+    fun take(people: Boolean): Pair<String, String>? { val k = kind ?: return null; if ((k == "PEOPLE") != people) return null; val q = query.orEmpty(); kind = null; query = null; return k to q }
+}
+
 @Composable
 fun ExploreScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit, onListing: (String) -> Unit, onFindPeople: () -> Unit) {
     val social = vm.social; val scope = rememberCoroutineScope(); val ctx = LocalContext.current; val focus = LocalFocusManager.current; val openPerson = LocalOpenPerson.current
@@ -94,6 +105,7 @@ fun ExploreScreen(vm: BucksViewModel, onMenu: () -> Unit, onMessages: () -> Unit
     var places by remember { mutableStateOf<List<ForYouItem>>(emptyList()) }
     var comments by remember { mutableStateOf<String?>(null) }; var viewing by remember { mutableStateOf<Int?>(null) }
     val postKind = if (kind == "VIDEO" || kind == "IMAGE" || kind == "FILE") kind else "ALL"
+    LaunchedEffect(Unit) { ExploreHandoff.take(people = false)?.let { (k, w) -> kind = k; q = w.take(60) } }
     // Posts for the chosen pill and the typed words, after a short pause while typing. The old list stays up until the new one arrives.
     LaunchedEffect(social.me?.id, postKind, q) {
         if (social.me == null) return@LaunchedEffect

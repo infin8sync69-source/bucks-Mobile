@@ -24,7 +24,7 @@ public enum AssistantOutcome: Equatable {
 }
 
 /// Turns typed or spoken text into app actions: BucksViewModel.submitQuery + execute on Android.
-/// The intent engine (rules, then optional Gemini) only proposes a tool; this validates it, proposes money-moving steps through the
+/// The intent engine (rules) only proposes a tool; this validates it, proposes money-moving steps through the
 /// confirmation gate (`session.confirmAction`/`requestRide`) and never books anything itself.
 @MainActor @Observable
 public final class AssistantRouter {
@@ -34,7 +34,6 @@ public final class AssistantRouter {
     public var sort: AssistantSort = .trust
     /// What "post a request for …" asked for; the new-post screen can start from it.
     public var postDraft = ""
-    public var cloudEnabled: Bool { intents.cloudEnabled }
 
     private unowned let session: AppSession
     private unowned let router: Router
@@ -77,7 +76,7 @@ public final class AssistantRouter {
     }
 
     private func execute(_ i: ParsedIntent, raw: String) -> (AgentMessage, (() -> Void)?) {
-        let via = i.source == "gemini" ? " (understood by cloud AI)" : ""
+        let via = ""
         func say(_ t: String, _ actions: [String] = []) -> AgentMessage { AgentMessage(mine: false, text: t, actions: actions) }
         switch i.tool {
         case Tools.confirm:
@@ -110,8 +109,7 @@ public final class AssistantRouter {
             return (say("Let's set up your pro profile."), { [router] in router.push(.myListings) })
         default:
             let tries = ["Auto to MG Road", "Order sugar", "Find a doctor", "Compare biriyani", "Show my orders"]
-            return cloudEnabled ? (say("I didn't get that. Try 'auto to MG Road', 'order sugar' or 'compare biriyani'.", tries), nil)
-                : (say("I didn't get that. Try one of these (add a Gemini key to understand free-form commands):", tries), nil)
+            return (say("I didn't get that. Try 'auto to MG Road', 'order sugar' or 'compare biriyani'.", tries), nil)
         }
     }
 

@@ -79,7 +79,7 @@ fun SearchScreen(vm: BucksViewModel, onBack: () -> Unit, onProvider: (String, St
         }
         if (advanced) Column(Modifier.padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.horizontalScrollIfNeeded().padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(6.dp)) { ScopeFilter.entries.forEach { f -> Chip(f.label, selected = s.scope == f) { vm.setScope(f) } } }
-            Row(Modifier.horizontalScrollIfNeeded().padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } }; if (vm.cloudEnabled) Chip(stringResource(R.string.g5_cloud_ai_on), selected = true) {} }
+            Row(Modifier.horizontalScrollIfNeeded().padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } }; if (vm.modelReady) Chip(stringResource(R.string.g5_ondevice_ai_on), selected = true) {} }
         }
         if (s.thinking) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = Gutter), color = MaterialTheme.colorScheme.primary)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = if (cartCount > 0) 96.dp else 24.dp)) {

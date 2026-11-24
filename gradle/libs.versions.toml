@@ -1,12 +1,13 @@
 [versions]
 agp = "8.10.1"
-kotlin = "2.1.0"
+# 2.3: LiteRT-LM (on-device intent model) is built with Kotlin 2.4, which a 2.1 compiler cannot read.
+kotlin = "2.3.21"
 coreKtx = "1.13.1"
 lifecycle = "2.8.6"
 activityCompose = "1.9.2"
 composeBom = "2024.09.03"
 navigation = "2.8.1"
-coroutines = "1.9.0"
+coroutines = "1.11.0"
 supabase = "3.0.3"
 ktor = "3.0.2"
 firebaseBom = "33.7.0"
@@ -55,6 +56,9 @@ kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "ko
 zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.3" }
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+# On-device LLM runtime for the assistant's Tier 1 intent model (ai/FunctionGemmaIntentEngine.kt). The model itself is downloaded, not bundled.
+junit = { group = "junit", name = "junit", version = "4.13.2" }
+litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version = "0.19.1" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

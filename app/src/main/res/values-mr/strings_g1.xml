@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">टेस्ट पाठवा</string>
     <string name="g1_voice_title">आवाज आणि AI</string>
     <string name="g1_voice_language">आवाजाची भाषा</string>
-    <string name="g1_voice_cloud">क्लाउडवर समजून घेणे</string>
-    <string name="g1_voice_cloud_on">Gemini तुमच्या मोकळ्या शब्दांतील कमांड समजते. फक्त कमांडचा मजकूर पाठवला जातो, PIN, पेमेंट किंवा डॉक्युमेंट कधीच नाही.</string>
-    <string name="g1_voice_cloud_off">बंद. ॲपमधील नियम ऑफलाइन चालतात.</string>
     <string name="g1_set_build_checking">बिल्ड %1$s · तपासत आहे…</string>
     <string name="g1_set_build_switch">बिल्ड %1$s · नवीन बिल्डवर जा</string>
     <string name="g1_set_build_play">बिल्ड %1$s · Play Store मधून अपडेट होते</string>
