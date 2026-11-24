@@ -5,7 +5,7 @@ import Testing
 @Suite struct PushRouteTests {
     @Test func safeRouteKeepsOnlyRoutesTheAppCanOpen() {
         for r in ["home", "feed", "sync", "messages", "invites", "my/orders", "my/applications", "my/listings", "jobs-near", "bucks-id"] { #expect(Push.safeRoute(r) == r) }
-        for r in ["chat/abc", "cloud-order/9", "orders-for/L1", "delivery/t1", "moments/u1", "l/L1", "job/j1", "jobs-of/L1", "members/L1", "studio/L1", "listing-docs/L1", "post/p1"] { #expect(Push.safeRoute(r) == r) }
+        for r in ["chat/abc", "cloud-order/9", "orders-for/L1", "delivery/t1", "similar-shops/o1", "moments/u1", "l/L1", "job/j1", "jobs-of/L1", "members/L1", "studio/L1", "listing-docs/L1", "post/p1"] { #expect(Push.safeRoute(r) == r) }
     }
     @Test func safeRouteRefusesAnythingElse() {
         #expect(Push.safeRoute(nil) == nil); #expect(Push.safeRoute("") == nil); #expect(Push.safeRoute("   ") == nil)

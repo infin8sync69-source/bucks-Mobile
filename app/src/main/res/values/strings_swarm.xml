@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swarm Phase 1: ride recovery card, similar shops, the driver's recent-requests card. Same copy as iOS (BucksUI/Screens/Swarm). -->
+<resources>
+    <string name="sw_try_again">Try again</string>
+    <string name="sw_try_cab">Try a cab</string>
+    <string name="sw_try_auto">Try an auto</string>
+    <string name="sw_notify_me">Notify me when a driver is online</string>
+    <string name="sw_notify_set">We\'ll tell you when a driver comes online nearby (for the next 2 hours).</string>
+    <string name="sw_notify_off">That isn\'t switched on yet. Try again in a few minutes.</string>
+    <string name="sw_similar_shops">Similar shops nearby</string>
+    <string name="sw_similar_title">Similar shops nearby</string>
+    <string name="sw_similar_sub">Other shops near you that list what you ordered. Open one to order it there.</string>
+    <string name="sw_similar_failed">Couldn\'t load similar shops. Check your connection.</string>
+    <string name="sw_similar_none">No other shop nearby lists these items right now.</string>
+    <string name="sw_similar_has">Has: %1$s</string>
+    <string name="sw_similar_from">from %1$s</string>
+    <string name="sw_recent_title">Recent requests nearby</string>
+    <string name="sw_recent_3h">%1$d requests near you in the last 3 hours</string>
+    <string name="sw_recent_7d">%1$d requests near you this week</string>
+    <string name="sw_recent_unfilled">%1$d found no driver</string>
+    <string name="sw_recent_online">%1$d drivers online nearby</string>
+</resources>

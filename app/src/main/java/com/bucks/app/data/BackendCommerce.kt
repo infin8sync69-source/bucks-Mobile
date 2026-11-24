@@ -34,6 +34,8 @@ import kotlinx.serialization.json.put
     @SerialName("drop_label") val dropLabel: String = "", val status: String, @SerialName("accept_by") val acceptBy: String, @SerialName("created_at") val createdAt: String,
     /** BUYER or SHOP once the order is CANCELLED (see commerce.sql); null otherwise and on older rows. */
     @SerialName("cancelled_by") val cancelledBy: String? = null,
+    /** The reason code given when it was REJECTED or CANCELLED (cancellation.sql). */
+    @SerialName("cancel_reason") val cancelReason: String? = null,
     /** Shipped orders (delivery_mode SHIP, ecommerce.sql): who it goes to, the carrier and tracking the shop entered, and when. */
     @SerialName("ship_to") val shipTo: JsonObject? = null, val carrier: String = "", @SerialName("tracking_no") val trackingNo: String = "", @SerialName("tracking_url") val trackingUrl: String = "",
     @SerialName("shipped_at") val shippedAt: String? = null, @SerialName("delivered_at") val deliveredAt: String? = null) {

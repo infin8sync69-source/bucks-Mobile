@@ -140,6 +140,7 @@ fun OnlineSheet(vm: BucksViewModel, onDismiss: () -> Unit, onListings: () -> Uni
             vm.myListings.listings.filter { it.status == "LIVE" && (it.kind == "BUSINESS" || it.kind == "SKILL") }.forEach { l ->
                 OnlineRow(studioIcon(l), l.title, onlineLabel(l.kind, l.online), l.online) { vm.myListings.setOnline(l.id, it) } }
         }
+        if (cloud && cv != null) RecentRequestsCard(vm)
         if (s.mockLocation) Notice(stringResource(R.string.g7_drv_mock_location), Modifier.padding(bottom = 10.dp))
         // A request rings a driver outside the app only through a notification: say so when they can't.
         val ctx = LocalContext.current; var alertProblem by remember { mutableStateOf(RingAlert.problem(ctx)) }
@@ -362,4 +363,23 @@ fun openNavigation(ctx: android.content.Context, to: LatLng) {
     val any = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:${to.lat},${to.lng}?q=${to.lat},${to.lng}"))
     runCatching { ctx.startActivity(nav) }.recoverCatching { ctx.startActivity(any) }
         .onFailure { android.widget.Toast.makeText(ctx, Str.get(R.string.g7_drv_install_maps), android.widget.Toast.LENGTH_SHORT).show() }
+}
+
+/**
+ * Swarm Phase 1: "Recent requests nearby" from the demand field (recent_requests_near). Plain counts for the area cells around the
+ * driver, never a surge multiplier; the server leaves out areas with fewer than 3 events in 7 days and returns nothing while the
+ * field is switched off, in which case the card is not drawn.
+ */
+@Composable
+private fun RecentRequestsCard(vm: BucksViewModel) {
+    var rr by remember { mutableStateOf<RecentRequests?>(null) }
+    LaunchedEffect(Unit) { rr = runCatching { Backend.recentRequestsNear(vm.mePos) }.getOrNull() }
+    val r = rr ?: return
+    BucksCard(Modifier.padding(bottom = 10.dp).fillMaxWidth(), tint = true, padding = 14) {
+        Text(stringResource(R.string.sw_recent_title), style = MaterialTheme.typography.titleSmall)
+        Muted(listOfNotNull(
+            r.requests3h?.let { stringResource(R.string.sw_recent_3h, it) } ?: stringResource(R.string.sw_recent_7d, r.requests7d),
+            r.unfilled7d.takeIf { it > 0 }?.let { stringResource(R.string.sw_recent_unfilled, it) },
+            stringResource(R.string.sw_recent_online, r.driversOnline)).joinToString(" · "), Modifier.padding(top = 4.dp))
+    }
 }

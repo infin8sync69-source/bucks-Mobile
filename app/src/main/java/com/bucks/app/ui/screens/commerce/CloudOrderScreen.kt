@@ -39,7 +39,7 @@ import androidx.compose.ui.res.stringResource
  * order no rider has taken. Follows the row live and also polls every 10 seconds; a failed load keeps retrying.
  */
 @Composable
-fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, onTrack: (String) -> Unit, onOpenListing: (String) -> Unit) {
+fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, onTrack: (String) -> Unit, onOpenListing: (String) -> Unit, onSimilarShops: (String) -> Unit = {}) {
     val commerce = vm.commerce; val social = vm.social; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
     val o = commerce.orders[orderId]
     var missing by remember { mutableStateOf(false) }
@@ -112,6 +112,8 @@ fun CloudOrderScreen(vm: BucksViewModel, orderId: String, onBack: () -> Unit, on
                 SectionTitle(stringResource(R.string.g6_order_progress), Modifier.padding(top = 22.dp, bottom = 10.dp))
                 if (o.status == "PLACED" && !vendor) AcceptCountdown(o.acceptBy)
                 OrderTimeline(o.status, o.deliveryMode, task, forShop = vendor, cancelledBy = o.cancelledBy, carrier = o.carrier, ringWindowS = vm.dispatch.ringWindowS)
+                // Swarm Phase 1: a shop said no; one tap to other shops nearby that list the same items (ordering there is the usual cart).
+                if (!vendor && com.bucks.app.data.Recovery.similarShopsFor(o.status, o.cancelledBy, o.cancelReason)) PrimaryButton(stringResource(R.string.sw_similar_shops), Modifier.padding(top = 12.dp)) { onSimilarShops(o.id) }
                 if (!vendor && o.status == "DELIVERED") OrderReviewCard(vm, o.id, o.listingId, commerce.titleOf(o.listingId))
 
                 if (!vendor) {

@@ -37,6 +37,7 @@ struct OnlineSheet: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var alertProblem: RingAlert.Problem?
     @State private var switching = false
+    @State private var recent: RecentRequests?
 
     private var d: Dispatch { session.dispatch }
 
@@ -46,6 +47,7 @@ struct OnlineSheet: View {
                 Text(d.online ? "You're online" : "You're offline").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
                 Muted("Only online listings receive rides, orders and service requests.")
                 if let cv = d.cloudVehicle { vehicleRow(cv).padding(.vertical, 14) } else { Spacer().frame(height: 14) }
+                if d.cloudVehicle != nil, let r = recent { recentCard(r).padding(.bottom, 10) }
                 if session.mockLocation { Notice("Mock location is on. Turn it off to take rides.").padding(.bottom, 10) }
                 // A request rings a driver outside the app only through a notification: say so when they can't.
                 if d.online, let p = alertProblem {
@@ -66,7 +68,19 @@ struct OnlineSheet: View {
         }
         .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
         .task { await refreshAlert(); if !d.paymentLinkLoaded { d.refreshPaymentLink() } }
+        .task { if d.cloudVehicle != nil { recent = (try? await Backend.shared.recentRequestsNear(session.mePos)) ?? nil } }
         .onChange(of: scenePhase) { _, p in if p == .active { Task { await refreshAlert() } } }
+    }
+
+    /// Swarm Phase 1: "Recent requests nearby" from the demand field (recent_requests_near). Plain counts, never a surge multiplier; the
+    /// server leaves out areas under 3 events in 7 days and returns nothing while the field is off, and then the card is not drawn.
+    private func recentCard(_ r: RecentRequests) -> some View {
+        let parts = [r.requests3h.map { "\($0) requests near you in the last 3 hours" } ?? "\(r.requests7d) requests near you this week",
+                     r.unfilled7d > 0 ? "\(r.unfilled7d) found no driver" : nil, "\(r.driversOnline) drivers online nearby"].compactMap { $0 }
+        return BucksCard(tint: true, padding: 14) {
+            Text("Recent requests nearby").bucks(.titleSmall).foregroundStyle(BucksColor.onSurface)
+            Muted(parts.joined(separator: " · ")).padding(.top, 4)
+        }
     }
 
     private func refreshAlert() async { alertProblem = await RingAlert.problem() }

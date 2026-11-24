@@ -34,6 +34,8 @@ public struct CloudOrderRow: Codable, Hashable, Sendable, Identifiable {
     public var createdAt: String
     /// BUYER or SHOP once the order is CANCELLED (see commerce.sql); nil otherwise and on older rows.
     public var cancelledBy: String?
+    /// The reason code given when it was REJECTED or CANCELLED (cancellation.sql).
+    public var cancelReason: String?
     /// Shipped orders (delivery_mode SHIP, ecommerce.sql): who it goes to, the carrier and tracking the shop entered, and when.
     public var shipTo: JSONValue?
     public var carrier: String
@@ -50,6 +52,7 @@ public struct CloudOrderRow: Codable, Hashable, Sendable, Identifiable {
         payment = (try? c.decodeIfPresent(String.self, forKey: .payment)) ?? "UPI"; dropLabel = (try? c.decodeIfPresent(String.self, forKey: .dropLabel)) ?? ""
         status = try c.decode(String.self, forKey: .status); acceptBy = try c.decode(String.self, forKey: .acceptBy); createdAt = try c.decode(String.self, forKey: .createdAt)
         cancelledBy = (try? c.decodeIfPresent(String.self, forKey: .cancelledBy)) ?? nil
+        cancelReason = (try? c.decodeIfPresent(String.self, forKey: .cancelReason)) ?? nil
         shipTo = (try? c.decodeIfPresent(JSONValue.self, forKey: .shipTo)) ?? nil
         carrier = (try? c.decodeIfPresent(String.self, forKey: .carrier)) ?? ""
         trackingNo = (try? c.decodeIfPresent(String.self, forKey: .trackingNo)) ?? ""
@@ -58,7 +61,7 @@ public struct CloudOrderRow: Codable, Hashable, Sendable, Identifiable {
         deliveredAt = (try? c.decodeIfPresent(String.self, forKey: .deliveredAt)) ?? nil
     }
     private enum K: String, CodingKey {
-        case id, listingId, buyerId, lines, subtotal, deliveryFee, feePaidBy, deliveryMode, payment, dropLabel, status, acceptBy, createdAt, cancelledBy
+        case id, listingId, buyerId, lines, subtotal, deliveryFee, feePaidBy, deliveryMode, payment, dropLabel, status, acceptBy, createdAt, cancelledBy, cancelReason
         case shipTo, carrier, trackingNo, trackingUrl, shippedAt, deliveredAt
     }
 

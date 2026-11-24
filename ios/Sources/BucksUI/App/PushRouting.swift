@@ -19,7 +19,7 @@ public enum PushRouting {
         default: break
         }
         let table: [(String, (String) -> Route)] = [
-            ("chat/", { .chat($0) }), ("cloud-order/", { .order($0) }), ("orders-for/", { .vendorOrders($0) }), ("delivery/", { .deliveryTrack($0) }),
+            ("chat/", { .chat($0) }), ("cloud-order/", { .order($0) }), ("orders-for/", { .vendorOrders($0) }), ("delivery/", { .deliveryTrack($0) }), ("similar-shops/", { .similarShops($0) }),
             ("moments/", { .moments($0) }), ("l/", { .listing($0) }), ("job/", { .job($0) }), ("jobs-of/", { .listingJobs($0) }),
             ("members/", { .members($0) }), ("studio/", { .studio($0) }), ("listing-docs/", { .listingDocs($0) }), ("post/", { .post($0) }),
         ]

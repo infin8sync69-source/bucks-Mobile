@@ -224,6 +224,7 @@ struct MainStack: View {
         case .myOrders: MyOrdersScreen()
         case .vendorOrders(let id): VendorOrdersScreen(listingId: id)
         case .deliveryTrack(let id): DeliveryTrackScreen(id: id)
+        case .similarShops(let id): SimilarShopsScreen(orderId: id)
         case .myListings: StudioScreen()
         case .studio(let id): ListingDashboardScreen(id: id)
         case .listingEdit(let id, let kind, let service): ListingEditScreen(id: id, kind: kind, service: service)
