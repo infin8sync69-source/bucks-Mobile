@@ -283,7 +283,8 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit, onBack: () -> 
                 BadButton(if (cancelling) stringResource(R.string.g4_ride_cancelling) else stringResource(R.string.g4_ride_cancel_request), Modifier.padding(top = 14.dp), enabled = !cancelling) { cancel = true }
             } else {
                 Text(stringResource(R.string.g4_ride_no_rider_accepted), style = MaterialTheme.typography.titleLarge); Muted(if (n > 0) stringResource(R.string.g4_ride_all_busy) else stringResource(R.string.g4_ride_nobody_online))
-                PrimaryButton(stringResource(R.string.g4_ride_ring_again), Modifier.padding(top = 14.dp)) { vm.requestRide() }; GhostButton(stringResource(R.string.g4_ride_change_type), Modifier.padding(top = 10.dp), onClick = onChangeType)
+                RideRecoveryCard(vm, r)
+                GhostButton(stringResource(R.string.g4_ride_change_type), Modifier.padding(top = 10.dp), onClick = onChangeType)
             }
         }
     }
@@ -434,6 +435,29 @@ fun RateRideScreen(vm: BucksViewModel) {
             BucksField(comment, { comment = it.take(500) }, stringResource(R.string.g4_vote_more_hint), if (vote == -1) stringResource(R.string.g4_ride_what_happened) else stringResource(R.string.g4_ride_good_hint), singleLine = false, minLines = 2)
             PrimaryButton(stringResource(R.string.g4_fb_post)) { vm.finishRide(vote, comment, false, reason) }
             TextButton(onClick = { vm.finishRide(null, "", true) }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)) { Text(stringResource(R.string.g4_ride_skip)) }
+        }
+    }
+}
+
+/**
+ * Swarm Phase 1 recovery card on a ride nobody took (NO_DRIVER): Try again, Try a cab (or an auto), Notify me when a driver is online.
+ * Each is one tap that records the choice (recovery_choice) and then runs today's flow: booking again opens the usual confirm sheet,
+ * so nothing is ever booked without the rider confirming.
+ */
+@Composable
+private fun RideRecoveryCard(vm: BucksViewModel, r: Ride) {
+    val scope = rememberCoroutineScope(); var busy by remember { mutableStateOf(false) }
+    val alt = if (r.kind == VehicleKind.CAB) VehicleKind.AUTO else VehicleKind.CAB
+    val setMsg = stringResource(R.string.sw_notify_set); val offMsg = stringResource(R.string.sw_notify_off)
+    fun record(choice: String) { if (vm.cloud) scope.launch { runCatching { Backend.recoveryChoice(Recovery.TASK, r.id, choice) } } }
+    PrimaryButton(stringResource(R.string.sw_try_again), Modifier.padding(top = 14.dp)) { record(Recovery.TRY_AGAIN); vm.requestRide() }
+    GhostButton(stringResource(if (alt == VehicleKind.CAB) R.string.sw_try_cab else R.string.sw_try_auto), Modifier.padding(top = 10.dp)) {
+        record(Recovery.TRY_CAB); vm.setRideKind(alt); vm.requestRide() }
+    if (vm.cloud) GhostButton(stringResource(R.string.sw_notify_me), Modifier.padding(top = 10.dp), enabled = !busy) {
+        busy = true; record(Recovery.NOTIFY_ME)
+        scope.launch {
+            val ok = runCatching { Backend.notifyMeWhenDriverOnline(r.kind, vm.pickupAt) }.getOrDefault(false)
+            vm.toast(if (ok) setMsg else offMsg); busy = false
         }
     }
 }

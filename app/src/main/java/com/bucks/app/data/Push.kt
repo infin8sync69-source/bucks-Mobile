@@ -136,7 +136,7 @@ object Push {
     fun safeRoute(route: String?): String? {
         val r = route?.trim()?.takeIf { it.isNotBlank() && it.length <= 200 && !it.contains('\n') } ?: return null
         val exact = setOf("home", "feed", "sync", "messages", "invites", "my/orders", "my/applications", "my/listings", "jobs-near", "bucks-id")
-        val prefixes = listOf("chat/", "cloud-order/", "orders-for/", "delivery/", "moments/", "l/", "job/", "jobs-of/", "members/", "studio/", "listing-docs/", "doc-requests/", "post/")
+        val prefixes = listOf("chat/", "cloud-order/", "orders-for/", "delivery/", "similar-shops/", "moments/", "l/", "job/", "jobs-of/", "members/", "studio/", "listing-docs/", "doc-requests/", "post/")
         return if (r in exact || prefixes.any { r.startsWith(it) && r.length > it.length }) r else null
     }
 

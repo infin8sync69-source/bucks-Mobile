@@ -35,6 +35,7 @@ object Routes {
     const val CLOUD_CART = "cloud-cart"; const val CLOUD_ORDER = "cloud-order/{id}"; fun cloudOrder(id: String) = "cloud-order/${Uri.encode(id)}"
     const val MY_ORDERS = "my/orders"; const val VENDOR_ORDERS = "orders-for/{id}"; fun vendorOrders(id: String) = "orders-for/${Uri.encode(id)}"
     const val DELIVERY_TRACK = "delivery/{id}"; fun deliveryTrack(id: String) = "delivery/${Uri.encode(id)}"
+    const val SIMILAR_SHOPS = "similar-shops/{id}"; fun similarShops(id: String) = "similar-shops/${Uri.encode(id)}"
     const val PAYMENT_QR = "my/payment-qr"
     const val LISTING_JOBS = "jobs-of/{id}"; fun listingJobs(id: String) = "jobs-of/${Uri.encode(id)}"; const val JOB = "job/{id}"; fun job(id: String) = "job/${Uri.encode(id)}"
     const val JOB_NEW = "new-job/{id}"; fun jobNew(id: String) = "new-job/${Uri.encode(id)}"; const val MY_APPLICATIONS = "my/applications"; const val JOBS_NEAR = "jobs-near"
