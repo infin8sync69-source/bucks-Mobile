@@ -29,7 +29,8 @@ create table if not exists public.trusted_contacts (
 alter table public.trusted_contacts enable row level security;
 drop policy if exists trusted_contacts_own on public.trusted_contacts;
 create policy trusted_contacts_own on public.trusted_contacts for select to authenticated using (profile_id = (select me()));
-revoke insert, update, delete on public.trusted_contacts from anon, authenticated;
+revoke all on public.trusted_contacts from public, anon;   -- signed-out callers get nothing (Supabase grants anon by default)
+revoke insert, update, delete on public.trusted_contacts from authenticated;
 grant select on public.trusted_contacts to authenticated;
 
 create or replace function public.add_trusted_contact(p_name text, p_phone text) returns uuid
@@ -129,7 +130,8 @@ create index if not exists sos_events_open on public.sos_events (created_at desc
 alter table public.sos_events enable row level security;
 drop policy if exists sos_events_own on public.sos_events;
 create policy sos_events_own on public.sos_events for select to authenticated using (profile_id = (select me()) or (select is_staff()));
-revoke insert, update, delete on public.sos_events from anon, authenticated;
+revoke all on public.sos_events from public, anon;   -- signed-out callers get nothing (Supabase grants anon by default)
+revoke insert, update, delete on public.sos_events from authenticated;
 grant select on public.sos_events to authenticated;
 
 -- Raises an SOS (never refused for a signed-in person). A second press within 10 minutes updates the same one with the new location.
@@ -225,7 +227,8 @@ create table if not exists public.ride_alerts (
 alter table public.ride_alerts enable row level security;
 drop policy if exists ride_alerts_own on public.ride_alerts;
 create policy ride_alerts_own on public.ride_alerts for select to authenticated using (rider_id = (select me()));
-revoke insert, update, delete on public.ride_alerts from anon, authenticated;
+revoke all on public.ride_alerts from public, anon;   -- signed-out callers get nothing (Supabase grants anon by default)
+revoke insert, update, delete on public.ride_alerts from authenticated;
 grant select on public.ride_alerts to authenticated;
 
 -- Unanswered alerts for my ride (the in-ride screen polls this).

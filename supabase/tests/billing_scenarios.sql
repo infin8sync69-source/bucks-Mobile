@@ -124,8 +124,10 @@ select pg_temp.check(pg_temp.paid('ev1b', 'pay_1', 499, '', null) = 'payment alr
 
 \echo '== 10. Paying early adds to VALID TILL; founding renewals in the window count double'
 select pg_temp.age('Ravi Plumbing', 85);  -- 5 days of free months left
+-- The exact date depends on month lengths (3 free months less 85 days, then a month and its double), so compare with VALID TILL itself.
+create temp table ravi_before as select (pg_temp.lic('Ravi Plumbing')).valid_till t;
 select pg_temp.paid('ev2', 'pay_2', 99, '', (pg_temp.lic('Ravi Plumbing')).code);
-select pg_temp.check((pg_temp.lic('Ravi Plumbing')).valid_till between now() + interval '63 days' and now() + interval '67 days', '1 month paid -> 2 months added after the free days');
+select pg_temp.check((pg_temp.lic('Ravi Plumbing')).valid_till = (select t + interval '1 month' + ((t + interval '1 month') - t) from ravi_before), '1 month paid -> 2 months added after the free days');
 select pg_temp.check((select bonus_days between 28 and 31 from billing_payments where payment_id = 'pay_2'), 'bonus days recorded');
 select pg_temp.check((pg_temp.lic('Ravi Plumbing')).stage = 0, 'reminders start over');
 
