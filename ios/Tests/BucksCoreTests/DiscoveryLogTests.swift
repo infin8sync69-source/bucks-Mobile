@@ -86,6 +86,31 @@ import Testing
         #expect(q["filters"] as? [String: String] == ["kind": "ALL", "service": "FOOD"])
     }
 
+    /// A ↑ or ↓ given to a page (DiscoveryLog.voted, as in DiscoveryLog.kt): tied to the search the page was opened from in the last
+    /// 30 minutes, sent without a search otherwise; a removed review (0) sends nothing.
+    @Test func aVoteIsTheOutcomeOfTheSearchThePageCameFrom() async throws {
+        let s = session(); stub()
+        let log = DiscoveryLog.shared
+        log.configure(band: "ADULT", optedIn: true)
+        defer { log.configure(band: "UNKNOWN", optedIn: false) }
+        let d = s.discover
+        d.query = "sugar"; d.search()
+        #expect(await wait { d.searched && !d.searching })
+        d.opened("L1")
+        let qid = try #require(d.lastQueryId)
+        #expect(log.queryFor("L1") == qid); #expect(log.queryFor("L2") == nil)
+        log.voted("L1", vote: 1, queryId: log.queryFor("L1"))
+        log.voted("L2", vote: -1, queryId: log.queryFor("L2"))
+        log.voted("L1", vote: 0, queryId: qid)
+        log.flush()
+        #expect(await wait { sent().count == 5 })   // QUERY, IMPRESSION, OPEN and the two votes
+        let votes = sent().filter { $0["t"] as? String == "VOTE" }
+        #expect(votes.count == 2)
+        #expect(votes.first?["query_id"] as? String == qid); #expect(votes.first?["subject_id"] as? String == "L1")
+        #expect(votes.first?["subject_type"] as? String == "LISTING"); #expect(votes.first?["detail"] as? String == "UP")
+        #expect(votes.last?.keys.contains("query_id") == false); #expect(votes.last?["subject_id"] as? String == "L2"); #expect(votes.last?["detail"] as? String == "DOWN")
+    }
+
     /// The checks of log_discovery: a coordinate is at most 3 digits, a point and at most 12 decimals (discovery_num); a count is digits
     /// only (discovery_int). A Double written by JSONSerialization can carry 15 decimals or more and would fail the first.
     @Test func coordinatesAndCountsPassTheServersChecks() throws {

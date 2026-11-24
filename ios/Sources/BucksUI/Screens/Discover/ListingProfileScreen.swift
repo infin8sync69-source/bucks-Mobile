@@ -74,7 +74,10 @@ struct ListingProfileScreen: View {
             .scrollBounceBehavior(.basedOnSize)
             .ignoresSafeArea(edges: .top)
             .sheet(isPresented: Binding(get: { rateVote != nil }, set: { if !$0 { rateVote = nil } })) {
-                RecommendSheet(listing: l, mine: myDirect, initial: rateVote ?? 1) { rateVote = nil; tab = "reviews"; d.open(id) }
+                // The ↑ or ↓ saved is the outcome of the search the page came from (DiscoveryLog.voted; 0 = the review was removed).
+                RecommendSheet(listing: l, mine: myDirect, initial: rateVote ?? 1) { voted in
+                    DiscoveryLog.shared.voted(id, vote: voted, queryId: DiscoveryLog.shared.queryFor(id)); rateVote = nil; tab = "reviews"; d.open(id)
+                }
             }
             if l.kind == "BUSINESS" && l.online && cartCount > 0 && current == "products" {
                 DarkButton("View cart · \(plural(cartCount, "item"))") { router.push(.cart) }.padding(Gutter)
@@ -83,7 +86,7 @@ struct ListingProfileScreen: View {
     }
 
     // What is done here after opening the page from search counts for that search (DiscoveryLog, adults with usage statistics on):
-    // Message (here and in Products), Sync, Share and Directions, as on Android.
+    // Message (here and in Products), Enquire, Sync, Share, Directions and the recommend sheet's vote, as on Android.
     private func message() { DiscoveryLog.shared.acted("MESSAGE", listingId: id); d.startListingChat(id) { router.push(.chat($0)) } }
 
     private func shareText(_ l: ListingRow) -> String {
@@ -247,6 +250,7 @@ private struct ProfileHeader: View {
             }
             if l.kind == "ASSET" && !p.mine {
                 PrimaryButton(l.details.str("mode") == "SELL" ? "Enquire about buying" : "Enquire about renting", enabled: !d.chatStarting) {
+                    DiscoveryLog.shared.acted("MESSAGE", listingId: l.id)
                     d.startListingChat(l.id, firstLine: "Hi, I'm interested in \(l.title). Is it still available?") { router.push(.chat($0)) }
                 }.padding(.top, 12)
             }
@@ -369,7 +373,8 @@ private struct RecommendSheet: View {
     let listing: ListingRow
     let mine: ReviewRow?
     let initial: Int
-    var onDone: () -> Void
+    /// The vote that was saved: 1 or -1, or 0 when the review was removed.
+    var onDone: (Int) -> Void
     @Environment(AppSession.self) private var session
     @State private var vote = 1
     @State private var text = ""
@@ -403,14 +408,14 @@ private struct RecommendSheet: View {
     private func submit() {
         Task {
             busy = true; defer { busy = false }
-            do { try await Backend.shared.rateListing(listing.id, vote: vote, comment: text.trimmingCharacters(in: .whitespacesAndNewlines)); session.toast("Thanks, your review is posted."); onDone() }
+            do { try await Backend.shared.rateListing(listing.id, vote: vote, comment: text.trimmingCharacters(in: .whitespacesAndNewlines)); session.toast("Thanks, your review is posted."); onDone(vote) }
             catch { session.toast(friendlyError(error)) }
         }
     }
     private func remove() {
         Task {
             busy = true; defer { busy = false }
-            do { try await Backend.shared.clearListingRating(listing.id); session.toast("Your review was removed."); onDone() }
+            do { try await Backend.shared.clearListingRating(listing.id); session.toast("Your review was removed."); onDone(0) }
             catch { session.toast(friendlyError(error)) }
         }
     }

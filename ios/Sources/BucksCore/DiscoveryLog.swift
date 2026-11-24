@@ -9,9 +9,10 @@ import Foundation
 /// statistics off also deletes what the server kept (`forgetMe`).
 ///
 /// Sent: the search (words, about where, radius, chips, how many results, how long it took; for people search no words at all), the
-/// first 10 results shown, the result opened and its position, and what is done on that page within 30 minutes (message, directions,
-/// cart, order, sync, share; iOS pages have no Call button and no page types, so no CALL or BOOK yet). Batched every 30 s and when the
-/// search screen closes. A send that fails is dropped: logging never retries, never shows an error and never slows search down.
+/// first 10 results shown, the result opened and its position, what is done on that page within 30 minutes (message, directions,
+/// cart, order, sync, share; iOS pages have no Call button and no page types, so no CALL or BOOK yet), and a ↑ or ↓ given to a page,
+/// tied to the search it came from when it came from one. Batched every 30 s and when the search screen closes. A send that fails is
+/// dropped: logging never retries, never shows an error and never slows search down.
 @MainActor
 public final class DiscoveryLog {
     public static let shared = DiscoveryLog()
@@ -95,8 +96,23 @@ public final class DiscoveryLog {
     /// Something done on a page opened from search in the last 30 minutes: CALL, MESSAGE, DIRECTIONS, ADD_TO_CART, ORDER, BOOK, SYNC
     /// or SHARE. Anything done on a page that wasn't opened from search is not sent.
     public func acted(_ kind: String, listingId: String?) {
-        guard on, let listingId, let o = lastOpen, o.listingId == listingId, Date().timeIntervalSince(o.at) <= Self.actionWindow else { return }
-        add(event(kind, o.queryId, listingId, position: nil))
+        guard on, let listingId, let qid = queryFor(listingId) else { return }
+        add(event(kind, qid, listingId, position: nil))
+    }
+
+    /// The search `listingId` was opened from, when it was opened from search in the last 30 minutes.
+    public func queryFor(_ listingId: String) -> String? {
+        guard let o = lastOpen, o.listingId == listingId, Date().timeIntervalSince(o.at) <= Self.actionWindow else { return nil }
+        return o.queryId
+    }
+
+    /// The person rated a page ↑ (`vote` 1) or ↓ (-1): the outcome of the search it came from (`queryId`, when known). A vote with
+    /// no search is still sent; 0 (a review removed) is not.
+    public func voted(_ listingId: String, vote: Int, queryId: String?) {
+        guard on, vote != 0 else { return }
+        var e: Event = ["t": .text("VOTE"), "subject_type": .text("LISTING"), "subject_id": .text(listingId), "detail": .text(vote > 0 ? "UP" : "DOWN"), "at": .text(Self.now())]
+        if let queryId { e["query_id"] = .text(queryId) }
+        add(e)
     }
 
     /// Sends what is waiting now; it is also sent every 30 s on its own.

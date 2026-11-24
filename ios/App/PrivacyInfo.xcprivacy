@@ -18,8 +18,8 @@
 
   Search measurement (DiscoveryLog.swift, supabase/migrations/discovery_log.sql), adults only and only with Settings > Appearance and data >
   Help improve Bucks on: search history (the words searched, about where, the filters) and product interaction (the results shown, the
-  one opened, and Message, Sync, Share, Directions, add to cart and order on a page opened from search). Linked to the account, used for
-  analytics and to improve search; switching it off deletes it.
+  one opened, Message, Enquire, Sync, Share, Directions, add to cart and order on a page opened from search, and the ↑ or ↓ given to a
+  page). Linked to the account, used for analytics and to improve search; switching it off deletes it.
 -->
 <plist version="1.0">
 <dict>
