@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Trip safety (ui/safety/TripSafety.kt): SOS, trusted contacts, live trip link, "Are you OK?". English only for now. -->
+<resources>
+    <string name="sf_sos">SOS</string>
+    <string name="sf_sos_title">Get help now</string>
+    <string name="sf_sos_sent">Bucks staff have been alerted. Call 112 if you\'re in danger.</string>
+    <string name="sf_sos_sending">Alerting Bucks staff…</string>
+    <string name="sf_sos_failed">Couldn\'t reach Bucks. Call 112, and text someone you trust.</string>
+    <string name="sf_call_112">Call 112</string>
+    <string name="sf_text_contacts">Text my trusted contacts (%1$d)</string>
+    <string name="sf_text_someone">Text someone</string>
+    <string name="sf_share_live">Share live trip link</string>
+    <string name="sf_add_contacts_hint">Add trusted contacts in Settings → Safety, so one tap texts them your trip and location.</string>
+    <string name="sf_im_safe">I\'m safe now</string>
+    <string name="sf_close">Close</string>
+    <string name="sf_share_msg">I\'m on a Bucks trip with %1$s, %2$s %3$s. Follow it live: %4$s</string>
+    <string name="sf_share_msg_driver">I\'m driving a Bucks trip for %1$s. Follow it live: %2$s</string>
+
+    <string name="sf_check_title">Are you OK?</string>
+    <string name="sf_check_STOPPED">Your ride has stopped for a while.</string>
+    <string name="sf_check_OFF_ROUTE">Your ride looks off its route.</string>
+    <string name="sf_check_SILENT">We lost your driver\'s location.</string>
+    <string name="sf_check_hint">If you don\'t answer within 5 minutes, Bucks staff are alerted.</string>
+    <string name="sf_check_ok">I\'m OK</string>
+
+    <string name="sf_contacts_title">Trusted contacts</string>
+    <string name="sf_contacts_d">Up to 5 people. SOS and Share trip text them your trip and location from your phone. They don\'t need Bucks.</string>
+    <string name="sf_contacts_add">Add a trusted contact</string>
+    <string name="sf_contacts_name">Name</string>
+    <string name="sf_contacts_phone">Mobile number</string>
+    <string name="sf_contacts_save">Save</string>
+    <string name="sf_contacts_remove">Remove %1$s</string>
+    <string name="sf_contacts_full">You have 5 trusted contacts.</string>
+
+    <string name="sf_staff_sos">Open SOS alerts</string>
+    <string name="sf_staff_sos_none">No open SOS alerts.</string>
+    <string name="sf_staff_call">Call %1$s</string>
+    <string name="sf_staff_open_trip">Open trip</string>
+    <string name="sf_staff_map">Map</string>
+    <string name="sf_staff_close">Close alert</string>
+</resources>

@@ -71,6 +71,8 @@ files=(
   migrations/risk_hardening.sql
   migrations/legal_hold.sql
   migrations/review_accounts.sql
+  migrations/trip_safety.sql
+  migrations/swarm_core.sql
   migrations/content_screen.sql
 )
 

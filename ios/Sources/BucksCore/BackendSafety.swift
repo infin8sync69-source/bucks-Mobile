@@ -1,6 +1,22 @@
 import Foundation
 
 /// My age band and whether a date of birth is on file (social_safety.sql my_safety).
+/// Trip safety (trip_safety.sql): trusted contacts, SOS, live trip links, "Are you OK?".
+public struct TrustedContact: Codable, Hashable, Sendable, Identifiable { public var id: String; public var name: String; public var phone: String }
+public struct SosContact: Codable, Hashable, Sendable { public var name: String; public var phone: String }
+public struct SosResult: Codable, Hashable, Sendable { public var sosId: String; public var shareToken: String?; public var message: String; public var contacts: [SosContact] }
+public struct RideAlert: Codable, Hashable, Sendable, Identifiable { public var id: String; public var kind: String }
+public struct SosQueueRow: Codable, Hashable, Sendable, Identifiable {
+    public var id: String; public var createdAt: String; public var role: String; public var name: String?; public var phone: String?
+    public var lat: Double?; public var lng: Double?; public var taskId: String?; public var taskStatus: String?
+    public var otherName: String?; public var otherPhone: String?; public var vehicle: String?; public var tripLink: String?
+}
+
+public enum TripSafety {
+    public static func tripURL(_ token: String) -> String { "https://infin8sync69-source.github.io/bucks-Mobile/trip/#\(token)" }
+    public static func mapURL(_ p: LatLng) -> String { String(format: "https://maps.google.com/?q=%.6f,%.6f", p.lat, p.lng) }
+}
+
 /// terms_status(): the Terms version everyone must have accepted, the one I accepted, and whether the app must ask (legal_hold.sql).
 public struct TermsStatus: Codable, Hashable, Sendable {
     public var current: String?
@@ -117,6 +133,22 @@ extension Backend {
     /// Nil when signed out.
     public func mySafety() async throws -> SafetyRow? { (try await rpcList("my_safety") as [SafetyRow]).first }
     public func termsStatus() async throws -> TermsStatus { try await rpc("terms_status") }
+
+    // MARK: trip safety
+    public func trustedContacts() async throws -> [TrustedContact] { try await select("trusted_contacts", columns: "id,name,phone", order: "created_at") }
+    public func addTrustedContact(name: String, phone: String) async throws { try await rpcVoid("add_trusted_contact", ["p_name": name, "p_phone": phone]) }
+    public func removeTrustedContact(_ id: String) async throws { try await rpcVoid("remove_trusted_contact", ["p_id": id]) }
+    /// The token of my trip's live link (TripSafety.tripURL makes the page address).
+    public func tripShareLink(_ taskId: String) async throws -> String { try await rpc("trip_share_link", ["p_task": taskId]) }
+    /// Never refused for a signed-in person. `taskId` nil: an SOS outside a trip.
+    public func raiseSos(taskId: String?, at: LatLng?) async throws -> SosResult {
+        try await rpc("raise_sos", ["p_task": taskId, "p_lat": at?.lat, "p_lng": at?.lng])
+    }
+    public func cancelSos(_ id: String) async throws { try await rpcVoid("cancel_sos", ["p_sos": id]) }
+    public func myRideAlerts(_ taskId: String) async throws -> [RideAlert] { try await rpcList("my_ride_alerts", ["p_task": taskId]) }
+    public func answerRideAlert(_ taskId: String, ok: Bool) async throws { try await rpcVoid("answer_ride_alert", ["p_task": taskId, "p_ok": ok]) }
+    public func sosQueue() async throws -> [SosQueueRow] { try await rpcList("sos_queue") }
+    public func closeSos(_ id: String, note: String) async throws { try await rpcVoid("close_sos", ["p_sos": id, "p_note": note]) }
     /// Records that I accepted this version of the Terms and Privacy Policy.
     public func recordTerms(_ version: String) async throws { try await rpcVoid("record_terms", ["p_version": version]) }
     /// Saves my date of birth (yyyy-MM-dd) once; answers the age band. Refused with BK_NOT_ELIGIBLE below the sign-up age.

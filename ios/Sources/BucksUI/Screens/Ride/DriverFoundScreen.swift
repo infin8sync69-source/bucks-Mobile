@@ -57,6 +57,12 @@ struct DriverFoundScreen: View {
                         Image(systemName: "square.and.arrow.up").font(.system(size: 17)).foregroundStyle(BucksColor.onSurface).frame(width: 44, height: 44)
                     }.accessibilityLabel("Share trip")
                 }
+                HStack {
+                    Spacer()
+                    SosAction(taskId: r.id) { session.mePos }
+                    LiveShareAction(taskId: r.id, cloud: session.cloud, fallback: tripShareText(r, d)) { url in "I'm on a Bucks trip with \(d.name), \(d.model) \(d.plate). Follow it live: \(url)" }
+                    Spacer()
+                }.padding(.top, 8)
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("Total fare").bucks(.titleMedium).foregroundStyle(BucksColor.onSurface)
                     Text("  ₹\(r.fare)").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
