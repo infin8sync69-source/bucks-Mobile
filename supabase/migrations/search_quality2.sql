@@ -327,6 +327,18 @@ begin
 end $$;
 
 -- ---------- 4. search ----------
+-- The content screen (content_screen.sql, branch feat/shariah-filter, live on the project since 2026-11-20) keeps the ids it hides in
+-- content_screened. search_listings leaves them out exactly as that file's version does: screened pages unless they are mine or I
+-- help run them, screened products always. Where the screen isn't installed (this branch's Database CI) nothing is hidden, so this
+-- file works with or without it. Apply content_screen.sql before this file: its own search_listings is the older search.
+create or replace function public.search_screened() returns table (kind text, ref uuid)
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  if to_regclass('public.content_screened') is not null then
+    return query execute 'select s.kind::text, s.ref from public.content_screened s where s.kind in (''LISTING'', ''ITEM'')';
+  end if;
+end $$;
+
 create or replace function public.search_listings(q text, lat double precision, lng double precision, radius_m int default 10000, kinds text[] default null,
                                                   lim int default 40, services text[] default null)
 returns table (id uuid, kind text, title text, category text, description text, photo_url text, area text, online boolean, trust_up int, trust_down int,
@@ -335,6 +347,7 @@ returns table (id uuid, kind text, title text, category text, description text, 
 language sql stable security definer set search_path = public, extensions as $$
   with here as (select public.geo(lat, lng) g, least(greatest(coalesce(radius_m, 10000), 0), 50000) r),
        parsed as (select public.search_parse(q) j),
+       screened as (select s.kind, s.ref from public.search_screened() s),
        mods as (select array(select jsonb_array_elements_text(parsed.j->'mods')) m, (parsed.j->>'price_cap')::int cap from parsed),
        terms as (
          select e.o::int pos, e.t->>'key' tkey, (e.t->>'generic')::boolean generic, (e.t->>'fuzzy')::boolean fuzzy_ok, (e.t->>'prefix')::boolean prefix_ok,
@@ -355,13 +368,15 @@ language sql stable security definer set search_path = public, extensions as $$
          from listings l left join listing_types t on t.key = l.type_key join profiles o on o.id = l.owner_id cross join here cross join core
          where l.status = 'LIVE'
            and not public.blocked_between(public.me(), l.owner_id)
+           and (not exists (select 1 from screened s where s.kind = 'LISTING' and s.ref = l.id) or l.owner_id = public.me() or public.listing_role(l.id) is not null)
            and (kinds is null or l.kind = any(kinds))
            and (services is null or l.service = any(services))
            and ((l.location is not null and st_dwithin(l.location, here.g, here.r))
                 or (l.kind = 'BUSINESS' and lower(coalesce(l.details->>'ships_india', '')) = 'true'))),
        itn as (
          select i.listing_id, i.name, nullif(i.price, 0)::int price, i.in_stock, public.search_norm(i.name) n
-         from items i where (select n_all from core) > 0 and i.listing_id in (select c.id from cand c)),
+         from items i where (select n_all from core) > 0 and i.listing_id in (select c.id from cand c)
+                        and not exists (select 1 from screened s where s.kind = 'ITEM' and s.ref = i.id)),
        blob as (select c.id, coalesce(string_agg(itn.n, ' '), '') n_i from cand c left join itn on itn.listing_id = c.id group by c.id),
        -- per page and term: 3 title, category or type · 2 product or owner · 1 description or area; through a concept 2 category, 1 product
        hits as (
@@ -402,7 +417,8 @@ language sql stable security definer set search_path = public, extensions as $$
        gate as (select coalesce(max(coverage) filter (where in_range), 0) local_top from pool)
   select p.id, p.kind, p.title, p.category, p.description, p.photo_url, p.area, p.online, p.trust_up, p.trust_down, p.details, p.distance_m,
          mi.name as matched_item,
-         (select min(i.price) from items i where i.listing_id = p.id and i.in_stock and i.price > 0) as min_price,
+         (select min(i.price) from items i where i.listing_id = p.id and i.in_stock and i.price > 0
+            and not exists (select 1 from screened s where s.kind = 'ITEM' and s.ref = i.id)) as min_price,
          p.type_key, p.group_key, p.owner_id, p.owner_name,
          mi.price as matched_price
   from pool p cross join gate cross join mods cross join core
@@ -435,6 +451,7 @@ $$;
 revoke all on function public.search_listings(text, double precision, double precision, int, text[], int, text[]) from public, anon;
 grant execute on function public.search_listings(text, double precision, double precision, int, text[], int, text[]) to authenticated;
 revoke all on function public.search_parse(text) from public, anon;
+revoke all on function public.search_screened() from public, anon, authenticated;
 grant execute on function public.search_parse(text) to authenticated;
 revoke all on function public.search_clean(text), public.search_key(text), public.search_norm(text), public.search_trust(int, int) from public, anon;
 grant execute on function public.search_clean(text), public.search_key(text), public.search_norm(text), public.search_trust(int, int) to authenticated;

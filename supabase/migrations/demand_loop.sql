@@ -76,6 +76,7 @@ returns table (id uuid, q text, area text, radius_m int, created_at timestamptz,
 language sql stable security definer set search_path = public, extensions as $$
   select w.id, w.q, demand_area(w.cell), w.radius_m, w.created_at, w.notified_at, w.found_listing, l.title
   from wanted w left join listings l on l.id = w.found_listing and l.status = 'LIVE'
+       and not exists (select 1 from public.search_screened() s where s.kind = 'LISTING' and s.ref = l.id)
   where w.profile_id = me() and w.cancelled_at is null
     and ((w.notified_at is null and w.created_at > now() - make_interval(days => coalesce(setting('wanted_days'), 90)::int))
          or w.notified_at > now() - interval '90 days')

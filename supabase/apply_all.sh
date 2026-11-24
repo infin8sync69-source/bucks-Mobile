@@ -18,7 +18,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # its release_task takes over the hand-back cap), then hardening_platform.sql (it carries the latest version of every function it redefines,
 # including page_types' search_listings), then social_safety.sql (which carries the hardening versions of the two functions it redefines).
 # search_quality2.sql comes after every file that defines search_listings (it carries the last version) and before discovery_log.sql,
-# which logs against its search_norm.
+# which logs against its search_norm. When content_screen.sql (feat/shariah-filter) is merged, it goes before search_quality2.sql:
+# search_quality2's search_listings keeps the screen's filters (search_screened), while content_screen's own is the older search.
 files=(
   schema.sql
   migrations/manage.sql
