@@ -10,7 +10,7 @@ Kodagu is too sparse.
 | Piece | Where | State |
 |---|---|---|
 | Migration `swarm_phase1.sql` | `supabase/migrations/`, in `apply_all.sh` after `swarm_core.sql` | Built; Database CI green (`swarm_phase1_scenarios` 54 ok, 0 fail); dry-run on prod in a rolled-back transaction 2026-11-24 (pgmq 1.5.1 installed, both queues, send / read / archive / dead-letter, rollup, cron jobs: all OK, nothing kept). **Applied to prod 2026-11-24** (owner's go-ahead): pgmq 1.5.1, `recovery_q` and `nudge_q`, 9 tables, 8 triggers, 3 cron jobs; every switch 0. |
-| `swarm-worker` Edge Function | `supabase/functions/swarm-worker/` | Built, type-checked. **Not deployed.** |
+| `swarm-worker` Edge Function | `supabase/functions/swarm-worker/` | **Deployed to prod 2026-11-24** (v1, `verify_jwt` off, shared-secret auth). Checked: no secret gives 403; an authenticated drain sent from the database gives 200 and reads both queues. |
 | Apps (Android + iOS) | see `docs/PARITY.md` | Built; ships with the next app release |
 | `notify` | unchanged | Phase 1 needs no notify change. Do not redeploy notify from this branch. |
 
@@ -33,7 +33,7 @@ events in 7 days; only known adults feed the field and the metrics (DPDP s.9(3))
 
 1. ~~Apply `swarm_phase1.sql`~~ (done 2026-11-24). With all switches 0 it changes no behaviour; it only records recovery offers and
    writes the nightly rollup.
-2. Deploy `swarm-worker`: `supabase functions deploy swarm-worker --no-verify-jwt` (uses the `FCM_SERVICE_ACCOUNT` secret and
+2. ~~Deploy `swarm-worker`~~ (done 2026-11-24): `supabase functions deploy swarm-worker --no-verify-jwt` (uses the `FCM_SERVICE_ACCOUNT` secret and
    `push_config.webhook_secret`, like notify).
 3. `update settings set value = 1 where key = 'demand_field_enabled';` then, once the worker is deployed, `recovery_enabled`.
 
