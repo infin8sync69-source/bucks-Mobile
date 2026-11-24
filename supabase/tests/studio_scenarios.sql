@@ -65,10 +65,10 @@ select pg_temp.check(jsonb_array_length((select gallery from listings where id =
 select pg_temp.as_user('owner');
 insert into listings (kind, owner_id, title, category, area, location, details) values ('BUSINESS', me(), 'Asha Bakery', 'Bakery', 'Jayanagar', geo(12.925, 77.594), '{"cod": false}');
 insert into items (listing_id, name, price, unit, description, stock, photos, details)
-  values (pg_temp.lid('Asha Bakery'), 'Plum cake', 450, '1 kg', 'Rum-soaked, baked on Fridays', 3,
+  values (pg_temp.lid('Asha Bakery'), 'Plum cake', 450, '1 kg', 'Fruit-soaked, baked on Fridays', 3,
           jsonb_build_array(jsonb_build_object('url', pg_temp.url(pg_temp.lid('Asha Bakery'), 'cake.jpg'))), '{"veg": false}'),
          (pg_temp.lid('Asha Bakery'), 'Bun', 20, '1 piece', '', null, '[]', '{}');
-select pg_temp.check((select description from items where name = 'Plum cake') = 'Rum-soaked, baked on Fridays', 'product keeps its description');
+select pg_temp.check((select description from items where name = 'Plum cake') = 'Fruit-soaked, baked on Fridays', 'product keeps its description');
 select 'photo from elsewhere -> ' || pg_temp.expect_fail(format($$update items set photos = jsonb_build_array(jsonb_build_object('url', %L)) where name = 'Bun'$$, pg_temp.url(pg_temp.lid('Activa 2019'), 'a.jpg')), 'items_photos_ok');
 select '9 photos -> ' || pg_temp.expect_fail(format($$update items set photos = (select jsonb_agg(jsonb_build_object('url', %L)) from generate_series(1, 9)) where name = 'Bun'$$, pg_temp.url(pg_temp.lid('Asha Bakery'), 'b.jpg')), 'items_photos_ok');
 select 'negative stock -> ' || pg_temp.expect_fail($$update items set stock = -1 where name = 'Bun'$$, 'items_stock_ok');
