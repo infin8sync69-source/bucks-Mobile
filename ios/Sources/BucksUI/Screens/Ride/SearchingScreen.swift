@@ -1,11 +1,12 @@
 import SwiftUI
 import BucksCore
 
-/// Ringing nearby riders inside 5 km; once nobody takes it, offers to ring again or change the ride type.
+/// Ringing nearby riders inside 5 km; once nobody takes it, the recovery card: try again, try a cab, notify me, or change the ride type.
 struct SearchingScreen: View {
     @Environment(AppSession.self) private var session
     @Environment(Router.self) private var router
     @State private var ask = false
+    @State private var notifyBusy = false
 
     var body: some View {
         Group { if let r = session.dispatch.ride { content(r) } else { Color.clear } }
@@ -42,11 +43,35 @@ struct SearchingScreen: View {
                 } else {
                     Text("No rider accepted").bucks(.titleLarge).foregroundStyle(BucksColor.onSurface)
                     Muted(n > 0 ? "All nearby riders were busy. Try again or switch vehicle type." : "Nobody is online nearby.")
-                    PrimaryButton("Ring again") { session.requestRide() }.padding(.top, 14)
+                    recovery(r)
                     GhostButton("Change ride type") { router.path = [.chooseRide] }.padding(.top, 10)
                 }
             }
         }
+    }
+
+    /// Swarm Phase 1 recovery card: Try again, Try a cab (or an auto), Notify me when a driver is online. Each is one tap that records the
+    /// choice (recovery_choice) and then runs today's flow: booking again opens the usual confirm sheet, so nothing is booked unconfirmed.
+    @ViewBuilder private func recovery(_ r: Ride) -> some View {
+        let alt: VehicleKind = r.kind == .cab ? .auto : .cab
+        PrimaryButton("Try again") { record(r, Recovery.tryAgain); session.requestRide() }.padding(.top, 14)
+        GhostButton(alt == .cab ? "Try a cab" : "Try an auto") { record(r, Recovery.tryCab); session.setRideKind(alt); session.requestRide() }.padding(.top, 10)
+        if session.cloud {
+            GhostButton("Notify me when a driver is online", enabled: !notifyBusy) {
+                notifyBusy = true; record(r, Recovery.notifyMe)
+                let at = session.pickupAt
+                Task {
+                    let ok = (try? await Backend.shared.notifyMeWhenDriverOnline(kind: r.kind, at: at)) ?? false
+                    session.toast(ok ? "We'll tell you when a driver comes online nearby (for the next 2 hours)." : "That isn't switched on yet. Try again in a few minutes.")
+                    notifyBusy = false
+                }
+            }.padding(.top, 10)
+        }
+    }
+
+    private func record(_ r: Ride, _ choice: String) {
+        guard session.cloud else { return }
+        Task { _ = try? await Backend.shared.recoveryChoice(kind: Recovery.task, subject: r.id, choice: choice) }
     }
 
     private func leave() { session.dispatch.dismissEndedRide(); router.popToRoot() }

@@ -10,7 +10,7 @@ public enum Route: Hashable {
     // Discover
     case search, listing(String)
     // Commerce
-    case cart, order(String), myOrders, vendorOrders(String), deliveryTrack(String)
+    case cart, order(String), myOrders, vendorOrders(String), deliveryTrack(String), similarShops(String)
     // Studio (my listings)
     case myListings, studio(String), listingEdit(id: String?, kind: String, service: String?), listingDocs(String), staffReview, itemEdit(listing: String, item: String?)
     case members(String), recommendShow(String), recommendScan

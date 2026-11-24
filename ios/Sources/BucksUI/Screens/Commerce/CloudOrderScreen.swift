@@ -140,6 +140,10 @@ struct CloudOrderScreen: View {
 
                 SectionTitle("Progress").padding(.top, 22).padding(.bottom, 10)
                 OrderTimeline(status: o.status, mode: o.deliveryMode, task: task, forShop: vendor, cancelledBy: o.cancelledBy, carrier: o.carrier, ringWindowS: session.dispatch.ringWindowS)
+                // Swarm Phase 1: a shop said no; one tap to other shops nearby that list the same items (ordering there is the usual cart).
+                if !vendor && Recovery.similarShopsFor(status: o.status, cancelledBy: o.cancelledBy, reason: o.cancelReason) {
+                    PrimaryButton("Similar shops nearby") { router.push(.similarShops(o.id)) }.padding(.top, 12)
+                }
 
                 if !vendor { buyerActions(o, title) } else { vendorActions(o, acting) }
                 if hasContact(o) { callButton(vendor: vendor, title: title, customer: customer) }
