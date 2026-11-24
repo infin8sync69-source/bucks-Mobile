@@ -54,6 +54,7 @@ import com.bucks.app.ui.upiPayLink
 import com.bucks.app.ui.upiPayee
 import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
+import com.bucks.app.ui.safety.*
 import com.bucks.app.ui.theme.status
 
 /**
@@ -292,7 +293,7 @@ fun SearchingScreen(vm: BucksViewModel, onChangeType: () -> Unit, onBack: () -> 
 @Composable
 fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, onCall: (String, String) -> Unit, showToast: (String) -> Unit) {
     val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return
-    val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }; val ctx = LocalContext.current; val cancelling = vm.dispatch.cancelling
+    val arrived = r.status == RideStatus.ARRIVED; var cancel by remember { mutableStateOf(false) }; val ctx = LocalContext.current; val cancelling = vm.dispatch.cancelling; val scope = rememberCoroutineScope()
     val me = vm.mePos; val car = r.driverAt ?: Geo.fromPercent(r.driverX, r.driverY); val road = rememberRoadRoute(car, me)
     val noNumber = stringResource(R.string.g4_ride_no_number, d.name.substringBefore(' ')); val riderWord = stringResource(R.string.g4_ride_rider)
     val tripMsg = stringResource(R.string.g4_ride_share_msg, r.dest.name, d.name, d.model, d.plate); val linkCopied = stringResource(R.string.g4_ride_link_copied)
@@ -315,7 +316,8 @@ fun DriverFoundScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, 
             }
             Muted(stringResource(R.string.g4_ride_share_pin), Modifier.padding(top = 6.dp))
             Box(Modifier.padding(vertical = 14.dp)) { MessageBar(stringResource(R.string.g4_ride_message_driver), onCall = { if (vm.cloud) { if (d.phone.isBlank()) showToast(noNumber) else dial(ctx, d.phone) } else onCall(d.name, "+91 98450 12345") }) { if (vm.cloud) { if (d.phone.isBlank()) showToast(noNumber) else sms(ctx, d.phone) } else onChatWith(d.name, riderWord) } }
-            RoutePoints(r.pickupLabel.ifBlank { stringResource(R.string.g4_ride_pickup_point) }, r.dest.name) { IconButton({ if (vm.cloud) shareText(ctx, tripMsg) else showToast(linkCopied) }) { Icon(Icons.Rounded.Share, stringResource(R.string.g4_ride_share_trip), Modifier.size(20.dp)) } }
+            RoutePoints(r.pickupLabel.ifBlank { stringResource(R.string.g4_ride_pickup_point) }, r.dest.name) { IconButton({ if (vm.cloud) scope.launch { TripSafety.shareTrip(ctx, r.id, true, tripMsg) { url -> Str.get(R.string.sf_share_msg, d.name, d.model, d.plate, url) } } else showToast(linkCopied) }) { Icon(Icons.Rounded.Share, stringResource(R.string.g4_ride_share_trip), Modifier.size(20.dp)) } }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) { SosAction(r.id, vm.cloud) { vm.mePos } }
             Row(Modifier.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g4_ride_total_fare), style = MaterialTheme.typography.titleMedium); Text("  " + Money.format(r.fare), style = MaterialTheme.typography.titleLarge) }
             // With Firebase the driver starts the trip once they've entered your PIN.
             if (arrived && !vm.cloud) DarkButton(stringResource(R.string.g4_ride_start_trip), Modifier.padding(bottom = 10.dp)) { vm.startTrip() }
@@ -343,11 +345,12 @@ private fun RideCancelSheet(vm: BucksViewModel, driverName: String?, arrived: Bo
 
 @Composable
 fun InRideScreen(vm: BucksViewModel, showToast: (String) -> Unit) {
-    val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return; val ctx = LocalContext.current
-    val tripMsg = stringResource(R.string.g4_ride_share_msg, r.dest.name, d.name, d.model, d.plate); val linkCopied = stringResource(R.string.g4_ride_link_copied); val sosMsg = stringResource(R.string.g4_ride_sos_notified)
+    val s by vm.state.collectAsState(); val r = s.ride ?: return; val d = r.driver ?: return; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
+    val tripMsg = stringResource(R.string.g4_ride_share_msg, r.dest.name, d.name, d.model, d.plate); val linkCopied = stringResource(R.string.g4_ride_link_copied)
+    val car = r.driverAt ?: Geo.fromPercent(r.driverX, r.driverY)
     Column(Modifier.fillMaxSize()) {
         BucksTopBar()
-        val car = r.driverAt ?: Geo.fromPercent(r.driverX, r.driverY); val road = rememberRoadRoute(car, r.dest.latLng())
+        val road = rememberRoadRoute(car, r.dest.latLng())
         Box(Modifier.weight(1f).fillMaxWidth()) {
             BucksMap(Modifier.fillMaxSize(), listOf(pinAt(r.dest.latLng(), r.dest.name, MaterialTheme.status.bad), pinAt(car, stringResource(R.string.g4_ride_pin_you), MaterialTheme.status.good, true)), zoom = 15.0, route = road?.points ?: listOf(car, r.dest.latLng()))
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp)) }
@@ -355,7 +358,11 @@ fun InRideScreen(vm: BucksViewModel, showToast: (String) -> Unit) {
             Text(stringResource(R.string.g4_ride_on_way_to, r.dest.name), style = MaterialTheme.typography.titleLarge)
             Muted(stringResource(R.string.g4_ride_km_left, "%.1f".format((1 - r.progress) * r.dest.km), d.name, d.plate))
             LinearProgressIndicator(progress = { r.progress }, modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp).height(6.dp).clip(CircleShape), trackColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { IconAction(Icons.Rounded.Sos, stringResource(R.string.g4_ride_sos)) { if (vm.cloud) dial(ctx, "112") else showToast(sosMsg) }; IconAction(Icons.Rounded.Share, stringResource(R.string.g4_ride_share_trip)) { if (vm.cloud) shareText(ctx, tripMsg) else showToast(linkCopied) } }
+            RideCheckCard(r.id, vm.cloud) { car }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                SosAction(r.id, vm.cloud) { car }
+                IconAction(Icons.Rounded.Share, stringResource(R.string.g4_ride_share_trip)) { if (vm.cloud) scope.launch { TripSafety.shareTrip(ctx, r.id, true, tripMsg) { url -> Str.get(R.string.sf_share_msg, d.name, d.model, d.plate, url) } } else showToast(linkCopied) }
+            }
         }
     }
 }

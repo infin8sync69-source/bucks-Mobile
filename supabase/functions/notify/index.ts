@@ -15,7 +15,7 @@ type Op = "INSERT" | "UPDATE" | "DELETE";
 type Kind = "messages" | "orders" | "tasks" | "ride" | "social";
 // orders / tasks: my businesses' new orders and the trips I drive; my_orders / my_trips: orders I place and rides or
 // deliveries I book. Same keys and labels as NOTIFY_KEYS in the app (ui/screens/SettingsScreens.kt).
-type NotifyKey = "messages" | "sync_requests" | "moments" | "comments" | "orders" | "tasks" | "my_orders" | "my_trips" | "offers";
+type NotifyKey = "messages" | "sync_requests" | "moments" | "comments" | "orders" | "tasks" | "my_orders" | "my_trips" | "offers" | "safety";
 
 interface DbEvent { table: string; type: Op; record: Row; old_record?: Row | null }
 /** One notification for one person, before their settings are applied. */
@@ -78,8 +78,31 @@ async function plan(ev: DbEvent): Promise<Note[]> {
     case "post_comments": return ev.type === "INSERT" ? await forComment(r) : [];
     case "post_votes": return ev.type === "INSERT" || ev.type === "UPDATE" ? await forLike(r, ev.old_record ?? null) : [];
     case "moment_views": return ev.type === "INSERT" || ev.type === "UPDATE" ? await forReaction(r, ev.old_record ?? null) : [];
+    case "sos_events": return ev.type === "INSERT" ? await forSos(r) : [];
+    case "ride_alerts": return ev.type === "INSERT" ? forRideAlert(r) : [];
     default: return [];
   }
+}
+
+// ---------- safety (trip_safety.sql) ----------
+
+/** Every staff member hears about an SOS at once, loud, whatever their settings. */
+async function forSos(e: Row): Promise<Note[]> {
+  const staff = await select<{ profile_id: string }>("staff", "select=profile_id");
+  if (staff.length === 0) return [];
+  const who = nameOf(await names([e.profile_id]), e.profile_id);
+  const what = e.role === "RIDER" ? "a rider during a trip" : e.role === "DRIVER" ? "a driver during a trip" : e.role === "AUTO" ? "automatic: a rider didn't answer \"Are you OK?\"" : "no trip";
+  return staff.filter((s) => s.profile_id !== e.profile_id).map((s) => ({
+    to: s.profile_id, key: "safety", type: "tasks", urgent: true, tag: `sos-${e.id}`,
+    title: `SOS: ${who}`, body: `${what}. Open the SOS queue and call them now.`, route: "home",
+  }));
+}
+
+/** The rider of a ride that stopped, went off route or went silent: "Are you OK?". */
+function forRideAlert(a: Row): Note[] {
+  const why = a.kind === "STOPPED" ? "Your ride has stopped for a while." : a.kind === "OFF_ROUTE" ? "Your ride looks off its route." : "We lost your driver's location.";
+  return [{ to: a.rider_id, key: "safety", type: "tasks", urgent: true, tag: `ride-check-${a.task_id}`,
+    title: "Are you OK?", body: `${why} Open Bucks and tap I'm OK, or SOS.`, route: "" }];
 }
 
 function attachmentText(a: Row | null | undefined): string {
@@ -156,6 +179,13 @@ async function ringDrivers(t: Row, exclude: string[]): Promise<Note[]> {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/drivers_to_ring`, { method: "POST", headers: { ...restHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ p_task: t.id }) });
   if (!r.ok) { console.error(`drivers_to_ring: ${r.status} ${await r.text()}`); return []; }
   const ids = ((await r.json()) as string[]).filter((d) => !exclude.includes(d));
+  // Offer log (swarm_core.sql): best effort, never delays or blocks the ring.
+  if (ids.length) {
+    try {
+      const l = await fetch(`${SUPABASE_URL}/rest/v1/rpc/log_offers`, { method: "POST", headers: { ...restHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ p_task: t.id, p_drivers: ids }) });
+      if (!l.ok) console.error(`log_offers: ${l.status} ${await l.text()}`);
+    } catch (e) { console.error(`log_offers: ${e}`); }
+  }
   const ride = t.type === "RIDE";
   const from = t.pickup_label || (ride ? "a pick-up point" : "a shop");
   const to = t.drop_label ? ` to ${t.drop_label}` : "";
@@ -298,6 +328,7 @@ async function forReaction(v: Row, old: Row | null): Promise<Note[]> {
 interface Settings { notify: Record<string, unknown> | null; quiet_hours: { from?: string; to?: string } | null }
 
 function wants(s: Settings | undefined, key: NotifyKey): boolean {
+  if (key === "safety") return true;   // SOS and "Are you OK?" can't be switched off
   const v = s?.notify?.[key];
   return typeof v === "boolean" ? v : key !== "offers";   // same defaults as user_settings.notify (schema.sql, push.sql)
 }

@@ -60,6 +60,7 @@ import com.bucks.app.ui.upiPayLink
 import com.bucks.app.ui.upiPayee
 import androidx.compose.ui.platform.LocalContext
 import com.bucks.app.ui.components.*
+import com.bucks.app.ui.safety.*
 import com.bucks.app.ui.screens.manage.onlineLabel
 import com.bucks.app.ui.screens.manage.studioIcon
 import com.bucks.app.ui.theme.status
@@ -192,6 +193,7 @@ fun DriverTripScreen(vm: BucksViewModel, onChatWith: (String, String) -> Unit, o
             val road = rememberRoadRoute(car.takeIf { from != to && car != to }, to)
             BucksMap(Modifier.fillMaxSize(), listOf(pinAt(car, stringResource(R.string.g7_drv_you), MeColor, true), pinAt(to, "", MaterialTheme.colorScheme.primary)), route = if (from != to && car != to) road?.points ?: listOf(car, to) else emptyList())
             MapAttribution(Modifier.align(Alignment.BottomEnd).padding(8.dp))
+            Surface(Modifier.align(Alignment.TopStart).padding(12.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) { SosAction(dr.id, cloud) { dr.driver } }
             // Turn-by-turn inside Bucks (the Maps screen starts guiding straight away).
             if (from != to) SmallButton(road?.let { stringResource(R.string.g7_drv_navigate_min, it.minutes) } ?: stringResource(R.string.g7_drv_navigate), Modifier.align(Alignment.TopEnd).padding(12.dp)) { vm.openMapsTo(if (dr.status == DriverRideStatus.TO_PICKUP) dr.pickupAt else dr.dropAt, to, autoStart = true) }
         }

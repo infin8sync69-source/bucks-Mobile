@@ -71,6 +71,10 @@ private struct TripBody: View {
         return ZStack(alignment: .topTrailing) {
             BucksMap(pins: [MapPin(id: "me", at: l.car, title: "You", tint: driverMeColor, isMe: true), MapPin(id: "to", at: l.to, title: "", tint: BucksColor.primary)],
                      route: travelling ? (road.route?.points ?? [l.car, l.to]) : [])
+            // SOS for drivers and delivery riders too, for the whole trip.
+            SosAction(taskId: dr.id) { dr.driver }
+                .background(RoundedRectangle(cornerRadius: 16).fill(BucksColor.surface))
+                .padding(12).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             // Turn-by-turn inside Bucks (the Maps screen starts guiding straight away).
             if l.from != l.to {
                 SmallButton(road.route.map { "Navigate · \($0.minutes) min" } ?? "Navigate") {

@@ -74,6 +74,8 @@ files=(
   migrations/risk_hardening.sql
   migrations/legal_hold.sql
   migrations/review_accounts.sql
+  migrations/trip_safety.sql
+  migrations/swarm_core.sql
   migrations/search_quality2.sql
   migrations/search_lexicon_learned.sql
   migrations/discovery_log.sql
