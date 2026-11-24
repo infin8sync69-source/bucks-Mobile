@@ -231,5 +231,5 @@ private fun PhoneNotificationStatus() {
         Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(stringResource(R.string.g1_voice_ondevice), style = MaterialTheme.typography.titleSmall); Muted(detail) }; Icon(if (vm.modelReady) Icons.Rounded.Memory else Icons.Rounded.Rule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (m.status == com.bucks.app.ai.IntentModel.Status.DOWNLOADING) LinearProgressIndicator({ m.progress }, Modifier.fillMaxWidth().padding(top = 8.dp))
         if (m.status != com.bucks.app.ai.IntentModel.Status.OFF && m.status != com.bucks.app.ai.IntentModel.Status.READY)
-            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g1_voice_ondevice_mobile_data), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium); Switch(m.allowMobileData, { m.setAllowMobileData(it) }) } }
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g1_voice_ondevice_mobile_data), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium); Switch(m.allowMobileData, { m.useMobileData(it) }) } }
 }

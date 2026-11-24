@@ -71,7 +71,7 @@ object IntentModel {
     /** True when free-form commands can reach the on-device model. */
     val ready get() = status == Status.READY && engine?.broken != true
 
-    fun setAllowMobileData(on: Boolean) { val c = ctx ?: return; allowMobileData = on; prefs(c).edit().putBoolean("mobileData", on).apply(); if (on) refresh() }
+    fun useMobileData(on: Boolean) { val c = ctx ?: return; allowMobileData = on; prefs(c).edit().putBoolean("mobileData", on).apply(); if (on) refresh() }
 
     /**
      * Reads the remote switch (cloud builds, signed in) and starts or resumes the download when allowed. Safe to call often:
