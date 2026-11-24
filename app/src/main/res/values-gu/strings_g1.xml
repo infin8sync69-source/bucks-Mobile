@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">ટેસ્ટ મોકલો</string>
     <string name="g1_voice_title">વોઇસ અને AI</string>
     <string name="g1_voice_language">વોઇસની ભાષા</string>
-    <string name="g1_voice_cloud">ક્લાઉડ સમજણ</string>
-    <string name="g1_voice_cloud_on">Gemini તમારા મુક્ત રીતે બોલેલા કમાન્ડ સમજે છે. ફક્ત કમાન્ડનું લખાણ મોકલાય છે, PIN, પેમેન્ટ કે ડોક્યુમેન્ટ ક્યારેય નહીં.</string>
-    <string name="g1_voice_cloud_off">બંધ. બિલ્ટ-ઇન નિયમો ઓફલાઇન કામ કરે છે.</string>
     <string name="g1_set_build_checking">બિલ્ડ %1$s · તપાસી રહ્યા છીએ…</string>
     <string name="g1_set_build_switch">બિલ્ડ %1$s · નવા બિલ્ડ પર જાઓ</string>
     <string name="g1_set_build_play">બિલ્ડ %1$s · Play Store દ્વારા અપડેટ થાય છે</string>

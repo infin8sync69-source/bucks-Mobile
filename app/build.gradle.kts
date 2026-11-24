@@ -28,9 +28,7 @@ android {
         // updater only offers newer builds of the same branch.
         buildConfigField("String", "UPDATE_REPO", "\"infin8sync69-source/bucks-Mobile\"")
         buildConfigField("String", "BUILD_BRANCH", "\"${System.getenv("BUILD_BRANCH") ?: ""}\"")
-        // Put GEMINI_API_KEY=... in local.properties to enable the cloud intent engine. Without it the app uses the on-device rule engine only.
         val props = Properties().apply { val f = rootProject.file("local.properties"); if (f.exists()) f.inputStream().use { load(it) } }
-        buildConfigField("String", "GEMINI_API_KEY", "\"${props.getProperty("GEMINI_API_KEY", "")}\"")
         // Supabase project (see SUPABASE_SETUP.md): from local.properties, or environment variables on CI.
         fun cfg(k: String) = props.getProperty(k) ?: System.getenv(k) ?: ""
         buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
@@ -41,6 +39,10 @@ android {
         buildConfigField("String", "GRIEVANCE_OFFICER", "\"${cfg("GRIEVANCE_OFFICER")}\"")
         buildConfigField("String", "LEGAL_BASE_URL", "\"${cfg("LEGAL_BASE_URL").ifBlank { "https://infin8sync69-source.github.io/bucks-Mobile/legal" }}\"")
         // Mapbox public token (pk.*, made to ship inside apps): map tiles, place search and routes. Override with MAPBOX_TOKEN in local.properties or CI; empty falls back to OpenStreetMap servers.
+        // The assistant's on-device intent model (ai/IntentModel.kt): where it is downloaded from and its SHA-256 (ml/intent/README.md,
+        // run 4). Never bundled. It is only fetched once the server's settings row intent_tier1_enabled is 1.
+        buildConfigField("String", "INTENT_MODEL_URL", "\"${cfg("INTENT_MODEL_URL").ifBlank { "https://lboxctryrktwdsvywfqp.supabase.co/storage/v1/object/public/models/bucks-intent-run4_q8_ekv1024.litertlm" }}\"")
+        buildConfigField("String", "INTENT_MODEL_SHA256", "\"${cfg("INTENT_MODEL_SHA256").ifBlank { "430cf43106da07c0da1855f22eba555bb6903fc37605512c2294d2ce7f53d236" }}\"")
         buildConfigField("String", "MAPBOX_TOKEN", "\"${props.getProperty("MAPBOX_TOKEN") ?: System.getenv("MAPBOX_TOKEN") ?: ""}\"")
     }
     // The pilot key (a CI secret, see scripts/setup-pilot-signing.sh). Every test build must carry the same signature, or Android
@@ -66,8 +68,6 @@ android {
         release {
             if (uploadKeystore != null) signingConfig = signingConfigs.getByName("upload")
             buildConfigField("boolean", "SELF_UPDATE", "false")
-            // Never ship a raw Gemini key in a Play build (it would be extractable); release uses the on-device rules only.
-            buildConfigField("String", "GEMINI_API_KEY", "\"\"")
             // R8 shrinks and optimises the release build; Compose is several times faster than in a debug build.
             isMinifyEnabled = true
             isShrinkResources = true
@@ -78,11 +78,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
     // Android 13+ lists the app's languages in system settings (generated from the res/values-* folders; see res/resources.properties).
     androidResources { generateLocaleConfig = true }
 }
+
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -123,5 +124,7 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.litertlm.android)
     debugImplementation(libs.androidx.ui.tooling)
+    testImplementation(libs.junit)
 }

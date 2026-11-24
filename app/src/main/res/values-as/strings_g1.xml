@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">পৰীক্ষা পঠিয়াওক</string>
     <string name="g1_voice_title">কণ্ঠ আৰু AI</string>
     <string name="g1_voice_language">কণ্ঠৰ ভাষা</string>
-    <string name="g1_voice_cloud">ক্লাউডত বুজা</string>
-    <string name="g1_voice_cloud_on">Geminiএ মুকলি কথাৰ নিৰ্দেশ বুজে। কেৱল নিৰ্দেশৰ লেখাখিনিহে পঠিওৱা হয়, PIN, পেমেণ্ট বা নথি কেতিয়াও নহয়।</string>
-    <string name="g1_voice_cloud_off">অফ। ভিতৰুৱা নিয়মবোৰ অফলাইনত চলে।</string>
     <string name="g1_set_build_checking">বিল্ড %1$s · পৰীক্ষা কৰি আছে…</string>
     <string name="g1_set_build_switch">বিল্ড %1$s · শেহতীয়া বিল্ডলৈ যাওক</string>
     <string name="g1_set_build_play">বিল্ড %1$s · Play Storeৰ জৰিয়তে আপডেট হয়</string>

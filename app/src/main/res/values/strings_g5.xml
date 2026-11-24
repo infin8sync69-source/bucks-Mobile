@@ -130,6 +130,7 @@
     <string name="g5_link_saved">Saved. Only you can see this.</string>
     <string name="g5_link_removed">Contact details removed.</string>
     <string name="g5_something_wrong">Something went wrong. Try again.</string>
+    <string name="g5_ondevice_ai_on">On-device AI on</string>
     <string name="g5_photo_updated">Profile picture updated.</string>
     <string name="g5_cover_updated">Cover photo updated.</string>
     <string name="g5_photo_removed">Profile picture removed.</string>
@@ -261,7 +262,6 @@
     <string name="g5_cd_speak">Speak</string>
     <string name="g5_cd_more_filters">More filters</string>
     <string name="g5_reviews_from">Reviews from</string>
-    <string name="g5_cloud_ai_on">Cloud AI on</string>
     <string name="g5_try">Try</string>
     <string name="g5_search_share">%1$s on Bucks · %2$s, %3$s km away</string>
     <string name="g5_share_name">Share %1$s</string>

@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">ಟೆಸ್ಟ್ ಕಳುಹಿಸಿ</string>
     <string name="g1_voice_title">ವಾಯ್ಸ್ ಮತ್ತು AI</string>
     <string name="g1_voice_language">ವಾಯ್ಸ್ ಭಾಷೆ</string>
-    <string name="g1_voice_cloud">ಕ್ಲೌಡ್ ಮೂಲಕ ಅರ್ಥಮಾಡಿಕೊಳ್ಳುವುದು</string>
-    <string name="g1_voice_cloud_on">Gemini ನಿಮ್ಮ ಸ್ವಂತ ಮಾತಿನ ಕಮಾಂಡ್‌ಗಳನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳುತ್ತದೆ. ಕಮಾಂಡ್‌ನ ಪಠ್ಯ ಮಾತ್ರ ಕಳುಹಿಸಲಾಗುತ್ತದೆ, PIN, ಪೇಮೆಂಟ್ ಅಥವಾ ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳು ಎಂದೂ ಅಲ್ಲ.</string>
-    <string name="g1_voice_cloud_off">ಆಫ್. ಒಳಗಿರುವ ನಿಯಮಗಳು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಕೆಲಸ ಮಾಡುತ್ತವೆ.</string>
     <string name="g1_set_build_checking">ಬಿಲ್ಡ್ %1$s · ಚೆಕ್ ಮಾಡುತ್ತಿದೆ…</string>
     <string name="g1_set_build_switch">ಬಿಲ್ಡ್ %1$s · ಹೊಸ ಬಿಲ್ಡ್‌ಗೆ ಬದಲಾಯಿಸಿ</string>
     <string name="g1_set_build_play">ಬಿಲ್ಡ್ %1$s · Play Store ಮೂಲಕ ಅಪ್‌ಡೇಟ್ ಆಗುತ್ತದೆ</string>

@@ -120,11 +120,11 @@ private struct AccountSettingsHub: View {
                     BucksDivider().padding(.vertical, 10)
                     HStack {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("Cloud understanding").font(.bucks(.titleSmall)).foregroundStyle(BucksColor.onSurface)
-                            Muted(IntentRouter().cloudEnabled ? "Free-form commands are understood by Gemini. Only the command text is sent, never PINs, payments or documents." : "Off. The built-in rules work offline.")
+                            Text("Command understanding").font(.bucks(.titleSmall)).foregroundStyle(BucksColor.onSurface)
+                            Muted("Built-in rules, on this phone and offline. Nothing you say is sent anywhere.")
                         }
                         Spacer(minLength: 8)
-                        Image(systemName: IntentRouter().cloudEnabled ? "icloud.fill" : "icloud.slash").foregroundStyle(BucksColor.onSurfaceVariant)
+                        Image(systemName: "iphone").foregroundStyle(BucksColor.onSurfaceVariant)
                     }
                 }
             }

@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">টেস্ট পাঠান</string>
     <string name="g1_voice_title">ভয়েস আর AI</string>
     <string name="g1_voice_language">ভয়েসের ভাষা</string>
-    <string name="g1_voice_cloud">ক্লাউডে বোঝা</string>
-    <string name="g1_voice_cloud_on">Gemini আপনার নিজের ভাষায় বলা কমান্ড বোঝে। শুধু কমান্ডের লেখা পাঠানো হয়, PIN, পেমেন্ট বা ডকুমেন্ট কখনও নয়।</string>
-    <string name="g1_voice_cloud_off">বন্ধ। বিল্ট-ইন নিয়ম অফলাইনে কাজ করে।</string>
     <string name="g1_set_build_checking">বিল্ড %1$s · চেক করা হচ্ছে…</string>
     <string name="g1_set_build_switch">বিল্ড %1$s · নতুন বিল্ডে যান</string>
     <string name="g1_set_build_play">বিল্ড %1$s · Play Store দিয়ে আপডেট হয়</string>

@@ -147,9 +147,6 @@
     <string name="g1_notif_send_test">إرسال تجربة</string>
     <string name="g1_voice_title">الصوت والذكاء الاصطناعي</string>
     <string name="g1_voice_language">لغة الصوت</string>
-    <string name="g1_voice_cloud">الفهم عبر السحابة</string>
-    <string name="g1_voice_cloud_on">يفهم Gemini الأوامر الحرة. يُرسل نص الأمر فقط، ولا يُرسل أبدًا رمز PIN أو المدفوعات أو المستندات.</string>
-    <string name="g1_voice_cloud_off">متوقف. القواعد المدمجة تعمل بدون إنترنت.</string>
     <string name="g1_set_build_checking">الإصدار %1$s · جارٍ التحقق…</string>
     <string name="g1_set_build_switch">الإصدار %1$s · انتقل إلى أحدث إصدار</string>
     <string name="g1_set_build_play">الإصدار %1$s · يتحدّث عبر متجر Play</string>

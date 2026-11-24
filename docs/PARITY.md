@@ -28,7 +28,7 @@ Status: **=** same on both, **A** Android only so far, **i** iOS only so far, **
 | Jobs | `ui/screens/jobs/*` | `BucksUI/Screens/Jobs/*` | = |
 | Messages, chat, groups, Sync, contacts | `ui/screens/SocialScreens.kt`, `CloudSocialScreens.kt`, `ContactsScreen.kt` | `BucksUI/Screens/Chat/*` | = |
 | Bucks ID, settings (privacy, notifications, appearance, blocked, close friends) | `ui/screens/BucksIdScreen.kt`, `SettingsScreens.kt` | `BucksUI/Screens/Identity/*`, `Settings/*`, `Account/AppearanceScreen.swift` | = |
-| Assistant (typed and voice) and the confirmation gate | `ai/*`, `ui/BucksViewModel.kt` | `BucksUI/Assistant/*` | = |
+| Assistant (typed and voice) and the confirmation gate | `ai/*`, `ui/BucksViewModel.kt` | `BucksUI/Assistant/*` | ≠ Android adds the on-device model (Tier 1, below) |
 | Push: routes, kinds, quiet hours | `data/Push.kt`, `supabase/functions/notify` | `BucksCore/Push.swift`, `BucksUI/App/PushRouting.swift` | = (needs the APNs server change below) |
 | Revision 1 (first closed test): notification bell and one red count badge, sync requests answered from Notifications, log out asks first, people cards in Home search, one-tap arrows with the inline comment box, Explore tab (search, pills, video / image / file pages, places and products my people recommend, viewer with previous and next) | `ui/BucksAppUi.kt`, `ui/components/Components.kt`, `ui/screens/HomeScreens.kt`, `ui/social/Discover.kt`, `ui/screens/ExploreScreen.kt`, `ui/MediaViewer.kt` | `Design/Components.swift` (`NotifAction`, `CountBadge`, `InlineCommentBox`), `Screens/Chat/MessagesScreen.swift`, `Screens/Discover/HomeSearch.swift`, `Screens/Chat/PersonScreen.swift`, `Screens/Discover/ExploreScreen.swift`, `BucksCore/BackendExplore.swift` | = except: iOS doesn't save a still frame (poster) with a new video yet, so Explore shows its videos on a plain dark card |
 | About you onboarding step (photo, private gender, one line) | `ui/onboarding/OnboardingScreens.kt` (`AboutYouScreen`) | `Screens/Auth/CreateProfileScreen.swift` already asks gender and the line at sign-up; gender is saved to `profile_private` | A: profile pictures (upload, and showing them on avatars) aren't on iOS yet |
@@ -60,11 +60,13 @@ that iOS doesn't and this table doesn't list. Port the feature, then delete its 
 | Foreground service while a driver is online | Core Location background updates | platform model |
 | In-app APK updater | TestFlight / App Store | platform distribution |
 | Tablet navigation rail | iPhone layout only | iOS targets iPhone first |
+| Assistant Tier 1: FunctionGemma 270M on the phone (`ai/FunctionGemmaIntentEngine.kt`, LiteRT-LM), downloaded behind `intent_tier1_enabled`; understands Hindi, Kannada, Tamil, Telugu, Malayalam and their Latin-letter forms, and `find_content` (Explore / Discover); non-Latin or 3+ word lines reach the assistant | Rules only; the old English keyword gate | LiteRT-LM's Swift API is an early preview. Port when it is stable: same `.litertlm` file, same 13 tools (`ml/intent/tools.json`), same checks as `IntentRouter.accept` and `KnownPlaces` |
 
 ## Open items
 
 - **iPhone push in the background**: the APNs block is in `supabase/functions/notify`. It works once that function is redeployed and an
   APNs key is in Firebase. Until then iPhones get pushes only while Bucks is open.
+- **Assistant Tier 1 on iOS**: see Intentional differences. Until then iOS has no free-form or Indian-language commands.
 - **On-device checks** (camera, speech, Face ID, background location, push) are manual: CI builds and unit-tests the iOS app but does not
   run it on a device.
 

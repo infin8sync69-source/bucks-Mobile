@@ -142,9 +142,6 @@
     <string name="g1_notif_send_test">テスト送信</string>
     <string name="g1_voice_title">音声と AI</string>
     <string name="g1_voice_language">音声の言語</string>
-    <string name="g1_voice_cloud">クラウドで理解</string>
-    <string name="g1_voice_cloud_on">Gemini が自由な言い方の指示を理解します。送信されるのは指示の文字だけで、PIN、支払い、書類は送信されません。</string>
-    <string name="g1_voice_cloud_off">オフ。内蔵ルールがオフラインで動作します。</string>
     <string name="g1_set_build_checking">ビルド %1$s · 確認中…</string>
     <string name="g1_set_build_switch">ビルド %1$s · 最新ビルドに切り替え</string>
     <string name="g1_set_build_play">ビルド %1$s · Play ストアで更新</string>

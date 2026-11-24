@@ -74,7 +74,7 @@ secrets, B4 (2 staff reviewers), D3, A1 and A3 (as `guardian_gate.sql`) on live.
 | 4 | No terms acceptance at sign-in (UGC policy) | Sign-in screen: "By continuing you agree to the Terms and Community Guidelines…" with Terms, Guidelines and Privacy links |
 | 5 | Release manifest stripped location, the driver service and the microphone, which rides and driver mode need | Restored. Only `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` stays out (restricted by Play); drivers get the battery settings list instead |
 | 6 | Public map and pincode services weren't in the privacy policy | Added: OpenStreetMap services (Photon, Nominatim, OSRM) and api.postalpincode.in |
-| 7 | A local release build could ship the Gemini key | Release builds always have an empty `GEMINI_API_KEY` |
+| 7 | A local release build could ship the Gemini key | The Gemini engine and `GEMINI_API_KEY` are gone from both apps; the assistant's model runs on the phone (`ai/FunctionGemmaIntentEngine.kt`) |
 | 8 | The age gate let people through if the safety check failed once | `ui/Safety.kt` retries (up to about 50 s) |
 | 9 | Settings, Help, Log out and orders couldn't be reached from Profile | Profile has a Settings gear and a "Your account" section |
 | 10 | Legal pages didn't exist online | Live at https://infin8sync69-source.github.io/bucks-Mobile/legal/ (placeholder details) |

@@ -74,7 +74,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     private val _toasts = Channel<String>(Channel.BUFFERED); val toasts = _toasts.receiveAsFlow()
     private val _nav = Channel<String>(Channel.BUFFERED); val nav = _nav.receiveAsFlow()
     private val router = IntentRouter()
-    val cloudEnabled get() = router.cloudEnabled
+    /** True when free-form commands (any language) reach the on-device intent model (ai/IntentModel.kt). */
+    val modelReady get() = com.bucks.app.ai.IntentModel.ready
     private var ringJob: Job? = null; private var driveJob: Job? = null; private var drvRingJob: Job? = null; private var autoRingJob: Job? = null; private var drvDriveJob: Job? = null
     /** True when the app was built with google-services.json: real phone sign-in through Firebase. */
     val cloud get() = Cloud.enabled
@@ -297,7 +298,8 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
     fun chooseDestPlace(name: String, p: LatLng) { val (x, y) = Geo.toPercent(p); _s.update { it.copy(rideDest = Place(name, x, y, (Geo.distanceKm(mePos, p) * 10).roundToInt() / 10.0, at = p)) } }
     /** The road distance for the chosen destination, so the fare follows the roads rather than a straight line. */
     fun setDestKm(km: Double) { if (km > 0) _s.update { u -> u.rideDest?.let { d -> if (d.km != km) u.copy(rideDest = d.copy(km = km)) else u } ?: u } }
-    fun isAgentQuery(q: String): Boolean { val l = q.lowercase(); return Regex("\\b(bike|scooter|taxi|cab|auto|ride|car|compare|cheapest|best|sort|my orders|my rides|history|post a request|go online|become|provider|pro profile|yes|confirm|cancel|show the map|book|take me|drop me)\\b").containsMatchIn(l) }
+    /** Whether a typed or spoken line goes to the assistant rather than straight to the results list ([AgentGate]). */
+    fun isAgentQuery(q: String) = com.bucks.app.ai.AgentGate.isAgentQuery(q)
 
     /** Every typed or spoken command enters here. */
     fun submitQuery(raw: String) {
@@ -307,6 +309,11 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
         viewModelScope.launch {
             val ctx = "user area=${s.user?.area}; pending=${s.pending?.title ?: "none"}; online riders=${repo.drivers.value.count { it.online }}"
             val intent = router.parse(q, ctx)
+            // Tier 2, classic search: neither the rules nor the model placed a line that only reached the assistant because of its
+            // script or length, so it gets the plain results list as before (no chat bubble left behind).
+            if (router.isClassicSearch(intent) && !com.bucks.app.ai.AgentGate.hasCommandWord(q) && s.pending == null) {
+                _s.update { it.copy(thinking = false, query = q, askMode = AskMode.RESULTS, agent = it.agent.dropLast(1)) }; return@launch
+            }
             val reply = execute(intent, q)
             _s.update { it.copy(thinking = false, agent = (it.agent + reply.first).takeLast(14)) }
             reply.second?.let { then -> delay(700); then() }
@@ -316,14 +323,18 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
 
     private fun execute(i: ParsedIntent, raw: String): Pair<AgentMessage, (() -> Unit)?> {
         val onlineFor = { k: VehicleKind -> Geo.ring(mePos, repo.drivers.value, k).size }
-        val via = if (i.source == "gemini") Str.get(R.string.g8_agent_via_cloud) else ""
+        val via = if (i.source == com.bucks.app.ai.FunctionGemmaIntentEngine.SOURCE) Str.get(R.string.g8_agent_via_model) else ""
         return when (i.tool) {
-            Tools.CONFIRM -> { val p = s.pending; when { p == null -> AgentMessage(false, Str.get(R.string.g8_agent_nothing_pending)) to null; p.needsBiometric -> AgentMessage(false, Str.get(R.string.g8_agent_needs_biometric)) to null; else -> AgentMessage(false, Str.get(R.string.g8_agent_confirmed, p.title)) to { confirmPending(p) } } }
+            // A "yes" the model read (any language) never confirms by itself: it points at the confirm button, whose tap is the person's own.
+            Tools.CONFIRM -> { val p = s.pending; when {
+                p != null && i.source != "rules" -> AgentMessage(false, Str.get(R.string.g8_agent_tap_confirm, p.title), actions = listOf("Yes, ring them", "Cancel")) to null
+                p == null -> AgentMessage(false, Str.get(R.string.g8_agent_nothing_pending)) to null; p.needsBiometric -> AgentMessage(false, Str.get(R.string.g8_agent_needs_biometric)) to null; else -> AgentMessage(false, Str.get(R.string.g8_agent_confirmed, p.title)) to { confirmPending(p) } } }
             Tools.CANCEL -> { cancelPending(); AgentMessage(false, Str.get(R.string.g8_agent_cancelled)) to null }
             Tools.SHOW_MAP -> { s.pendingDest?.let { d -> _s.update { it.copy(pendingDest = null, rideDest = randomPlace(d)) } }; AgentMessage(false, Str.get(R.string.g8_agent_opening_ride)) to { navTo(Routes.CHOOSE_RIDE) } }
             Tools.RIDE -> {
                 val k = runCatching { VehicleKind.valueOf(i.args["vehicle"] ?: "AUTO") }.getOrDefault(VehicleKind.AUTO).takeIf { it.carriesPassengers } ?: VehicleKind.AUTO
-                val dest = i.args["destination"]?.takeIf { it.isNotBlank() }?.let { d -> Seed.PLACES.firstOrNull { it.equals(d, true) || it.lowercase().contains(d.lowercase().substringBefore(' ')) } }
+                // Only a place the app knows; an unknown (possibly invented) name gets "where to?" instead of a ride offer.
+                val dest = com.bucks.app.ai.KnownPlaces.match(i.args["destination"])
                 _s.update { it.copy(rideKind = k) }
                 if (s.mockLocation) return AgentMessage(false, Str.get(R.string.g8_agent_mock_on)) to null
                 val n = onlineFor(k)
@@ -343,8 +354,20 @@ class BucksViewModel(val repo: BucksRepository) : ViewModel() {
             Tools.SEARCH -> { val q = i.args["query"]?.ifBlank { null } ?: raw; val res = sorted(repo.search(q))
                 if (res.isEmpty()) AgentMessage(false, Str.get(R.string.g8_agent_no_one_offers, q), actions = listOf("Post a request for $q")) to null
                 else AgentMessage(false, Str.get(R.string.g8_agent_recommended) + via, cards = res.take(3).map { p -> AgentCard(p.name, Str.plural(R.plurals.g8_agent_card_search, trustFor(p).total, (trustFor(p).pct ?: "—").toString(), trustFor(p).total, p.distanceKm.toString()), if (p.type == ProviderType.BUSINESS) Str.get(R.string.g8_order) else Str.get(R.string.g8_request), if (p.type == ProviderType.BUSINESS) AgentAction.OpenProvider(p.id, "items") else AgentAction.Request(p.id)) }) to null }
-            else -> AgentMessage(false, if (cloudEnabled) Str.get(R.string.g8_agent_not_understood) else Str.get(R.string.g8_agent_not_understood_demo), actions = listOf("Auto to MG Road", "Order sugar", "Find a doctor", "Compare biriyani", "Show my orders")) to null
+            Tools.FIND_CONTENT -> findContent(i.args["kind"] ?: "ALL", i.args["query"].orEmpty(), raw)
+            else -> AgentMessage(false, Str.get(R.string.g8_agent_not_understood), actions = listOf("Auto to MG Road", "Order sugar", "Find a doctor", "Compare biriyani", "Show my orders")) to null
         }
+    }
+
+    /**
+     * find_content: posts, videos, photos and files open Explore with that filter and the words filled in; PEOPLE opens Discover
+     * searching the name. Both need the signed-in social app; the demo build searches the marketplace instead.
+     */
+    private fun findContent(kind: String, query: String, raw: String): Pair<AgentMessage, (() -> Unit)?> {
+        if (!social.enabled) return execute(ParsedIntent(Tools.SEARCH, mapOf("query" to query.ifBlank { raw })), raw)
+        com.bucks.app.ui.screens.ExploreHandoff.set(kind, query)
+        return if (kind == "PEOPLE") AgentMessage(false, if (query.isBlank()) Str.get(R.string.g8_agent_finding_people) else Str.get(R.string.g8_agent_finding_person, query)) to { navTo(Routes.DISCOVER) }
+        else AgentMessage(false, if (query.isBlank()) Str.get(R.string.g8_agent_opening_explore) else Str.get(R.string.g8_agent_searching_explore, query)) to { navTo(Routes.RECOMMENDED) }
     }
 
     // ---------- confirmation gate (every money-moving action passes here) ----------

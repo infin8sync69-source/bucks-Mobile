@@ -71,6 +71,7 @@ files=(
   migrations/risk_hardening.sql
   migrations/legal_hold.sql
   migrations/review_accounts.sql
+  migrations/intent_tier1.sql
 )
 
 case "${1:-}" in

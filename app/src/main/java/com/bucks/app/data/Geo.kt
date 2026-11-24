@@ -21,5 +21,7 @@ object Geo {
     }
     /** Short name of the known place nearest to [p], e.g. "Koramangala". */
     fun nearestArea(p: LatLng): String = PLACES.minBy { distanceKm(p, it.value) }.key.substringBefore(",").substringBefore(" 4th").substringBefore(" 100")
-    val PLACES: Map<String, LatLng> = mapOf("Koramangala, Bengaluru" to LatLng(12.9352, 77.6245), "Nexus Mall, Koramangala" to LatLng(12.9345, 77.6113), "Jayanagar 4th block" to LatLng(12.9279, 77.5836), "MG Road" to LatLng(12.9757, 77.6063), "Indiranagar 100 ft Rd" to LatLng(12.9784, 77.6408), "Whitefield, ITPL" to LatLng(12.9855, 77.7363), "Majestic bus stand" to LatLng(12.9774, 77.5713), "Kempegowda airport" to LatLng(13.1989, 77.7068))
+    val PLACES: Map<String, LatLng> = mapOf("Koramangala, Bengaluru" to LatLng(12.9352, 77.6245), "Nexus Mall, Koramangala" to LatLng(12.9345, 77.6113), "Jayanagar 4th block" to LatLng(12.9279, 77.5836), "MG Road" to LatLng(12.9757, 77.6063), "Indiranagar 100 ft Rd" to LatLng(12.9784, 77.6408), "Whitefield, ITPL" to LatLng(12.9855, 77.7363), "Majestic bus stand" to LatLng(12.9774, 77.5713), "Kempegowda airport" to LatLng(13.1989, 77.7068),
+        // Also places the on-device intent model was trained on (ml/intent/phrases.py), so a ride it proposes there has a map point.
+        "HSR Layout" to LatLng(12.9116, 77.6474), "Electronic City" to LatLng(12.8452, 77.6602), "Marathahalli" to LatLng(12.9569, 77.7011), "Hebbal" to LatLng(13.0358, 77.5970), "Banashankari" to LatLng(12.9255, 77.5468))
 }

@@ -215,10 +215,21 @@ private fun PhoneNotificationStatus() {
     }
 }
 
-/** Voice language and whether free-form commands go to the cloud; in both settings lists. */
+/** Voice language and the on-device intent model (ai/IntentModel.kt: status, download progress, mobile-data opt-in); in both settings lists. */
 @Composable fun VoiceAiCard(vm: BucksViewModel, modifier: Modifier = Modifier) {
     val s by vm.state.collectAsState()
     SectionTitle(stringResource(R.string.g1_voice_title), modifier.padding(top = 22.dp, bottom = 10.dp))
     BucksCard { Text(stringResource(R.string.g1_voice_language), style = MaterialTheme.typography.titleSmall); Row(Modifier.padding(top = 8.dp).horizontalScrollIfNeeded(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { VOICE_LANGS.forEach { (tag, label) -> Chip(label, selected = s.voiceLang == tag) { vm.setVoiceLang(tag) } } }
-        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(stringResource(R.string.g1_voice_cloud), style = MaterialTheme.typography.titleSmall); Muted(if (vm.cloudEnabled) stringResource(R.string.g1_voice_cloud_on) else stringResource(R.string.g1_voice_cloud_off)) }; Icon(if (vm.cloudEnabled) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        val m = com.bucks.app.ai.IntentModel; LaunchedEffect(Unit) { m.refresh() }
+        val detail = when (m.status) {
+            com.bucks.app.ai.IntentModel.Status.READY -> stringResource(R.string.g1_voice_ondevice_on)
+            com.bucks.app.ai.IntentModel.Status.WAITING_WIFI -> stringResource(R.string.g1_voice_ondevice_wifi)
+            com.bucks.app.ai.IntentModel.Status.DOWNLOADING -> stringResource(R.string.g1_voice_ondevice_downloading, (m.progress * 100).toInt())
+            com.bucks.app.ai.IntentModel.Status.FAILED -> stringResource(R.string.g1_voice_ondevice_failed)
+            com.bucks.app.ai.IntentModel.Status.OFF -> stringResource(R.string.g1_voice_ondevice_off)
+        }
+        Divider(); Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(stringResource(R.string.g1_voice_ondevice), style = MaterialTheme.typography.titleSmall); Muted(detail) }; Icon(if (vm.modelReady) Icons.Rounded.Memory else Icons.Rounded.Rule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (m.status == com.bucks.app.ai.IntentModel.Status.DOWNLOADING) LinearProgressIndicator({ m.progress }, Modifier.fillMaxWidth().padding(top = 8.dp))
+        if (m.status != com.bucks.app.ai.IntentModel.Status.OFF && m.status != com.bucks.app.ai.IntentModel.Status.READY)
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.g1_voice_ondevice_mobile_data), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium); Switch(m.allowMobileData, { m.setAllowMobileData(it) }) } }
 }

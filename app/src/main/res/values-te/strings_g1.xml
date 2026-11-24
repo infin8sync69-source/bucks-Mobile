@@ -143,9 +143,6 @@
     <string name="g1_notif_send_test">టెస్ట్ పంపండి</string>
     <string name="g1_voice_title">వాయిస్, AI</string>
     <string name="g1_voice_language">వాయిస్ భాష</string>
-    <string name="g1_voice_cloud">క్లౌడ్ అర్థం చేసుకోవడం</string>
-    <string name="g1_voice_cloud_on">Gemini మీరు మామూలుగా చెప్పే కమాండ్‌లను అర్థం చేసుకుంటుంది. కమాండ్ టెక్స్ట్ మాత్రమే పంపబడుతుంది, PINలు, పేమెంట్లు, డాక్యుమెంట్లు ఎప్పుడూ కాదు.</string>
-    <string name="g1_voice_cloud_off">ఆఫ్. యాప్‌లోని రూల్స్ ఆఫ్‌లైన్‌లో పనిచేస్తాయి.</string>
     <string name="g1_set_build_checking">బిల్డ్ %1$s · చెక్ చేస్తున్నాం…</string>
     <string name="g1_set_build_switch">బిల్డ్ %1$s · లేటెస్ట్ బిల్డ్‌కి మారండి</string>
     <string name="g1_set_build_play">బిల్డ్ %1$s · Play Store ద్వారా అప్‌డేట్ అవుతుంది</string>
